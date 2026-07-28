@@ -27,6 +27,7 @@
 #include <rclcpp/rclcpp.hpp>
 #include <geometry_msgs/msg/twist.hpp>
 #include <geometry_msgs/msg/pose_stamped.hpp>
+#include <semaforr/msg/crowd_model.hpp>
 #include <sensor_msgs/msg/laser_scan.hpp>
 
 
@@ -61,7 +62,7 @@ public:
 
   std::vector<PathPlanner*> getPlanners() { return tier2Planners; }
 
-  void updatePlannersModels(semaforr__msg__CrowdModel c) {
+  void updatePlannersModels(const semaforr::msg::CrowdModel& c) {
     for (planner2It it = tier2Planners.begin(); it != tier2Planners.end(); it++){
       PathPlanner *planner = *it;
       planner->setCrowdModel(c);

@@ -27,16 +27,10 @@ source install/setup.bash
 
 ### Run SemaFORR Node
 
-Launch the main navigation node with required parameters (edit paths as needed):
+Launch the tutorial configuration from the installed package:
 
 ```bash
-ros2 run semaforr semaforr_node --ros-args \
-	-p semaforr_path:="/root/semaforr_ros2/src/semaforr" \
-	-p target_set:="/root/semaforr_ros2/src/semaforr/config/stage_tutorial/target.conf" \
-	-p map_config:="/root/semaforr_ros2/src/semaforr/config/stage_tutorial/stage_tutorialS.xml" \
-	-p map_dimensions:="/root/semaforr_ros2/src/semaforr/config/stage_tutorial/dimensions.conf" \
-	-p advisors:="/root/semaforr_ros2/src/semaforr/config/advisors.conf" \
-	-p params:="/root/semaforr_ros2/src/semaforr/config/params.conf"
+ros2 launch semaforr stage_tutorial.launch.py
 ```
 
 ### Node
@@ -58,3 +52,6 @@ Example configuration files are provided in the `config/` directory.
 The pre-refactor characterization harness, runtime scenario, sanitizer profile,
 coverage profile, and known-behavior inventory are documented in
 `test/baseline/README.md`.
+
+The reusable core target, build profiles, installed package layout, and
+downstream-consumer check are documented in `docs/build-and-package.md`.

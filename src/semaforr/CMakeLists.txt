@@ -1,5 +1,5 @@
-cmake_minimum_required(VERSION 3.8)
-project(semaforr)
+cmake_minimum_required(VERSION 3.16)
+project(semaforr VERSION 0.1.0 LANGUAGES C CXX)
 
 option(SEMAFORR_ENABLE_SANITIZERS
   "Build SemaFORR with AddressSanitizer and UndefinedBehaviorSanitizer" OFF)
@@ -11,7 +11,15 @@ if(SEMAFORR_ENABLE_SANITIZERS AND SEMAFORR_ENABLE_COVERAGE)
     "SEMAFORR_ENABLE_SANITIZERS and SEMAFORR_ENABLE_COVERAGE cannot be enabled together")
 endif()
 
-function(semaforr_apply_instrumentation target)
+function(semaforr_apply_project_options target)
+  target_compile_features(${target} PUBLIC cxx_std_14)
+
+  if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    target_compile_options(${target} PRIVATE -Wall -Wextra -Wpedantic)
+  elseif(MSVC)
+    target_compile_options(${target} PRIVATE /W4)
+  endif()
+
   if(SEMAFORR_ENABLE_SANITIZERS)
     if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
       target_compile_options(${target} PRIVATE
@@ -37,75 +45,98 @@ function(semaforr_apply_instrumentation target)
   endif()
 endfunction()
 
-# Find dependencies
 find_package(ament_cmake REQUIRED)
-find_package(rclcpp REQUIRED)
-find_package(rclpy REQUIRED)
-find_package(std_msgs REQUIRED)
-find_package(sensor_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
-find_package(rosidl_default_generators REQUIRED)
-find_package(tf2 REQUIRED)
-find_package(tf2_ros REQUIRED)
 find_package(nav_msgs REQUIRED)
+find_package(rclcpp REQUIRED)
+find_package(rosidl_default_generators REQUIRED)
+find_package(sensor_msgs REQUIRED)
+find_package(std_msgs REQUIRED)
+find_package(tf2 REQUIRED)
 find_package(visualization_msgs REQUIRED)
 
-# Add Python3 development package
-find_package(Python3 REQUIRED COMPONENTS Development)
-
-## Generate messages in the 'msg' folder
 rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/CrowdModel.msg"
   DEPENDENCIES std_msgs
 )
 
-## Specify additional locations of header files
-## Your package locations should be listed before other locations
-include_directories(
-  ${PROJECT_SOURCE_DIR}/include/semaforr/
-  ${Python3_INCLUDE_DIRS}
-  ${CMAKE_CURRENT_BINARY_DIR}/rosidl_generator_c/
+rosidl_get_typesupport_target(cpp_typesupport_target
+  ${PROJECT_NAME} rosidl_typesupport_cpp)
+
+set(SEMAFORR_CORE_SOURCES
+  src/AgentState.cpp
+  src/astar.cpp
+  src/Controller.cpp
+  src/FORRAction.cpp
+  src/FORRBarriers.cpp
+  src/FORRConveyors.cpp
+  src/FORRGeometry.cpp
+  src/FORRHallways.cpp
+  src/FORRTrails.cpp
+  src/Graph.cpp
+  src/Map.cpp
+  src/PathPlanner.cpp
+  src/Position.cpp
+  src/Tier1Advisor.cpp
+  src/Tier3Advisor.cpp
+  src/tinystr.cpp
+  src/tinyxml.cpp
+  src/tinyxmlerror.cpp
+  src/tinyxmlparser.cpp
 )
 
-## Declare a C++ executable
-file(
-  GLOB_RECURSE
-  source_files
-  ${PROJECT_SOURCE_DIR}/src/*.cpp
-  ${PROJECT_SOURCE_DIR}/include/semaforr/*.h
+add_library(semaforr_core SHARED ${SEMAFORR_CORE_SOURCES})
+set_target_properties(semaforr_core PROPERTIES EXPORT_NAME core)
+add_library(semaforr::core ALIAS semaforr_core)
+target_include_directories(semaforr_core
+  PUBLIC
+    "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include/semaforr>"
+    "$<INSTALL_INTERFACE:include>"
 )
+target_link_libraries(semaforr_core "${cpp_typesupport_target}")
+ament_target_dependencies(semaforr_core
+  geometry_msgs
+  nav_msgs
+  rclcpp
+  sensor_msgs
+  std_msgs
+  tf2
+  visualization_msgs
+)
+semaforr_apply_project_options(semaforr_core)
 
-add_executable(semaforr_node ${source_files})
-semaforr_apply_instrumentation(semaforr_node)
-
-# Link against Python3 libraries
-target_link_libraries(semaforr_node ${Python3_LIBRARIES})
-
+add_executable(semaforr_node src/main.cpp)
+target_link_libraries(semaforr_node semaforr_core)
 ament_target_dependencies(semaforr_node
-  "rclcpp"
-  "std_msgs"
-  "sensor_msgs"
-  "geometry_msgs"
-  "tf2"
-  "tf2_ros"
-  "nav_msgs"
-  "visualization_msgs"
+  geometry_msgs
+  rclcpp
+  sensor_msgs
+  tf2
 )
+semaforr_apply_project_options(semaforr_node)
 
-# Install targets
-install(TARGETS semaforr_node
-  DESTINATION lib/${PROJECT_NAME}
+install(
+  TARGETS semaforr_core
+  EXPORT export_${PROJECT_NAME}
+  ARCHIVE DESTINATION lib
+  LIBRARY DESTINATION lib
+  RUNTIME DESTINATION bin
+  INCLUDES DESTINATION include
 )
-
-install(DIRECTORY include/${PROJECT_NAME}/
-  DESTINATION include/
+install(
+  TARGETS semaforr_node
+  RUNTIME DESTINATION lib/${PROJECT_NAME}
 )
-
-install(DIRECTORY config launch
+install(
+  DIRECTORY include/${PROJECT_NAME}/
+  DESTINATION include/${PROJECT_NAME}
+)
+install(
+  DIRECTORY config docs launch
   DESTINATION share/${PROJECT_NAME}
 )
-
-install(PROGRAMS scripts/record_baseline.py
+install(
+  PROGRAMS scripts/record_baseline.py
   DESTINATION lib/${PROJECT_NAME}
   RENAME semaforr_record_baseline
 )
@@ -121,15 +152,32 @@ if(BUILD_TESTING)
   target_include_directories(semaforr_characterization_test PRIVATE
     ${PROJECT_SOURCE_DIR}/include/semaforr
   )
-  semaforr_apply_instrumentation(semaforr_characterization_test)
-  add_test(NAME semaforr_characterization_test
-    COMMAND semaforr_characterization_test)
+  semaforr_apply_project_options(semaforr_characterization_test)
+  add_test(
+    NAME semaforr_characterization_test
+    COMMAND semaforr_characterization_test
+  )
 
   ament_add_pytest_test(semaforr_source_contract_test
     test/test_source_contract.py
-    ENV
-      "SEMAFORR_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
+    ENV "SEMAFORR_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
+  )
+  ament_add_pytest_test(semaforr_build_contract_test
+    test/test_build_contract.py
+    ENV "SEMAFORR_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
   )
 endif()
+
+ament_export_targets(export_${PROJECT_NAME} HAS_LIBRARY_TARGET)
+ament_export_dependencies(
+  geometry_msgs
+  nav_msgs
+  rclcpp
+  rosidl_default_runtime
+  sensor_msgs
+  std_msgs
+  tf2
+  visualization_msgs
+)
 
 ament_package()

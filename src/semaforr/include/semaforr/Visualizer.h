@@ -1503,7 +1503,7 @@ public:
 	//// RCLCPP_DEBUG(this->get_logger(), "After all crowdStream");
 
 	// std::stringstream crowdModel;
-	// semaforr__msg__CrowdModel model = con->getPlanner()->getCrowdModel();
+	// semaforr::msg::CrowdModel model = con->getPlanner()->getCrowdModel();
 	// int resolution = model.resolution;
 	// int height = model.height;
 	// int width = model.width;

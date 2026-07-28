@@ -26,6 +26,7 @@
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/laser_scan.hpp>
 #include <geometry_msgs/msg/pose_array.hpp>
+#include <semaforr/msg/crowd_model.hpp>
 #include <tf2/transform_datatypes.h>
 #include <tf2/LinearMath/Quaternion.h>
 #include <tf2/LinearMath/Matrix3x3.h>
@@ -423,10 +424,10 @@ public:
 	allCrowd = crowdposeall;
   }
 
-  void setCrowdModel(semaforr__msg__CrowdModel c){ 
+  void setCrowdModel(const semaforr::msg::CrowdModel& c){
     crowdModel = c;
   }
-  semaforr__msg__CrowdModel getCrowdModel(){ return crowdModel;}
+  semaforr::msg::CrowdModel getCrowdModel(){ return crowdModel;}
 
   bool crowdModelLearned();
   bool riskModelLearned();
@@ -573,7 +574,7 @@ public:
   geometry_msgs::msg::PoseArray allCrowd;
 
   // Current crowd model
-  semaforr__msg__CrowdModel crowdModel;
+  semaforr::msg::CrowdModel crowdModel;
 
   //Rotate mode tells if the t3 should rotate or move
   bool rotateMode;

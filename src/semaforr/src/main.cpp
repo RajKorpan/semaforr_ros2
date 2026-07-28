@@ -21,10 +21,10 @@
 #include <geometry_msgs/msg/twist.hpp>
 #include <geometry_msgs/msg/pose_stamped.hpp>
 #include <geometry_msgs/msg/pose_array.hpp>
+#include <semaforr/msg/crowd_model.hpp>
 #include <sensor_msgs/msg/laser_scan.hpp>
 #include <tf2/LinearMath/Quaternion.h>
 #include <tf2/LinearMath/Matrix3x3.h>
-#include <Python.h>
 
 using namespace std;
 
@@ -37,7 +37,7 @@ private:
     //! We will be listening to /pose, /laserscan and /crowd_model, /crowd_pose topics
     rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr sub_pose_;
     rclcpp::Subscription<sensor_msgs::msg::LaserScan>::SharedPtr sub_laser_;
-    rclcpp::Subscription<semaforr__msg__CrowdModel>::SharedPtr sub_crowd_model_;
+    rclcpp::Subscription<semaforr::msg::CrowdModel>::SharedPtr sub_crowd_model_;
     rclcpp::Subscription<geometry_msgs::msg::PoseArray>::SharedPtr sub_crowd_pose_;
     rclcpp::Subscription<geometry_msgs::msg::PoseArray>::SharedPtr sub_crowd_pose_all_;
 
@@ -46,7 +46,7 @@ private:
     // Current and previous laser scan
     sensor_msgs::msg::LaserScan laserscan;
     // Current crowd_model
-    semaforr__msg__CrowdModel crowdModel;
+    semaforr::msg::CrowdModel crowdModel;
     // Current crowd_pose
     geometry_msgs::msg::PoseArray crowdPose, crowdPoseAll;
     // Controller
@@ -103,7 +103,7 @@ public:
         
         cout << "sub_laser successful" << endl;
 
-        // sub_crowd_model_ = this->create_subscription<semaforr__msg__CrowdModel>(
+        // sub_crowd_model_ = this->create_subscription<semaforr::msg::CrowdModel>(
         //     "crowd_model", 10, std::bind(&RobotDriver::updateCrowdModel, this, std::placeholders::_1));
         
         // cout << "sub_crowd_model successful" << endl;
@@ -155,7 +155,7 @@ public:
     }
 
     // Callback function for crowd model message
-    void updateCrowdModel(const semaforr__msg__CrowdModel &crowd_model)
+    void updateCrowdModel(const semaforr::msg::CrowdModel &crowd_model)
     {
         controller->getPlanner()->setCrowdModel(crowd_model);
         controller->updatePlannersModels(crowd_model);
@@ -215,7 +215,6 @@ public:
     {
         std::cout << "started run" << std::endl;
 
-        Py_Initialize();
         geometry_msgs::msg::Twist base_cmd;
 
         rclcpp::Rate rate(30.0);
@@ -326,7 +325,6 @@ public:
 			action_complete = testActionCompletion(semaforr_action, current, previous, epsilon_move, epsilon_turn, actionTimeSec);
 			//action_complete = true;
 		}
-		Py_Finalize();
 	}
 
 
