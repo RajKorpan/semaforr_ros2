@@ -41,6 +41,23 @@ Domain components accept `semaforr::domain::LaserScan`, `PoseArray`, and
 `semaforr::ros::toDomain`; ROS publishers convert outbound scans with
 `semaforr::ros::toRos`.
 
+## Ownership model
+
+Project code uses values for small, mandatory components and
+`std::unique_ptr` for polymorphic or dynamically assembled ownership:
+
+- `RobotDriver` uniquely owns its controller and visualizer.
+- `Controller` uniquely owns beliefs, explorers, planners, and advisors.
+- `AgentState` uniquely owns tasks while agenda and current-task pointers are
+  non-owning views.
+- `PathPlanner` can uniquely own its graphs; `Graph` uniquely owns nodes and
+  edges.
+- A* owns all virtual search nodes for the duration of the search object.
+
+Raw pointers remain only as non-owning observers where existing algorithms
+expect pointer syntax. Bundled TinyXML retains its upstream memory-management
+implementation.
+
 The C++ node does not embed Python. Python remains a runtime dependency only for
 the optional baseline recorder installed as `semaforr_record_baseline`.
 
@@ -72,8 +89,9 @@ colcon test-result --verbose
 ```
 
 The test suite includes behavior characterization, domain-value and
-message-adapter checks, source/build boundary contracts, launch-file checks,
-and a fixed-timestep contract for the runtime baseline driver.
+message-adapter checks, ownership/destruction checks, source/build boundary
+contracts, launch-file checks, and a fixed-timestep contract for the runtime
+baseline driver.
 `test/downstream` verifies both the canonical `semaforr::domain` target and the
 `semaforr::core` compatibility target from an installed package:
 

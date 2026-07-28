@@ -484,8 +484,8 @@ class FORRRegion{
   vector<double> avg_visibility;
   vector<double> count_visibility;
   vector<CartesianPoint> start_max_visibility;
-  double radius;
-  bool isLeaf;
+  double radius = 0.0;
+  bool isLeaf = false;
   vector<int> passage_values;
   // each value in the list denotes a possible exit from the region
   vector<FORRExit> exits;

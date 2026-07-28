@@ -645,9 +645,9 @@ FORRAction AgentState::maxForwardAction(Position initialPosition, vector<Cartesi
 
 FORRAction AgentState::get_max_allowed_forward_move(){
   FORRAction max_forward(FORWARD, numMoves-1);
-  cout << " Number of vetoed actions : " << vetoedActions->size() << endl;
+  cout << " Number of vetoed actions : " << vetoedActions.size() << endl;
   for(int intensity = 1; intensity <= numMoves; intensity++){
-    if(vetoedActions->find(FORRAction(FORWARD,intensity)) != vetoedActions->end()){
+    if(vetoedActions.find(FORRAction(FORWARD,intensity)) != vetoedActions.end()){
       max_forward.type = FORWARD;
       max_forward.parameter = intensity - 1;
       break;

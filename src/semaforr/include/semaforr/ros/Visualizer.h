@@ -61,7 +61,7 @@ private:
 	rclcpp::Publisher<geometry_msgs::msg::PointStamped>::SharedPtr highway_target_pub_;
 	rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr highway_stack_pub_;
 
-	std::shared_ptr<rclcpp::Node> node_;
+	rclcpp::Node *node_;
 
 	Controller *con;
 	Beliefs *beliefs;
@@ -69,7 +69,10 @@ private:
 
 public:
 	//! ROS node initialization
-	Visualizer(rclcpp::Node::SharedPtr node, Controller *c) : node_(node)
+	Visualizer(rclcpp::Node& node, Controller& controller)
+		: node_(&node),
+		  con(&controller),
+		  beliefs(controller.getBeliefs())
 	{
 		visualized = false;
 
@@ -106,9 +109,6 @@ public:
 		highway_target_pub_ = node_->create_publisher<geometry_msgs::msg::PointStamped>("highway_target_point", 10);
 		highway_stack_pub_ = node_->create_publisher<visualization_msgs::msg::Marker>("highway_stack", 10);
 
-		// Setup controller and beliefs
-		con = c;
-		beliefs = con->getBeliefs();
 	}
 
 

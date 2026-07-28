@@ -24,6 +24,7 @@ function(semaforr_apply_project_options target)
     if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
       target_compile_options(${target} PRIVATE
         -fno-omit-frame-pointer
+        -fno-sanitize-recover=all
         -fsanitize=address,undefined)
       target_link_options(${target} PRIVATE
         -fno-omit-frame-pointer
@@ -213,6 +214,20 @@ if(BUILD_TESTING)
     COMMAND semaforr_message_adapters_test
   )
 
+  add_executable(
+    semaforr_ownership_model_test
+    test/ownership_model_smoke.cpp
+  )
+  target_link_libraries(semaforr_ownership_model_test semaforr_domain)
+  target_compile_definitions(semaforr_ownership_model_test PRIVATE
+    "SEMAFORR_TEST_SOURCE_DIR=\"${PROJECT_SOURCE_DIR}\""
+  )
+  semaforr_apply_project_options(semaforr_ownership_model_test)
+  add_test(
+    NAME semaforr_ownership_model_test
+    COMMAND semaforr_ownership_model_test
+  )
+
   ament_add_pytest_test(semaforr_source_contract_test
     test/test_source_contract.py
     ENV "SEMAFORR_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
@@ -227,6 +242,10 @@ if(BUILD_TESTING)
   )
   ament_add_pytest_test(semaforr_domain_boundary_test
     test/test_domain_boundary.py
+    ENV "SEMAFORR_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
+  )
+  ament_add_pytest_test(semaforr_ownership_contract_test
+    test/test_ownership_contract.py
     ENV "SEMAFORR_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
   )
 endif()

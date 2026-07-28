@@ -8,11 +8,14 @@
 #include <semaforr/navigation/Map.h>
 #include <assert.h>
 #include <fstream>
+#include <memory>
 #include <set>
 #include <semaforr/core/FORRGeometry.h>
 
 class Graph {
 private:
+  vector<std::unique_ptr<Node>> ownedNodes;
+  vector<std::unique_ptr<Edge>> ownedEdges;
   vector<Node*> nodes; 
   vector<Edge*> edges;
   vector< vector <int> > nodeIndex; 
@@ -21,7 +24,8 @@ private:
   int length;
   int height;
 
-  Map * map ; 
+  Map * map = nullptr;
+  Edge invalidEdge;
 
   void generateNavGraph();
 
@@ -34,7 +38,9 @@ public:
 
   Graph(int p, int l, int h);
 
-  ~Graph();
+  ~Graph() = default;
+  Graph(const Graph&) = delete;
+  Graph& operator=(const Graph&) = delete;
 
   Map* getMap() { return map; }
 

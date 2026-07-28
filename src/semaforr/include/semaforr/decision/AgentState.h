@@ -21,6 +21,7 @@
 #include <vector>
 #include <list>
 #include <deque>
+#include <memory>
 #include <set>
 
 #include <semaforr/domain/SensorTypes.h>
@@ -32,10 +33,6 @@ class AgentState
 public:
   /** \brief AgentState constructor */
   AgentState(double arrMove[], double arrRotate[], int moveArrMax, int rotateArrMax) : currentTask(NULL) {
-    vetoedActions = new set<FORRAction>();
-    action_set = new set<FORRAction>();
-    forward_set = new set<FORRAction>();
-    rotation_set = new set<FORRAction>();
     rotateMode = true;
     //rotateMode = false;
     numMoves = moveArrMax;
@@ -53,35 +50,34 @@ public:
     findAWayCount = 0;
     enforcerCount = 0;
     for(int i = 1; i < numRotates; i++){
-      action_set->insert(FORRAction(LEFT_TURN, i));
-      action_set->insert(FORRAction(RIGHT_TURN, i));
-      rotation_set->insert(FORRAction(LEFT_TURN, i));
-      rotation_set->insert(FORRAction(RIGHT_TURN, i));
+      action_set.insert(FORRAction(LEFT_TURN, i));
+      action_set.insert(FORRAction(RIGHT_TURN, i));
+      rotation_set.insert(FORRAction(LEFT_TURN, i));
+      rotation_set.insert(FORRAction(RIGHT_TURN, i));
     }
     for(int i = 1; i < numMoves; i++){
-      action_set->insert(FORRAction(FORWARD, i));
-      forward_set->insert(FORRAction(FORWARD, i));
+      action_set.insert(FORRAction(FORWARD, i));
+      forward_set.insert(FORRAction(FORWARD, i));
     }
-    action_set->insert(FORRAction(PAUSE,0));
-    forward_set->insert(FORRAction(PAUSE,0));
+    action_set.insert(FORRAction(PAUSE,0));
+    forward_set.insert(FORRAction(PAUSE,0));
     //rotation_set->insert(FORRAction(PAUSE,0));
     //double m[] = {0, 0.2, 0.4, 0.8, 1.6, 3.2};  
     //double r[] = {0, 0.25, 0.5, 1, 2};
     for(int i = 0 ; i < numMoves ; i++) move[i] = arrMove[i];
     for(int i = 0 ; i < numRotates ; i++) rotate[i] = arrRotate[i];
-    all_position_trace = new vector<Position>();
-    all_laser_history = new vector< vector<CartesianPoint> >();
-    all_laserscan_history =
-      new vector<semaforr::domain::LaserScan>();
     killBecauseStuck = false;
   }
+
+  AgentState(const AgentState&) = delete;
+  AgentState& operator=(const AgentState&) = delete;
   
   // Best possible move towards the target
   FORRAction moveTowards(CartesianPoint target);
 
-  set<FORRAction> *getActionSet(){return action_set;}
-  set<FORRAction> *getForwardActionSet(){return forward_set;}
-  set<FORRAction> *getRotationActionSet(){return rotation_set;}
+  set<FORRAction> *getActionSet(){return &action_set;}
+  set<FORRAction> *getForwardActionSet(){return &forward_set;}
+  set<FORRAction> *getRotationActionSet(){return &rotation_set;}
 
   double getDistanceToTarget(double x, double y){ 
     double dx = x - currentTask->getX();
@@ -112,9 +108,9 @@ public:
     transformToEndpoints();
     if(currentTask != NULL){
       //save the current position and laser endpoints 
-      all_laserscan_history->push_back(scan);
-      all_position_trace->push_back(p);
-      all_laser_history->push_back(laserEndpoints);
+      all_laserscan_history.push_back(scan);
+      all_position_trace.push_back(p);
+      all_laser_history.push_back(laserEndpoints);
       currentTask->saveSensor(p, laserEndpoints, scan);
     }
   }
@@ -157,12 +153,15 @@ public:
 
   set<FORRAction> *getVetoedActions() { 
 	//std::cout << "returning vetoed action list " << vetoedActions->size() << std::endl;
-	return vetoedActions;
+	return &vetoedActions;
   }
-  void clearVetoedActions() { vetoedActions->clear();}
+  void clearVetoedActions() { vetoedActions.clear();}
   
   void addTask(float x, float y, int l, int h) {
-    Task *task = new Task(x,y,l,h);
+    std::unique_ptr<Task> owned_task =
+      std::make_unique<Task>(x, y, l, h);
+    Task *task = owned_task.get();
+    owned_tasks.push_back(std::move(owned_task));
     agenda.push_back(task); 
     all_agenda.push_back(task);
   }
@@ -202,10 +201,10 @@ public:
 
   vector< vector<CartesianPoint> > getAllTrace(){return all_trace;}
   vector< vector < vector<CartesianPoint> > > getAllLaserTrace(){return all_laser_trace;}
-  vector< Position > *getAllPositionTrace(){return all_position_trace;}
-  vector< vector<CartesianPoint> > *getAllLaserHistory(){return all_laser_history;}
+  vector< Position > *getAllPositionTrace(){return &all_position_trace;}
+  vector< vector<CartesianPoint> > *getAllLaserHistory(){return &all_laser_history;}
   vector<semaforr::domain::LaserScan> *getAllLaserScanHistory(){
-    return all_laserscan_history;
+    return &all_laserscan_history;
   }
 
   vector< vector<CartesianPoint> > getInitialExitTraces(){return initial_exit_traces;}
@@ -512,28 +511,28 @@ public:
 
   // All position history of all targets
   vector< vector<CartesianPoint> > all_trace;
-  vector< Position > *all_position_trace;
+  vector< Position > all_position_trace;
   vector < vector<CartesianPoint> > initial_exit_traces;
 
   // All laser history of all targets
   vector< vector < vector<CartesianPoint> > > all_laser_trace;
-  vector< vector<CartesianPoint> > *all_laser_history;
-  vector<semaforr::domain::LaserScan> *all_laserscan_history;
+  vector< vector<CartesianPoint> > all_laser_history;
+  vector<semaforr::domain::LaserScan> all_laserscan_history;
 
   // Decision count by task
   vector<int> task_decision_count;
 
   // set of vetoed actions that the robot cant execute in its current state
-  set<FORRAction> *vetoedActions;
+  set<FORRAction> vetoedActions;
 
   // Set of all actions that the robot has in its action set
-  set<FORRAction> *action_set;
+  set<FORRAction> action_set;
 
   // Set of all forward actions that the robot has in its action set
-  set<FORRAction> *forward_set;
+  set<FORRAction> forward_set;
 
   // Set of all forward actions that the robot has in its action set
-  set<FORRAction> *rotation_set;
+  set<FORRAction> rotation_set;
   
   // aggregate decision making statistics of the agent
   // Total travel time
@@ -552,6 +551,7 @@ public:
   int total_t3_decisions;
   
   /** \brief The agent's currnet list of tasks */
+  vector<std::unique_ptr<Task>> owned_tasks;
   list<Task*> agenda;
 
   // list of all targets;

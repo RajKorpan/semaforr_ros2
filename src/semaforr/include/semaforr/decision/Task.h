@@ -68,10 +68,6 @@ class Task {
       isPlanActive = false;
       isPlanComplete = true;
       plannerName = "none";
-      decisionSequence = new std::vector<FORRAction>;
-      pos_hist = new vector<Position>();
-      laser_hist = new vector< vector<CartesianPoint> >();
-      laser_scan_hist = new vector<semaforr::domain::LaserScan>();
       dimension = 200;
       if(length > dimension){
         dimension = length;
@@ -189,25 +185,25 @@ class Task {
   int incrementDecisionCount() {decision_count += 1;}
 
   std::vector<FORRAction> getPreviousDecisions(){
-	return *decisionSequence;
+	return decisionSequence;
   }
 
   FORRAction saveDecision(FORRAction decision){
-	decisionSequence->push_back(decision);
+	decisionSequence.push_back(decision);
 	//cout << "After decisionToPush" << endl;
   }
 
-  vector<Position> *getPositionHistory(){return pos_hist;}
+  vector<Position> *getPositionHistory(){return &pos_hist;}
 
-  void clearPositionHistory(){pos_hist->clear();}
+  void clearPositionHistory(){pos_hist.clear();}
 
   void saveSensor(
     Position currentPosition,
     vector<CartesianPoint> laserEndpoints,
     const semaforr::domain::LaserScan& ls){
-  	pos_hist->push_back(currentPosition);
-  	laser_hist->push_back(laserEndpoints);
-  	laser_scan_hist->push_back(ls);
+    pos_hist.push_back(currentPosition);
+    laser_hist.push_back(laserEndpoints);
+    laser_scan_hist.push_back(ls);
 	// if(pos_hist->size() < 1){
 	// 	pos_hist->push_back(currentPosition);
 	// 	laser_hist->push_back(laserEndpoints);
@@ -221,10 +217,10 @@ class Task {
 	// }
   }
 
-  vector< vector <CartesianPoint> > *getLaserHistory(){return laser_hist;}
+  vector< vector <CartesianPoint> > *getLaserHistory(){return &laser_hist;}
 
   vector<semaforr::domain::LaserScan> *getLaserScanHistory(){
-    return laser_scan_hist;
+    return &laser_scan_hist;
   }
 
   vector<CartesianPoint> getWaypoints(){
@@ -2378,19 +2374,16 @@ class Task {
   float distance_travelled; 
 
   // Sequence of decisions made while pursuing the target
-  std::vector<FORRAction> *decisionSequence;
+  std::vector<FORRAction> decisionSequence;
 
   // Position History as is: Set of all unique positions the robot has been in , while pursuing the target
-  std::vector<Position> *pos_hist; 
+  std::vector<Position> pos_hist;
 
   // Laser scan history as is:
-  vector< vector<CartesianPoint> > *laser_hist; 
+  vector< vector<CartesianPoint> > laser_hist;
 
   // Laser scan history sensor
-  vector<semaforr::domain::LaserScan> *laser_scan_hist;
-
-  // Cleaned Position History, along with its corresponding laser scan data : Set of cleaned positions
-  std::pair < std::vector<CartesianPoint>, std::vector<vector<CartesianPoint> > > *cleaned_trail;
+  vector<semaforr::domain::LaserScan> laser_scan_hist;
 
   // decision count
   int decision_count;

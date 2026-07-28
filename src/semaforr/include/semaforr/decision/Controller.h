@@ -9,6 +9,7 @@
 #include <cstdlib>
 #include <time.h>
 #include <math.h>
+#include <memory>
 #include <vector>
 #include <utility>
 
@@ -29,20 +30,22 @@
 
 // Forward-declare Controller so the typedef below can reference it
 class Controller;
-typedef std::vector<Tier3Advisor*>::iterator advisor3It;
-typedef std::vector<PathPlanner*>::iterator planner2It;
+typedef std::vector<std::unique_ptr<Tier3Advisor>>::iterator advisor3It;
+typedef std::vector<std::unique_ptr<PathPlanner>>::iterator planner2It;
 
 // ROS Controller class 
 class Controller {
 public:
 
   Controller(string, string, string, string, string);
+  Controller(const Controller&) = delete;
+  Controller& operator=(const Controller&) = delete;
   
   //main sense decide loop, receives the input messages and calls the FORRDecision function
   FORRAction decide();
 
-  FORRActionStats *getCurrentDecisionStats() { return decisionStats; }
-  void clearCurrentDecisionStats() { decisionStats = new FORRActionStats();}
+  FORRActionStats *getCurrentDecisionStats() { return &decisionStats; }
+  void clearCurrentDecisionStats() { decisionStats = FORRActionStats();}
 
   //Update state of the agent using sensor readings 
   void updateState(
@@ -55,22 +58,28 @@ public:
   bool isMissionComplete();
 
   // getter for beliefs
-  Beliefs *getBeliefs() { return beliefs; }
+  Beliefs *getBeliefs() { return beliefs.get(); }
 
   // getter for planner
   PathPlanner *getPlanner() { return planner; }
 
-  std::vector<PathPlanner*> getPlanners() { return tier2Planners; }
+  std::vector<PathPlanner*> getPlanners() {
+    std::vector<PathPlanner*> planners;
+    planners.reserve(tier2Planners.size());
+    for (const auto& ownedPlanner : tier2Planners) {
+      planners.push_back(ownedPlanner.get());
+    }
+    return planners;
+  }
 
   void updatePlannersModels(const semaforr::domain::CrowdModel& c) {
-    for (planner2It it = tier2Planners.begin(); it != tier2Planners.end(); it++){
-      PathPlanner *planner = *it;
-      planner->setCrowdModel(c);
+    for (const auto& ownedPlanner : tier2Planners) {
+      ownedPlanner->setCrowdModel(c);
     }
   }
 
-  HighwayExplorer *gethighwayExploration() { return highwayExploration; }
-  FrontierExplorer *getfrontierExploration() { return frontierExploration; }
+  HighwayExplorer *gethighwayExploration() { return highwayExploration.get(); }
+  FrontierExplorer *getfrontierExploration() { return frontierExploration.get(); }
 
   bool getHighwayFinished(){
     if(highwayFinished >= 1){
@@ -107,7 +116,7 @@ private:
   //FORR decision loop and tiers
   FORRAction FORRDecision();
 
-  FORRActionStats *decisionStats;
+  FORRActionStats decisionStats;
   
   //Tier 1 advisors are called here
   bool tierOneDecision(FORRAction *decision);
@@ -133,17 +142,17 @@ private:
   void initialize_spatial_model(std::string);
   
   // Knowledge component of robot
-  Beliefs *beliefs;
+  std::unique_ptr<Beliefs> beliefs;
 
-  HighwayExplorer *highwayExploration;
-  FrontierExplorer *frontierExploration;
-  Circumnavigate *circumnavigator;
+  std::unique_ptr<HighwayExplorer> highwayExploration;
+  std::unique_ptr<FrontierExplorer> frontierExploration;
+  std::unique_ptr<Circumnavigate> circumnavigator;
 
   // An ordered list of advisors that are consulted by Controller::FORRDecision
-  Tier1Advisor *tier1;
-  PathPlanner *planner;
-  std::vector<PathPlanner*> tier2Planners;
-  std::vector<Tier3Advisor*> tier3Advisors;
+  std::unique_ptr<Tier1Advisor> tier1;
+  PathPlanner *planner = nullptr;
+  std::vector<std::unique_ptr<PathPlanner>> tier2Planners;
+  std::vector<std::unique_ptr<Tier3Advisor>> tier3Advisors;
   
   // Checks if a given advisor is active
   bool isAdvisorActive(string advisorName);

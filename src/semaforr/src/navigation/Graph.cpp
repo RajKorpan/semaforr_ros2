@@ -51,23 +51,14 @@ Graph::Graph(int p, int l, int h){
 void Graph::resetGraph(){
   nodes.clear();
   edges.clear();
+  ownedNodes.clear();
+  ownedEdges.clear();
   for(int x = 0; x < nodeIndex.size(); x++){
     for(int y = 0; y < nodeIndex[x].size(); y++){
       nodeIndex[x][y] = -1;
     }
   }
   cout << "Graph reset complete" << endl;
-}
-
-Graph::~Graph() {
-  /*
-  for ( int i = 0; i < edges.size(); i++ )
-    delete edges.at(i); 
-  
-  vector<Node*>::iterator n_itr; 
-  for ( n_itr = nodes.begin(); n_itr != nodes.end(); n_itr++ )
-    delete (*n_itr); 
-  */
 }
 
 /*
@@ -96,8 +87,7 @@ Edge* Graph::getEdge(int n1, int n2) {
         return (*eiter);
     }
   }
-  Edge * e0 = new Edge(Node::invalid_node_index, Node::invalid_node_index);
-  return e0;
+  return &invalidEdge;
 }
 
 // returns true if the node n is in the Graph::nodes. 
@@ -139,7 +129,9 @@ void Graph::generateNavGraph() {
       bool inBuf = false;
       if ( map->isPointInBuffer(x,y) )
         inBuf = true;
-      Node * n = new Node(index, x, y, 0, inBuf, map->getDistanceClosestWall(x,y));
+      ownedNodes.push_back(std::make_unique<Node>(
+        index, x, y, 0, inBuf, map->getDistanceClosestWall(x,y)));
+      Node *n = ownedNodes.back().get();
       nodes.push_back(n);
       //cout << x << ":" << y << ":" << index << endl;
       nodeIndex[x][y] = index;
@@ -161,7 +153,9 @@ void Graph::generateNavGraph() {
     vector<int> nbrs = getNeighbors(*(*iter));
     vector<int>::iterator it;
     for( it = nbrs.begin(); it != nbrs.end(); it++ ){
-      Edge * e = new Edge( (*iter)->getID(), getNode(*it).getID() );
+      std::unique_ptr<Edge> ownedEdge =
+        std::make_unique<Edge>((*iter)->getID(), getNode(*it).getID());
+      Edge *e = ownedEdge.get();
       //cout << "for each edge "<< endl;
       if ( !isEdge((*e)) ) {
 	int x1,y1,x2,y2;
@@ -231,6 +225,7 @@ void Graph::generateNavGraph() {
 	
 	e->setDistCost(multiplier * distCost);
 
+	ownedEdges.push_back(std::move(ownedEdge));
 	edges.push_back(e);
 	(*iter)->addNodeEdge(e);
 	nodes.at(*it)->addNodeEdge(e);
@@ -246,7 +241,9 @@ bool Graph::addNode(int x, int y, double r, int ind){
   bool node_added = false;
   if(nodeIndex[x][y] == -1){
     nodeIndex[x][y] = ind;
-    Node * n = new Node(ind, x, y, r, false, 0);
+    ownedNodes.push_back(
+      std::make_unique<Node>(ind, x, y, r, false, 0));
+    Node *n = ownedNodes.back().get();
     nodes.push_back(n);
     // cout << "Added Node " << ind << " x " << x << " y " << y << endl;
     node_added = true;
@@ -320,7 +317,8 @@ bool Graph::addNode(int x, int y, double r, int ind){
 }
 
 void Graph::addEdge(int ind1, int ind2, double distance, vector<CartesianPoint> path){
-  Edge * e = new Edge(ind1, ind2);
+  std::unique_ptr<Edge> ownedEdge = std::make_unique<Edge>(ind1, ind2);
+  Edge *e = ownedEdge.get();
   //cout << "for each edge "<< endl;
   if(isEdge((*e))){
     // cout << "Existing edge found" << endl;
@@ -362,6 +360,7 @@ void Graph::addEdge(int ind1, int ind2, double distance, vector<CartesianPoint> 
     // y2 = nodes[ind2]->getY();
     e->setDistCost(distance);
     e->setEdgePath(path);
+    ownedEdges.push_back(std::move(ownedEdge));
     edges.push_back(e);
     nodes[ind1]->addNodeEdge(e);
     nodes[ind2]->addNodeEdge(e);

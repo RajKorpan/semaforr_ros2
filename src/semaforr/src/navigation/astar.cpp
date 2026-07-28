@@ -9,7 +9,7 @@ astar::astar(Graph *g)
   this->path.clear();
 }
 
-astar::astar(Graph g, Node& start, Node& goal, string name)
+astar::astar(Graph& g, Node& start, Node& goal, string name)
 {
   this->graph = &g;
   this->path.clear();
@@ -18,8 +18,16 @@ astar::astar(Graph g, Node& start, Node& goal, string name)
 
 bool astar::search(int source, int target, string name)
 {
-  start = new _VNode(graph->getNode(source));
-  goal  = new _VNode(graph->getNode(target));
+  open = priority_queue<_VNode*, vector<_VNode*>, _Compare>();
+  closed.clear();
+  ownedSearchNodes.clear();
+
+  ownedSearchNodes.push_back(
+    std::make_unique<_VNode>(graph->getNode(source)));
+  start = ownedSearchNodes.back().get();
+  ownedSearchNodes.push_back(
+    std::make_unique<_VNode>(graph->getNode(target)));
+  goal = ownedSearchNodes.back().get();
   open.push(start);
   //int count = 0;
   while (!open.empty())
@@ -38,7 +46,9 @@ bool astar::search(int source, int target, string name)
     // cout << current->id << " " << current->x << " " << current->y << " " << current->g << " " << current->f << " " << current->prev.size() << " " << neighbors.size() << endl;
     for (uint i = 0; i < neighbors.size(); i++)
     {
-      _VNode* tmp = new _VNode(graph->getNode(neighbors[i]));
+      ownedSearchNodes.push_back(
+        std::make_unique<_VNode>(graph->getNode(neighbors[i])));
+      _VNode* tmp = ownedSearchNodes.back().get();
       //double tmpCost = graph->getNode(current->id).getCostTo(tmp->id);
 
       tmp->g = current->g + graph->getNode(current->id).getCostTo(tmp->id);

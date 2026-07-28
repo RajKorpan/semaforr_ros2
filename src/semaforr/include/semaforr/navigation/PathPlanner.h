@@ -18,6 +18,7 @@
 #include <semaforr/spatial/FORRDoors.h>
 #include <semaforr/spatial/Aggregate.h>
 #include <map>
+#include <memory>
 #include <algorithm>
 #include <queue>
 #include <semaforr/domain/SensorTypes.h>
@@ -32,8 +33,10 @@ using namespace std;
 
 class PathPlanner {
 private: 
-  Graph * navGraph;
-  Graph * originalNavGraph;
+  std::unique_ptr<Graph> ownedNavGraph;
+  std::unique_ptr<Graph> ownedOriginalNavGraph;
+  Graph * navGraph = nullptr;
+  Graph * originalNavGraph = nullptr;
   Map map;
   semaforr::domain::CrowdModel crowdModel;
   Node source, target; 
@@ -95,8 +98,19 @@ public:
  PathPlanner(Graph * g, Map& m, Node s, Node t, string n): navGraph(g), map(m), source(s), target(t), name(n), pathCalculated(false), use_coverage_grid(false){}
 
  PathPlanner(Graph * g, Node s, Node t, string n): navGraph(g), source(s), target(t), name(n), pathCalculated(false), use_coverage_grid(false){}
+
+ PathPlanner(std::unique_ptr<Graph> g, Node s, Node t, string n)
+   : ownedNavGraph(std::move(g)),
+     navGraph(ownedNavGraph.get()),
+     source(s),
+     target(t),
+     name(n),
+     pathCalculated(false),
+     use_coverage_grid(false) {}
  
  PathPlanner(Node s, Node t, string n): source(s), target(t), name(n), pathCalculated(false), use_coverage_grid(false){}
+ PathPlanner(const PathPlanner&) = delete;
+ PathPlanner& operator=(const PathPlanner&) = delete;
   int calcPath(bool cautious = false);
   int calcOrigPath(bool cautious = false);
 
@@ -146,6 +160,10 @@ public:
 
   void setOriginalNavGraph(Graph * navGraph){ 
     originalNavGraph = navGraph;
+  }
+  void setOriginalNavGraph(std::unique_ptr<Graph> navGraph){
+    ownedOriginalNavGraph = std::move(navGraph);
+    originalNavGraph = ownedOriginalNavGraph.get();
   }
   void setPosHistory(vector< vector<CartesianPoint> > all_trace){
     posHistMap.clear();

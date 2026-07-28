@@ -5,6 +5,7 @@
 #include <queue>
 #include <list>
 #include <cmath>
+#include <memory>
 
 class astar {
 public:
@@ -12,7 +13,7 @@ public:
   vector< list<int> > paths;
 
   astar (Graph*);
-  astar (Graph, Node&, Node&, string);
+  astar (Graph&, Node&, Node&, string);
   bool search(int, int, string); // Search the graph for a path and return true if found
 
   // Wrappers
@@ -25,8 +26,10 @@ private:
   class _Compare; // prototype
   class _VNode;  // prototype
   Graph *graph;
-  _VNode *start, *goal;
+  _VNode *start = nullptr;
+  _VNode *goal = nullptr;
   vector<_VNode*> closed;
+  vector<std::unique_ptr<_VNode>> ownedSearchNodes;
 
   // Private funcs
   double euclidian_h(_VNode*, _VNode*);               // Euclidian Hueristic

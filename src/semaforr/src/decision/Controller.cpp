@@ -661,11 +661,17 @@ void Controller::initialize_planner(string map_config, string map_dimensions, in
   //   // RCLCPP_DEBUG_STREAM(this->get_logger(), "Created planner: safe");
   // }
   if(skeleton == 1){
-    Graph *navGraphSkeleton = new Graph((int)(p*100.0), l*100, h*100);
+    std::unique_ptr<Graph> navGraphSkeleton =
+      std::make_unique<Graph>((int)(p*100.0), l*100, h*100);
     cout << "initialized nav skeleton graph" << endl;
-    PathPlanner *sk_planner = new PathPlanner(navGraphSkeleton, n,n, "skeleton");
+    std::unique_ptr<PathPlanner> sk_planner =
+      std::make_unique<PathPlanner>(
+        std::move(navGraphSkeleton), n, n, "skeleton");
     cout << "sk planner initialzied" << endl;
-    tier2Planners.push_back(sk_planner);
+    if (planner == nullptr) {
+      planner = sk_planner.get();
+    }
+    tier2Planners.push_back(std::move(sk_planner));
     // Graph *origNavGraphSkeleton = new Graph((int)(p*100.0), l*100, h*100);
     // * sk_planner->setOriginalNavGraph(origNavGraphSkeleton);
     // sk_planner->setOriginalNavGraph(origNavGraph);
@@ -673,12 +679,20 @@ void Controller::initialize_planner(string map_config, string map_dimensions, in
   }
   // Fix the p issue
   if(hallwayskel == 1){
-    Graph *navGraphHallwaySkeleton = new Graph((int)(p*100.0), l*100, h*100);
+    std::unique_ptr<Graph> navGraphHallwaySkeleton =
+      std::make_unique<Graph>((int)(p*100.0), l*100, h*100);
     cout << "initialized nav hallway skeleton graph" << endl;
-    PathPlanner *hwsk_planner = new PathPlanner(navGraphHallwaySkeleton, n,n, "hallwayskel");
-    tier2Planners.push_back(hwsk_planner);
-    Graph *origNavGraphHallwaySkeleton = new Graph((int)(p*100.0), l*100, h*100);
-    hwsk_planner->setOriginalNavGraph(origNavGraphHallwaySkeleton);
+    std::unique_ptr<PathPlanner> hwsk_planner =
+      std::make_unique<PathPlanner>(
+        std::move(navGraphHallwaySkeleton), n, n, "hallwayskel");
+    std::unique_ptr<Graph> origNavGraphHallwaySkeleton =
+      std::make_unique<Graph>((int)(p*100.0), l*100, h*100);
+    hwsk_planner->setOriginalNavGraph(
+      std::move(origNavGraphHallwaySkeleton));
+    if (planner == nullptr) {
+      planner = hwsk_planner.get();
+    }
+    tier2Planners.push_back(std::move(hwsk_planner));
     // RCLCPP_DEBUG_STREAM(this->get_logger(), "Created planner: hallwayskel");
   }
   cout << "initialized planners" << endl;
@@ -927,7 +941,8 @@ Controller::Controller(string advisor_config, string params_config, string map_c
   
   // Initialize the agent's 'beliefs' of the world state with the map and nav
   // graph and spatial models
-  beliefs = new Beliefs(l, h, 2, arrMove, arrRotate, moveArrMax, rotateArrMax); // Hunter Fourth
+  beliefs = std::make_unique<Beliefs>(
+    l, h, 2, arrMove, arrRotate, moveArrMax, rotateArrMax); // Hunter Fourth
 
   // Initialize advisors and weights from config file
   initialize_advisors(advisor_config);
@@ -937,17 +952,21 @@ Controller::Controller(string advisor_config, string params_config, string map_c
 
   // Initialize parameters
   beliefs->getAgentState()->setAgentStateParameters(canSeePointEpsilon, laserScanRadianIncrement, robotFootPrint, robotFootPrintBuffer, maxLaserRange, maxForwardActionBuffer, maxForwardActionSweepAngle);
-  tier1 = new Tier1Advisor(beliefs);
+  tier1 = std::make_unique<Tier1Advisor>(beliefs.get());
   firstTaskAssigned = false;
-  decisionStats = new FORRActionStats();
+  decisionStats = FORRActionStats();
 
   // Initialize highways
   highwayFinished = 0;
-  highwayExploration = new HighwayExplorer(l, h, highwayDistanceThreshold, highwayTimeThreshold, highwayDecisionThreshold, arrMove, arrRotate, moveArrMax, rotateArrMax);
+  highwayExploration = std::make_unique<HighwayExplorer>(
+    l, h, highwayDistanceThreshold, highwayTimeThreshold,
+    highwayDecisionThreshold, arrMove, arrRotate, moveArrMax, rotateArrMax);
 
   // Initialize frontiers
   frontierFinished = 0;
-  frontierExploration = new FrontierExplorer(l, h, highwayTimeThreshold, highwayDecisionThreshold, arrMove, arrRotate, moveArrMax, rotateArrMax);
+  frontierExploration = std::make_unique<FrontierExplorer>(
+    l, h, highwayTimeThreshold, highwayDecisionThreshold,
+    arrMove, arrRotate, moveArrMax, rotateArrMax);
 
   // Initialize circumnavigator
   // PathPlanner *skeleton_planner;
@@ -1160,13 +1179,13 @@ FORRAction Controller::decide() {
   if(!highwayExploration->getHighwaysComplete() and highwaysOn){
     cout << "highway decision " << endl;
     decidedAction = highwayExploration->exploreDecision(beliefs->getAgentState()->getCurrentPosition(), beliefs->getAgentState()->getCurrentLaserScan());
-    decisionStats->decisionTier = 1.7;
+    decisionStats.decisionTier = 1.7;
   }
   else if(!frontierExploration->getFrontiersComplete() and frontiersOn){
     cout << "frontier decision " << endl;
     decidedAction = frontierExploration->exploreDecision(beliefs->getAgentState()->getCurrentPosition(), beliefs->getAgentState()->getCurrentLaserScan());
     cout << "frontier decision " << decidedAction.type << " " << decidedAction.parameter << endl;
-    decisionStats->decisionTier = 1.8;
+    decisionStats.decisionTier = 1.8;
   }
   else{
     cout << "forr decision " << endl;
@@ -1267,7 +1286,7 @@ void Controller::learnSpatialModel(AgentState* agentState, bool taskStatus, bool
   gettimeofday(&cv,NULL);
   end_timecv = cv.tv_sec + (cv.tv_usec/1000000.0);
   computationTimeSec = (end_timecv-start_timecv);
-  decisionStats->learningComputationTime = computationTimeSec;
+  decisionStats.learningComputationTime = computationTimeSec;
 }
 
 void Controller::updateSkeletonGraph(AgentState* agentState){
@@ -1284,10 +1303,10 @@ void Controller::updateSkeletonGraph(AgentState* agentState){
     PathPlanner *hallway_skeleton_planner;
     for (planner2It it = tier2Planners.begin(); it != tier2Planners.end(); it++){
       if(skeleton and (*it)->getName() == "skeleton"){
-        skeleton_planner = *it;
+        skeleton_planner = it->get();
       }
       if(hallwayskel and (*it)->getName() == "hallwayskel"){
-        hallway_skeleton_planner = *it;
+        hallway_skeleton_planner = it->get();
       }
     }
     if(skeleton){
@@ -1363,7 +1382,7 @@ void Controller::updateSkeletonGraph(AgentState* agentState){
     PathPlanner *hwskeleton_planner;
     for (planner2It it = tier2Planners.begin(); it != tier2Planners.end(); it++){
       if((*it)->getName() == "hallwayskel"){
-        hwskeleton_planner = *it;
+        hwskeleton_planner = it->get();
       }
     }
     hwskeleton_planner->resetGraph();
@@ -1436,7 +1455,7 @@ void Controller::updateSkeletonGraph(AgentState* agentState){
   gettimeofday(&cv,NULL);
   end_timecv = cv.tv_sec + (cv.tv_usec/1000000.0);
   computationTimeSec = (end_timecv-start_timecv);
-  decisionStats->graphingComputationTime = computationTimeSec;
+  decisionStats.graphingComputationTime = computationTimeSec;
 }
 
 
@@ -1449,19 +1468,19 @@ FORRAction Controller::FORRDecision()
 {  
   // RCLCPP_DEBUG(this->get_logger(), "In FORR decision");
   cout << "In FORR decision" << endl;
-  FORRAction *decision = new FORRAction();
+  FORRAction decision;
   cout << "Created decision object" << endl;
   // Basic semaFORR three tier decision making architecture 
-  if(!tierOneDecision(decision)){
+  if(!tierOneDecision(&decision)){
   	// RCLCPP_DEBUG(this->get_logger(), "Decision to be made by t3!!");
     cout << "Decision to be made by t3!!" << endl;
   	//decision->type = FORWARD;
   	//decision->parameter = 5;
-  	tierThreeDecision(decision);
+    tierThreeDecision(&decision);
   	tierThreeAdvisorInfluence();
-  	decisionStats->decisionTier = 3;
+    decisionStats.decisionTier = 3;
   }
-  //cout << "decisionTier = " << decisionStats->decisionTier << endl;
+  //cout << "decisionTier = " << decisionStats.decisionTier << endl;
   // //// RCLCPP_DEBUG(this->get_logger(), "After decision made");
   // beliefs->getAgentState()->getCurrentTask()->incrementDecisionCount();
   // //// RCLCPP_DEBUG(this->get_logger(), "After incrementDecisionCount");
@@ -1475,8 +1494,8 @@ FORRAction Controller::FORRDecision()
   // else{
   //   beliefs->getAgentState()->setRotateMode(false);
   // }
-  cout << "Exiting FORR decision with action: " << decision->type << " " << decision->parameter << endl;
-  return *decision;
+  cout << "Exiting FORR decision with action: " << decision.type << " " << decision.parameter << endl;
+  return decision;
 }
 
 
@@ -1506,7 +1525,7 @@ bool Controller::tierOneDecision(FORRAction *decision){
     cout << "if statement 3 triggered" << endl;
     // RCLCPP_INFO_STREAM(this->get_logger(), "Advisor Victory has made a decision " << decision->type << " " << decision->parameter);
     // circumnavigator->addToStack(beliefs->getAgentState()->getCurrentPosition(), beliefs->getAgentState()->getCurrentLaserScan());
-    decisionStats->decisionTier = 1.1;
+    decisionStats.decisionTier = 1.1;
     decisionMade = true;
   }
   else{
@@ -1536,56 +1555,56 @@ bool Controller::tierOneDecision(FORRAction *decision){
       // circumnavigator->addToStack(beliefs->getAgentState()->getCurrentPosition(), beliefs->getAgentState()->getCurrentLaserScan());
       if(beliefs->getAgentState()->getCurrentTask()->getPlannerName() == "skeleton" or beliefs->getAgentState()->getCurrentTask()->getPlannerName() == "hallwayskel"){
         if(beliefs->getAgentState()->getCurrentTask()->getSkeletonWaypoint().getCreator() == 2){
-          decisionStats->decisionTier = 1.5;
+          decisionStats.decisionTier = 1.5;
         }
         else if(beliefs->getAgentState()->getCurrentTask()->getSkeletonWaypoint().getCreator() == 3){
-          decisionStats->decisionTier = 1.6;
+          decisionStats.decisionTier = 1.6;
         }
         else{
           if(tier1->getShortcut() == true){
-            decisionStats->decisionTier = 1.21;
+            decisionStats.decisionTier = 1.21;
           }
           else{
-            decisionStats->decisionTier = 1.2;
+            decisionStats.decisionTier = 1.2;
           }
         }
       }
       else{
-        decisionStats->decisionTier = 1.2;
+        decisionStats.decisionTier = 1.2;
       }
       decisionMade = true;
     }
     if(doorwayOn and decisionMade == false){
       if(tier1->advisorDoorway(decision)){
         // RCLCPP_INFO_STREAM(this->get_logger(), "Advisor Doorway has made a decision " << decision->type << " " << decision->parameter);
-        decisionStats->decisionTier = 1.3;
+        decisionStats.decisionTier = 1.3;
         decisionMade = true;
       }
     }
     if(behindOn and decisionMade == false){
       if(tier1->advisorBehindYou(decision)){
         // RCLCPP_INFO_STREAM(this->get_logger(), "Advisor BehindYou has made a decision " << decision->type << " " << decision->parameter);
-        decisionStats->decisionTier = 1.4;
+        decisionStats.decisionTier = 1.4;
         decisionMade = true;
       }
     }
     // if(circumnavigator->advisorCircumnavigate(decision)){
     //   // RCLCPP_INFO_STREAM(this->get_logger(), "Advisor circumnavigate has made a decision " << decision->type << " " << decision->parameter);
-    //   decisionStats->decisionTier = 2.5;
+    //   decisionStats.decisionTier = 2.5;
     //   decisionMade = true;
     // }
     // else
     if(outofhereOn and decisionMade == false){
       if(tier1->advisorGetOut(decision)){
         // RCLCPP_INFO_STREAM(this->get_logger(), "Advisor GetOut has made a decision " << decision->type << " " << decision->parameter);
-        decisionStats->decisionTier = 1.5;
+        decisionStats.decisionTier = 1.5;
         decisionMade = true;
       }
     }
     if(findawayOn and decisionMade == false and (highwayFinished > 1 or frontierFinished > 1)){
       if(tier1->advisorFindAWay(decision)){
         // RCLCPP_INFO_STREAM(this->get_logger(), "Advisor FindAWay has made a decision " << decision->type << " " << decision->parameter);
-        decisionStats->decisionTier = 1.6;
+        decisionStats.decisionTier = 1.6;
         decisionMade = true;
       }
     }
@@ -1614,7 +1633,7 @@ bool Controller::tierOneDecision(FORRAction *decision){
     for(int i = 0; i < SVetoedActions.size(); i++){
       vetoList << SVetoedActions[i].type << " " << SVetoedActions[i].parameter << " 1d;";
     }
-    decisionStats->vetoedActions = vetoList.str();
+    decisionStats.vetoedActions = vetoList.str();
   }
   // set<FORRAction> *vetoedActions = beliefs->getAgentState()->getVetoedActions();
   // std::stringstream vetoList;
@@ -1622,7 +1641,7 @@ bool Controller::tierOneDecision(FORRAction *decision){
   // for(it = vetoedActions->begin(); it != vetoedActions->end(); it++){
   //   vetoList << it->type << " " << it->parameter << ";";
   // }
-  // decisionStats->vetoedActions = vetoList.str();
+  // decisionStats.vetoedActions = vetoList.str();
   //cout << "vetoedActions = " << vetoList.str() << endl;
   tier1->resetShortcut();
   return decisionMade;
@@ -1651,7 +1670,7 @@ void Controller::tierTwoDecision(Position current, bool selectNextTask){
   start_timecv = cv.tv_sec + (cv.tv_usec/1000000.0);
   bool planCreated = false;
   for (planner2It it = tier2Planners.begin(); it != tier2Planners.end(); it++){
-    PathPlanner *planner = *it;
+    PathPlanner *planner = it->get();
     planner->setPosHistory(beliefs->getAgentState()->getAllTrace());
     vector< vector<CartesianPoint> > trails_trace = beliefs->getSpatialModel()->getTrails()->getTrailsPoints();
     planner->setSpatialModel(beliefs->getSpatialModel()->getConveyors(),beliefs->getSpatialModel()->getRegionList()->getRegions(),beliefs->getSpatialModel()->getDoors()->getDoors(),trails_trace,beliefs->getSpatialModel()->getHallways()->getHallways());
@@ -1686,7 +1705,7 @@ void Controller::tierTwoDecision(Position current, bool selectNextTask){
     typedef vector< vector<double> >::iterator costIT;
 
     for (planner2It it = tier2Planners.begin(); it != tier2Planners.end(); it++){
-      PathPlanner *planner = *it;
+      PathPlanner *planner = it->get();
       vector<double> planCost;
       // RCLCPP_DEBUG_STREAM(this->get_logger(), "Computing plan cost " << planner->getName());
       for (vecIT vt = plans.begin(); vt != plans.end(); vt++){
@@ -1769,41 +1788,41 @@ void Controller::tierTwoDecision(Position current, bool selectNextTask){
     int random_number = rand() % (bestPlanInds.size());
     // RCLCPP_DEBUG_STREAM(this->get_logger(), "Number of best plans = " << bestPlanInds.size() << " random_number = " << random_number);
     // RCLCPP_DEBUG_STREAM(this->get_logger(), "Selected Best plan " << bestPlanNames.at(random_number));
-    decisionStats->chosenPlanner = bestPlanNames.at(random_number);
+    decisionStats.chosenPlanner = bestPlanNames.at(random_number);
     for(int i = 0; i < plannerNames.size(); i++){
       if(plannerNames[i] != bestPlanNames.at(random_number)){
-        decisionStats->chosenPlanner = decisionStats->chosenPlanner + ">" + plannerNames[i];
+        decisionStats.chosenPlanner = decisionStats.chosenPlanner + ">" + plannerNames[i];
       }
     }
     for (planner2It it = tier2Planners.begin(); it != tier2Planners.end(); it++){
-      PathPlanner *planner = *it;
+      PathPlanner *planner = it->get();
       if(planner->getName() == bestPlanNames.at(random_number)){
         beliefs->getAgentState()->setCurrentWaypoints(current, beliefs->getAgentState()->getCurrentLaserEndpoints(), planner, aStarOn, plans.at(bestPlanInds.at(random_number)), beliefs->getSpatialModel()->getRegionList()->getRegions());
         if(planner->getName() == "hallwayskel"){
           if(beliefs->getAgentState()->getCurrentTask()->getSkeletonWaypoint().getCreator() == 0){
-            decisionStats->chosenPlanner = "skeletonhall>hallwayskel";
+            decisionStats.chosenPlanner = "skeletonhall>hallwayskel";
           }
           else{
-            decisionStats->chosenPlanner = "hallwayskel>skeletonhall";
+            decisionStats.chosenPlanner = "hallwayskel>skeletonhall";
           }
         }
         else if(planner->getName() == "skeleton"){
-          decisionStats->chosenPlanner = "skeleton>distance";
+          decisionStats.chosenPlanner = "skeleton>distance";
         }
         break;
       }
     }
-    decisionStats->plannerComments = plannerCommentsList.str();
+    decisionStats.plannerComments = plannerCommentsList.str();
   }
   for (planner2It it = tier2Planners.begin(); it != tier2Planners.end(); it++){
-    PathPlanner *planner = *it;
+    PathPlanner *planner = it->get();
     planner->resetPath();
     planner->resetOrigPath();
   }
   gettimeofday(&cv,NULL);
   end_timecv = cv.tv_sec + (cv.tv_usec/1000000.0);
   computationTimeSec = (end_timecv-start_timecv);
-  decisionStats->planningComputationTime = computationTimeSec;
+  decisionStats.planningComputationTime = computationTimeSec;
 }
 
 
@@ -1825,7 +1844,7 @@ void Controller::tierThreeDecision(FORRAction *decision){
   
   double rotationBaseline, linearBaseline;
   for (advisor3It it = tier3Advisors.begin(); it != tier3Advisors.end(); ++it){
-    Tier3Advisor *advisor = *it;
+    Tier3Advisor *advisor = it->get();
     //if(advisor->is_active() == true)
       //cout << advisor->get_name() << " : " << advisor->get_weight() << endl;
     if(advisor->get_name() == "RotationBaseLine") rotationBaseline = advisor->get_weight();
@@ -1836,7 +1855,7 @@ void Controller::tierThreeDecision(FORRAction *decision){
   std::stringstream advisorCommentsList;
   cout << "processing advisors::"<< endl;
   for (advisor3It it = tier3Advisors.begin(); it != tier3Advisors.end(); ++it){
-    Tier3Advisor *advisor = *it; 
+    Tier3Advisor *advisor = it->get();
     cout << advisor->get_name() << endl;
     // check if advisor should make a decision
     advisor->set_commenting();
@@ -1914,9 +1933,9 @@ void Controller::tierThreeDecision(FORRAction *decision){
   int random_number = rand() % (best_decisions.size());
     
   (*decision) = best_decisions.at(random_number);
-  decisionStats->advisors = advisorsList.str();
-  decisionStats->advisorComments = advisorCommentsList.str();
-  cout << " advisors = " << decisionStats->advisors << "\nadvisorComments = " << decisionStats->advisorComments << endl;
+  decisionStats.advisors = advisorsList.str();
+  decisionStats.advisorComments = advisorCommentsList.str();
+  cout << " advisors = " << decisionStats.advisors << "\nadvisorComments = " << decisionStats.advisorComments << endl;
 }
 
 
@@ -1930,7 +1949,7 @@ isAdvisorActive(string advisorName){
   bool isActive = false;
   
   for (advisor3It it = tier3Advisors.begin(); it != tier3Advisors.end(); ++it){
-    Tier3Advisor *advisor = *it;
+    Tier3Advisor *advisor = it->get();
     if(advisor->is_active() == true && advisor->get_name() == advisorName)
       isActive = true;
   }
@@ -1956,7 +1975,7 @@ void Controller::tierThreeAdvisorInfluence(){
   vector<FORRAction> best_decisions;
   
   for (advisor3It it = tier3Advisors.begin(); it != tier3Advisors.end(); ++it){
-    Tier3Advisor *advisor = *it; 
+    Tier3Advisor *advisor = it->get();
 
     // check if advisor should make a decision
     advisor->set_commenting();
@@ -2003,7 +2022,7 @@ void Controller::tierThreeAdvisorInfluence(){
   std::map<FORRAction, double> takeOneOutComments;
   for (advisor3It it = tier3Advisors.begin(); it != tier3Advisors.end(); ++it){
     takeOneOutComments = allComments;
-    Tier3Advisor *advisor = *it; 
+    Tier3Advisor *advisor = it->get();
 
     // check if advisor should make a decision
     advisor->set_commenting();
@@ -2054,7 +2073,7 @@ void Controller::tierThreeAdvisorInfluence(){
       advisorsInfluence << advisor->get_name() << " -1;";
     }
   }
-  decisionStats->advisorInfluence = advisorsInfluence.str();
-  cout << "advisorInfluence = " << decisionStats->advisorInfluence << endl;*/
-  decisionStats->advisorInfluence = "";
+  decisionStats.advisorInfluence = advisorsInfluence.str();
+  cout << "advisorInfluence = " << decisionStats.advisorInfluence << endl;*/
+  decisionStats.advisorInfluence = "";
 }

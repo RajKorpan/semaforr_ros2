@@ -11,6 +11,7 @@
 #include <iostream>
 #include <stdlib.h>
 #include <cmath>
+#include <memory>
 #include <sys/time.h>
 
 #include <semaforr/decision/Controller.h>
@@ -51,13 +52,13 @@ private:
     // Current crowd_pose
     semaforr::domain::PoseArray crowdPose, crowdPoseAll;
     // Controller
-    Controller *controller;
+    std::unique_ptr<Controller> controller;
     // Pos received
     bool init_pos_received, init_laser_received;
     // Add noise to pose
     bool add_noise;
     // Visualization 
-    Visualizer *viz_;
+    std::unique_ptr<Visualizer> viz_;
 
 public:
     //! ROS node initialization
@@ -86,7 +87,8 @@ public:
         std::string advisors = advisors_param.as_string();
         std::string params = params_param.as_string();
 
-        controller = new Controller(advisors, params, map_config, target_set, map_dimensions);
+        controller = std::make_unique<Controller>(
+            advisors, params, map_config, target_set, map_dimensions);
 
         std::cout << "starting to declare pubs and subs" << std::endl;
         // Set up the publisher for the cmd_vel topic
@@ -137,9 +139,9 @@ public:
     }
 
     // initialize the visualizer
-    void initialize_viz(rclcpp::Node::SharedPtr node_ptr) {
+    void initialize_viz() {
         std::cout << "start of visualizer and after node_ptr" << std::endl;
-        viz_ = new Visualizer(node_ptr, controller);
+        viz_ = std::make_unique<Visualizer>(*this, *controller);
         std::cout << "visualizer successfully created" << std::endl;
     }
 
@@ -418,7 +420,7 @@ int main(int argc, char **argv) {
     // Initialize the ROS 2 node
     rclcpp::init(argc, argv);
     auto node = std::make_shared<RobotDriver>();
-    node->initialize_viz(node);
+    node->initialize_viz();
 
     RCLCPP_INFO(node->get_logger(), "Starting... semaforr");
 

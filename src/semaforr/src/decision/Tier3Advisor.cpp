@@ -173,186 +173,204 @@ standardize(map <FORRAction, double> * result){
   }
 }
 
+namespace {
+
+template<typename Advisor, typename... Arguments>
+std::unique_ptr<Tier3Advisor> makeAdvisorInstance(Arguments&&... arguments)
+{
+  return std::make_unique<Advisor>(
+    std::forward<Arguments>(arguments)...);
+}
+
+}  // namespace
+
 // factory definition
-Tier3Advisor* Tier3Advisor::makeAdvisor(Beliefs *beliefs, string name, string description, double weight, double *magic_init, bool is_active){
+std::unique_ptr<Tier3Advisor> Tier3Advisor::makeAdvisor(
+  Beliefs *beliefs,
+  string name,
+  string description,
+  double weight,
+  double *magic_init,
+  bool is_active){
   if(name == "Greedy")
-    return new Tier3Greedy(beliefs, name, description, weight, magic_init, is_active);
+    return makeAdvisorInstance<Tier3Greedy>(beliefs, name, description, weight, magic_init, is_active);
   else if(name == "ElbowRoom")
-    return new Tier3ElbowRoom(beliefs, name, description, weight, magic_init, is_active);
+    return makeAdvisorInstance<Tier3ElbowRoom>(beliefs, name, description, weight, magic_init, is_active);
   //else if(name == "CloseIn")
-    //return new Tier3CloseIn(beliefs, name, description, weight, magic_init, is_active);
+    //return makeAdvisorInstance<Tier3CloseIn>(beliefs, name, description, weight, magic_init, is_active);
   else if(name == "BigStep")
-    return new Tier3BigStep(beliefs, name, description, weight, magic_init, is_active);
+    return makeAdvisorInstance<Tier3BigStep>(beliefs, name, description, weight, magic_init, is_active);
   else if(name == "Unlikely")
-    return new Tier3Unlikely(beliefs, name, description, weight, magic_init, is_active);
+    return makeAdvisorInstance<Tier3Unlikely>(beliefs, name, description, weight, magic_init, is_active);
   else if(name == "UnlikelyRotation")
-    return new Tier3UnlikelyRotation(beliefs, name, description, weight, magic_init, is_active);
+    return makeAdvisorInstance<Tier3UnlikelyRotation>(beliefs, name, description, weight, magic_init, is_active);
   else if(name == "UnlikelyField")
-    return new Tier3UnlikelyField(beliefs, name, description, weight, magic_init, is_active);
+    return makeAdvisorInstance<Tier3UnlikelyField>(beliefs, name, description, weight, magic_init, is_active);
   else if(name == "UnlikelyFieldRotation")
-    return new Tier3UnlikelyFieldRotation(beliefs, name, description, weight, magic_init, is_active);
+    return makeAdvisorInstance<Tier3UnlikelyFieldRotation>(beliefs, name, description, weight, magic_init, is_active);
   else if(name == "Explorer")
-    return new Tier3Explorer(beliefs, name, description, weight, magic_init, is_active);
+    return makeAdvisorInstance<Tier3Explorer>(beliefs, name, description, weight, magic_init, is_active);
   else if(name == "ExplorerEndPoints")
-    return new Tier3ExplorerEndPoints(beliefs, name, description, weight, magic_init, is_active);
+    return makeAdvisorInstance<Tier3ExplorerEndPoints>(beliefs, name, description, weight, magic_init, is_active);
   else if(name == "BaseLine")
-    return new Tier3BaseLine(beliefs, name, description, weight, magic_init, is_active);
+    return makeAdvisorInstance<Tier3BaseLine>(beliefs, name, description, weight, magic_init, is_active);
   else if(name == "GreedyRotation")
-    return new Tier3GreedyRotation(beliefs, name, description, weight, magic_init, is_active);
+    return makeAdvisorInstance<Tier3GreedyRotation>(beliefs, name, description, weight, magic_init, is_active);
   else if(name == "ElbowRoomRotation")
-    return new Tier3ElbowRoomRotation(beliefs, name, description, weight, magic_init, is_active);
+    return makeAdvisorInstance<Tier3ElbowRoomRotation>(beliefs, name, description, weight, magic_init, is_active);
   //else if(name == "CloseInRotation")
-    //return new Tier3CloseInRotation(beliefs, name, description, weight, magic_init, is_active);
+    //return makeAdvisorInstance<Tier3CloseInRotation>(beliefs, name, description, weight, magic_init, is_active);
   else if(name == "BigStepRotation")
-    return new Tier3BigStepRotation(beliefs, name, description, weight, magic_init, is_active);
+    return makeAdvisorInstance<Tier3BigStepRotation>(beliefs, name, description, weight, magic_init, is_active);
   else if(name == "GoAroundRotation")
-    return new Tier3GoAroundRotation(beliefs, name, description, weight, magic_init, is_active);
+    return makeAdvisorInstance<Tier3GoAroundRotation>(beliefs, name, description, weight, magic_init, is_active);
   else if(name == "ExplorerRotation")
-    return new Tier3ExplorerRotation(beliefs, name, description, weight, magic_init, is_active);
+    return makeAdvisorInstance<Tier3ExplorerRotation>(beliefs, name, description, weight, magic_init, is_active);
   else if(name == "ExplorerEndPointsRotation")
-    return new Tier3ExplorerEndPointsRotation(beliefs, name, description, weight, magic_init, is_active);
+    return makeAdvisorInstance<Tier3ExplorerEndPointsRotation>(beliefs, name, description, weight, magic_init, is_active);
   else if(name == "BaseLineRotation")
-    return new Tier3BaseLineRotation(beliefs, name, description, weight, magic_init, is_active);
+    return makeAdvisorInstance<Tier3BaseLineRotation>(beliefs, name, description, weight, magic_init, is_active);
   //else if(name == "AvoidRobotRotation")
-    //return new Tier3AvoidRobotRotation(beliefs, name, description, weight, magic_init, is_active);
+    //return makeAdvisorInstance<Tier3AvoidRobotRotation>(beliefs, name, description, weight, magic_init, is_active);
   //else if(name == "AvoidRobot")
-    //return new Tier3AvoidRobot(beliefs, name, description, weight, magic_init, is_active);
+    //return makeAdvisorInstance<Tier3AvoidRobot>(beliefs, name, description, weight, magic_init, is_active);
   else if(name == "ExitLinear")
-    return new Tier3ExitLinear(beliefs, name, description, weight, magic_init, is_active);
+    return makeAdvisorInstance<Tier3ExitLinear>(beliefs, name, description, weight, magic_init, is_active);
   else if(name == "ExitRotation")
-    return new Tier3ExitRotation(beliefs, name, description, weight, magic_init, is_active);
+    return makeAdvisorInstance<Tier3ExitRotation>(beliefs, name, description, weight, magic_init, is_active);
   else if(name == "ExitFieldLinear")
-    return new Tier3ExitFieldLinear(beliefs, name, description, weight, magic_init, is_active);
+    return makeAdvisorInstance<Tier3ExitFieldLinear>(beliefs, name, description, weight, magic_init, is_active);
   else if(name == "ExitFieldRotation")
-    return new Tier3ExitFieldRotation(beliefs, name, description, weight, magic_init, is_active);
+    return makeAdvisorInstance<Tier3ExitFieldRotation>(beliefs, name, description, weight, magic_init, is_active);
   else if(name == "ExitClosest")
-    return new Tier3ExitClosest(beliefs, name, description, weight, magic_init, is_active);
+    return makeAdvisorInstance<Tier3ExitClosest>(beliefs, name, description, weight, magic_init, is_active);
   else if(name == "ExitClosestRotation")
-    return new Tier3ExitClosestRotation(beliefs, name, description, weight, magic_init, is_active);
+    return makeAdvisorInstance<Tier3ExitClosestRotation>(beliefs, name, description, weight, magic_init, is_active);
   else if(name == "RegionLeaverLinear")
-    return new Tier3RegionLeaverLinear(beliefs, name, description, weight, magic_init, is_active);
+    return makeAdvisorInstance<Tier3RegionLeaverLinear>(beliefs, name, description, weight, magic_init, is_active);
   else if(name == "RegionLeaverRotation")
-    return new Tier3RegionLeaverRotation(beliefs, name, description, weight, magic_init, is_active);
+    return makeAdvisorInstance<Tier3RegionLeaverRotation>(beliefs, name, description, weight, magic_init, is_active);
   else if(name == "EnterLinear")
-    return new Tier3EnterLinear(beliefs, name, description, weight, magic_init, is_active);
+    return makeAdvisorInstance<Tier3EnterLinear>(beliefs, name, description, weight, magic_init, is_active);
   else if(name == "EnterRotation")
-    return new Tier3EnterRotation(beliefs, name, description, weight, magic_init, is_active);
+    return makeAdvisorInstance<Tier3EnterRotation>(beliefs, name, description, weight, magic_init, is_active);
   else if(name == "EnterExit")
-    return new Tier3EnterExit(beliefs, name, description, weight, magic_init, is_active);
+    return makeAdvisorInstance<Tier3EnterExit>(beliefs, name, description, weight, magic_init, is_active);
   else if(name == "EnterExitRotation")
-    return new Tier3EnterExitRotation(beliefs, name, description, weight, magic_init, is_active);
+    return makeAdvisorInstance<Tier3EnterExitRotation>(beliefs, name, description, weight, magic_init, is_active);
   else if(name == "ConveyLinear")
-    return new Tier3ConveyLinear(beliefs, name, description, weight, magic_init, is_active);
+    return makeAdvisorInstance<Tier3ConveyLinear>(beliefs, name, description, weight, magic_init, is_active);
   else if(name == "ConveyRotation")
-    return new Tier3ConveyRotation(beliefs, name, description, weight, magic_init, is_active);
+    return makeAdvisorInstance<Tier3ConveyRotation>(beliefs, name, description, weight, magic_init, is_active);
   else if(name == "TrailerLinear")
-    return new Tier3TrailerLinear(beliefs, name, description, weight, magic_init, is_active);
+    return makeAdvisorInstance<Tier3TrailerLinear>(beliefs, name, description, weight, magic_init, is_active);
   else if(name == "TrailerRotation")
-    return new Tier3TrailerRotation(beliefs, name, description, weight, magic_init, is_active);
+    return makeAdvisorInstance<Tier3TrailerRotation>(beliefs, name, description, weight, magic_init, is_active);
   else if(name == "EnterDoorLinear")
-    return new Tier3EnterDoorLinear(beliefs, name, description, weight, magic_init, is_active);
+    return makeAdvisorInstance<Tier3EnterDoorLinear>(beliefs, name, description, weight, magic_init, is_active);
   else if(name == "EnterDoorRotation")
-    return new Tier3EnterDoorRotation(beliefs, name, description, weight, magic_init, is_active);
+    return makeAdvisorInstance<Tier3EnterDoorRotation>(beliefs, name, description, weight, magic_init, is_active);
   else if(name == "ExitDoorLinear")
-    return new Tier3ExitDoorLinear(beliefs, name, description, weight, magic_init, is_active);
+    return makeAdvisorInstance<Tier3ExitDoorLinear>(beliefs, name, description, weight, magic_init, is_active);
   else if(name == "ExitDoorRotation")
-    return new Tier3ExitDoorRotation(beliefs, name, description, weight, magic_init, is_active);
+    return makeAdvisorInstance<Tier3ExitDoorRotation>(beliefs, name, description, weight, magic_init, is_active);
   else if(name == "AccessLinear")
-    return new Tier3AccessLinear(beliefs, name, description, weight, magic_init, is_active);
+    return makeAdvisorInstance<Tier3AccessLinear>(beliefs, name, description, weight, magic_init, is_active);
   else if(name == "AccessRotation")
-    return new Tier3AccessRotation(beliefs, name, description, weight, magic_init, is_active);
+    return makeAdvisorInstance<Tier3AccessRotation>(beliefs, name, description, weight, magic_init, is_active);
   //else if(name == "NeighborDoorLinear")
-    //return new Tier3NeighborDoorLinear(beliefs, name, description, weight, magic_init, is_active);
+    //return makeAdvisorInstance<Tier3NeighborDoorLinear>(beliefs, name, description, weight, magic_init, is_active);
   //else if(name == "NeighborDoorRotation")
-    //return new Tier3NeighborDoorRotation(beliefs, name, description, weight, magic_init, is_active);
+    //return makeAdvisorInstance<Tier3NeighborDoorRotation>(beliefs, name, description, weight, magic_init, is_active);
   else if(name == "LearnSpatialModel")
-    return new Tier3LearnSpatialModel(beliefs, name, description, weight, magic_init, is_active);
+    return makeAdvisorInstance<Tier3LearnSpatialModel>(beliefs, name, description, weight, magic_init, is_active);
   else if(name == "LearnSpatialModelRotation")
-    return new Tier3LearnSpatialModelRotation(beliefs, name, description, weight, magic_init, is_active);
+    return makeAdvisorInstance<Tier3LearnSpatialModelRotation>(beliefs, name, description, weight, magic_init, is_active);
   else if(name == "Curiosity")
-    return new Tier3Curiosity(beliefs, name, description, weight, magic_init, is_active);
+    return makeAdvisorInstance<Tier3Curiosity>(beliefs, name, description, weight, magic_init, is_active);
   else if(name == "CuriosityRotation")
-    return new Tier3CuriosityRotation(beliefs, name, description, weight, magic_init, is_active);
+    return makeAdvisorInstance<Tier3CuriosityRotation>(beliefs, name, description, weight, magic_init, is_active);
   else if(name == "Enfilade")
-    return new Tier3Enfilade(beliefs, name, description, weight, magic_init, is_active);
+    return makeAdvisorInstance<Tier3Enfilade>(beliefs, name, description, weight, magic_init, is_active);
   else if(name == "EnfiladeRotation")
-    return new Tier3EnfiladeRotation(beliefs, name, description, weight, magic_init, is_active);
+    return makeAdvisorInstance<Tier3EnfiladeRotation>(beliefs, name, description, weight, magic_init, is_active);
   else if(name == "Thigmotaxis")
-    return new Tier3Thigmotaxis(beliefs, name, description, weight, magic_init, is_active);
+    return makeAdvisorInstance<Tier3Thigmotaxis>(beliefs, name, description, weight, magic_init, is_active);
   else if(name == "ThigmotaxisRotation")
-    return new Tier3ThigmotaxisRotation(beliefs, name, description, weight, magic_init, is_active);
+    return makeAdvisorInstance<Tier3ThigmotaxisRotation>(beliefs, name, description, weight, magic_init, is_active);
   else if(name == "VisualScanRotation")
-    return new Tier3VisualScanRotation(beliefs, name, description, weight, magic_init, is_active);
+    return makeAdvisorInstance<Tier3VisualScanRotation>(beliefs, name, description, weight, magic_init, is_active);
   else if(name == "LeastAngle")
-    return new Tier3LeastAngle(beliefs, name, description, weight, magic_init, is_active);
+    return makeAdvisorInstance<Tier3LeastAngle>(beliefs, name, description, weight, magic_init, is_active);
   else if(name == "LeastAngleRotation")
-    return new Tier3LeastAngleRotation(beliefs, name, description, weight, magic_init, is_active);
+    return makeAdvisorInstance<Tier3LeastAngleRotation>(beliefs, name, description, weight, magic_init, is_active);
   else if(name == "Interpersonal")
-    return new Tier3Interpersonal(beliefs, name, description, weight, magic_init, is_active);
+    return makeAdvisorInstance<Tier3Interpersonal>(beliefs, name, description, weight, magic_init, is_active);
   else if(name == "InterpersonalRotation")
-    return new Tier3InterpersonalRotation(beliefs, name, description, weight, magic_init, is_active);
+    return makeAdvisorInstance<Tier3InterpersonalRotation>(beliefs, name, description, weight, magic_init, is_active);
   //else if(name == "Formation")
-  //  return new Tier3Formation(beliefs, name, description, weight, magic_init, is_active);
+  //  return makeAdvisorInstance<Tier3Formation>(beliefs, name, description, weight, magic_init, is_active);
   //else if(name == "FormationRotation")
-  //  return new Tier3FormationRotation(beliefs, name, description, weight, magic_init, is_active);
+  //  return makeAdvisorInstance<Tier3FormationRotation>(beliefs, name, description, weight, magic_init, is_active);
   else if(name == "Front")
-    return new Tier3Front(beliefs, name, description, weight, magic_init, is_active);
+    return makeAdvisorInstance<Tier3Front>(beliefs, name, description, weight, magic_init, is_active);
   else if(name == "FrontRotation")
-    return new Tier3FrontRotation(beliefs, name, description, weight, magic_init, is_active);
+    return makeAdvisorInstance<Tier3FrontRotation>(beliefs, name, description, weight, magic_init, is_active);
   else if(name == "Rear")
-    return new Tier3Rear(beliefs, name, description, weight, magic_init, is_active);
+    return makeAdvisorInstance<Tier3Rear>(beliefs, name, description, weight, magic_init, is_active);
   else if(name == "RearRotation")
-    return new Tier3RearRotation(beliefs, name, description, weight, magic_init, is_active);
+    return makeAdvisorInstance<Tier3RearRotation>(beliefs, name, description, weight, magic_init, is_active);
   else if(name == "Side")
-    return new Tier3Side(beliefs, name, description, weight, magic_init, is_active);
+    return makeAdvisorInstance<Tier3Side>(beliefs, name, description, weight, magic_init, is_active);
   else if(name == "SideRotation")
-    return new Tier3SideRotation(beliefs, name, description, weight, magic_init, is_active);
+    return makeAdvisorInstance<Tier3SideRotation>(beliefs, name, description, weight, magic_init, is_active);
   else if(name == "Visible")
-    return new Tier3Visible(beliefs, name, description, weight, magic_init, is_active);
+    return makeAdvisorInstance<Tier3Visible>(beliefs, name, description, weight, magic_init, is_active);
   else if(name == "VisibleRotation")
-    return new Tier3VisibleRotation(beliefs, name, description, weight, magic_init, is_active);
+    return makeAdvisorInstance<Tier3VisibleRotation>(beliefs, name, description, weight, magic_init, is_active);
   //else if(name == "Wait")
-  //  return new Tier3Wait(beliefs, name, description, weight, magic_init, is_active);
+  //  return makeAdvisorInstance<Tier3Wait>(beliefs, name, description, weight, magic_init, is_active);
   //else if(name == "WaitRotation")
-  //  return new Tier3WaitRotation(beliefs, name, description, weight, magic_init, is_active);
+  //  return makeAdvisorInstance<Tier3WaitRotation>(beliefs, name, description, weight, magic_init, is_active);
   else if(name == "CrowdAvoid")
-    return new Tier3CrowdAvoid(beliefs, name, description, weight, magic_init, is_active);
+    return makeAdvisorInstance<Tier3CrowdAvoid>(beliefs, name, description, weight, magic_init, is_active);
   else if(name == "CrowdAvoidRotation")
-    return new Tier3CrowdAvoidRotation(beliefs, name, description, weight, magic_init, is_active);
+    return makeAdvisorInstance<Tier3CrowdAvoidRotation>(beliefs, name, description, weight, magic_init, is_active);
   else if(name == "FindTheCrowd")
-    return new Tier3FindTheCrowd(beliefs, name, description, weight, magic_init, is_active);
+    return makeAdvisorInstance<Tier3FindTheCrowd>(beliefs, name, description, weight, magic_init, is_active);
   else if(name == "FindTheCrowdRotation")
-    return new Tier3FindTheCrowdRotation(beliefs, name, description, weight, magic_init, is_active);
+    return makeAdvisorInstance<Tier3FindTheCrowdRotation>(beliefs, name, description, weight, magic_init, is_active);
   else if(name == "RiskAvoid")
-    return new Tier3RiskAvoid(beliefs, name, description, weight, magic_init, is_active);
+    return makeAdvisorInstance<Tier3RiskAvoid>(beliefs, name, description, weight, magic_init, is_active);
   else if(name == "RiskAvoidRotation")
-    return new Tier3RiskAvoidRotation(beliefs, name, description, weight, magic_init, is_active);
+    return makeAdvisorInstance<Tier3RiskAvoidRotation>(beliefs, name, description, weight, magic_init, is_active);
   else if(name == "FindTheRisk")
-    return new Tier3FindTheRisk(beliefs, name, description, weight, magic_init, is_active);
+    return makeAdvisorInstance<Tier3FindTheRisk>(beliefs, name, description, weight, magic_init, is_active);
   else if(name == "FindTheRiskRotation")
-    return new Tier3FindTheRiskRotation(beliefs, name, description, weight, magic_init, is_active);
+    return makeAdvisorInstance<Tier3FindTheRiskRotation>(beliefs, name, description, weight, magic_init, is_active);
   else if(name == "FlowAvoid")
-    return new Tier3FlowAvoid(beliefs, name, description, weight, magic_init, is_active);
+    return makeAdvisorInstance<Tier3FlowAvoid>(beliefs, name, description, weight, magic_init, is_active);
   else if(name == "FlowAvoidRotation")
-    return new Tier3FlowAvoidRotation(beliefs, name, description, weight, magic_init, is_active);
+    return makeAdvisorInstance<Tier3FlowAvoidRotation>(beliefs, name, description, weight, magic_init, is_active);
   else if(name == "FindTheFlow")
-    return new Tier3FindTheFlow(beliefs, name, description, weight, magic_init, is_active);
+    return makeAdvisorInstance<Tier3FindTheFlow>(beliefs, name, description, weight, magic_init, is_active);
   else if(name == "FindTheFlowRotation")
-    return new Tier3FindTheFlowRotation(beliefs, name, description, weight, magic_init, is_active);
+    return makeAdvisorInstance<Tier3FindTheFlowRotation>(beliefs, name, description, weight, magic_init, is_active);
   else if(name == "Follow")
-    return new Tier3Follow(beliefs, name, description, weight, magic_init, is_active);
+    return makeAdvisorInstance<Tier3Follow>(beliefs, name, description, weight, magic_init, is_active);
   else if(name == "FollowRotation")
-    return new Tier3FollowRotation(beliefs, name, description, weight, magic_init, is_active);
+    return makeAdvisorInstance<Tier3FollowRotation>(beliefs, name, description, weight, magic_init, is_active);
   else if(name == "Crossroads")
-    return new Tier3Crossroads(beliefs, name, description, weight, magic_init, is_active);
+    return makeAdvisorInstance<Tier3Crossroads>(beliefs, name, description, weight, magic_init, is_active);
   else if(name == "CrossroadsRotation")
-    return new Tier3CrossroadsRotation(beliefs, name, description, weight, magic_init, is_active);
+    return makeAdvisorInstance<Tier3CrossroadsRotation>(beliefs, name, description, weight, magic_init, is_active);
   else if(name == "Stay")
-    return new Tier3Stay(beliefs, name, description, weight, magic_init, is_active);
+    return makeAdvisorInstance<Tier3Stay>(beliefs, name, description, weight, magic_init, is_active);
   else if(name == "StayRotation")
-    return new Tier3StayRotation(beliefs, name, description, weight, magic_init, is_active);
+    return makeAdvisorInstance<Tier3StayRotation>(beliefs, name, description, weight, magic_init, is_active);
   else 
     std::cout << "No such advisor " << std::endl;
+  return nullptr;
 }
 
 // Constructors 

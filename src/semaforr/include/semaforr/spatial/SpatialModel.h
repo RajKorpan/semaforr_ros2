@@ -17,30 +17,24 @@
 class SpatialModel{
 
 public:
-	SpatialModel(double width, double height, double granularity){
-		abstract_map = new FORRRegionList();
-		//trace = new FORRTrace();
-		trails = new FORRTrails();
-		conveyors = new FORRConveyors(width, height, granularity);
-		doors = new FORRDoors();
-		hallways = new FORRHallways(width, height);
-		barriers = new FORRBarriers();
-	};
+	SpatialModel(double width, double height, double granularity)
+		: conveyors(width, height, granularity),
+		  hallways(width, height) {}
 
-	FORRRegionList* getRegionList(){return abstract_map;}
+	FORRRegionList* getRegionList(){return &abstract_map;}
 	//FORRTrace* getTrace(){return trace;}
-	FORRTrails* getTrails(){return trails;}
-	FORRConveyors* getConveyors(){return conveyors;}
-	FORRDoors* getDoors(){return doors;}
-	FORRHallways* getHallways(){return hallways;}
-	FORRBarriers* getBarriers(){return barriers;}
+	FORRTrails* getTrails(){return &trails;}
+	FORRConveyors* getConveyors(){return &conveyors;}
+	FORRDoors* getDoors(){return &doors;}
+	FORRHallways* getHallways(){return &hallways;}
+	FORRBarriers* getBarriers(){return &barriers;}
 
 private:
-	FORRRegionList *abstract_map;
+	FORRRegionList abstract_map;
 	//FORRTrace *trace;
-	FORRTrails *trails;
-	FORRConveyors *conveyors;
-	FORRDoors *doors;
-	FORRHallways *hallways;
-	FORRBarriers *barriers;
+	FORRTrails trails;
+	FORRConveyors conveyors;
+	FORRDoors doors;
+	FORRHallways hallways;
+	FORRBarriers barriers;
 };

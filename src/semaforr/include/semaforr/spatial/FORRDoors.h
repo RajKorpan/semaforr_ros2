@@ -149,9 +149,9 @@ public:
                 std::cout << epsilon << std::endl;
                 
                 vector< std::pair<double, FORRExit> >::iterator idx = exitAngles.begin();
-                Door *doorToPush = new Door(FORRExit(CartesianPoint(-1,-1),CartesianPoint(-1,-1),CartesianPoint(-1,-1),-1, 0, 0, vector<CartesianPoint>()), FORRExit(CartesianPoint(-1,-1),CartesianPoint(-1,-1),CartesianPoint(-1,-1),-1, 0, 0, vector<CartesianPoint>()), 0);
-                doorToPush->startPoint = idx->second;    //Put the first exit point in a door object.
-                ++doorToPush->str;                       //Door now has strength 1
+                Door doorToPush(FORRExit(CartesianPoint(-1,-1),CartesianPoint(-1,-1),CartesianPoint(-1,-1),-1, 0, 0, vector<CartesianPoint>()), FORRExit(CartesianPoint(-1,-1),CartesianPoint(-1,-1),CartesianPoint(-1,-1),-1, 0, 0, vector<CartesianPoint>()), 0);
+                doorToPush.startPoint = idx->second;    //Put the first exit point in a door object.
+                ++doorToPush.str;                       //Door now has strength 1
                 double doorToPushStartAngle = idx->first;
                 double firstStartAngle = idx->first;
                 //std::cout << "doorToPush->startPoint = " << doorToPush->startPoint.getExitPoint().get_x() << ", " << doorToPush->startPoint.getExitPoint().get_y() << std::endl;
@@ -162,20 +162,20 @@ public:
                     //std::cout << "idx->first = " << idx->first << ", (idx+1)->first = " << (idx+1)->first << ", (idx+1)->first - idx->first = " << ((idx+1)->first - idx->first) << ", epsilon = " << epsilon << std::endl;
                     //if the two point are close enough, extend the end of the current door to the new point
                     if ((idx+1)->first - idx->first < epsilon) {
-                        doorToPush->endPoint = (idx+1)->second;
-                        ++doorToPush->str;  //increase the strength of the door each time a point is added to the door.
+                        doorToPush.endPoint = (idx+1)->second;
+                        ++doorToPush.str;  //increase the strength of the door each time a point is added to the door.
                         //std::cout << "doorToPush->endPoint = " << doorToPush->endPoint.getExitPoint().get_x() << ", " << doorToPush->endPoint.getExitPoint().get_y() << std::endl;
                         //std::cout << "doorToPush->str = " << doorToPush->str << std::endl;
                     } else {
                         //push the new door only if it is not a single point.
-                        if (!(doorToPush->endPoint.getExitPoint() == CartesianPoint(-1,-1))) {
-                            regionDoors.push_back(*doorToPush);
+                        if (!(doorToPush.endPoint.getExitPoint() == CartesianPoint(-1,-1))) {
+                            regionDoors.push_back(doorToPush);
                             //std::cout << "regionDoors.size() = " << regionDoors.size() << std::endl;
                         }
 
-                        doorToPush = new Door(FORRExit(CartesianPoint(-1,-1),CartesianPoint(-1,-1),CartesianPoint(-1,-1),-1, 0, 0, vector<CartesianPoint>()), FORRExit(CartesianPoint(-1,-1),CartesianPoint(-1,-1),CartesianPoint(-1,-1),-1, 0, 0, vector<CartesianPoint>()), 0); //prepare a new door
-                        doorToPush->startPoint = (idx+1)->second;    //set the start position to the new further out point.
-                        ++doorToPush->str;
+                        doorToPush = Door(FORRExit(CartesianPoint(-1,-1),CartesianPoint(-1,-1),CartesianPoint(-1,-1),-1, 0, 0, vector<CartesianPoint>()), FORRExit(CartesianPoint(-1,-1),CartesianPoint(-1,-1),CartesianPoint(-1,-1),-1, 0, 0, vector<CartesianPoint>()), 0); //prepare a new door
+                        doorToPush.startPoint = (idx+1)->second;    //set the start position to the new further out point.
+                        ++doorToPush.str;
                         doorToPushStartAngle = idx->first;
                         //std::cout << "doorToPush->startPoint = " << doorToPush->startPoint.getExitPoint().get_x() << ", " << doorToPush->startPoint.getExitPoint().get_y() << std::endl;
                         //std::cout << "doorToPush->str = " << doorToPush->str << std::endl;
@@ -186,18 +186,18 @@ public:
                 //std::cout << "doorToPush->startPoint = " << doorToPush->startPoint.getExitPoint().get_x() << ", " << doorToPush->startPoint.getExitPoint().get_y() << std::endl;
                 //std::cout << "doorToPush->endPoint = " << doorToPush->endPoint.getExitPoint().get_x() << ", " << doorToPush->endPoint.getExitPoint().get_y() << std::endl;
                 //Take care of the last door
-                if (!(doorToPush->startPoint.getExitPoint() == CartesianPoint(-1,-1)) && !(doorToPush->endPoint.getExitPoint() == CartesianPoint(-1,-1))) {
-                    regionDoors.push_back(*doorToPush);
+                if (!(doorToPush.startPoint.getExitPoint() == CartesianPoint(-1,-1)) && !(doorToPush.endPoint.getExitPoint() == CartesianPoint(-1,-1))) {
+                    regionDoors.push_back(doorToPush);
                     //std::cout << "regionDoors.size() = " << regionDoors.size() << std::endl;
     
                 //Take care of the last point on the region before going back to the terminal.
-                } else if (!(doorToPush->startPoint.getExitPoint() == CartesianPoint(-1,-1)) && (doorToPush->endPoint.getExitPoint() == CartesianPoint(-1,-1))) {
+                } else if (!(doorToPush.startPoint.getExitPoint() == CartesianPoint(-1,-1)) && (doorToPush.endPoint.getExitPoint() == CartesianPoint(-1,-1))) {
                     if (2*M_PI - (doorToPushStartAngle - exitAngles.begin()->first) < epsilon) {
-                        doorToPush->endPoint = exitAngles.begin()->second;
-                        ++doorToPush->str;
+                        doorToPush.endPoint = exitAngles.begin()->second;
+                        ++doorToPush.str;
                         //std::cout << "doorToPush->endPoint = " << doorToPush->endPoint.getExitPoint().get_x() << ", " << doorToPush->endPoint.getExitPoint().get_y() << std::endl;
                         //std::cout << "doorToPush->str = " << doorToPush->str << std::endl;
-                        regionDoors.push_back(*doorToPush);
+                        regionDoors.push_back(doorToPush);
                         //std::cout << "regionDoors.size() = " << regionDoors.size() << std::endl;
                     }
                 }

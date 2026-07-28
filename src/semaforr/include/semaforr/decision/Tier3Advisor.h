@@ -20,6 +20,7 @@
 # include <vector>
 # include <set>
 # include <map>
+# include <memory>
 
 # include <semaforr/decision/Beliefs.h>
 # include <semaforr/core/FORRAction.h>
@@ -56,7 +57,13 @@ class Tier3Advisor {
     virtual double actionComment(FORRAction action) = 0;
 
     // This is factory method that will create concrete instance of Tier3Advisor
-    static Tier3Advisor* makeAdvisor(Beliefs *beliefs, string name, string description, double weight, double *magic_init, bool isActive);
+    static std::unique_ptr<Tier3Advisor> makeAdvisor(
+      Beliefs *beliefs,
+      string name,
+      string description,
+      double weight,
+      double *magic_init,
+      bool isActive);
 
     // This function will return advices on all proposed actions
     std::map <FORRAction, double> allAdvice();

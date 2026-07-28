@@ -16,9 +16,8 @@
 class Tier1Advisor {
 
 public:
-        Tier1Advisor(Beliefs *b){
+	Tier1Advisor(Beliefs *b){
 		beliefs = b;
-		localExploration = new LocalExplorer();
 		shortcut = false;
 	}
 
@@ -41,16 +40,16 @@ public:
 	bool advisorBehindYou(FORRAction *decision);
 
 	void resetLocalExploration(){
-		localExploration->resetLocalExplorer();
+		localExploration.resetLocalExplorer();
 	}
 
 	bool localExplorationStarted(){
-		localExploration->getAlreadyStarted();
+		return localExploration.getAlreadyStarted();
 	}
 
 	bool localExplorationTriggerLearning(){
-		if(localExploration->getAlreadyStarted()){
-			return localExploration->triggerLearning();
+		if(localExploration.getAlreadyStarted()){
+			return localExploration.triggerLearning();
 		}
 		else{
 			return false;
@@ -58,8 +57,8 @@ public:
 	}
 
 	vector< vector<int> > getLocalExploreCoverage(){
-		if(localExploration->getAlreadyStarted()){
-			return localExploration->getCoverage();
+		if(localExploration.getAlreadyStarted()){
+			return localExploration.getCoverage();
 		}
 		else{
 			return vector< vector<int> >();
@@ -76,6 +75,6 @@ public:
 	
 private:
 	Beliefs *beliefs;
-	LocalExplorer *localExploration;
+	LocalExplorer localExploration;
 	bool shortcut;
 };
