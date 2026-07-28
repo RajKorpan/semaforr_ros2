@@ -14,6 +14,7 @@
 #include <utility>
 
 // SemaFORR
+#include <semaforr/config/Configuration.h>
 #include <semaforr/decision/Beliefs.h>
 #include <semaforr/decision/Tier1Advisor.h>
 #include <semaforr/decision/Tier3Advisor.h>
@@ -24,7 +25,6 @@
 #include <semaforr/exploration/Circumnavigate.h>
 #include <semaforr/spatial/FORRPassages.h>
 
-#include <fstream>
 #include <semaforr/domain/SensorTypes.h>
 
 
@@ -38,6 +38,7 @@ class Controller {
 public:
 
   Controller(string, string, string, string, string);
+  explicit Controller(semaforr::config::Configuration configuration);
   Controller(const Controller&) = delete;
   Controller& operator=(const Controller&) = delete;
   
@@ -134,12 +135,14 @@ private:
   void learnSpatialModel(AgentState *agentState, bool taskStatus, bool earlyLearning);
   void updateSkeletonGraph(AgentState* agentState);
 
-  void initialize_advisors(std::string);
-  void initialize_tasks(std::string, int length, int height);
-  void initialize_params(std::string);
-  void initialize_planner(std::string,std::string, int &l, int &h);
-  void initialize_situations(std::string);
-  void initialize_spatial_model(std::string);
+  void initialize_advisors(
+    const std::vector<semaforr::config::AdvisorConfiguration>& advisors);
+  void initialize_tasks(
+    const std::vector<semaforr::config::TaskConfiguration>& tasks,
+    int length,
+    int height);
+  void initialize_planner(
+    const semaforr::config::MapDimensions& dimensions);
   
   // Knowledge component of robot
   std::unique_ptr<Beliefs> beliefs;
@@ -170,7 +173,6 @@ private:
   bool hallwaysOn;
   bool barrsOn;
   bool aStarOn;
-  bool situationsOn;
   bool highwaysOn;
   bool frontiersOn;
   bool outofhereOn;
@@ -181,7 +183,8 @@ private:
   bool firstTaskAssigned;
   int highwayFinished;
   int frontierFinished;
-  bool distance, smooth, novel, density, risk, flow, combined, CUSUM, discount, explore, spatial, hallwayer, trailer, barrier, conveys, safe, skeleton, hallwayskel;
+  bool skeleton;
+  bool hallwayskel;
 };
   
 #endif /* CONTROLLER_H */

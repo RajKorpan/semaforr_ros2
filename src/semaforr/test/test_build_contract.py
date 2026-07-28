@@ -31,6 +31,7 @@ def test_domain_sources_are_explicit_and_complete():
     }
     assert declared == observed
     assert declared_in_order == [
+        "src/config/Configuration.cpp",
         "src/decision/AgentState.cpp",
         "src/navigation/astar.cpp",
         "src/decision/Controller.cpp",
@@ -55,6 +56,7 @@ def test_domain_sources_are_explicit_and_complete():
 
 def test_source_and_header_layout_is_responsibility_based():
     expected_header_areas = {
+        "config",
         "core",
         "domain",
         "decision",
@@ -65,6 +67,7 @@ def test_source_and_header_layout_is_responsibility_based():
         "vendor",
     }
     expected_source_areas = {
+        "config",
         "core",
         "decision",
         "navigation",

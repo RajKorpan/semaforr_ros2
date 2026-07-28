@@ -12,7 +12,7 @@ SemaFORR is designed to enable robots to navigate complex environments using cog
 - Cognitive navigation algorithms
 - ROS-independent domain model with explicit ROS message adapters
 - RAII ownership for controllers, tasks, planners, graphs, and search state
-- Highly configurable via parameters and advisor files
+- Typed, validated configuration with source-and-line diagnostics
 - ROS2 node integration
 - Example configuration files for quick setup
 
@@ -48,6 +48,9 @@ ros2 launch semaforr stage_tutorial.launch.py
 - `params`: General parameters for navigation
 
 Example configuration files are provided in the `config/` directory.
+Configuration parsing is ROS-independent and happens before the controller is
+constructed. Missing files, unknown or duplicate settings, invalid values, and
+malformed advisor, task, or dimensions rows fail fast with an actionable error.
 
 ## Refactoring baseline
 

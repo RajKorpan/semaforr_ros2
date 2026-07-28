@@ -67,6 +67,7 @@ rosidl_get_typesupport_target(cpp_typesupport_target
 # Preserve the legacy translation-unit order while known undefined-behavior
 # findings are addressed. Phase 2 changes paths, not link ordering.
 set(SEMAFORR_DOMAIN_SOURCES
+  src/config/Configuration.cpp
   src/decision/AgentState.cpp
   src/navigation/astar.cpp
   src/decision/Controller.cpp
@@ -228,6 +229,20 @@ if(BUILD_TESTING)
     COMMAND semaforr_ownership_model_test
   )
 
+  add_executable(
+    semaforr_configuration_test
+    test/configuration_smoke.cpp
+  )
+  target_link_libraries(semaforr_configuration_test semaforr_domain)
+  target_compile_definitions(semaforr_configuration_test PRIVATE
+    "SEMAFORR_TEST_SOURCE_DIR=\"${PROJECT_SOURCE_DIR}\""
+  )
+  semaforr_apply_project_options(semaforr_configuration_test)
+  add_test(
+    NAME semaforr_configuration_test
+    COMMAND semaforr_configuration_test
+  )
+
   ament_add_pytest_test(semaforr_source_contract_test
     test/test_source_contract.py
     ENV "SEMAFORR_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
@@ -246,6 +261,10 @@ if(BUILD_TESTING)
   )
   ament_add_pytest_test(semaforr_ownership_contract_test
     test/test_ownership_contract.py
+    ENV "SEMAFORR_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
+  )
+  ament_add_pytest_test(semaforr_configuration_contract_test
+    test/test_configuration_contract.py
     ENV "SEMAFORR_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
   )
 endif()

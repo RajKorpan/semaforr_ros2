@@ -8,6 +8,7 @@ SOURCE_DIR = Path(
 )
 
 DOMAIN_HEADER_AREAS = (
+    "config",
     "core",
     "domain",
     "decision",
@@ -17,6 +18,7 @@ DOMAIN_HEADER_AREAS = (
     "vendor",
 )
 DOMAIN_SOURCE_AREAS = (
+    "config",
     "core",
     "decision",
     "navigation",

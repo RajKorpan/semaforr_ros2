@@ -87,8 +87,11 @@ public:
         std::string advisors = advisors_param.as_string();
         std::string params = params_param.as_string();
 
-        controller = std::make_unique<Controller>(
-            advisors, params, map_config, target_set, map_dimensions);
+        semaforr::config::Configuration configuration =
+            semaforr::config::loadConfiguration({
+                advisors, params, map_config, target_set, map_dimensions});
+        controller =
+            std::make_unique<Controller>(std::move(configuration));
 
         std::cout << "starting to declare pubs and subs" << std::endl;
         // Set up the publisher for the cmd_vel topic

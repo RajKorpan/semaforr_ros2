@@ -19,6 +19,7 @@ Implementation and public headers are grouped by responsibility:
 
 | Area | Responsibility |
 | --- | --- |
+| `config` | Typed configuration values, parsers, and validation |
 | `core` | Actions, positions, and geometry primitives |
 | `domain` | ROS-independent sensor, pose, and crowd value types |
 | `decision` | Agent state, beliefs, controller, tasks, and advisors |
@@ -40,6 +41,28 @@ Domain components accept `semaforr::domain::LaserScan`, `PoseArray`, and
 `CrowdModel`. ROS callbacks convert incoming messages with
 `semaforr::ros::toDomain`; ROS publishers convert outbound scans with
 `semaforr::ros::toRos`.
+
+## Configuration boundary
+
+`semaforr::config::loadConfiguration` reads the five runtime files into one
+ROS-independent `Configuration` value before constructing `Controller`.
+Controller parameters, planner switches, dimensions, advisors, and tasks each
+have explicit types. The original five-path `Controller` constructor remains
+as a compatibility adapter and delegates to the same loader.
+
+The existing file formats and tutorial values are unchanged. Blank lines,
+whole-line comments, and inline `#` comments are accepted. Validation rejects:
+
+- missing or unreadable files;
+- missing, unknown, or duplicate parameter keys;
+- values that are not finite numbers, integer limits, or `0`/`1` flags;
+- duplicate advisors or advisor rows with states other than `t` and `f`;
+- malformed dimensions and task rows; and
+- empty or oversized action lists.
+
+Errors identify the source file and line when a row is responsible. The
+configuration parser is part of `semaforr::domain`, has no ROS dependencies,
+and can also parse streams directly for tests and embedding.
 
 ## Ownership model
 
@@ -89,9 +112,9 @@ colcon test-result --verbose
 ```
 
 The test suite includes behavior characterization, domain-value and
-message-adapter checks, ownership/destruction checks, source/build boundary
-contracts, launch-file checks, and a fixed-timestep contract for the runtime
-baseline driver.
+message-adapter checks, ownership/destruction checks, configuration parser and
+validation checks, source/build boundary contracts, launch-file checks, and a
+fixed-timestep contract for the runtime baseline driver.
 `test/downstream` verifies both the canonical `semaforr::domain` target and the
 `semaforr::core` compatibility target from an installed package:
 

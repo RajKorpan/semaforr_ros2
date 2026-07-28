@@ -7,11 +7,11 @@
 #include <semaforr/core/FORRGeometry.h>
 #include <unistd.h>
 
+#include <algorithm>
 #include <deque>
 #include <iostream> 
-#include <fstream>
-#include <iterator>
 #include <math.h>
+#include <stdexcept>
 #include <time.h>
 #include <sys/time.h>
 #include <vector>
@@ -26,929 +26,146 @@ using namespace std;
 // Read from the config file and intialize advisors and weights and spatial learning modules based on the advisors
 //
 //
-void Controller::initialize_advisors(string filename){
- 
-  string fileLine;
-  string advisor_name, advisor_description;
-  bool advisor_active;
-  double advisor_weight = 1;
-  double parameters[4];
-  std::ifstream file(filename.c_str());
-  // RCLCPP_DEBUG_STREAM(this->get_logger(), "Reading read_advisor_file:" << filename);
-  if(!file.is_open()){
-    // RCLCPP_DEBUG(this->get_logger(), "Unable to locate or read advisor config file!");
-    return;
-  }
-  //read advisor names and parameters from the config file and create new advisor objects
-  while(getline(file, fileLine)){
-    if(fileLine[0] == '#')  // skip comment lines
-    {
-      continue;
+void Controller::initialize_advisors(
+  const std::vector<semaforr::config::AdvisorConfiguration>& advisors) {
+  for (const auto& advisor : advisors) {
+    double parameters[4] = {
+      advisor.parameters[0],
+      advisor.parameters[1],
+      advisor.parameters[2],
+      advisor.parameters[3]
+    };
+    std::unique_ptr<Tier3Advisor> created = Tier3Advisor::makeAdvisor(
+      getBeliefs(), advisor.name, advisor.description, advisor.weight,
+      parameters, advisor.active);
+    if (!created) {
+      throw std::runtime_error(
+        "unknown advisor type '" + advisor.name + "'");
     }
-    else
-    {
-      std::stringstream ss(fileLine);
-      std::istream_iterator<std::string> begin(ss);
-      std::istream_iterator<std::string> end;
-      std::vector<std::string> vstrings(begin, end);
-      advisor_name = vstrings[0];
-      advisor_description = vstrings[1];
-      if(vstrings[2] == "t")
-      {
-        advisor_active = true;
-      }
-      else
-      {
-        advisor_active = false;
-      }  
-      
-      advisor_weight = atof(vstrings[3].c_str());
-      parameters[0]= atof(vstrings[4].c_str());
-      parameters[1] = atof(vstrings[5].c_str());
-      parameters[2] = atof(vstrings[6].c_str());
-      parameters[3] = atof(vstrings[7].c_str());
-      tier3Advisors.push_back(Tier3Advisor::makeAdvisor(getBeliefs(), advisor_name, advisor_description, advisor_weight, parameters, advisor_active));
-
-    }
-  }
-     
-  // RCLCPP_DEBUG_STREAM(this->get_logger(), "" << tier3Advisors.size() << " advisors registered.");
-  for(unsigned i = 0; i < tier3Advisors.size(); ++i)
-  {
-    // RCLCPP_DEBUG_STREAM(this->get_logger(), "Created advisor " << tier3Advisors[i]->get_name() << " with weight: " << tier3Advisors[i]->get_weight());
-  }
-
-  //CONVEYORS = isAdvisorActive("ConveyLinear");
-  //REGIONS = isAdvisorActive("ExitLinear");
-  //TRAILS = isAdvisorActive("TrailerLinear");
-}
-
-
-
-//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-// Read from the config file and intialize robot parameters
-//
-//
-void Controller::initialize_params(string filename){
-// robot intial position
-// robot laser sensor range, span and increment
-// robot action <-> semaFORR decision
-
-  string fileLine;
-  std::ifstream file(filename.c_str());
-  // RCLCPP_DEBUG_STREAM(this->get_logger(), "Reading params_file:" << filename);
-  //cout << "Inside file in tasks " << endl;
-  if(!file.is_open()){
-    // RCLCPP_DEBUG(this->get_logger(), "Unable to locate or read params config file!");
-  }
-  while(getline(file, fileLine)){
-  //cout << "Inside while in tasks" << endl;
-    if(fileLine[0] == '#')  // skip comment lines
-      continue;
-    else if (fileLine.find("decisionlimit") != std::string::npos) {
-      std::stringstream ss(fileLine);
-      std::istream_iterator<std::string> begin(ss);
-      std::istream_iterator<std::string> end;
-      std::vector<std::string> vstrings(begin, end);
-      taskDecisionLimit = atoi(vstrings[1].c_str());
-      // RCLCPP_DEBUG_STREAM(this->get_logger(), "decisionlimit " << taskDecisionLimit);
-    }
-    else if (fileLine.find("canSeePointEpsilon") != std::string::npos) {
-      std::stringstream ss(fileLine);
-      std::istream_iterator<std::string> begin(ss);
-      std::istream_iterator<std::string> end;
-      std::vector<std::string> vstrings(begin, end);
-      canSeePointEpsilon = atof(vstrings[1].c_str());
-      // RCLCPP_DEBUG_STREAM(this->get_logger(), "canSeePointEpsilon " << canSeePointEpsilon);
-    }
-    else if (fileLine.find("laserScanRadianIncrement") != std::string::npos) {
-      std::stringstream ss(fileLine);
-      std::istream_iterator<std::string> begin(ss);
-      std::istream_iterator<std::string> end;
-      std::vector<std::string> vstrings(begin, end);
-      laserScanRadianIncrement = atof(vstrings[1].c_str());
-      // RCLCPP_DEBUG_STREAM(this->get_logger(), "laserScanRadianIncrement " << laserScanRadianIncrement);
-    }
-    else if (fileLine.find("robotFootPrint") != std::string::npos) {
-      std::stringstream ss(fileLine);
-      std::istream_iterator<std::string> begin(ss);
-      std::istream_iterator<std::string> end;
-      std::vector<std::string> vstrings(begin, end);
-      robotFootPrint = atof(vstrings[1].c_str());
-      // RCLCPP_DEBUG_STREAM(this->get_logger(), "robotFootPrint " << robotFootPrint);
-    }
-    else if (fileLine.find("bufferForRobot") != std::string::npos) {
-      std::stringstream ss(fileLine);
-      std::istream_iterator<std::string> begin(ss);
-      std::istream_iterator<std::string> end;
-      std::vector<std::string> vstrings(begin, end);
-      robotFootPrintBuffer = atof(vstrings[1].c_str());
-      // RCLCPP_DEBUG_STREAM(this->get_logger(), "bufferForRobot " << robotFootPrintBuffer);
-    }
-    else if (fileLine.find("maxLaserRange") != std::string::npos) {
-      std::stringstream ss(fileLine);
-      std::istream_iterator<std::string> begin(ss);
-      std::istream_iterator<std::string> end;
-      std::vector<std::string> vstrings(begin, end);
-      maxLaserRange = atof(vstrings[1].c_str());
-      // RCLCPP_DEBUG_STREAM(this->get_logger(), "maxLaserRange " << maxLaserRange);
-    }
-    else if (fileLine.find("maxForwardActionBuffer") != std::string::npos) {
-      std::stringstream ss(fileLine);
-      std::istream_iterator<std::string> begin(ss);
-      std::istream_iterator<std::string> end;
-      std::vector<std::string> vstrings(begin, end);
-      maxForwardActionBuffer = atof(vstrings[1].c_str());
-      // RCLCPP_DEBUG_STREAM(this->get_logger(), "maxForwardActionBuffer " << maxForwardActionBuffer);
-    }
-    else if (fileLine.find("highwayDistanceThreshold") != std::string::npos) {
-      std::stringstream ss(fileLine);
-      std::istream_iterator<std::string> begin(ss);
-      std::istream_iterator<std::string> end;
-      std::vector<std::string> vstrings(begin, end);
-      highwayDistanceThreshold = atof(vstrings[1].c_str());
-      // RCLCPP_DEBUG_STREAM(this->get_logger(), "highwayDistanceThreshold " << highwayDistanceThreshold);
-    }
-    else if (fileLine.find("highwayTimeThreshold") != std::string::npos) {
-      std::stringstream ss(fileLine);
-      std::istream_iterator<std::string> begin(ss);
-      std::istream_iterator<std::string> end;
-      std::vector<std::string> vstrings(begin, end);
-      highwayTimeThreshold = atof(vstrings[1].c_str());
-      // RCLCPP_DEBUG_STREAM(this->get_logger(), "highwayTimeThreshold " << highwayTimeThreshold);
-    }
-    else if (fileLine.find("highwayDecisionThreshold") != std::string::npos) {
-      std::stringstream ss(fileLine);
-      std::istream_iterator<std::string> begin(ss);
-      std::istream_iterator<std::string> end;
-      std::vector<std::string> vstrings(begin, end);
-      highwayDecisionThreshold = atof(vstrings[1].c_str());
-      // RCLCPP_DEBUG_STREAM(this->get_logger(), "highwayDecisionThreshold " << highwayDecisionThreshold);
-    }
-    else if (fileLine.find("maxForwardActionSweepAngle") != std::string::npos) {
-      std::stringstream ss(fileLine);
-      std::istream_iterator<std::string> begin(ss);
-      std::istream_iterator<std::string> end;
-      std::vector<std::string> vstrings(begin, end);
-      maxForwardActionSweepAngle = atof(vstrings[1].c_str());
-      // RCLCPP_DEBUG_STREAM(this->get_logger(), "maxForwardActionSweepAngle " << maxForwardActionSweepAngle);
-    }
-    else if (fileLine.find("planLimit") != std::string::npos) {
-      std::stringstream ss(fileLine);
-      std::istream_iterator<std::string> begin(ss);
-      std::istream_iterator<std::string> end;
-      std::vector<std::string> vstrings(begin, end);
-      planLimit = atoi(vstrings[1].c_str());
-      // RCLCPP_DEBUG_STREAM(this->get_logger(), "planLimit " << planLimit);
-    }
-    else if (fileLine.find("trailsOn") != std::string::npos) {
-      std::stringstream ss(fileLine);
-      std::istream_iterator<std::string> begin(ss);
-      std::istream_iterator<std::string> end;
-      std::vector<std::string> vstrings(begin, end);
-      trailsOn = atof(vstrings[1].c_str());
-      // RCLCPP_DEBUG_STREAM(this->get_logger(), "trailsOn " << trailsOn);
-    }
-    else if (fileLine.find("conveyorsOn") != std::string::npos) {
-      std::stringstream ss(fileLine);
-      std::istream_iterator<std::string> begin(ss);
-      std::istream_iterator<std::string> end;
-      std::vector<std::string> vstrings(begin, end);
-      conveyorsOn = atof(vstrings[1].c_str());
-      // RCLCPP_DEBUG_STREAM(this->get_logger(), "conveyorsOn " << conveyorsOn);
-    }
-    else if (fileLine.find("regionsOn") != std::string::npos) {
-      std::stringstream ss(fileLine);
-      std::istream_iterator<std::string> begin(ss);
-      std::istream_iterator<std::string> end;
-      std::vector<std::string> vstrings(begin, end);
-      regionsOn = atof(vstrings[1].c_str());
-      // RCLCPP_DEBUG_STREAM(this->get_logger(), "regionsOn " << regionsOn);
-    }
-    else if (fileLine.find("doorsOn") != std::string::npos) {
-      std::stringstream ss(fileLine);
-      std::istream_iterator<std::string> begin(ss);
-      std::istream_iterator<std::string> end;
-      std::vector<std::string> vstrings(begin, end);
-      doorsOn = atof(vstrings[1].c_str());
-      // RCLCPP_DEBUG_STREAM(this->get_logger(), "doorsOn " << doorsOn);
-    }
-    else if (fileLine.find("hallwaysOn") != std::string::npos) {
-      std::stringstream ss(fileLine);
-      std::istream_iterator<std::string> begin(ss);
-      std::istream_iterator<std::string> end;
-      std::vector<std::string> vstrings(begin, end);
-      hallwaysOn = atof(vstrings[1].c_str());
-      // RCLCPP_DEBUG_STREAM(this->get_logger(), "hallwaysOn " << hallwaysOn);
-    }
-    else if (fileLine.find("barrsOn") != std::string::npos) {
-      std::stringstream ss(fileLine);
-      std::istream_iterator<std::string> begin(ss);
-      std::istream_iterator<std::string> end;
-      std::vector<std::string> vstrings(begin, end);
-      barrsOn = atof(vstrings[1].c_str());
-      // RCLCPP_DEBUG_STREAM(this->get_logger(), "barrsOn " << barrsOn);
-    }
-    else if (fileLine.find("highwaysOn") != std::string::npos) {
-      std::stringstream ss(fileLine);
-      std::istream_iterator<std::string> begin(ss);
-      std::istream_iterator<std::string> end;
-      std::vector<std::string> vstrings(begin, end);
-      highwaysOn = atof(vstrings[1].c_str());
-      // RCLCPP_DEBUG_STREAM(this->get_logger(), "highwaysOn " << highwaysOn);
-    }
-    else if (fileLine.find("frontiersOn") != std::string::npos) {
-      std::stringstream ss(fileLine);
-      std::istream_iterator<std::string> begin(ss);
-      std::istream_iterator<std::string> end;
-      std::vector<std::string> vstrings(begin, end);
-      frontiersOn = atof(vstrings[1].c_str());
-      // RCLCPP_DEBUG_STREAM(this->get_logger(), "frontiersOn " << frontiersOn);
-    }
-    else if (fileLine.find("outofhereOn") != std::string::npos) {
-      std::stringstream ss(fileLine);
-      std::istream_iterator<std::string> begin(ss);
-      std::istream_iterator<std::string> end;
-      std::vector<std::string> vstrings(begin, end);
-      outofhereOn = atof(vstrings[1].c_str());
-      // RCLCPP_DEBUG_STREAM(this->get_logger(), "outofhereOn " << outofhereOn);
-    }
-    else if (fileLine.find("doorwayOn") != std::string::npos) {
-      std::stringstream ss(fileLine);
-      std::istream_iterator<std::string> begin(ss);
-      std::istream_iterator<std::string> end;
-      std::vector<std::string> vstrings(begin, end);
-      doorwayOn = atof(vstrings[1].c_str());
-      // RCLCPP_DEBUG_STREAM(this->get_logger(), "doorwayOn " << doorwayOn);
-    }
-    else if (fileLine.find("findawayOn") != std::string::npos) {
-      std::stringstream ss(fileLine);
-      std::istream_iterator<std::string> begin(ss);
-      std::istream_iterator<std::string> end;
-      std::vector<std::string> vstrings(begin, end);
-      findawayOn = atof(vstrings[1].c_str());
-      // RCLCPP_DEBUG_STREAM(this->get_logger(), "findawayOn " << findawayOn);
-    }
-    else if (fileLine.find("behindOn") != std::string::npos) {
-      std::stringstream ss(fileLine);
-      std::istream_iterator<std::string> begin(ss);
-      std::istream_iterator<std::string> end;
-      std::vector<std::string> vstrings(begin, end);
-      behindOn = atof(vstrings[1].c_str());
-      // RCLCPP_DEBUG_STREAM(this->get_logger(), "behindOn " << behindOn);
-    }
-    else if (fileLine.find("dontgobackOn") != std::string::npos) {
-      std::stringstream ss(fileLine);
-      std::istream_iterator<std::string> begin(ss);
-      std::istream_iterator<std::string> end;
-      std::vector<std::string> vstrings(begin, end);
-      dontgobackOn = atof(vstrings[1].c_str());
-      // RCLCPP_DEBUG_STREAM(this->get_logger(), "dontgobackOn " << dontgobackOn);
-    }
-    else if (fileLine.find("aStarOn") != std::string::npos) {
-      std::stringstream ss(fileLine);
-      std::istream_iterator<std::string> begin(ss);
-      std::istream_iterator<std::string> end;
-      std::vector<std::string> vstrings(begin, end);
-      aStarOn = atof(vstrings[1].c_str());
-      // RCLCPP_DEBUG_STREAM(this->get_logger(), "aStarOn " << aStarOn);
-    }
-    else if (fileLine.find("move") != std::string::npos) {
-      std::stringstream ss(fileLine);
-      std::istream_iterator<std::string> begin(ss);
-      std::istream_iterator<std::string> end;
-      std::vector<std::string> vstrings(begin, end);
-      moveArrMax = vstrings.size()-1;
-      int arr_length = 0;
-      for (int i=1; i<vstrings.size(); i++){
-        if(arr_length < moveArrMax) {
-          arrMove[arr_length++] = (atof(vstrings[i].c_str()));
-        }
-      }
-      for (int i=0; i<moveArrMax; i++) {
-        // RCLCPP_DEBUG_STREAM(this->get_logger(), "arrMove " << arrMove[i]);
-      }
-    }
-    else if (fileLine.find("rotate") != std::string::npos) {
-      std::stringstream ss(fileLine);
-      std::istream_iterator<std::string> begin(ss);
-      std::istream_iterator<std::string> end;
-      std::vector<std::string> vstrings(begin, end);
-      rotateArrMax = vstrings.size()-1;
-      int arr_length = 0;
-      for (int i=1; i<vstrings.size(); i++){
-        if(arr_length < rotateArrMax) {
-          arrRotate[arr_length++] = (atof(vstrings[i].c_str()));
-        }
-      }
-      for (int i=0; i<rotateArrMax; i++) {
-        // RCLCPP_DEBUG_STREAM(this->get_logger(), "arrRotate " << arrRotate[i]);
-      }
-    }
-    else if (fileLine.find("distance") != std::string::npos) {
-      std::stringstream ss(fileLine);
-      std::istream_iterator<std::string> begin(ss);
-      std::istream_iterator<std::string> end;
-      std::vector<std::string> vstrings(begin, end);
-      distance = atof(vstrings[1].c_str());
-      // RCLCPP_DEBUG_STREAM(this->get_logger(), "distance " << distance);
-    }
-    else if (fileLine.find("smooth") != std::string::npos) {
-      std::stringstream ss(fileLine);
-      std::istream_iterator<std::string> begin(ss);
-      std::istream_iterator<std::string> end;
-      std::vector<std::string> vstrings(begin, end);
-      smooth = atof(vstrings[1].c_str());
-      // RCLCPP_DEBUG_STREAM(this->get_logger(), "smooth " << smooth);
-    }
-    else if (fileLine.find("novel") != std::string::npos) {
-      std::stringstream ss(fileLine);
-      std::istream_iterator<std::string> begin(ss);
-      std::istream_iterator<std::string> end;
-      std::vector<std::string> vstrings(begin, end);
-      novel = atof(vstrings[1].c_str());
-      // RCLCPP_DEBUG_STREAM(this->get_logger(), "novel " << novel);
-    }
-    else if (fileLine.find("density") != std::string::npos) {
-      std::stringstream ss(fileLine);
-      std::istream_iterator<std::string> begin(ss);
-      std::istream_iterator<std::string> end;
-      std::vector<std::string> vstrings(begin, end);
-      density = atof(vstrings[1].c_str());
-      // RCLCPP_DEBUG_STREAM(this->get_logger(), "density " << density);
-    }
-    else if (fileLine.find("risk") != std::string::npos) {
-      std::stringstream ss(fileLine);
-      std::istream_iterator<std::string> begin(ss);
-      std::istream_iterator<std::string> end;
-      std::vector<std::string> vstrings(begin, end);
-      risk = atof(vstrings[1].c_str());
-      // RCLCPP_DEBUG_STREAM(this->get_logger(), "risk " << risk);
-    }
-    else if (fileLine.find("flow") != std::string::npos) {
-      std::stringstream ss(fileLine);
-      std::istream_iterator<std::string> begin(ss);
-      std::istream_iterator<std::string> end;
-      std::vector<std::string> vstrings(begin, end);
-      flow = atof(vstrings[1].c_str());
-      // RCLCPP_DEBUG_STREAM(this->get_logger(), "flow " << flow);
-    }
-    else if (fileLine.find("combined") != std::string::npos) {
-      std::stringstream ss(fileLine);
-      std::istream_iterator<std::string> begin(ss);
-      std::istream_iterator<std::string> end;
-      std::vector<std::string> vstrings(begin, end);
-      combined = atof(vstrings[1].c_str());
-      // RCLCPP_DEBUG_STREAM(this->get_logger(), "combined " << combined);
-    }
-    else if (fileLine.find("CUSUM") != std::string::npos) {
-      std::stringstream ss(fileLine);
-      std::istream_iterator<std::string> begin(ss);
-      std::istream_iterator<std::string> end;
-      std::vector<std::string> vstrings(begin, end);
-      CUSUM = atof(vstrings[1].c_str());
-      // RCLCPP_DEBUG_STREAM(this->get_logger(), "CUSUM " << CUSUM);
-    }
-    else if (fileLine.find("discount") != std::string::npos) {
-      std::stringstream ss(fileLine);
-      std::istream_iterator<std::string> begin(ss);
-      std::istream_iterator<std::string> end;
-      std::vector<std::string> vstrings(begin, end);
-      discount = atof(vstrings[1].c_str());
-      // RCLCPP_DEBUG_STREAM(this->get_logger(), "discount " << discount);
-    }
-    else if (fileLine.find("explore") != std::string::npos) {
-      std::stringstream ss(fileLine);
-      std::istream_iterator<std::string> begin(ss);
-      std::istream_iterator<std::string> end;
-      std::vector<std::string> vstrings(begin, end);
-      explore = atof(vstrings[1].c_str());
-      // RCLCPP_DEBUG_STREAM(this->get_logger(), "explore " << explore);
-    }
-    else if (fileLine.find("spatial") != std::string::npos) {
-      std::stringstream ss(fileLine);
-      std::istream_iterator<std::string> begin(ss);
-      std::istream_iterator<std::string> end;
-      std::vector<std::string> vstrings(begin, end);
-      spatial = atof(vstrings[1].c_str());
-      // RCLCPP_DEBUG_STREAM(this->get_logger(), "spatial " << spatial);
-    }
-    else if (fileLine.find("hallwayer") != std::string::npos) {
-      std::stringstream ss(fileLine);
-      std::istream_iterator<std::string> begin(ss);
-      std::istream_iterator<std::string> end;
-      std::vector<std::string> vstrings(begin, end);
-      hallwayer = atof(vstrings[1].c_str());
-      // RCLCPP_DEBUG_STREAM(this->get_logger(), "hallwayer " << hallwayer);
-    }
-    else if (fileLine.find("trailer") != std::string::npos) {
-      std::stringstream ss(fileLine);
-      std::istream_iterator<std::string> begin(ss);
-      std::istream_iterator<std::string> end;
-      std::vector<std::string> vstrings(begin, end);
-      trailer = atof(vstrings[1].c_str());
-      // RCLCPP_DEBUG_STREAM(this->get_logger(), "trailer " << trailer);
-    }
-    else if (fileLine.find("barrier") != std::string::npos) {
-      std::stringstream ss(fileLine);
-      std::istream_iterator<std::string> begin(ss);
-      std::istream_iterator<std::string> end;
-      std::vector<std::string> vstrings(begin, end);
-      barrier = atof(vstrings[1].c_str());
-      // RCLCPP_DEBUG_STREAM(this->get_logger(), "barrier " << barrier);
-    }
-    else if (fileLine.find("conveys") != std::string::npos) {
-      std::stringstream ss(fileLine);
-      std::istream_iterator<std::string> begin(ss);
-      std::istream_iterator<std::string> end;
-      std::vector<std::string> vstrings(begin, end);
-      conveys = atof(vstrings[1].c_str());
-      // RCLCPP_DEBUG_STREAM(this->get_logger(), "conveys " << conveys);
-    }
-    else if (fileLine.find("safe") != std::string::npos) {
-      std::stringstream ss(fileLine);
-      std::istream_iterator<std::string> begin(ss);
-      std::istream_iterator<std::string> end;
-      std::vector<std::string> vstrings(begin, end);
-      safe = atof(vstrings[1].c_str());
-      // RCLCPP_DEBUG_STREAM(this->get_logger(), "safe " << safe);
-    }
-    else if (fileLine.find("skeleton") != std::string::npos) {
-      std::stringstream ss(fileLine);
-      std::istream_iterator<std::string> begin(ss);
-      std::istream_iterator<std::string> end;
-      std::vector<std::string> vstrings(begin, end);
-      skeleton = atof(vstrings[1].c_str());
-      // RCLCPP_DEBUG_STREAM(this->get_logger(), "skeleton " << skeleton);
-    }
-    else if (fileLine.find("hallwayskel") != std::string::npos) {
-      std::stringstream ss(fileLine);
-      std::istream_iterator<std::string> begin(ss);
-      std::istream_iterator<std::string> end;
-      std::vector<std::string> vstrings(begin, end);
-      hallwayskel = atof(vstrings[1].c_str());
-      // RCLCPP_DEBUG_STREAM(this->get_logger(), "hallwayskel " << hallwayskel);
-    }
+    tier3Advisors.push_back(std::move(created));
   }
 }
 
+void Controller::initialize_planner(
+  const semaforr::config::MapDimensions& dimensions) {
+  const int length = dimensions.length;
+  const int height = dimensions.height;
+  const double granularity = dimensions.granularity;
+  Node node;
 
-//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-// Read from the map file and intialize planner
-//
-//
-void Controller::initialize_planner(string map_config, string map_dimensions, int &l, int &h){
-  string fileLine;
-  double p;
-  std::ifstream file(map_dimensions.c_str());
-  // RCLCPP_DEBUG_STREAM(this->get_logger(), "Reading map dimension file:" << map_dimensions);
-  if(!file.is_open()){
-    // RCLCPP_DEBUG(this->get_logger(), "Unable to locate or read map dimensions file!");
-  }
-  while(getline(file, fileLine)){
-    //cout << "Inside while in tasks" << endl;
-    if(fileLine[0] == '#')  // skip comment lines
-      continue;
-    else{
-      std::stringstream ss(fileLine);
-      std::istream_iterator<std::string> begin(ss);
-      std::istream_iterator<std::string> end;
-      std::vector<std::string> vstrings(begin, end);
-      // RCLCPP_DEBUG(this->get_logger(), "Unable to locate or read map dimensions file!");
-      l = atoi(vstrings[0].c_str());
-      h = atoi(vstrings[1].c_str());
-      p = atof(vstrings[2].c_str());
-      // RCLCPP_DEBUG_STREAM(this->get_logger(), "Map dim:" << l << " " << h << " " << p << endl);
-    }
-  }	
-  // Map *map = new Map(l*100, h*100);
-  // map->readMapFromXML(map_config);
-  // cout << "Finished reading map"<< endl;
-  // Graph *origNavGraph = new Graph(map,(int)(p*100.0));
-  //Graph *navGraph = new Graph(map,(int)(p*100.0));
-  //cout << "initialized nav graph" << endl;
-  //navGraph->printGraph();
-  //navGraph->outputGraph();
-  Node n;
-  // if(distance == 1){
-  //   Graph *navGraphDistance = new Graph(map,(int)(p*100.0));
-  //   cout << "initialized nav graph" << endl;
-  //   planner = new PathPlanner(navGraphDistance, *map, n,n, "distance");
-  //   if(skeleton != 1 and hallwayskel != 1 and combined != 1){
-  //     tier2Planners.push_back(planner);
-  //   }
-  //   planner->setOriginalNavGraph(origNavGraph);
-  //   // RCLCPP_DEBUG_STREAM(this->get_logger(), "Created planner: distance");
-  // }
-  // if(smooth == 1){
-  //   Graph *navGraphSmooth = new Graph(map,(int)(p*100.0));
-  //   cout << "initialized nav graph" << endl;
-  //   planner = new PathPlanner(navGraphSmooth, *map, n,n, "smooth");
-  //   tier2Planners.push_back(planner);
-  //   planner->setOriginalNavGraph(origNavGraph);
-  //   // RCLCPP_DEBUG_STREAM(this->get_logger(), "Created planner: smooth");
-  // }
-  // if(novel == 1){
-  //   Graph *navGraphNovel = new Graph(map,(int)(p*100.0));
-  //   cout << "initialized nav graph" << endl;
-  //   planner = new PathPlanner(navGraphNovel, *map, n,n, "novel");
-  //   tier2Planners.push_back(planner);
-  //   planner->setOriginalNavGraph(origNavGraph);
-  //   // RCLCPP_DEBUG_STREAM(this->get_logger(), "Created planner: novel");
-  // }
-  // if(density == 1){
-  //   Graph *navGraphDensity = new Graph(map,(int)(p*100.0));
-  //   cout << "initialized nav graph" << endl;
-  //   planner = new PathPlanner(navGraphDensity, *map, n,n, "density");
-  //   tier2Planners.push_back(planner);
-  //   planner->setOriginalNavGraph(origNavGraph);
-  //   // RCLCPP_DEBUG_STREAM(this->get_logger(), "Created planner: density");
-  // }
-  // if(risk == 1){
-  //   Graph *navGraphRisk = new Graph(map,(int)(p*100.0));
-  //   cout << "initialized nav graph" << endl;
-  //   planner = new PathPlanner(navGraphRisk, *map, n,n, "risk");
-  //   tier2Planners.push_back(planner);
-  //   planner->setOriginalNavGraph(origNavGraph);
-  //   // RCLCPP_DEBUG_STREAM(this->get_logger(), "Created planner: risk");
-  // }
-  // if(flow == 1){
-  //   Graph *navGraphFlow = new Graph(map,(int)(p*100.0));
-  //   cout << "initialized nav graph" << endl;
-  //   planner = new PathPlanner(navGraphFlow, *map, n,n, "flow");
-  //   tier2Planners.push_back(planner);
-  //   planner->setOriginalNavGraph(origNavGraph);
-  //   // RCLCPP_DEBUG_STREAM(this->get_logger(), "Created planner: flow");
-  // }
-  // if(combined == 1){
-  //   Graph *navGraphCombined = new Graph(map,(int)(p*100.0));
-  //   cout << "initialized nav graph" << endl;
-  //   planner = new PathPlanner(navGraphCombined, *map, n,n, "combined");
-  //   tier2Planners.push_back(planner);
-  //   planner->setOriginalNavGraph(origNavGraph);
-  //   // RCLCPP_DEBUG_STREAM(this->get_logger(), "Created planner: combined");
-  // }
-  // if(CUSUM == 1){
-  //   Graph *navGraphCUSUM = new Graph(map,(int)(p*100.0));
-  //   cout << "initialized nav graph" << endl;
-  //   planner = new PathPlanner(navGraphCUSUM, *map, n,n, "CUSUM");
-  //   tier2Planners.push_back(planner);
-  //   planner->setOriginalNavGraph(origNavGraph);
-  //   // RCLCPP_DEBUG_STREAM(this->get_logger(), "Created planner: CUSUM");
-  // }
-  // if(discount == 1){
-  //   Graph *navGraphDiscount = new Graph(map,(int)(p*100.0));
-  //   cout << "initialized nav graph" << endl;
-  //   planner = new PathPlanner(navGraphDiscount, *map, n,n, "discount");
-  //   tier2Planners.push_back(planner);
-  //   planner->setOriginalNavGraph(origNavGraph);
-  //   // RCLCPP_DEBUG_STREAM(this->get_logger(), "Created planner: discount");
-  // }
-  // if(explore == 1){
-  //   Graph *navGraphExplore = new Graph(map,(int)(p*100.0));
-  //   cout << "initialized nav graph" << endl;
-  //   planner = new PathPlanner(navGraphExplore, *map, n,n, "explore");
-  //   tier2Planners.push_back(planner);
-  //   planner->setOriginalNavGraph(origNavGraph);
-  //   // RCLCPP_DEBUG_STREAM(this->get_logger(), "Created planner: explore");
-  // }
-  // if(spatial == 1){
-  //   Graph *navGraphSpatial = new Graph(map,(int)(p*100.0));
-  //   cout << "initialized nav graph" << endl;
-  //   planner = new PathPlanner(navGraphSpatial, *map, n,n, "spatial");
-  //   tier2Planners.push_back(planner);
-  //   planner->setOriginalNavGraph(origNavGraph);
-  //   // RCLCPP_DEBUG_STREAM(this->get_logger(), "Created planner: spatial");
-  // }
-  // if(hallwayer == 1){
-  //   Graph *navGraphHallwayer = new Graph(map,(int)(p*100.0));
-  //   cout << "initialized nav graph" << endl;
-  //   planner = new PathPlanner(navGraphHallwayer, *map, n,n, "hallwayer");
-  //   tier2Planners.push_back(planner);
-  //   planner->setOriginalNavGraph(origNavGraph);
-  //   // RCLCPP_DEBUG_STREAM(this->get_logger(), "Created planner: hallwayer");
-  // }
-  // if(trailer == 1){
-  //   Graph *navGraphTrailer = new Graph(map,(int)(p*100.0));
-  //   cout << "initialized nav graph" << endl;
-  //   planner = new PathPlanner(navGraphTrailer, *map, n,n, "trailer");
-  //   tier2Planners.push_back(planner);
-  //   planner->setOriginalNavGraph(origNavGraph);
-  //   // RCLCPP_DEBUG_STREAM(this->get_logger(), "Created planner: trailer");
-  // }
-  // if(barrier == 1){
-  //   Graph *navGraphBarrier = new Graph(map,(int)(p*100.0));
-  //   cout << "initialized nav graph" << endl;
-  //   planner = new PathPlanner(navGraphBarrier, *map, n,n, "barrier");
-  //   tier2Planners.push_back(planner);
-  //   planner->setOriginalNavGraph(origNavGraph);
-  //   // RCLCPP_DEBUG_STREAM(this->get_logger(), "Created planner: barrier");
-  // }
-  // if(conveys == 1){
-  //   Graph *navGraphConveys = new Graph(map,(int)(p*100.0));
-  //   cout << "initialized nav graph" << endl;
-  //   planner = new PathPlanner(navGraphConveys, *map, n,n, "conveys");
-  //   tier2Planners.push_back(planner);
-  //   planner->setOriginalNavGraph(origNavGraph);
-  //   // RCLCPP_DEBUG_STREAM(this->get_logger(), "Created planner: conveys");
-  // }
-  // if(safe == 1){
-  //   Graph *navGraphSafe = new Graph(map,(int)(p*100.0));
-  //   cout << "initialized nav graph" << endl;
-  //   planner = new PathPlanner(navGraphSafe, *map, n,n, "safe");
-  //   tier2Planners.push_back(planner);
-  //   planner->setOriginalNavGraph(origNavGraph);
-  //   // RCLCPP_DEBUG_STREAM(this->get_logger(), "Created planner: safe");
-  // }
-  if(skeleton == 1){
-    std::unique_ptr<Graph> navGraphSkeleton =
-      std::make_unique<Graph>((int)(p*100.0), l*100, h*100);
+  if (skeleton) {
+    std::unique_ptr<Graph> navigation_graph = std::make_unique<Graph>(
+      static_cast<int>(granularity * 100.0), length * 100, height * 100);
     cout << "initialized nav skeleton graph" << endl;
-    std::unique_ptr<PathPlanner> sk_planner =
+    std::unique_ptr<PathPlanner> skeleton_planner =
       std::make_unique<PathPlanner>(
-        std::move(navGraphSkeleton), n, n, "skeleton");
+        std::move(navigation_graph), node, node, "skeleton");
     cout << "sk planner initialzied" << endl;
     if (planner == nullptr) {
-      planner = sk_planner.get();
+      planner = skeleton_planner.get();
     }
-    tier2Planners.push_back(std::move(sk_planner));
-    // Graph *origNavGraphSkeleton = new Graph((int)(p*100.0), l*100, h*100);
-    // * sk_planner->setOriginalNavGraph(origNavGraphSkeleton);
-    // sk_planner->setOriginalNavGraph(origNavGraph);
-    // RCLCPP_DEBUG_STREAM(this->get_logger(), "Created planner: skeleton");
+    tier2Planners.push_back(std::move(skeleton_planner));
   }
-  // Fix the p issue
-  if(hallwayskel == 1){
-    std::unique_ptr<Graph> navGraphHallwaySkeleton =
-      std::make_unique<Graph>((int)(p*100.0), l*100, h*100);
+
+  if (hallwayskel) {
+    std::unique_ptr<Graph> navigation_graph = std::make_unique<Graph>(
+      static_cast<int>(granularity * 100.0), length * 100, height * 100);
     cout << "initialized nav hallway skeleton graph" << endl;
-    std::unique_ptr<PathPlanner> hwsk_planner =
+    std::unique_ptr<PathPlanner> hallway_skeleton_planner =
       std::make_unique<PathPlanner>(
-        std::move(navGraphHallwaySkeleton), n, n, "hallwayskel");
-    std::unique_ptr<Graph> origNavGraphHallwaySkeleton =
-      std::make_unique<Graph>((int)(p*100.0), l*100, h*100);
-    hwsk_planner->setOriginalNavGraph(
-      std::move(origNavGraphHallwaySkeleton));
+        std::move(navigation_graph), node, node, "hallwayskel");
+    std::unique_ptr<Graph> original_navigation_graph =
+      std::make_unique<Graph>(
+        static_cast<int>(granularity * 100.0), length * 100, height * 100);
+    hallway_skeleton_planner->setOriginalNavGraph(
+      std::move(original_navigation_graph));
     if (planner == nullptr) {
-      planner = hwsk_planner.get();
+      planner = hallway_skeleton_planner.get();
     }
-    tier2Planners.push_back(std::move(hwsk_planner));
-    // RCLCPP_DEBUG_STREAM(this->get_logger(), "Created planner: hallwayskel");
+    tier2Planners.push_back(std::move(hallway_skeleton_planner));
   }
   cout << "initialized planners" << endl;
 }
 
-
-
-//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-// Read from the config file and intialize tasks
-//
-//
-void Controller::initialize_tasks(string filename, int length, int height){
-  string fileLine;
-  std::ifstream file(filename.c_str());
-  // RCLCPP_DEBUG_STREAM(this->get_logger(), "Reading read_task_file:" << filename);
-  //cout << "Inside file in tasks " << endl;
-  if(!file.is_open()){
-    // RCLCPP_DEBUG(this->get_logger(), "Unable to locate or read task config file!");
-  }
-  while(getline(file, fileLine)){
-    //cout << "Inside while in tasks" << endl;
-    if(fileLine[0] == '#')  // skip comment lines
-      continue;
-    else{
-      std::stringstream ss(fileLine);
-      std::istream_iterator<std::string> begin(ss);
-      std::istream_iterator<std::string> end;
-      std::vector<std::string> vstrings(begin, end);
-      double x = atof(vstrings[0].c_str());
-      double y = atof(vstrings[1].c_str());
-      beliefs->getAgentState()->addTask(x,y,length,height);
-      // RCLCPP_DEBUG_STREAM(this->get_logger(), "Task: " << x << " " << y << endl);
-    }
+void Controller::initialize_tasks(
+  const std::vector<semaforr::config::TaskConfiguration>& tasks,
+  int length,
+  int height) {
+  for (const auto& task : tasks) {
+    beliefs->getAgentState()->addTask(task.x, task.y, length, height);
   }
 }
-
-
-
-//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-// Read from the config file and intialize spatial model
-//
-//
-void Controller::initialize_spatial_model(string filename){
-  string fileLine;
-  std::ifstream file(filename.c_str());
-  // RCLCPP_DEBUG_STREAM(this->get_logger(), "Reading read_spatial_model_file:" << filename);
-  //cout << "Inside file in spatial model " << endl;
-  if(!file.is_open()){
-    // RCLCPP_DEBUG(this->get_logger(), "Unable to locate or read spatial model config file!");
-  }
-  while(getline(file, fileLine)){
-    //cout << "Inside while in spatial model" << endl;
-    if(fileLine[0] == '#')  // skip comment lines
-      continue;
-    else if (fileLine.find("regions") != std::string::npos and regionsOn) {
-      const char delim = ';';
-      vector<string> out;
-      stringstream ss(fileLine);
-      string s;
-      while(getline(ss, s, delim)){
-        out.push_back(s);
-        cout << s << endl;
-      }
-      vector<FORRRegion> initial_regions;
-      vector < vector<CartesianPoint> > traces;
-      for(int i = 0; i < out.size(); i++){
-        stringstream sst(out[i]);
-        istream_iterator<string> begin(sst);
-        istream_iterator<string> end;
-        vector<string> vstrings(begin, end);
-        FORRRegion new_region;
-        if(vstrings[0] == "regions"){
-          new_region = FORRRegion(CartesianPoint(atof(vstrings[1].c_str()),atof(vstrings[2].c_str())),atof(vstrings[3].c_str()));
-          for (int j = 4; j < vstrings.size(); j += 9){
-            vector<CartesianPoint> path;
-            path.push_back(CartesianPoint(atof(vstrings[j].c_str()),atof(vstrings[j+1].c_str())));
-            path.push_back(CartesianPoint(atof(vstrings[j+3].c_str()),atof(vstrings[j+4].c_str())));
-            path.push_back(CartesianPoint(atof(vstrings[j+5].c_str()),atof(vstrings[j+6].c_str())));
-            FORRExit new_exit = FORRExit(CartesianPoint(atof(vstrings[j].c_str()),atof(vstrings[j+1].c_str())), CartesianPoint(atof(vstrings[j+3].c_str()),atof(vstrings[j+4].c_str())), CartesianPoint(atof(vstrings[j+5].c_str()),atof(vstrings[j+6].c_str())), atoi(vstrings[j+2].c_str()), atof(vstrings[j+7].c_str()), atoi(vstrings[j+8].c_str()), path);
-            new_region.addExit(new_exit);
-          }
-        }
-        else{
-          new_region = FORRRegion(CartesianPoint(atof(vstrings[0].c_str()),atof(vstrings[1].c_str())),atof(vstrings[2].c_str()));
-          for (int j = 3; j < vstrings.size(); j += 9){
-            vector<CartesianPoint> path;
-            path.push_back(CartesianPoint(atof(vstrings[j].c_str()),atof(vstrings[j+1].c_str())));
-            path.push_back(CartesianPoint(atof(vstrings[j+3].c_str()),atof(vstrings[j+4].c_str())));
-            path.push_back(CartesianPoint(atof(vstrings[j+5].c_str()),atof(vstrings[j+6].c_str())));
-            FORRExit new_exit = FORRExit(CartesianPoint(atof(vstrings[j].c_str()),atof(vstrings[j+1].c_str())), CartesianPoint(atof(vstrings[j+3].c_str()),atof(vstrings[j+4].c_str())), CartesianPoint(atof(vstrings[j+5].c_str()),atof(vstrings[j+6].c_str())), atoi(vstrings[j+2].c_str()), atof(vstrings[j+7].c_str()), atoi(vstrings[j+8].c_str()), path);
-            new_region.addExit(new_exit);
-          }
-        }
-        initial_regions.push_back(new_region);
-      }
-      // for(int i = 0; i < out.size(); i++){
-      //   stringstream sst(out[i]);
-      //   istream_iterator<string> begin(sst);
-      //   istream_iterator<string> end;
-      //   vector<string> vstrings(begin, end);
-      //   if(vstrings[0] == "regions"){
-      //     for (int j = 4; j < vstrings.size(); j += 9){
-      //       vector<CartesianPoint> exit_trace;
-      //       exit_trace.push_back(CartesianPoint(atof(vstrings[1].c_str()),atof(vstrings[2].c_str())));
-      //       exit_trace.push_back(CartesianPoint(atof(vstrings[j].c_str()),atof(vstrings[j+1].c_str())));
-      //       exit_trace.push_back(CartesianPoint(atof(vstrings[j+3].c_str()),atof(vstrings[j+4].c_str())));
-      //       exit_trace.push_back(CartesianPoint(atof(vstrings[j+5].c_str()),atof(vstrings[j+6].c_str())));
-      //       exit_trace.push_back(initial_regions[atoi(vstrings[j+2].c_str())].getCenter());
-      //       traces.push_back(exit_trace);
-      //     }
-      //   }
-      //   else{
-      //     for (int j = 3; j < vstrings.size(); j += 9){
-      //       vector<CartesianPoint> exit_trace;
-      //       exit_trace.push_back(CartesianPoint(atof(vstrings[0].c_str()),atof(vstrings[1].c_str())));
-      //       exit_trace.push_back(CartesianPoint(atof(vstrings[j].c_str()),atof(vstrings[j+1].c_str())));
-      //       exit_trace.push_back(CartesianPoint(atof(vstrings[j+3].c_str()),atof(vstrings[j+4].c_str())));
-      //       exit_trace.push_back(CartesianPoint(atof(vstrings[j+5].c_str()),atof(vstrings[j+6].c_str())));
-      //       exit_trace.push_back(initial_regions[atoi(vstrings[j+2].c_str())].getCenter());
-      //       traces.push_back(exit_trace);
-      //     }
-      //   }
-      // }
-      beliefs->getSpatialModel()->getRegionList()->setRegions(initial_regions);
-      // beliefs->getAgentState()->setInitialExitTraces(traces);
-      // RCLCPP_DEBUG_STREAM(this->get_logger(), "regions " << initial_regions.size());
-      if(doorsOn){
-        beliefs->getSpatialModel()->getDoors()->learnDoors(initial_regions);
-      }
-      // updateSkeletonGraph(beliefs->getAgentState());
-    }
-    else if (fileLine.find("trails") != std::string::npos and trailsOn) {
-      const char delim = ';';
-      vector<string> out;
-      stringstream ss(fileLine);
-      string s;
-      while(getline(ss, s, delim)){
-        out.push_back(s);
-        cout << s << endl;
-      }
-      vector< vector< TrailMarker> > trls;
-      vector<CartesianPoint> lsim;
-      for (int k = 0; k < 660; k++){
-        lsim.push_back(CartesianPoint(0,0));
-      }
-      for(int i = 0; i < out.size(); i++){
-        stringstream sst(out[i]);
-        istream_iterator<string> begin(sst);
-        istream_iterator<string> end;
-        vector<string> vstrings(begin, end);
-        vector< TrailMarker> trl;
-        if(vstrings[0] == "trails"){
-          for (int j = 1; j < vstrings.size(); j += 2){
-            trl.push_back(TrailMarker(CartesianPoint(atof(vstrings[j].c_str()),atof(vstrings[j+1].c_str())), lsim));
-          }
-          trls.push_back(trl);
-        }
-        else{
-          for (int j = 0; j < vstrings.size(); j += 2){
-            trl.push_back(TrailMarker(CartesianPoint(atof(vstrings[j].c_str()),atof(vstrings[j+1].c_str())), lsim));
-          }
-          trls.push_back(trl);
-        }
-      }
-      beliefs->getSpatialModel()->getTrails()->setTrails(trls);
-      // RCLCPP_DEBUG_STREAM(this->get_logger(), "trails " << trls.size());
-      if(conveyorsOn){
-        vector< vector<CartesianPoint> > trails_trace = beliefs->getSpatialModel()->getTrails()->getTrailsPoints();
-        for(int i = 0; i < trails_trace.size(); i++){
-          beliefs->getSpatialModel()->getConveyors()->populateGridFromTrailTrace(trails_trace[i]);
-        }
-        // RCLCPP_DEBUG_STREAM(this->get_logger(), "conveyors updated");
-      }
-    }
-    else if (fileLine.find("hallways") != std::string::npos and hallwaysOn) {
-      const char delim = ';';
-      vector<string> out;
-      stringstream ss(fileLine);
-      string s;
-      while(getline(ss, s, delim)){
-        out.push_back(s);
-        cout << s << endl;
-      }
-      vector< vector< CartesianPoint> > hlws;
-      vector<int> idvals;
-      for(int i = 0; i < out.size(); i++){
-        stringstream sst(out[i]);
-        istream_iterator<string> begin(sst);
-        istream_iterator<string> end;
-        vector<string> vstrings(begin, end);
-        vector< CartesianPoint> hlw;
-        if(vstrings[0] == "hallways"){
-          for (int j = 2; j < vstrings.size(); j += 2){
-            hlw.push_back(CartesianPoint(atof(vstrings[j].c_str()),atof(vstrings[j+1].c_str())));
-          }
-          hlws.push_back(hlw);
-          idvals.push_back(atoi(vstrings[1].c_str()));
-        }
-        else{
-          for (int j = 1; j < vstrings.size(); j += 2){
-            hlw.push_back(CartesianPoint(atof(vstrings[j].c_str()),atof(vstrings[j+1].c_str())));
-          }
-          hlws.push_back(hlw);
-          idvals.push_back(atoi(vstrings[0].c_str()));
-        }
-      }
-      beliefs->getSpatialModel()->getHallways()->setHallways(hlws, idvals);
-      // RCLCPP_DEBUG_STREAM(this->get_logger(), "hallways " << hlws.size());
-    }
-    else if (fileLine.find("regionpath") != std::string::npos and regionsOn) {
-      const char delim = ';';
-      vector<string> out;
-      stringstream ss(fileLine);
-      string s;
-      while(getline(ss, s, delim)){
-        out.push_back(s);
-        cout << s << endl;
-      }
-      vector< CartesianPoint> regionpath;
-      for(int i = 0; i < out.size(); i++){
-        stringstream sst(out[i]);
-        istream_iterator<string> begin(sst);
-        istream_iterator<string> end;
-        vector<string> vstrings(begin, end);
-        regionpath.push_back(CartesianPoint(atof(vstrings[0].c_str()),atof(vstrings[1].c_str())));
-      }
-      beliefs->getSpatialModel()->getRegionList()->setRegionPath(regionpath);
-      // RCLCPP_DEBUG_STREAM(this->get_logger(), "regionpath " << regionpath.size());
-    }
-  }
-}
-
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // Initialize the controller and setup messaging to ROS
 //
-//
-Controller::Controller(string advisor_config, string params_config, string map_config, string target_set, string map_dimensions) {
+Controller::Controller(
+  string advisor_config,
+  string params_config,
+  string map_config,
+  string target_set,
+  string map_dimensions)
+  : Controller(semaforr::config::loadConfiguration({
+      advisor_config,
+      params_config,
+      map_config,
+      target_set,
+      map_dimensions})) {}
 
-  // Initialize robot parameters from a config file
-  initialize_params(params_config);
-  
-  // Initialize planner and map dimensions
-  int l,h;
-  initialize_planner(map_config,map_dimensions,l,h);
+Controller::Controller(semaforr::config::Configuration configuration) {
+  const semaforr::config::ControllerConfiguration& params =
+    configuration.controller;
+
+  taskDecisionLimit = params.task_decision_limit;
+  planLimit = params.plan_limit;
+  canSeePointEpsilon = params.can_see_point_epsilon;
+  laserScanRadianIncrement = params.laser_scan_radian_increment;
+  robotFootPrint = params.robot_footprint;
+  robotFootPrintBuffer = params.robot_footprint_buffer;
+  maxLaserRange = params.max_laser_range;
+  maxForwardActionBuffer = params.max_forward_action_buffer;
+  maxForwardActionSweepAngle = params.max_forward_action_sweep_angle;
+  highwayDistanceThreshold = params.highway_distance_threshold;
+  highwayTimeThreshold = params.highway_time_threshold;
+  highwayDecisionThreshold = params.highway_decision_threshold;
+
+  moveArrMax = static_cast<int>(params.move_actions.size());
+  rotateArrMax = static_cast<int>(params.rotate_actions.size());
+  std::copy(params.move_actions.begin(), params.move_actions.end(), arrMove);
+  std::copy(
+    params.rotate_actions.begin(), params.rotate_actions.end(), arrRotate);
+
+  trailsOn = params.trails_on;
+  conveyorsOn = params.conveyors_on;
+  regionsOn = params.regions_on;
+  doorsOn = params.doors_on;
+  hallwaysOn = params.hallways_on;
+  barrsOn = params.barriers_on;
+  aStarOn = params.a_star_on;
+  highwaysOn = params.highways_on;
+  frontiersOn = params.frontiers_on;
+  outofhereOn = params.out_of_here_on;
+  doorwayOn = params.doorway_on;
+  findawayOn = params.find_a_way_on;
+  behindOn = params.behind_on;
+  dontgobackOn = params.dont_go_back_on;
+  skeleton = params.planners.skeleton;
+  hallwayskel = params.planners.hallway_skeleton;
+
+  const int l = configuration.map_dimensions.length;
+  const int h = configuration.map_dimensions.height;
+  initialize_planner(configuration.map_dimensions);
   
   // Initialize the agent's 'beliefs' of the world state with the map and nav
   // graph and spatial models
   beliefs = std::make_unique<Beliefs>(
     l, h, 2, arrMove, arrRotate, moveArrMax, rotateArrMax); // Hunter Fourth
 
-  // Initialize advisors and weights from config file
-  initialize_advisors(advisor_config);
+  // Initialize advisors and weights from the typed configuration.
+  initialize_advisors(configuration.advisors);
 
-  // Initialize the tasks from a config file
-  initialize_tasks(target_set, l, h);
+  // Initialize tasks from the typed configuration.
+  initialize_tasks(configuration.tasks, l, h);
 
   // Initialize parameters
   beliefs->getAgentState()->setAgentStateParameters(canSeePointEpsilon, laserScanRadianIncrement, robotFootPrint, robotFootPrintBuffer, maxLaserRange, maxForwardActionBuffer, maxForwardActionSweepAngle);
