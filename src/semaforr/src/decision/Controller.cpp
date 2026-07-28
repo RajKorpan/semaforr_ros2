@@ -10,6 +10,7 @@
 #include <deque>
 #include <iostream> 
 #include <fstream>
+#include <iterator>
 #include <math.h>
 #include <time.h>
 #include <sys/time.h>
@@ -960,7 +961,11 @@ Controller::Controller(string advisor_config, string params_config, string map_c
 
 
 // Function which takes sensor inputs and updates it for semaforr to use for decision making, and updates task status
-void Controller::updateState(Position current, sensor_msgs::msg::LaserScan laser_scan, geometry_msgs::msg::PoseArray crowdpose, geometry_msgs::msg::PoseArray crowdposeall){
+void Controller::updateState(
+  Position current,
+  const semaforr::domain::LaserScan& laser_scan,
+  const semaforr::domain::PoseArray& crowdpose,
+  const semaforr::domain::PoseArray& crowdposeall){
   cout << "In update state" << endl;
   beliefs->getAgentState()->setCurrentSensor(current, laser_scan);
   beliefs->getAgentState()->setCrowdPose(crowdpose);

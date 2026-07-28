@@ -65,7 +65,7 @@ rosidl_get_typesupport_target(cpp_typesupport_target
 
 # Preserve the legacy translation-unit order while known undefined-behavior
 # findings are addressed. Phase 2 changes paths, not link ordering.
-set(SEMAFORR_CORE_SOURCES
+set(SEMAFORR_DOMAIN_SOURCES
   src/decision/AgentState.cpp
   src/navigation/astar.cpp
   src/decision/Controller.cpp
@@ -87,16 +87,49 @@ set(SEMAFORR_CORE_SOURCES
   src/vendor/tinyxml/tinyxmlparser.cpp
 )
 
-add_library(semaforr_core SHARED ${SEMAFORR_CORE_SOURCES})
-set_target_properties(semaforr_core PROPERTIES EXPORT_NAME core)
-add_library(semaforr::core ALIAS semaforr_core)
-target_include_directories(semaforr_core
+add_library(semaforr_domain SHARED ${SEMAFORR_DOMAIN_SOURCES})
+set_target_properties(semaforr_domain PROPERTIES EXPORT_NAME domain)
+add_library(semaforr::domain ALIAS semaforr_domain)
+target_include_directories(semaforr_domain
   PUBLIC
     "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>"
     "$<INSTALL_INTERFACE:include>"
 )
-target_link_libraries(semaforr_core "${cpp_typesupport_target}")
-ament_target_dependencies(semaforr_core
+semaforr_apply_project_options(semaforr_domain)
+
+# Preserve the Phase 1 target name for downstream consumers while directing
+# new code to the explicit ROS-independent domain target.
+add_library(semaforr_core INTERFACE)
+set_target_properties(semaforr_core PROPERTIES EXPORT_NAME core)
+add_library(semaforr::core ALIAS semaforr_core)
+target_link_libraries(semaforr_core INTERFACE semaforr_domain)
+
+add_library(semaforr_ros_adapters SHARED src/ros/MessageAdapters.cpp)
+set_target_properties(
+  semaforr_ros_adapters PROPERTIES EXPORT_NAME ros_adapters)
+add_library(semaforr::ros_adapters ALIAS semaforr_ros_adapters)
+target_include_directories(semaforr_ros_adapters
+  PUBLIC
+    "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>"
+    "$<INSTALL_INTERFACE:include>"
+)
+target_link_libraries(
+  semaforr_ros_adapters semaforr_domain "${cpp_typesupport_target}")
+ament_target_dependencies(semaforr_ros_adapters
+  geometry_msgs
+  sensor_msgs
+  std_msgs
+)
+semaforr_apply_project_options(semaforr_ros_adapters)
+
+add_executable(semaforr_node src/ros/semaforr_node.cpp)
+target_link_libraries(
+  semaforr_node
+  semaforr_domain
+  semaforr_ros_adapters
+  "${cpp_typesupport_target}"
+)
+ament_target_dependencies(semaforr_node
   geometry_msgs
   nav_msgs
   rclcpp
@@ -105,25 +138,19 @@ ament_target_dependencies(semaforr_core
   tf2
   visualization_msgs
 )
-semaforr_apply_project_options(semaforr_core)
-
-add_executable(semaforr_node src/ros/semaforr_node.cpp)
-target_link_libraries(semaforr_node semaforr_core)
-ament_target_dependencies(semaforr_node
-  geometry_msgs
-  rclcpp
-  sensor_msgs
-  tf2
-)
 semaforr_apply_project_options(semaforr_node)
 
 install(
-  TARGETS semaforr_core
+  TARGETS semaforr_domain semaforr_ros_adapters
   EXPORT export_${PROJECT_NAME}
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin
   INCLUDES DESTINATION include
+)
+install(
+  TARGETS semaforr_core
+  EXPORT export_${PROJECT_NAME}
 )
 install(
   TARGETS semaforr_node
@@ -160,6 +187,32 @@ if(BUILD_TESTING)
     COMMAND semaforr_characterization_test
   )
 
+  add_executable(
+    semaforr_domain_model_test
+    test/domain_model_smoke.cpp
+  )
+  target_link_libraries(semaforr_domain_model_test semaforr_domain)
+  semaforr_apply_project_options(semaforr_domain_model_test)
+  add_test(
+    NAME semaforr_domain_model_test
+    COMMAND semaforr_domain_model_test
+  )
+
+  add_executable(
+    semaforr_message_adapters_test
+    test/message_adapters_smoke.cpp
+  )
+  target_link_libraries(
+    semaforr_message_adapters_test
+    semaforr_ros_adapters
+    "${cpp_typesupport_target}"
+  )
+  semaforr_apply_project_options(semaforr_message_adapters_test)
+  add_test(
+    NAME semaforr_message_adapters_test
+    COMMAND semaforr_message_adapters_test
+  )
+
   ament_add_pytest_test(semaforr_source_contract_test
     test/test_source_contract.py
     ENV "SEMAFORR_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
@@ -170,6 +223,10 @@ if(BUILD_TESTING)
   )
   ament_add_pytest_test(semaforr_baseline_recorder_contract_test
     test/test_baseline_recorder_contract.py
+    ENV "SEMAFORR_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
+  )
+  ament_add_pytest_test(semaforr_domain_boundary_test
+    test/test_domain_boundary.py
     ENV "SEMAFORR_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
   )
 endif()

@@ -23,13 +23,7 @@
 #include <deque>
 #include <set>
 
-#include <rclcpp/rclcpp.hpp>
-#include <sensor_msgs/msg/laser_scan.hpp>
-#include <geometry_msgs/msg/pose_array.hpp>
-#include <semaforr/msg/crowd_model.hpp>
-#include <tf2/transform_datatypes.h>
-#include <tf2/LinearMath/Quaternion.h>
-#include <tf2/LinearMath/Matrix3x3.h>
+#include <semaforr/domain/SensorTypes.h>
 
 using namespace std;
 
@@ -77,7 +71,8 @@ public:
     for(int i = 0 ; i < numRotates ; i++) rotate[i] = arrRotate[i];
     all_position_trace = new vector<Position>();
     all_laser_history = new vector< vector<CartesianPoint> >();
-    all_laserscan_history = new vector< sensor_msgs::msg::LaserScan >();
+    all_laserscan_history =
+      new vector<semaforr::domain::LaserScan>();
     killBecauseStuck = false;
   }
   
@@ -110,7 +105,8 @@ public:
   Position getCurrentPosition() { return currentPosition; }
   vector<CartesianPoint> getCurrentLaserEndpoints() { return laserEndpoints; }
 
-  void setCurrentSensor(Position p, sensor_msgs::msg::LaserScan scan) { 
+  void setCurrentSensor(
+    Position p, const semaforr::domain::LaserScan& scan) {
     currentPosition = p;
     currentLaserScan = scan;
     transformToEndpoints();
@@ -208,7 +204,9 @@ public:
   vector< vector < vector<CartesianPoint> > > getAllLaserTrace(){return all_laser_trace;}
   vector< Position > *getAllPositionTrace(){return all_position_trace;}
   vector< vector<CartesianPoint> > *getAllLaserHistory(){return all_laser_history;}
-  vector< sensor_msgs::msg::LaserScan > *getAllLaserScanHistory(){return all_laserscan_history;}
+  vector<semaforr::domain::LaserScan> *getAllLaserScanHistory(){
+    return all_laserscan_history;
+  }
 
   vector< vector<CartesianPoint> > getInitialExitTraces(){return initial_exit_traces;}
   void setInitialExitTraces(vector< vector<CartesianPoint> > exit_traces){initial_exit_traces = exit_traces;}
@@ -233,9 +231,12 @@ public:
 	return status;
   }
 
-  sensor_msgs::msg::LaserScan getCurrentLaserScan(){return currentLaserScan;}
+  semaforr::domain::LaserScan getCurrentLaserScan(){
+    return currentLaserScan;
+  }
 
-  vector<CartesianPoint> transformToEndpoints(Position p, sensor_msgs::msg::LaserScan scan);
+  vector<CartesianPoint> transformToEndpoints(
+    Position p, const semaforr::domain::LaserScan& scan);
   
   Position getExpectedPositionAfterAction(FORRAction action);
 
@@ -412,22 +413,23 @@ public:
  
   void setAgentStateParameters(double val1, double val2, double val3, double val4, double val5, double val6, double val7);
   
-  geometry_msgs::msg::PoseArray getCrowdPose(){ return currentCrowd;}
-  void setCrowdPose(geometry_msgs::msg::PoseArray crowdpose){
+  semaforr::domain::PoseArray getCrowdPose(){ return currentCrowd;}
+  void setCrowdPose(const semaforr::domain::PoseArray& crowdpose){
 	currentCrowd = crowdpose;
   }
 
-  vector <Position> getCrowdPositions(geometry_msgs::msg::PoseArray crowdpose);
+  vector<Position> getCrowdPositions(
+    const semaforr::domain::PoseArray& crowdpose);
 
-  geometry_msgs::msg::PoseArray getCrowdPoseAll(){ return allCrowd;}
-  void setCrowdPoseAll(geometry_msgs::msg::PoseArray crowdposeall){
+  semaforr::domain::PoseArray getCrowdPoseAll(){ return allCrowd;}
+  void setCrowdPoseAll(const semaforr::domain::PoseArray& crowdposeall){
 	allCrowd = crowdposeall;
   }
 
-  void setCrowdModel(const semaforr::msg::CrowdModel& c){
+  void setCrowdModel(const semaforr::domain::CrowdModel& c){
     crowdModel = c;
   }
-  semaforr::msg::CrowdModel getCrowdModel(){ return crowdModel;}
+  semaforr::domain::CrowdModel getCrowdModel(){ return crowdModel;}
 
   bool crowdModelLearned();
   bool riskModelLearned();
@@ -516,7 +518,7 @@ public:
   // All laser history of all targets
   vector< vector < vector<CartesianPoint> > > all_laser_trace;
   vector< vector<CartesianPoint> > *all_laser_history;
-  vector< sensor_msgs::msg::LaserScan > *all_laserscan_history;
+  vector<semaforr::domain::LaserScan> *all_laserscan_history;
 
   // Decision count by task
   vector<int> task_decision_count;
@@ -559,7 +561,7 @@ public:
   Task *currentTask;
 
   // Currrent laser scan reading at the current position
-  sensor_msgs::msg::LaserScan currentLaserScan;
+  semaforr::domain::LaserScan currentLaserScan;
 
   // Current laser scan data as endpoints in the x-y coordinate frame
   vector<CartesianPoint> laserEndpoints;
@@ -568,13 +570,13 @@ public:
   void transformToEndpoints();
 
   // Nearby crowd positions
-  geometry_msgs::msg::PoseArray currentCrowd;
+  semaforr::domain::PoseArray currentCrowd;
 
   // All crowd positions
-  geometry_msgs::msg::PoseArray allCrowd;
+  semaforr::domain::PoseArray allCrowd;
 
   // Current crowd model
-  semaforr::msg::CrowdModel crowdModel;
+  semaforr::domain::CrowdModel crowdModel;
 
   //Rotate mode tells if the t3 should rotate or move
   bool rotateMode;

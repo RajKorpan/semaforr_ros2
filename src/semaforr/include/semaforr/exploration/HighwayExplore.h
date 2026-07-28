@@ -23,13 +23,13 @@
 #include <set>
 #include <numeric>
 // #include <queue>
-#include <sensor_msgs/msg/laser_scan.hpp>
+#include <semaforr/domain/SensorTypes.h>
 
 using namespace std;
 
 struct DecisionPoint{
 	Position point;
-	sensor_msgs::msg::LaserScan laser;
+	semaforr::domain::LaserScan laser;
 	vector<CartesianPoint> laserEndpoints;
 	double farthest_view_left, farthest_view_middle, farthest_view_right;
 	// double farthest_angle_left, farthest_angle_middle, farthest_angle_right;
@@ -41,8 +41,10 @@ struct DecisionPoint{
 	Position middle_point;
 	Position left_point;
 	Position right_point;
-	DecisionPoint(): point(Position()), laser(sensor_msgs::msg::LaserScan()) { }
-	DecisionPoint(Position p, sensor_msgs::msg::LaserScan ls, bool dir = false){
+	DecisionPoint()
+	  : point(Position()), laser(semaforr::domain::LaserScan()) { }
+	DecisionPoint(
+	  Position p, const semaforr::domain::LaserScan& ls, bool dir = false){
 		point = p;
 		laser = ls;
 		direction = dir;
@@ -522,7 +524,9 @@ public:
 	int getLength(){return length;}
 	int getHeight(){return height;}
 
-	FORRAction exploreDecision(Position current_point, sensor_msgs::msg::LaserScan current_laser){
+	FORRAction exploreDecision(
+	  Position current_point,
+	  const semaforr::domain::LaserScan& current_laser){
 		DecisionPoint current_position = DecisionPoint(current_point, current_laser);
 		position_history.push_back(current_position);
 		cout << "current_position " << current_position.point.getX() << " " << current_position.point.getY() << " " << current_position.point.getTheta() << " mid avg " << current_position.middle_distance << " mid min " << current_position.middle_distance_min << " mid max " << current_position.farthest_distance_middle << " left avg " << current_position.left_distance << " left max " << current_position.farthest_distance_left << " right avg " << current_position.right_distance << " right max " << current_position.farthest_distance_right << endl;

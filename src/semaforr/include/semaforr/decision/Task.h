@@ -18,7 +18,7 @@
 #include <algorithm>
 #include <iostream>
 #include <fstream>
-#include <sensor_msgs/msg/laser_scan.hpp>
+#include <semaforr/domain/SensorTypes.h>
 
 /*
  * Struct for skeleton waypoint.
@@ -71,7 +71,7 @@ class Task {
       decisionSequence = new std::vector<FORRAction>;
       pos_hist = new vector<Position>();
       laser_hist = new vector< vector<CartesianPoint> >();
-      laser_scan_hist = new vector< sensor_msgs::msg::LaserScan >();
+      laser_scan_hist = new vector<semaforr::domain::LaserScan>();
       dimension = 200;
       if(length > dimension){
         dimension = length;
@@ -201,7 +201,10 @@ class Task {
 
   void clearPositionHistory(){pos_hist->clear();}
 
-  void saveSensor(Position currentPosition, vector<CartesianPoint> laserEndpoints, sensor_msgs::msg::LaserScan ls){
+  void saveSensor(
+    Position currentPosition,
+    vector<CartesianPoint> laserEndpoints,
+    const semaforr::domain::LaserScan& ls){
   	pos_hist->push_back(currentPosition);
   	laser_hist->push_back(laserEndpoints);
   	laser_scan_hist->push_back(ls);
@@ -220,7 +223,9 @@ class Task {
 
   vector< vector <CartesianPoint> > *getLaserHistory(){return laser_hist;}
 
-  vector< sensor_msgs::msg::LaserScan > *getLaserScanHistory(){return laser_scan_hist;}
+  vector<semaforr::domain::LaserScan> *getLaserScanHistory(){
+    return laser_scan_hist;
+  }
 
   vector<CartesianPoint> getWaypoints(){
   	// cout << "in getWaypoints" << endl;
@@ -2382,7 +2387,7 @@ class Task {
   vector< vector<CartesianPoint> > *laser_hist; 
 
   // Laser scan history sensor
-  vector< sensor_msgs::msg::LaserScan > *laser_scan_hist;
+  vector<semaforr::domain::LaserScan> *laser_scan_hist;
 
   // Cleaned Position History, along with its corresponding laser scan data : Set of cleaned positions
   std::pair < std::vector<CartesianPoint>, std::vector<vector<CartesianPoint> > > *cleaned_trail;

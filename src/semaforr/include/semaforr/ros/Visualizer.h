@@ -4,6 +4,7 @@
 #include <iostream>
 #include <stdlib.h>
 #include <semaforr/decision/Beliefs.h>
+#include <semaforr/ros/MessageAdapters.h>
 #include <sstream>
 
 #include <rclcpp/rclcpp.hpp>
@@ -14,6 +15,7 @@
 #include <nav_msgs/msg/occupancy_grid.hpp>
 #include <nav_msgs/msg/path.hpp>
 #include <sensor_msgs/msg/laser_scan.hpp>
+#include <tf2/LinearMath/Quaternion.h>
 #include <tf2/transform_datatypes.h>
 #include <visualization_msgs/msg/marker.hpp>
 #include <visualization_msgs/msg/marker_array.hpp>
@@ -1315,8 +1317,9 @@ public:
 		targetY = 0;
 	}
 	vector<CartesianPoint> laserEndpoints = beliefs->getAgentState()->getCurrentLaserEndpoints();
-	sensor_msgs::msg::LaserScan laserScan = beliefs->getAgentState()->getCurrentLaserScan();
-	laser_pub_->publish(laserScan);
+	semaforr::domain::LaserScan laserScan =
+		beliefs->getAgentState()->getCurrentLaserScan();
+	laser_pub_->publish(semaforr::ros::toRos(laserScan));
 
 	FORRAction max_forward = beliefs->getAgentState()->maxForwardAction();
 	//cout << "After max_forward" << endl;
@@ -1481,7 +1484,8 @@ public:
 	//// RCLCPP_DEBUG(this->get_logger(), "After origPlanStream");
 
 	std::stringstream crowdStream;
-	geometry_msgs::msg::PoseArray crowdpose = beliefs->getAgentState()->getCrowdPose();
+	semaforr::domain::PoseArray crowdpose =
+		beliefs->getAgentState()->getCrowdPose();
 
 	for(int i = 0; i < crowdpose.poses.size(); i++){
 		crowdStream << crowdpose.poses[i].position.x << " " << crowdpose.poses[i].position.y << " " << crowdpose.poses[i].orientation.x 
@@ -1492,7 +1496,8 @@ public:
 	//// RCLCPP_DEBUG(this->get_logger(), "After crowdStream");
 
 	std::stringstream allCrowdStream;
-	geometry_msgs::msg::PoseArray crowdposeall = beliefs->getAgentState()->getCrowdPoseAll();
+	semaforr::domain::PoseArray crowdposeall =
+		beliefs->getAgentState()->getCrowdPoseAll();
 
 	for(int i = 0; i < crowdposeall.poses.size(); i++){
 		allCrowdStream << crowdposeall.poses[i].position.x << " " << crowdposeall.poses[i].position.y << " " << crowdposeall.poses[i].orientation.x
@@ -1503,7 +1508,8 @@ public:
 	//// RCLCPP_DEBUG(this->get_logger(), "After all crowdStream");
 
 	// std::stringstream crowdModel;
-	// semaforr::msg::CrowdModel model = con->getPlanner()->getCrowdModel();
+	// semaforr::domain::CrowdModel model =
+	// 	con->getPlanner()->getCrowdModel();
 	// int resolution = model.resolution;
 	// int height = model.height;
 	// int width = model.width;

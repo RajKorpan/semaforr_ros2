@@ -12,6 +12,7 @@
 #include <vector>
 #include <semaforr/core/FORRAction.h>
 #include <semaforr/decision/Beliefs.h>
+#include <semaforr/domain/SensorTypes.h>
 
 using namespace std;
 
@@ -71,7 +72,8 @@ public:
 		perpendicularDirections.clear();
 	}
 
-	void addToStack(Position new_pose, sensor_msgs::msg::LaserScan new_laser){
+	void addToStack(
+	  Position new_pose, const semaforr::domain::LaserScan& new_laser){
 		double min_distance = 1000;
 		for(int i = 0; i < new_laser.ranges.size(); i++){
 			if(new_laser.ranges[i] < min_distance){

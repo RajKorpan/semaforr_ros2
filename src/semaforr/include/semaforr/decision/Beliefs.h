@@ -26,8 +26,6 @@
 # include <cmath>
 # include <math.h>
 # include <iostream>
-#include <rclcpp/rclcpp.hpp>
-
 using std::vector;
 using std::set;
 

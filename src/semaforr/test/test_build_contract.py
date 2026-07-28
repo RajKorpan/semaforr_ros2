@@ -9,10 +9,10 @@ SOURCE_DIR = Path(
 )
 
 
-def test_core_sources_are_explicit_and_complete():
+def test_domain_sources_are_explicit_and_complete():
     cmake = (SOURCE_DIR / "CMakeLists.txt").read_text(encoding="utf-8")
     source_block = re.search(
-        r"set\(SEMAFORR_CORE_SOURCES(?P<body>.*?)\n\)", cmake, re.DOTALL
+        r"set\(SEMAFORR_DOMAIN_SOURCES(?P<body>.*?)\n\)", cmake, re.DOTALL
     )
 
     assert source_block is not None
@@ -27,8 +27,7 @@ def test_core_sources_are_explicit_and_complete():
     observed = {
         path.relative_to(SOURCE_DIR).as_posix()
         for path in (SOURCE_DIR / "src").rglob("*.cpp")
-        if path.relative_to(SOURCE_DIR).as_posix()
-        != "src/ros/semaforr_node.cpp"
+        if not path.relative_to(SOURCE_DIR).as_posix().startswith("src/ros/")
     }
     assert declared == observed
     assert declared_in_order == [
@@ -57,6 +56,7 @@ def test_core_sources_are_explicit_and_complete():
 def test_source_and_header_layout_is_responsibility_based():
     expected_header_areas = {
         "core",
+        "domain",
         "decision",
         "exploration",
         "navigation",
@@ -85,12 +85,19 @@ def test_source_and_header_layout_is_responsibility_based():
     } == expected_source_areas
 
 
-def test_core_library_is_exported_with_a_stable_name():
+def test_domain_and_compatibility_libraries_are_exported():
     cmake = (SOURCE_DIR / "CMakeLists.txt").read_text(encoding="utf-8")
 
-    assert "add_library(semaforr_core SHARED" in cmake
+    assert "add_library(semaforr_domain SHARED" in cmake
+    assert "add_library(semaforr::domain ALIAS semaforr_domain)" in cmake
+    assert (
+        "set_target_properties(semaforr_domain PROPERTIES EXPORT_NAME domain)"
+        in cmake
+    )
+    assert "add_library(semaforr_core INTERFACE)" in cmake
     assert "add_library(semaforr::core ALIAS semaforr_core)" in cmake
     assert "set_target_properties(semaforr_core PROPERTIES EXPORT_NAME core)" in cmake
+    assert "target_link_libraries(semaforr_core INTERFACE semaforr_domain)" in cmake
     assert "ament_export_targets(export_${PROJECT_NAME} HAS_LIBRARY_TARGET)" in cmake
 
 

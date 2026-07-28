@@ -15,7 +15,6 @@
 # include <time.h>
 # include <utility>
 # include <limits>
-# include "sensor_msgs/msg/laser_scan.hpp"
 
 using std::set;
   
@@ -2259,7 +2258,8 @@ double Tier3GoAroundRotation::actionComment(FORRAction action){
   int intensity = action.parameter;
   double comment_strength;
   double avgRightDistanceVector = 0, avgLeftDistanceVector = 0;
-  sensor_msgs::msg::LaserScan laserScan = beliefs->getAgentState()->getCurrentLaserScan();
+  semaforr::domain::LaserScan laserScan =
+    beliefs->getAgentState()->getCurrentLaserScan();
   // compute forward distance to obstacle
   double centerDistanceVector = ( laserScan.ranges[((laserScan.ranges.size()/2)-1)] + laserScan.ranges[((laserScan.ranges.size()/2))] ) / 2;
   if(centerDistanceVector < 0.1){

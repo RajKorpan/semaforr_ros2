@@ -394,7 +394,8 @@ void AgentState::transformToEndpoints(){
     }    
 }
 
-vector<CartesianPoint> AgentState::transformToEndpoints(Position p, sensor_msgs::msg::LaserScan scan){
+vector<CartesianPoint> AgentState::transformToEndpoints(
+  Position p, const semaforr::domain::LaserScan& scan){
     // // RCLCPP_DEBUG(this->get_logger(), "Convert laser scan to endpoints");
     double start_angle = scan.angle_min;
     double increment = scan.angle_increment;
@@ -862,15 +863,13 @@ bool AgentState::getRobotConfined(int decisionLimit, double distanceLimit){
   return robotConfined;
 }
 
-vector <Position> AgentState::getCrowdPositions(geometry_msgs::msg::PoseArray crowdpose){
+vector<Position> AgentState::getCrowdPositions(
+  const semaforr::domain::PoseArray& crowdpose){
   vector <Position> crowdPositions;
   for(int i = 0; i < crowdpose.poses.size(); i++){
     double x = crowdpose.poses[i].position.x;
     double y = crowdpose.poses[i].position.y;
-    tf2::Quaternion q(crowdpose.poses[i].orientation.x,crowdpose.poses[i].orientation.y,crowdpose.poses[i].orientation.z,crowdpose.poses[i].orientation.w);
-    tf2::Matrix3x3 m(q);
-    double roll, pitch, yaw;
-    m.getRPY(roll, pitch, yaw);
+    double yaw = crowdpose.poses[i].yaw();
     crowdPositions.push_back(Position(x,y,yaw));
   }
   return crowdPositions;

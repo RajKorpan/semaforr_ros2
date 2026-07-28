@@ -24,11 +24,7 @@
 #include <semaforr/spatial/FORRPassages.h>
 
 #include <fstream>
-#include <rclcpp/rclcpp.hpp>
-#include <geometry_msgs/msg/twist.hpp>
-#include <geometry_msgs/msg/pose_stamped.hpp>
-#include <semaforr/msg/crowd_model.hpp>
-#include <sensor_msgs/msg/laser_scan.hpp>
+#include <semaforr/domain/SensorTypes.h>
 
 
 // Forward-declare Controller so the typedef below can reference it
@@ -49,7 +45,11 @@ public:
   void clearCurrentDecisionStats() { decisionStats = new FORRActionStats();}
 
   //Update state of the agent using sensor readings 
-  void updateState(Position current, sensor_msgs::msg::LaserScan laserscan, geometry_msgs::msg::PoseArray crowdpose, geometry_msgs::msg::PoseArray crowdposeall);
+  void updateState(
+    Position current,
+    const semaforr::domain::LaserScan& laserscan,
+    const semaforr::domain::PoseArray& crowdpose,
+    const semaforr::domain::PoseArray& crowdposeall);
 
   //Returns the state of the robots mission (True 
   bool isMissionComplete();
@@ -62,7 +62,7 @@ public:
 
   std::vector<PathPlanner*> getPlanners() { return tier2Planners; }
 
-  void updatePlannersModels(const semaforr::msg::CrowdModel& c) {
+  void updatePlannersModels(const semaforr::domain::CrowdModel& c) {
     for (planner2It it = tier2Planners.begin(); it != tier2Planners.end(); it++){
       PathPlanner *planner = *it;
       planner->setCrowdModel(c);

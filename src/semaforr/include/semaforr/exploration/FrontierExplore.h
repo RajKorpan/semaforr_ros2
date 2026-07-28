@@ -23,7 +23,7 @@
 #include <set>
 #include <numeric>
 // #include <queue>
-#include <sensor_msgs/msg/laser_scan.hpp>
+#include <semaforr/domain/SensorTypes.h>
 
 using namespace std;
 
@@ -192,7 +192,9 @@ public:
 	int getLength(){return length;}
 	int getHeight(){return height;}
 
-	FORRAction exploreDecision(Position current_point, sensor_msgs::msg::LaserScan current_laser){
+	FORRAction exploreDecision(
+	  Position current_point,
+	  const semaforr::domain::LaserScan& current_laser){
 		Position current_position = current_point;
 		cout << "current_position " << current_position.getX() << " " << current_position.getY() << endl;
 		position_history.push_back(current_position);

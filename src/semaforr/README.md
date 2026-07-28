@@ -10,6 +10,7 @@ SemaFORR is designed to enable robots to navigate complex environments using cog
 ## Features
 
 - Cognitive navigation algorithms
+- ROS-independent domain model with explicit ROS message adapters
 - Highly configurable via parameters and advisor files
 - ROS2 node integration
 - Example configuration files for quick setup
@@ -53,5 +54,6 @@ The pre-refactor characterization harness, runtime scenario, sanitizer profile,
 coverage profile, and known-behavior inventory are documented in
 `test/baseline/README.md`.
 
-The reusable core target, build profiles, installed package layout, and
-downstream-consumer check are documented in `docs/build-and-package.md`.
+The ROS-independent `semaforr::domain` target, message adapters, build profiles,
+installed package layout, and downstream-consumer checks are documented in
+`docs/build-and-package.md`.

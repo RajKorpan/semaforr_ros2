@@ -15,6 +15,7 @@
 
 #include <semaforr/decision/Controller.h>
 #include <semaforr/core/FORRAction.h>
+#include <semaforr/ros/MessageAdapters.h>
 #include <semaforr/ros/Visualizer.h>
 
 #include <rclcpp/rclcpp.hpp>
@@ -44,11 +45,11 @@ private:
     // Current position and previous stopping position of the robot
     Position current, previous;
     // Current and previous laser scan
-    sensor_msgs::msg::LaserScan laserscan;
+    semaforr::domain::LaserScan laserscan;
     // Current crowd_model
-    semaforr::msg::CrowdModel crowdModel;
+    semaforr::domain::CrowdModel crowdModel;
     // Current crowd_pose
-    geometry_msgs::msg::PoseArray crowdPose, crowdPoseAll;
+    semaforr::domain::PoseArray crowdPose, crowdPoseAll;
     // Controller
     Controller *controller;
     // Pos received
@@ -145,21 +146,22 @@ public:
     // Callback function for crowd pose message
     void updateCrowdPose(const geometry_msgs::msg::PoseArray &crowd_pose)
     {
-        crowdPose = crowd_pose;
+        crowdPose = semaforr::ros::toDomain(crowd_pose);
     }
 
     // Callback function for crowd pose all message
     void updateCrowdPoseAll(const geometry_msgs::msg::PoseArray &crowd_pose_all)
     {
-        crowdPoseAll = crowd_pose_all;
+        crowdPoseAll = semaforr::ros::toDomain(crowd_pose_all);
     }
 
     // Callback function for crowd model message
     void updateCrowdModel(const semaforr::msg::CrowdModel &crowd_model)
     {
-        controller->getPlanner()->setCrowdModel(crowd_model);
-        controller->updatePlannersModels(crowd_model);
-        controller->getBeliefs()->getAgentState()->setCrowdModel(crowd_model);
+        crowdModel = semaforr::ros::toDomain(crowd_model);
+        controller->getPlanner()->setCrowdModel(crowdModel);
+        controller->updatePlannersModels(crowdModel);
+        controller->getBeliefs()->getAgentState()->setCrowdModel(crowdModel);
     }
 
     // Callback function for pose message
@@ -198,7 +200,7 @@ public:
     // Callback function for laser_scan message
     void updateLaserScan(const sensor_msgs::msg::LaserScan &scan)
     {
-        laserscan = scan;
+        laserscan = semaforr::ros::toDomain(scan);
         init_laser_received = true;
     }
 
