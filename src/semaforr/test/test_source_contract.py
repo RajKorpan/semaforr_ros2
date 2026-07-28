@@ -34,7 +34,9 @@ def extract_number(source, pattern):
 
 def test_ros_topic_contract():
     contract = load_contract()["ros"]
-    source = (SOURCE_DIR / "src" / "main.cpp").read_text(encoding="utf-8")
+    source = (
+        SOURCE_DIR / "src" / "ros" / "semaforr_node.cpp"
+    ).read_text(encoding="utf-8")
 
     assert f'Node("{contract["node_name"]}")' in source
     for topic, message_type in contract["subscriptions"].items():
@@ -55,7 +57,9 @@ def test_ros_topic_contract():
 
 def test_motion_command_contract():
     contract = load_contract()["command_velocities"]
-    source = (SOURCE_DIR / "src" / "main.cpp").read_text(encoding="utf-8")
+    source = (
+        SOURCE_DIR / "src" / "ros" / "semaforr_node.cpp"
+    ).read_text(encoding="utf-8")
     source = source[source.index(
         "geometry_msgs::msg::Twist convert_to_vel"
     ):]
@@ -89,7 +93,9 @@ def test_motion_command_contract():
 
 def test_action_completion_contract():
     contract = load_contract()["completion"]
-    source = (SOURCE_DIR / "src" / "main.cpp").read_text(encoding="utf-8")
+    source = (
+        SOURCE_DIR / "src" / "ros" / "semaforr_node.cpp"
+    ).read_text(encoding="utf-8")
 
     observed = {
         "loop_rate_hz": extract_number(

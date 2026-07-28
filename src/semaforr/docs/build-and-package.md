@@ -7,6 +7,27 @@ navigation implementation from the ROS executable:
 - `semaforr_node` contains only the ROS node entry point and links to the core.
 - `CrowdModel.msg` is consumed through its generated C++ API.
 
+## Source layout
+
+Implementation and public headers are grouped by responsibility:
+
+| Area | Responsibility |
+| --- | --- |
+| `core` | Actions, positions, and geometry primitives |
+| `decision` | Agent state, beliefs, controller, tasks, and advisors |
+| `exploration` | Local, frontier, highway, and circumnavigation strategies |
+| `navigation` | Map, graph, A*, and path-planning infrastructure |
+| `spatial` | Regions, trails, conveyors, barriers, doors, and hallways |
+| `ros` | ROS node and visualization adapter |
+| `vendor/tinyxml` | Isolated bundled TinyXML implementation |
+
+Headers use package-qualified paths, for example:
+
+```cpp
+#include <semaforr/core/FORRAction.h>
+#include <semaforr/navigation/PathPlanner.h>
+```
+
 The C++ node does not embed Python. Python remains a runtime dependency only for
 the optional baseline recorder installed as `semaforr_record_baseline`.
 
@@ -38,8 +59,9 @@ colcon test-result --verbose
 ```
 
 The test suite includes behavior characterization, source/build contract checks,
-and launch-file checks. `test/downstream` is a small consumer project used to
-verify that an installed SemaFORR package can be found and linked:
+launch-file checks, and a fixed-timestep contract for the runtime baseline
+driver. `test/downstream` is a small consumer project used to verify that an
+installed SemaFORR package can be found and linked:
 
 ```bash
 cmake -S src/semaforr/test/downstream -B /tmp/semaforr-downstream

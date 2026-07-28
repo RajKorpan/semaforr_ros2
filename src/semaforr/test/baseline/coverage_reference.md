@@ -5,8 +5,8 @@ The Phase 0 coverage profile was run under ROS 2 Humble on 2026-07-27.
 The initial characterization suite directly executes two production translation
 units:
 
-- `src/FORRAction.cpp`
-- `src/Position.cpp`
+- `src/core/FORRAction.cpp`
+- `src/core/Position.cpp`
 
 The HTML report is generated under `coverage/html/index.html`. The report is
 filtered to SemaFORR production files; system headers and characterization test

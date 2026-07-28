@@ -8,7 +8,8 @@ It contains two complementary baselines:
    default action magnitudes, feature flags, and tutorial targets.
 2. A runtime trace records `cmd_vel` transitions and `decision_log` messages
    while a deterministic virtual robot publishes pose and open-space laser
-   observations.
+   observations. Robot motion advances in fixed 50 ms simulation steps; it
+   does not integrate wall-clock timer jitter.
 
 The source contract is verified by `test_source_contract.py`. It is deliberately
 strict: if a refactor changes a value, the test should fail until the change is
@@ -34,7 +35,8 @@ src/semaforr/test/baseline/stage_tutorial.expected.json
 
 Do not approve a trace merely because the process exited successfully. Review
 the action sequence, decision diagnostics, final pose, ROS warnings, and known
-issues first.
+issues first. Capture the same revision at least twice and compare both traces
+before replacing the approved semantic baseline.
 
 ## Compare a later run
 

@@ -63,26 +63,28 @@ rosidl_generate_interfaces(${PROJECT_NAME}
 rosidl_get_typesupport_target(cpp_typesupport_target
   ${PROJECT_NAME} rosidl_typesupport_cpp)
 
+# Preserve the legacy translation-unit order while known undefined-behavior
+# findings are addressed. Phase 2 changes paths, not link ordering.
 set(SEMAFORR_CORE_SOURCES
-  src/AgentState.cpp
-  src/astar.cpp
-  src/Controller.cpp
-  src/FORRAction.cpp
-  src/FORRBarriers.cpp
-  src/FORRConveyors.cpp
-  src/FORRGeometry.cpp
-  src/FORRHallways.cpp
-  src/FORRTrails.cpp
-  src/Graph.cpp
-  src/Map.cpp
-  src/PathPlanner.cpp
-  src/Position.cpp
-  src/Tier1Advisor.cpp
-  src/Tier3Advisor.cpp
-  src/tinystr.cpp
-  src/tinyxml.cpp
-  src/tinyxmlerror.cpp
-  src/tinyxmlparser.cpp
+  src/decision/AgentState.cpp
+  src/navigation/astar.cpp
+  src/decision/Controller.cpp
+  src/core/FORRAction.cpp
+  src/spatial/FORRBarriers.cpp
+  src/spatial/FORRConveyors.cpp
+  src/core/FORRGeometry.cpp
+  src/spatial/FORRHallways.cpp
+  src/spatial/FORRTrails.cpp
+  src/navigation/Graph.cpp
+  src/navigation/Map.cpp
+  src/navigation/PathPlanner.cpp
+  src/core/Position.cpp
+  src/decision/Tier1Advisor.cpp
+  src/decision/Tier3Advisor.cpp
+  src/vendor/tinyxml/tinystr.cpp
+  src/vendor/tinyxml/tinyxml.cpp
+  src/vendor/tinyxml/tinyxmlerror.cpp
+  src/vendor/tinyxml/tinyxmlparser.cpp
 )
 
 add_library(semaforr_core SHARED ${SEMAFORR_CORE_SOURCES})
@@ -90,7 +92,7 @@ set_target_properties(semaforr_core PROPERTIES EXPORT_NAME core)
 add_library(semaforr::core ALIAS semaforr_core)
 target_include_directories(semaforr_core
   PUBLIC
-    "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include/semaforr>"
+    "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>"
     "$<INSTALL_INTERFACE:include>"
 )
 target_link_libraries(semaforr_core "${cpp_typesupport_target}")
@@ -105,7 +107,7 @@ ament_target_dependencies(semaforr_core
 )
 semaforr_apply_project_options(semaforr_core)
 
-add_executable(semaforr_node src/main.cpp)
+add_executable(semaforr_node src/ros/semaforr_node.cpp)
 target_link_libraries(semaforr_node semaforr_core)
 ament_target_dependencies(semaforr_node
   geometry_msgs
@@ -146,11 +148,11 @@ if(BUILD_TESTING)
 
   add_executable(semaforr_characterization_test
     test/characterization_smoke.cpp
-    src/FORRAction.cpp
-    src/Position.cpp
+    src/core/FORRAction.cpp
+    src/core/Position.cpp
   )
   target_include_directories(semaforr_characterization_test PRIVATE
-    ${PROJECT_SOURCE_DIR}/include/semaforr
+    ${PROJECT_SOURCE_DIR}/include
   )
   semaforr_apply_project_options(semaforr_characterization_test)
   add_test(
@@ -164,6 +166,10 @@ if(BUILD_TESTING)
   )
   ament_add_pytest_test(semaforr_build_contract_test
     test/test_build_contract.py
+    ENV "SEMAFORR_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
+  )
+  ament_add_pytest_test(semaforr_baseline_recorder_contract_test
+    test/test_baseline_recorder_contract.py
     ENV "SEMAFORR_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
   )
 endif()

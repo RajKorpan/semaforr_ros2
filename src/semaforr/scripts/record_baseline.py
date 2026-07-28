@@ -17,12 +17,15 @@ from std_msgs.msg import String
 
 
 class BaselineRecorder(Node):
+    TICK_HZ = 20.0
+    TICK_PERIOD_S = 1.0 / TICK_HZ
+
     def __init__(self, output_path, duration):
         super().__init__("semaforr_baseline_recorder")
         self._output_path = output_path
         self._duration = duration
-        self._started_at = time.monotonic()
-        self._last_tick = self._started_at
+        self._wall_started_at = time.monotonic()
+        self._tick_count = 0
         self._pose = [100.0, 100.0, 0.0]
         self._command = Twist()
         self._last_command_signature = None
@@ -40,10 +43,10 @@ class BaselineRecorder(Node):
         self.create_subscription(
             String, "/decision_log", self._decision_callback, 10
         )
-        self.create_timer(0.05, self._tick)
+        self.create_timer(self.TICK_PERIOD_S, self._tick)
 
     def _elapsed(self):
-        return time.monotonic() - self._started_at
+        return self._tick_count * self.TICK_PERIOD_S
 
     def _command_callback(self, message):
         self._command = message
@@ -100,18 +103,19 @@ class BaselineRecorder(Node):
         )
 
     def _tick(self):
-        now = time.monotonic()
-        delta = min(now - self._last_tick, 0.2)
-        self._last_tick = now
-
         linear_x = self._command.linear.x
         angular_z = self._command.angular.z
         self._pose[2] = math.atan2(
-            math.sin(self._pose[2] + angular_z * delta),
-            math.cos(self._pose[2] + angular_z * delta),
+            math.sin(self._pose[2] + angular_z * self.TICK_PERIOD_S),
+            math.cos(self._pose[2] + angular_z * self.TICK_PERIOD_S),
         )
-        self._pose[0] += linear_x * math.cos(self._pose[2]) * delta
-        self._pose[1] += linear_x * math.sin(self._pose[2]) * delta
+        self._pose[0] += (
+            linear_x * math.cos(self._pose[2]) * self.TICK_PERIOD_S
+        )
+        self._pose[1] += (
+            linear_x * math.sin(self._pose[2]) * self.TICK_PERIOD_S
+        )
+        self._tick_count += 1
 
         stamp = self.get_clock().now().to_msg()
         pose = PoseStamped()
@@ -148,7 +152,10 @@ class BaselineRecorder(Node):
 
         metrics = {
             "decision_count": len(self._decisions),
-            "wall_duration_s": round(self._elapsed(), 6),
+            "simulated_duration_s": round(self._elapsed(), 6),
+            "wall_duration_s": round(
+                time.monotonic() - self._wall_started_at, 6
+            ),
         }
         if self._computation_times:
             metrics["decision_computation_s"] = {
@@ -163,7 +170,7 @@ class BaselineRecorder(Node):
             "scenario": {
                 "name": "stage_tutorial_open_space",
                 "duration_s": self._duration,
-                "tick_hz": 20.0,
+                "tick_hz": self.TICK_HZ,
                 "initial_pose": [100.0, 100.0, 0.0],
                 "laser_range_m": 5.0,
                 "laser_sample_count": 1081,

@@ -18,13 +18,71 @@ def test_core_sources_are_explicit_and_complete():
     assert source_block is not None
     assert "GLOB" not in cmake
 
-    declared = set(re.findall(r"src/[\w]+\.cpp", source_block.group("body")))
+    declared_in_order = re.findall(
+        r"src/(?:[\w]+/)+[\w]+\.cpp", source_block.group("body")
+    )
+    declared = set(
+        re.findall(r"src/(?:[\w]+/)+[\w]+\.cpp", source_block.group("body"))
+    )
     observed = {
         path.relative_to(SOURCE_DIR).as_posix()
-        for path in (SOURCE_DIR / "src").glob("*.cpp")
-        if path.name != "main.cpp"
+        for path in (SOURCE_DIR / "src").rglob("*.cpp")
+        if path.relative_to(SOURCE_DIR).as_posix()
+        != "src/ros/semaforr_node.cpp"
     }
     assert declared == observed
+    assert declared_in_order == [
+        "src/decision/AgentState.cpp",
+        "src/navigation/astar.cpp",
+        "src/decision/Controller.cpp",
+        "src/core/FORRAction.cpp",
+        "src/spatial/FORRBarriers.cpp",
+        "src/spatial/FORRConveyors.cpp",
+        "src/core/FORRGeometry.cpp",
+        "src/spatial/FORRHallways.cpp",
+        "src/spatial/FORRTrails.cpp",
+        "src/navigation/Graph.cpp",
+        "src/navigation/Map.cpp",
+        "src/navigation/PathPlanner.cpp",
+        "src/core/Position.cpp",
+        "src/decision/Tier1Advisor.cpp",
+        "src/decision/Tier3Advisor.cpp",
+        "src/vendor/tinyxml/tinystr.cpp",
+        "src/vendor/tinyxml/tinyxml.cpp",
+        "src/vendor/tinyxml/tinyxmlerror.cpp",
+        "src/vendor/tinyxml/tinyxmlparser.cpp",
+    ]
+
+
+def test_source_and_header_layout_is_responsibility_based():
+    expected_header_areas = {
+        "core",
+        "decision",
+        "exploration",
+        "navigation",
+        "ros",
+        "spatial",
+        "vendor",
+    }
+    expected_source_areas = {
+        "core",
+        "decision",
+        "navigation",
+        "ros",
+        "spatial",
+        "vendor",
+    }
+    include_root = SOURCE_DIR / "include" / "semaforr"
+    source_root = SOURCE_DIR / "src"
+
+    assert not list(include_root.glob("*.h"))
+    assert not list(source_root.glob("*.cpp"))
+    assert {
+        path.name for path in include_root.iterdir() if path.is_dir()
+    } == expected_header_areas
+    assert {
+        path.name for path in source_root.iterdir() if path.is_dir()
+    } == expected_source_areas
 
 
 def test_core_library_is_exported_with_a_stable_name():
