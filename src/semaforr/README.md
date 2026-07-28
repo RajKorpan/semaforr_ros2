@@ -52,3 +52,9 @@ ros2 run semaforr semaforr_node --ros-args \
 - `params`: General parameters for navigation
 
 Example configuration files are provided in the `config/` directory.
+
+## Refactoring baseline
+
+The pre-refactor characterization harness, runtime scenario, sanitizer profile,
+coverage profile, and known-behavior inventory are documented in
+`test/baseline/README.md`.

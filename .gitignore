@@ -2,4 +2,14 @@
 build
 install
 log
+build-*
+install-*
+log-*
 .idea
+coverage
+baseline-results
+*.gcda
+*.gcno
+*.gcov
+__pycache__/
+*.pyc
