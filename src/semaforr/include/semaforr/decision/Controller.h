@@ -33,7 +33,7 @@ class Controller;
 typedef std::vector<std::unique_ptr<Tier3Advisor>>::iterator advisor3It;
 typedef std::vector<std::unique_ptr<PathPlanner>>::iterator planner2It;
 
-// ROS Controller class 
+// Public navigation controller facade.
 class Controller {
 public:
 
@@ -128,9 +128,6 @@ private:
   //Tier 3 advisors are called here
   void tierThreeDecision(FORRAction *decision);
 
-  //Check influence of tier 3 Advisors
-  void tierThreeAdvisorInfluence();
-
   // learns the spatial model and updates the beliefs
   void learnSpatialModel(AgentState *agentState, bool taskStatus, bool earlyLearning);
   void updateSkeletonGraph(AgentState* agentState);
@@ -157,9 +154,6 @@ private:
   std::vector<std::unique_ptr<PathPlanner>> tier2Planners;
   std::vector<std::unique_ptr<Tier3Advisor>> tier3Advisors;
   
-  // Checks if a given advisor is active
-  bool isAdvisorActive(string advisorName);
-
   double canSeePointEpsilon, laserScanRadianIncrement, robotFootPrint, robotFootPrintBuffer, maxLaserRange, maxForwardActionBuffer, maxForwardActionSweepAngle, highwayDistanceThreshold, highwayTimeThreshold, highwayDecisionThreshold;
   double arrMove[300];
   double arrRotate[300];

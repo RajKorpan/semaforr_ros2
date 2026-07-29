@@ -71,6 +71,10 @@ set(SEMAFORR_DOMAIN_SOURCES
   src/decision/AgentState.cpp
   src/navigation/astar.cpp
   src/decision/Controller.cpp
+  src/decision/ControllerMission.cpp
+  src/decision/ControllerLearning.cpp
+  src/decision/ControllerDecision.cpp
+  src/decision/ControllerPlanning.cpp
   src/core/FORRAction.cpp
   src/spatial/FORRBarriers.cpp
   src/spatial/FORRConveyors.cpp
@@ -265,6 +269,10 @@ if(BUILD_TESTING)
   )
   ament_add_pytest_test(semaforr_configuration_contract_test
     test/test_configuration_contract.py
+    ENV "SEMAFORR_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
+  )
+  ament_add_pytest_test(semaforr_controller_decomposition_test
+    test/test_controller_decomposition.py
     ENV "SEMAFORR_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
   )
 endif()

@@ -42,6 +42,24 @@ Domain components accept `semaforr::domain::LaserScan`, `PoseArray`, and
 `semaforr::ros::toDomain`; ROS publishers convert outbound scans with
 `semaforr::ros::toRos`.
 
+## Controller decomposition
+
+`Controller` remains the public façade used by the ROS node and downstream
+consumers. Its implementation is grouped into focused translation units:
+
+| File | Responsibility |
+| --- | --- |
+| `Controller.cpp` | Construction and configuration-driven assembly |
+| `ControllerMission.cpp` | Sensor updates, task lifecycle, and top-level action orchestration |
+| `ControllerLearning.cpp` | Spatial learning and navigation-graph maintenance |
+| `ControllerDecision.cpp` | Tier-one enforcement and tier-three advisor voting |
+| `ControllerPlanning.cpp` | Tier-two plan generation, scoring, and selection |
+
+This keeps existing call sites and decision state intact while making each
+workflow independently discoverable and reducing the original monolithic
+implementation to bounded, responsibility-specific files. A source contract
+checks method placement, file size, and the stable public façade.
+
 ## Configuration boundary
 
 `semaforr::config::loadConfiguration` reads the five runtime files into one

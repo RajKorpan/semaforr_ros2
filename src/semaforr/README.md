@@ -13,6 +13,8 @@ SemaFORR is designed to enable robots to navigate complex environments using cog
 - ROS-independent domain model with explicit ROS message adapters
 - RAII ownership for controllers, tasks, planners, graphs, and search state
 - Typed, validated configuration with source-and-line diagnostics
+- Controller façade decomposed into focused mission, learning, decision, and
+  planning implementation units
 - ROS2 node integration
 - Example configuration files for quick setup
 
