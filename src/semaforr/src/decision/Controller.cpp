@@ -5,6 +5,7 @@
 
 #include <semaforr/decision/Controller.h>
 #include <semaforr/core/FORRGeometry.h>
+#include "DecisionTierFactory.h"
 #include <unistd.h>
 
 #include <algorithm>
@@ -184,6 +185,29 @@ Controller::Controller(semaforr::config::Configuration configuration) {
   frontierExploration = std::make_unique<FrontierExplorer>(
     l, h, highwayTimeThreshold, highwayDecisionThreshold,
     arrMove, arrRotate, moveArrMax, rotateArrMax);
+
+  tierOneDecision = semaforr::decision::makeTierOneDecision({
+    *beliefs,
+    *tier1,
+    doorwayOn,
+    behindOn,
+    outofhereOn,
+    findawayOn,
+    dontgobackOn,
+    highwayFinished,
+    frontierFinished
+  });
+  tierTwoDecision = semaforr::decision::makeTierTwoDecision({
+    *beliefs,
+    *tier1,
+    tier2Planners,
+    aStarOn,
+    highwayFinished,
+    frontierFinished
+  });
+  tierThreeDecision = semaforr::decision::makeTierThreeDecision({
+    tier3Advisors
+  });
 
   // Initialize circumnavigator
   // PathPlanner *skeleton_planner;

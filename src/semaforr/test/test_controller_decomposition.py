@@ -25,10 +25,8 @@ RESPONSIBILITIES = {
     ),
     "ControllerDecision.cpp": (
         "FORRDecision",
-        "tierOneDecision",
-        "tierThreeDecision",
     ),
-    "ControllerPlanning.cpp": ("tierTwoDecision",),
+    "ControllerPlanning.cpp": ("planForCurrentTask",),
 }
 
 
@@ -59,6 +57,9 @@ def test_controller_translation_units_remain_focused():
 
     assert "tierThreeAdvisorInfluence" not in "\n".join(sources.values())
     assert "isAdvisorActive" not in "\n".join(sources.values())
+    assert "Controller::tierOneDecision" not in "\n".join(sources.values())
+    assert "Controller::tierTwoDecision" not in "\n".join(sources.values())
+    assert "Controller::tierThreeDecision" not in "\n".join(sources.values())
 
 
 def test_controller_public_facade_remains_stable():

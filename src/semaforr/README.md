@@ -15,6 +15,7 @@ SemaFORR is designed to enable robots to navigate complex environments using cog
 - Typed, validated configuration with source-and-line diagnostics
 - Controller façade decomposed into focused mission, learning, decision, and
   planning implementation units
+- Replaceable, value-returning interfaces for all three decision tiers
 - ROS2 node integration
 - Example configuration files for quick setup
 

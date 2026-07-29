@@ -30,7 +30,7 @@ void Controller::updateState(
   if(firstTaskAssigned == false){
       cout << "Set first task" << endl;
       // if(aStarOn and (!highwaysOn or (highwaysOn and highwayExploration->getHighwaysComplete())) and (!frontiersOn or (frontiersOn and frontierExploration->getFrontiersComplete()))){
-      //   tierTwoDecision(current, true);
+      //   planForCurrentTask(current, true);
       // }
       // else{
       beliefs->getAgentState()->setCurrentTask(beliefs->getAgentState()->getNextTask());
@@ -60,7 +60,7 @@ void Controller::updateState(
       beliefs->getAgentState()->finishTask(false);
       // RCLCPP_DEBUG(this->get_logger(), "Selecting Next Task");
       if(aStarOn){
-        tierTwoDecision(current, true);
+        planForCurrentTask(current, true);
         // RCLCPP_DEBUG(this->get_logger(), "Next Plan Generated!!");
       }
       else{
@@ -113,7 +113,7 @@ void Controller::updateState(
         cout << "Selecting Next Task " << endl;
         // RCLCPP_DEBUG(this->get_logger(), "Selecting Next Task");
         if(aStarOn){
-          tierTwoDecision(current, true);
+          planForCurrentTask(current, true);
           cout << "Next Plan Generated!!" << endl;
           // RCLCPP_DEBUG(this->get_logger(), "Next Plan Generated!!");
         }
@@ -137,7 +137,7 @@ void Controller::updateState(
       updateSkeletonGraph(beliefs->getAgentState());
       // RCLCPP_DEBUG(this->get_logger(), "Finished Updating Skeleton Graph!!");
       if(aStarOn){
-        tierTwoDecision(current, false);
+        planForCurrentTask(current, false);
         // RCLCPP_DEBUG(this->get_logger(), "New Plan Generated!!");
       }
       beliefs->getAgentState()->setGetOutTriggered(false);
@@ -149,7 +149,7 @@ void Controller::updateState(
     }
     // else if(isPlanActive == false and aStarOn){
     //   // RCLCPP_DEBUG(this->get_logger(), "No active plan, setting up new plan!!");
-    //   tierTwoDecision(current);
+    //   planForCurrentTask(current, false);
     // }
     // else if(waypointReached == true and beliefs->getAgentState()->getCurrentTask()->getWaypoints().size() == 1){
     //   // RCLCPP_DEBUG(this->get_logger(), "Temporary Waypoint reached!!");
@@ -186,7 +186,7 @@ void Controller::updateState(
             aStarOn = false;
           }
           if(aStarOn){
-            tierTwoDecision(current, true);
+            planForCurrentTask(current, true);
           }
           else{
             beliefs->getAgentState()->setCurrentTask(beliefs->getAgentState()->getNextTask());

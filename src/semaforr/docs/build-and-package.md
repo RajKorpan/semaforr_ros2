@@ -52,13 +52,33 @@ consumers. Its implementation is grouped into focused translation units:
 | `Controller.cpp` | Construction and configuration-driven assembly |
 | `ControllerMission.cpp` | Sensor updates, task lifecycle, and top-level action orchestration |
 | `ControllerLearning.cpp` | Spatial learning and navigation-graph maintenance |
-| `ControllerDecision.cpp` | Tier-one enforcement and tier-three advisor voting |
-| `ControllerPlanning.cpp` | Tier-two plan generation, scoring, and selection |
+| `ControllerDecision.cpp` | Decision-tier orchestration and statistics transfer |
+| `ControllerPlanning.cpp` | Tier-two orchestration and statistics transfer |
+| `TierOneDecision.cpp` | Immediate decisions and action vetoes |
+| `TierTwoDecision.cpp` | Plan generation, scoring, and selection |
+| `TierThreeDecision.cpp` | Weighted advisor voting |
 
 This keeps existing call sites and decision state intact while making each
 workflow independently discoverable and reducing the original monolithic
 implementation to bounded, responsibility-specific files. A source contract
 checks method placement, file size, and the stable public façade.
+
+## Decision-tier interfaces
+
+`DecisionTier.h` defines one interface and one value result for each tier:
+
+| Interface | Operation | Result |
+| --- | --- | --- |
+| `TierOneDecision` | `decide()` | Whether a decision was made, the action, tier identifier, and veto summary |
+| `TierTwoDecision` | `plan(current, select_next_task)` | Plan-selection status, planner diagnostics, and computation time |
+| `TierThreeDecision` | `decide()` | The selected action and advisor diagnostics |
+
+The default implementations receive their dependencies explicitly during
+controller assembly. They do not access `Controller` internals, and
+`Controller` owns them through their interfaces. Results cross the boundary as
+values instead of writable action or statistics pointers. This leaves the
+public controller API unchanged while allowing a tier implementation to be
+substituted or tested without moving tier logic back into the controller.
 
 ## Configuration boundary
 

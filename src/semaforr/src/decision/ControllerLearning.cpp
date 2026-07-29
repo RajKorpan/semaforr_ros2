@@ -106,12 +106,12 @@ void Controller::updateSkeletonGraph(AgentState* agentState){
     cout << "Updating skeleton planner" << endl;
     PathPlanner *skeleton_planner;
     PathPlanner *hallway_skeleton_planner;
-    for (planner2It it = tier2Planners.begin(); it != tier2Planners.end(); it++){
-      if(skeleton and (*it)->getName() == "skeleton"){
-        skeleton_planner = it->get();
+    for (const auto& ownedPlanner : tier2Planners){
+      if(skeleton and ownedPlanner->getName() == "skeleton"){
+        skeleton_planner = ownedPlanner.get();
       }
-      if(hallwayskel and (*it)->getName() == "hallwayskel"){
-        hallway_skeleton_planner = it->get();
+      if(hallwayskel and ownedPlanner->getName() == "hallwayskel"){
+        hallway_skeleton_planner = ownedPlanner.get();
       }
     }
     if(skeleton){
@@ -185,9 +185,9 @@ void Controller::updateSkeletonGraph(AgentState* agentState){
   }
   if(hallwayskel and (highwayFinished == 1 or frontierFinished == 1)){
     PathPlanner *hwskeleton_planner;
-    for (planner2It it = tier2Planners.begin(); it != tier2Planners.end(); it++){
-      if((*it)->getName() == "hallwayskel"){
-        hwskeleton_planner = it->get();
+    for (const auto& ownedPlanner : tier2Planners){
+      if(ownedPlanner->getName() == "hallwayskel"){
+        hwskeleton_planner = ownedPlanner.get();
       }
     }
     hwskeleton_planner->resetGraph();

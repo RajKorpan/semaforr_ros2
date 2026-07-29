@@ -75,6 +75,9 @@ set(SEMAFORR_DOMAIN_SOURCES
   src/decision/ControllerLearning.cpp
   src/decision/ControllerDecision.cpp
   src/decision/ControllerPlanning.cpp
+  src/decision/TierOneDecision.cpp
+  src/decision/TierTwoDecision.cpp
+  src/decision/TierThreeDecision.cpp
   src/core/FORRAction.cpp
   src/spatial/FORRBarriers.cpp
   src/spatial/FORRConveyors.cpp
@@ -273,6 +276,10 @@ if(BUILD_TESTING)
   )
   ament_add_pytest_test(semaforr_controller_decomposition_test
     test/test_controller_decomposition.py
+    ENV "SEMAFORR_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
+  )
+  ament_add_pytest_test(semaforr_decision_tier_interface_test
+    test/test_decision_tier_interfaces.py
     ENV "SEMAFORR_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
   )
 endif()

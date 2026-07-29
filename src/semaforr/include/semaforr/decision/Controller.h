@@ -16,6 +16,7 @@
 // SemaFORR
 #include <semaforr/config/Configuration.h>
 #include <semaforr/decision/Beliefs.h>
+#include <semaforr/decision/DecisionTier.h>
 #include <semaforr/decision/Tier1Advisor.h>
 #include <semaforr/decision/Tier3Advisor.h>
 #include <semaforr/core/FORRActionStats.h>
@@ -27,11 +28,6 @@
 
 #include <semaforr/domain/SensorTypes.h>
 
-
-// Forward-declare Controller so the typedef below can reference it
-class Controller;
-typedef std::vector<std::unique_ptr<Tier3Advisor>>::iterator advisor3It;
-typedef std::vector<std::unique_ptr<PathPlanner>>::iterator planner2It;
 
 // Public navigation controller facade.
 class Controller {
@@ -119,14 +115,7 @@ private:
 
   FORRActionStats decisionStats;
   
-  //Tier 1 advisors are called here
-  bool tierOneDecision(FORRAction *decision);
-
-  //Tier 2 planners are called here
-  void tierTwoDecision(Position current, bool selectNextTask);
-
-  //Tier 3 advisors are called here
-  void tierThreeDecision(FORRAction *decision);
+  void planForCurrentTask(Position current, bool selectNextTask);
 
   // learns the spatial model and updates the beliefs
   void learnSpatialModel(AgentState *agentState, bool taskStatus, bool earlyLearning);
@@ -179,6 +168,10 @@ private:
   int frontierFinished;
   bool skeleton;
   bool hallwayskel;
+
+  std::unique_ptr<semaforr::decision::TierOneDecision> tierOneDecision;
+  std::unique_ptr<semaforr::decision::TierTwoDecision> tierTwoDecision;
+  std::unique_ptr<semaforr::decision::TierThreeDecision> tierThreeDecision;
 };
   
 #endif /* CONTROLLER_H */
