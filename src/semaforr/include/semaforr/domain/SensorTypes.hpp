@@ -68,29 +68,6 @@ struct PoseArray
   std::vector<Pose> poses;
 };
 
-struct CrowdModel
-{
-  Header header;
-  std::string child_frame_id;
-  std::int64_t height = 0;
-  std::int64_t width = 0;
-  std::int64_t resolution = 0;
-  std::vector<double> densities;
-  std::vector<double> risk;
-  std::vector<double> up;
-  std::vector<double> down;
-  std::vector<double> left;
-  std::vector<double> right;
-  std::vector<double> up_left;
-  std::vector<double> up_right;
-  std::vector<double> down_left;
-  std::vector<double> down_right;
-  std::vector<double> crowd_count;
-  std::vector<double> crowd_observations;
-  std::vector<double> risk_count;
-  std::vector<double> risk_experiences;
-};
-
 }  // namespace domain
 }  // namespace semaforr
 

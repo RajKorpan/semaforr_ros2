@@ -50,21 +50,13 @@ find_package(ament_cmake REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(rclcpp REQUIRED)
-find_package(rosidl_default_generators REQUIRED)
 find_package(sensor_msgs REQUIRED)
+find_package(social_context_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(tf2 REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(visualization_msgs REQUIRED)
-
-rosidl_generate_interfaces(${PROJECT_NAME}
-  "msg/CrowdModel.msg"
-  DEPENDENCIES std_msgs
-)
-
-rosidl_get_typesupport_target(cpp_typesupport_target
-  ${PROJECT_NAME} rosidl_typesupport_cpp)
 
 # Preserve the legacy translation-unit order while known undefined-behavior
 # findings are addressed. Phase 2 changes paths, not link ordering.
@@ -137,6 +129,7 @@ semaforr_apply_project_options(semaforr_planning)
 
 add_library(semaforr_advisors SHARED
   src/decision/DecisionCoordinator.cpp
+  src/decision/SocialNavigationAdvisor.cpp
 )
 set_target_properties(semaforr_advisors PROPERTIES EXPORT_NAME advisors)
 add_library(semaforr::advisors ALIAS semaforr_advisors)
@@ -194,6 +187,7 @@ add_library(semaforr_ros_adapters SHARED
     src/ros/ParameterConfiguration.cpp
   src/ros/SemaFORRNode.cpp
   src/ros/SensorSynchronizer.cpp
+  src/ros/SocialObservationBuffer.cpp
   src/ros/VisualizationPublisher.cpp
 )
 set_target_properties(
@@ -204,13 +198,13 @@ target_include_directories(semaforr_ros_adapters
     "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>"
     "$<INSTALL_INTERFACE:include>"
 )
-target_link_libraries(
-  semaforr_ros_adapters semaforr_domain "${cpp_typesupport_target}")
-  ament_target_dependencies(semaforr_ros_adapters
+target_link_libraries(semaforr_ros_adapters semaforr_domain)
+ament_target_dependencies(semaforr_ros_adapters
   geometry_msgs
   nav_msgs
   rclcpp
   sensor_msgs
+  social_context_msgs
   std_msgs
   tf2
   tf2_geometry_msgs
@@ -231,7 +225,6 @@ target_link_libraries(
   semaforr_node
   semaforr_domain
   semaforr_ros_adapters
-  "${cpp_typesupport_target}"
 )
 ament_target_dependencies(semaforr_node
   rclcpp
@@ -316,7 +309,6 @@ if(BUILD_TESTING)
   target_link_libraries(
     semaforr_message_adapters_test
     semaforr_ros_adapters
-    "${cpp_typesupport_target}"
   )
   semaforr_apply_project_options(semaforr_message_adapters_test)
   add_test(
@@ -418,6 +410,14 @@ if(BUILD_TESTING)
     semaforr_ros_execution_test semaforr_ros_adapters)
   semaforr_apply_project_options(semaforr_ros_execution_test)
 
+  ament_add_gtest(
+    semaforr_social_navigation_test
+    test/unit/social_navigation_test.cpp
+  )
+  target_link_libraries(
+    semaforr_social_navigation_test semaforr_ros_adapters)
+  semaforr_apply_project_options(semaforr_social_navigation_test)
+
   ament_add_pytest_test(semaforr_source_contract_test
     test/contracts/test_source_contract.py
     ENV "SEMAFORR_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
@@ -466,6 +466,10 @@ if(BUILD_TESTING)
     test/contracts/test_ros_node_contract.py
     ENV "SEMAFORR_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
   )
+  ament_add_pytest_test(semaforr_social_navigation_contract_test
+    test/contracts/test_social_navigation_contract.py
+    ENV "SEMAFORR_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
+  )
 endif()
 
 ament_export_targets(export_${PROJECT_NAME} HAS_LIBRARY_TARGET)
@@ -473,8 +477,8 @@ ament_export_dependencies(
   geometry_msgs
   nav_msgs
   rclcpp
-  rosidl_default_runtime
   sensor_msgs
+  social_context_msgs
   std_msgs
   tf2
   tf2_geometry_msgs

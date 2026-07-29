@@ -94,7 +94,7 @@ def test_domain_and_compatibility_libraries_are_exported():
     assert "ament_export_targets(export_${PROJECT_NAME} HAS_LIBRARY_TARGET)" in cmake
 
 
-def test_cpp_code_uses_the_generated_cpp_message_api():
+def test_social_input_uses_the_dedicated_interface_package():
     code = "\n".join(
         path.read_text(encoding="utf-8", errors="ignore")
         for directory in ("include", "src")
@@ -102,10 +102,10 @@ def test_cpp_code_uses_the_generated_cpp_message_api():
         if path.suffix in {".h", ".hpp", ".cpp"}
     )
 
-    assert "semaforr__msg__CrowdModel" not in code
-    assert "#include <semaforr/msg/crowd_model.h>" not in code
-    assert "semaforr::msg::CrowdModel" in code
-    assert "crowd_model.hpp" in code
+    assert "CrowdModel" not in code
+    assert "crowd_model" not in code
+    assert "social_context_msgs::msg::SocialObservation" in code
+    assert "social_observation.hpp" in code
 
 
 def test_cpp_build_does_not_embed_python():

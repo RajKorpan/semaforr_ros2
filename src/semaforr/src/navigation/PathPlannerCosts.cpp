@@ -3,112 +3,102 @@
 #include <semaforr/navigation/PathPlanner.hpp>
 
 #include <algorithm>
+#include <cmath>
 #include <limits.h>
 
 #define PATH_DEBUG true
 
-double PathPlanner::cellCost(int nodex, int nodey, int buffer){
-	int x = (int)((nodex/100.0)/crowdModel.resolution);
-	int x1 = (int)(((nodex+buffer)/100.0)/crowdModel.resolution);
-	int x2 = (int)(((nodex-buffer)/100.0)/crowdModel.resolution);
-	int y = (int)((nodey/100.0)/crowdModel.resolution);
-	int y1 = (int)(((nodey+buffer)/100.0)/crowdModel.resolution);
-	int y2 = (int)(((nodey-buffer)/100.0)/crowdModel.resolution);
+namespace {
 
-	//std::cout << "x " << x << " y " << y;
-	double d = crowdModel.densities[(y * crowdModel.width) + x];
-	double d1 = crowdModel.densities[(y1 * crowdModel.width) + x];
-	double d2 = crowdModel.densities[(y2 * crowdModel.width) + x];
-	double d3 = crowdModel.densities[(y * crowdModel.width) + x1];
-	double d4 = crowdModel.densities[(y * crowdModel.width) + x2];
-	//std::cout << " Cell cost " << d << std::endl;
-	//return (d + d1 + d2 + d3 + d4)/5;
-	double da = std::max(std::max(d, d1),d2);
-	double db = std::max(d3, d4);
-	return std::max(da,db);
-	//return d;
+// The compatibility graph stores planar coordinates in centimetres.
+constexpr double kGraphUnitsPerMeter = 100.0;
+
+double crowdDensity(
+  const semaforr::domain::CrowdState& crowd,
+  double x,
+  double y,
+  bool include_predictions)
+{
+  if (!crowd.current()) {
+    return 0.0;
+  }
+  double cost = 0.0;
+  for (const auto& pedestrian : crowd.current()->pedestrians) {
+    auto accumulate = [&](const semaforr::domain::Point2D& point) {
+      const double dx = x - point.x_m;
+      const double dy = y - point.y_m;
+      cost = std::max(
+        cost,
+        pedestrian.confidence *
+          std::exp(-(dx * dx + dy * dy) / 0.5));
+    };
+    accumulate(pedestrian.position);
+    if (include_predictions) {
+      for (const auto& prediction : pedestrian.predicted_trajectory) {
+        accumulate(prediction.position);
+      }
+    }
+  }
+  return cost;
 }
 
+}  // namespace
+
+double PathPlanner::cellCost(int nodex, int nodey, int buffer){
+  const double x = nodex / kGraphUnitsPerMeter;
+  const double y = nodey / kGraphUnitsPerMeter;
+  const double offset = std::fabs(buffer / kGraphUnitsPerMeter);
+  return std::max({
+    crowdDensity(crowdState, x, y, false),
+    crowdDensity(crowdState, x + offset, y, false),
+    crowdDensity(crowdState, x - offset, y, false),
+    crowdDensity(crowdState, x, y + offset, false),
+    crowdDensity(crowdState, x, y - offset, false)});
+}
 
 double PathPlanner::riskCost(int nodex, int nodey, int buffer){
-  int x = (int)((nodex/100.0)/crowdModel.resolution);
-  int x1 = (int)(((nodex+buffer)/100.0)/crowdModel.resolution);
-  int x2 = (int)(((nodex-buffer)/100.0)/crowdModel.resolution);
-  int y = (int)((nodey/100.0)/crowdModel.resolution);
-  int y1 = (int)(((nodey+buffer)/100.0)/crowdModel.resolution);
-  int y2 = (int)(((nodey-buffer)/100.0)/crowdModel.resolution);
-
-  //std::cout << "x " << x << " y " << y;
-  double d = crowdModel.risk[(y * crowdModel.width) + x];
-  double d1 = crowdModel.risk[(y1 * crowdModel.width) + x];
-  double d2 = crowdModel.risk[(y2 * crowdModel.width) + x];
-  double d3 = crowdModel.risk[(y * crowdModel.width) + x1];
-  double d4 = crowdModel.risk[(y * crowdModel.width) + x2];
-  //std::cout << " Cell cost " << d << std::endl;
-  //return (d + d1 + d2 + d3 + d4)/5;
-  double da = std::max(std::max(d, d1),d2);
-  double db = std::max(d3, d4);
-  return std::max(da,db);
-  //return d;
+  const double x = nodex / kGraphUnitsPerMeter;
+  const double y = nodey / kGraphUnitsPerMeter;
+  const double offset = std::fabs(buffer / kGraphUnitsPerMeter);
+  return std::max({
+    crowdDensity(crowdState, x, y, true),
+    crowdDensity(crowdState, x + offset, y, true),
+    crowdDensity(crowdState, x - offset, y, true),
+    crowdDensity(crowdState, x, y + offset, true),
+    crowdDensity(crowdState, x, y - offset, true)});
 }
 
-// Projection of crowd flow vectors on vector at s and d and then take the average
 double PathPlanner::computeCrowdFlow(Node s, Node d){
-	int s_x_index = (int)((s.getX()/100.0)/crowdModel.resolution);
-	int s_y_index = (int)((s.getY()/100.0)/crowdModel.resolution);
-	int d_x_index = (int)((d.getX()/100.0)/crowdModel.resolution);
-	int d_y_index = (int)((d.getY()/100.0)/crowdModel.resolution);
-	//Assuming crowd densities are normalized between 0 and 1
-	double s_l = crowdModel.left[(s_y_index * crowdModel.width) + s_x_index];
-	double d_l = crowdModel.left[(d_y_index * crowdModel.width) + d_x_index];
-	double s_r = crowdModel.right[(s_y_index * crowdModel.width) + s_x_index];
-	double d_r = crowdModel.right[(d_y_index * crowdModel.width) + d_x_index];
-	double s_u = crowdModel.up[(s_y_index * crowdModel.width) + s_x_index];
-	double d_u = crowdModel.up[(d_y_index * crowdModel.width) + d_x_index];
-	double s_d = crowdModel.down[(s_y_index * crowdModel.width) + s_x_index];
-	double d_d = crowdModel.down[(d_y_index * crowdModel.width) + d_x_index];
-
-	double s_ul = crowdModel.up_left[(s_y_index * crowdModel.width) + s_x_index];
-	double d_ul = crowdModel.up_left[(d_y_index * crowdModel.width) + d_x_index];
-	double s_ur = crowdModel.up_right[(s_y_index * crowdModel.width) + s_x_index];
-	double d_ur = crowdModel.up_right[(d_y_index * crowdModel.width) + d_x_index];
-	double s_dl = crowdModel.down_left[(s_y_index * crowdModel.width) + s_x_index];
-	double d_dl = crowdModel.down_left[(d_y_index * crowdModel.width) + d_x_index];
-	double s_dr = crowdModel.down_right[(s_y_index * crowdModel.width) + s_x_index];
-	double d_dr = crowdModel.down_right[(d_y_index * crowdModel.width) + d_x_index];
-
-	//cout << "Left : " << d_l << " * " << s_l << endl;
-	//cout << "Right : " << d_r << " * " << s_r << endl;
-	//cout << "Up : " << d_u << " * " << s_u << endl;
-	//cout << "Down : " << d_d << " * " << s_d << endl;
-	//cout << "Up-right : " << d_ur << " * " << s_ur << endl;
-	//cout << "Up-left : " << d_ul << " * " << s_ul << endl;
-	//cout << "Down-right : " << d_dr << " * " << s_dr << endl;
-	//cout << "Down-left : " << d_dl << " * " << s_dl << endl;
-
-
-	double l_avg = (s_l + d_l) / 2;
-	double r_avg = (s_r + d_r) / 2;
-	double u_avg = (s_u + d_u) / 2;
-	double d_avg = (s_d + d_d) / 2;
-	double ul_avg = (s_ul + d_ul) / 2;
-	double dl_avg = (s_dl + d_dl) / 2;
-	double ur_avg = (s_ur + d_ur) / 2;
-	double dr_avg = (s_dr + d_dr) / 2;
-
-	double pi = 3.145;
-	double cost_u = projection(pi/2, u_avg, s.getX(), s.getY(), d.getX(), d.getY());
-	double cost_d = projection(3*pi/2, d_avg, s.getX(), s.getY(), d.getX(), d.getY());
-	double cost_r = projection(0, r_avg, s.getX(), s.getY(), d.getX(), d.getY());
-	double cost_l = projection(pi, l_avg, s.getX(), s.getY(), d.getX(), d.getY());
-
-	double cost_ur = projection(pi/4, ur_avg, s.getX(), s.getY(), d.getX(), d.getY());
-	double cost_ul = projection(3*pi/4, ul_avg, s.getX(), s.getY(), d.getX(), d.getY());
-	double cost_dr = projection(7*pi/4, dr_avg, s.getX(), s.getY(), d.getX(), d.getY());
-	double cost_dl = projection(5*pi/4, dl_avg, s.getX(), s.getY(), d.getX(), d.getY());
-
-	double cost = cost_u + cost_d + cost_r + cost_l + cost_ur + cost_ul + cost_dr + cost_dl;
-	return cost;
+  if (!crowdState.current()) {
+    return 0.0;
+  }
+  const double sx = s.getX() / kGraphUnitsPerMeter;
+  const double sy = s.getY() / kGraphUnitsPerMeter;
+  const double dx = d.getX() / kGraphUnitsPerMeter;
+  const double dy = d.getY() / kGraphUnitsPerMeter;
+  const double length = std::hypot(dx - sx, dy - sy);
+  if (length <= 1.0e-9) {
+    return 0.0;
+  }
+  const double edge_x = (dx - sx) / length;
+  const double edge_y = (dy - sy) / length;
+  const double midpoint_x = (sx + dx) / 2.0;
+  const double midpoint_y = (sy + dy) / 2.0;
+  double cost = 0.0;
+  for (const auto& pedestrian : crowdState.current()->pedestrians) {
+    const double distance = std::hypot(
+      pedestrian.position.x_m - midpoint_x,
+      pedestrian.position.y_m - midpoint_y);
+    if (distance > 3.0) {
+      continue;
+    }
+    const double projection =
+      pedestrian.velocity_mps.x_m * edge_x +
+      pedestrian.velocity_mps.y_m * edge_y;
+    cost += pedestrian.confidence *
+      std::exp(-(distance * distance) / 2.0) * (-projection);
+  }
+  return cost;
 }
 
 double PathPlanner::novelCost(int nodex, int nodey){

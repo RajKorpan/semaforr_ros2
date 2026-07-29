@@ -3,10 +3,12 @@
 
 #include <chrono>
 #include <cmath>
+#include <optional>
 #include <stdexcept>
 #include <vector>
 
 #include <semaforr/domain/geometry.hpp>
+#include <semaforr/domain/social.hpp>
 
 namespace semaforr::domain {
 
@@ -33,17 +35,6 @@ struct LaserObservation {
   }
 };
 
-struct PedestrianObservation {
-  Point2D position;
-  Point2D velocity_mps;
-
-  bool operator==(const PedestrianObservation&) const = default;
-};
-
-struct CrowdObservation {
-  std::vector<PedestrianObservation> pedestrians;
-};
-
 struct VelocityCommand {
   double linear_mps = 0.0;
   double angular_radps = 0.0;
@@ -59,7 +50,7 @@ struct VelocityCommand {
 struct RobotObservation {
   Pose2D pose;
   LaserObservation laser;
-  CrowdObservation crowd;
+  std::optional<CrowdObservation> crowd;
   std::chrono::steady_clock::time_point observed_at{};
 };
 

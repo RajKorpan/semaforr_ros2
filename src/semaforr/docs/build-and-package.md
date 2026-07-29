@@ -15,7 +15,8 @@ ROS-independent navigation model from message transport and the ROS executable:
   `semaforr::domain`.
 - `semaforr_node` owns subscriptions, publishers, and visualization and links
   the domain and adapter targets.
-- `CrowdModel.msg` is consumed through its generated C++ API.
+- `social_context_msgs::msg::SocialObservation` is the sole
+  navigation-facing social input and is converted at the ROS boundary.
 
 ## Source layout
 
@@ -42,9 +43,10 @@ Headers use package-qualified paths, for example:
 ```
 
 Domain components accept `semaforr::domain::LaserScan`, `PoseArray`, and
-`CrowdModel`. ROS callbacks convert incoming messages with
+`CrowdState`. ROS callbacks convert incoming messages with
 `semaforr::ros::toDomain`; ROS publishers convert outbound scans with
-`semaforr::ros::toRos`.
+`semaforr::ros::toRos`. See `social_navigation.md` for the canonical message,
+freshness policy, producers, and consumers.
 
 ## Controller decomposition
 

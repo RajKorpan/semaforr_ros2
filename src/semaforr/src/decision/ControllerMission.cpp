@@ -22,12 +22,11 @@ using namespace std;
 void Controller::updateState(
   Position current,
   const semaforr::domain::LaserScan& laser_scan,
-  const semaforr::domain::PoseArray& crowdpose,
-  const semaforr::domain::PoseArray& crowdposeall){
+  const semaforr::domain::CrowdState& crowd){
   cout << "In update state" << endl;
   beliefs->getAgentState()->setCurrentSensor(current, laser_scan);
-  beliefs->getAgentState()->setCrowdPose(crowdpose);
-  beliefs->getAgentState()->setCrowdPoseAll(crowdposeall);
+  beliefs->getAgentState()->setCrowdState(crowd);
+  updatePlannersModels(crowd);
   if(firstTaskAssigned == false){
       cout << "Set first task" << endl;
       // if(aStarOn and (!highwaysOn or (highwaysOn and highwayExploration->getHighwaysComplete())) and (!frontiersOn or (frontiersOn and frontierExploration->getFrontiersComplete()))){

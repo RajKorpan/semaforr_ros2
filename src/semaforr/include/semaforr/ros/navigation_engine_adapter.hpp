@@ -28,8 +28,7 @@ public:
 
   void observe(
     const SynchronizedSensors& sensors,
-    const domain::PoseArray& crowd,
-    const domain::PoseArray& crowd_history);
+    const domain::CrowdState& crowd);
 
   bool missionComplete();
   decision::DecisionResult decide();

@@ -1,5 +1,9 @@
 #include <semaforr/ros/MessageAdapters.hpp>
 
+#include <algorithm>
+#include <chrono>
+#include <stdexcept>
+
 #include <std_msgs/msg/header.hpp>
 
 namespace {
@@ -43,47 +47,58 @@ domain::LaserScan toDomain(const sensor_msgs::msg::LaserScan& message)
   return result;
 }
 
-domain::PoseArray toDomain(const geometry_msgs::msg::PoseArray& message)
+domain::CrowdObservation toDomain(
+  const social_context_msgs::msg::SocialObservation& message,
+  const rclcpp::Time& received_at)
 {
-  domain::PoseArray result;
-  result.header = toDomainHeader(message.header);
-  result.poses.reserve(message.poses.size());
-  for (const geometry_msgs::msg::Pose& pose : message.poses) {
-    domain::Pose converted;
-    converted.position.x = pose.position.x;
-    converted.position.y = pose.position.y;
-    converted.position.z = pose.position.z;
-    converted.orientation.x = pose.orientation.x;
-    converted.orientation.y = pose.orientation.y;
-    converted.orientation.z = pose.orientation.z;
-    converted.orientation.w = pose.orientation.w;
-    result.poses.push_back(converted);
+  const rclcpp::Time observed_at(
+    message.header.stamp, received_at.get_clock_type());
+  if (observed_at.nanoseconds() < 0 || received_at < observed_at) {
+    throw std::invalid_argument(
+      "social observation timestamp is in the future");
   }
-  return result;
-}
-
-domain::CrowdModel toDomain(const semaforr::msg::CrowdModel& message)
-{
-  domain::CrowdModel result;
-  result.header = toDomainHeader(message.header);
-  result.child_frame_id = message.child_frame_id;
-  result.height = message.height;
-  result.width = message.width;
-  result.resolution = message.resolution;
-  result.densities = message.densities;
-  result.risk = message.risk;
-  result.up = message.up;
-  result.down = message.down;
-  result.left = message.left;
-  result.right = message.right;
-  result.up_left = message.up_left;
-  result.up_right = message.up_right;
-  result.down_left = message.down_left;
-  result.down_right = message.down_right;
-  result.crowd_count = message.crowd_count;
-  result.crowd_observations = message.crowd_observations;
-  result.risk_count = message.risk_count;
-  result.risk_experiences = message.risk_experiences;
+  domain::CrowdObservation result;
+  result.frame_id = message.header.frame_id;
+  result.observed_at =
+    std::chrono::nanoseconds(observed_at.nanoseconds());
+  result.data_age =
+    std::chrono::nanoseconds(
+      (received_at - observed_at).nanoseconds());
+  result.pedestrians.reserve(message.pedestrians.size());
+  for (const auto& pedestrian : message.pedestrians) {
+    if (pedestrian.predicted_positions.size() !=
+        pedestrian.prediction_stamps.size()) {
+      throw std::invalid_argument(
+        "pedestrian '" + pedestrian.id +
+        "' prediction positions and timestamps have different lengths");
+    }
+    domain::PedestrianObservation converted;
+    converted.id = pedestrian.id;
+    converted.position = {
+      pedestrian.position.x, pedestrian.position.y};
+    converted.velocity_mps = {
+      pedestrian.velocity.x, pedestrian.velocity.y};
+    converted.confidence = pedestrian.confidence;
+    std::copy(
+      pedestrian.position_covariance.begin(),
+      pedestrian.position_covariance.end(),
+      converted.position_covariance.begin());
+    converted.predicted_trajectory.reserve(
+      pedestrian.predicted_positions.size());
+    for (std::size_t index = 0U;
+         index < pedestrian.predicted_positions.size(); ++index) {
+      const rclcpp::Time predicted_at(
+        pedestrian.prediction_stamps[index],
+        received_at.get_clock_type());
+      converted.predicted_trajectory.push_back({
+        {
+          pedestrian.predicted_positions[index].x,
+          pedestrian.predicted_positions[index].y},
+        std::chrono::nanoseconds(predicted_at.nanoseconds())});
+    }
+    result.pedestrians.push_back(std::move(converted));
+  }
+  result.validate();
   return result;
 }
 

@@ -346,14 +346,10 @@ int PathPlanner::calcOrigPath(bool cautious){
 
 void PathPlanner::updateNavGraph(){
 	cout << "Updating nav graph before" << endl;
-	if(crowdModel.densities.empty() and (name == "density" or name == "risk" or name == "flow")){
-		cout << "crowdModel not recieved" << endl;
+	if(!crowdState.current() and (name == "density" or name == "risk" or name == "flow")){
+		cout << "valid crowd state not received" << endl;
 	}
 	else{
-		//cout << crowdModel.height << endl;
-		/*for(int i = 0 ; i < crowdModel.densities.size(); i++){
-			cout << crowdModel.densities[i] << endl;
-		}*/
 		vector<Edge*> edges = navGraph->getEdges();
 		// compute the extra cost imposed by crowd model on each edge in navGraph
 		for(int i = 0; i < edges.size(); i++){

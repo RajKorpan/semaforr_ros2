@@ -79,7 +79,6 @@ private:
 struct RobotState {
   Pose2D pose;
   std::optional<LaserObservation> laser;
-  std::optional<CrowdObservation> crowd;
 };
 
 struct NavigationHistoryEntry {
@@ -108,11 +107,6 @@ struct RecoveryState {
   bool confined = false;
   std::size_t get_out_attempts = 0U;
   std::size_t reposition_attempts = 0U;
-};
-
-struct CrowdState {
-  std::optional<CrowdObservation> current;
-  std::vector<CrowdObservation> history;
 };
 
 struct SpatialModel {

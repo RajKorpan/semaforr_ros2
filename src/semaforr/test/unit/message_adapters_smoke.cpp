@@ -1,8 +1,11 @@
-#include <semaforr/msg/crowd_model.hpp>
 #include <semaforr/ros/MessageAdapters.hpp>
+#include <social_context_msgs/msg/social_observation.hpp>
 
 #include <cassert>
+#include <chrono>
 #include <cmath>
+
+#include <rcl/time.h>
 
 int main()
 {
@@ -42,62 +45,33 @@ int main()
   assert(round_trip.ranges == scan.ranges);
   assert(round_trip.intensities == scan.intensities);
 
-  geometry_msgs::msg::PoseArray poses;
-  poses.header.frame_id = "map";
-  poses.poses.resize(1);
-  poses.poses[0].position.x = 2.5;
-  const double expected_yaw = 0.75;
-  poses.poses[0].orientation.z = std::sin(expected_yaw / 2.0);
-  poses.poses[0].orientation.w = std::cos(expected_yaw / 2.0);
-
-  const semaforr::domain::PoseArray domain_poses =
-    semaforr::ros::toDomain(poses);
-  assert(domain_poses.header.frame_id == "map");
-  assert(domain_poses.poses.size() == 1U);
-  assert(domain_poses.poses[0].position.x == 2.5);
-  assert(std::abs(domain_poses.poses[0].yaw() - expected_yaw) < 1e-12);
-
-  semaforr::msg::CrowdModel crowd;
+  social_context_msgs::msg::SocialObservation crowd;
   crowd.header.frame_id = "map";
-  crowd.child_frame_id = "crowd";
-  crowd.width = 2;
-  crowd.height = 1;
-  crowd.resolution = 4;
-  crowd.densities = {0.25, 0.75};
-  crowd.risk = {0.5, 1.0};
-  crowd.up = {1.0};
-  crowd.down = {2.0};
-  crowd.left = {3.0};
-  crowd.right = {4.0};
-  crowd.up_left = {5.0};
-  crowd.up_right = {6.0};
-  crowd.down_left = {7.0};
-  crowd.down_right = {8.0};
-  crowd.crowd_count = {9.0};
-  crowd.crowd_observations = {10.0};
-  crowd.risk_count = {11.0};
-  crowd.risk_experiences = {12.0};
+  crowd.header.stamp.sec = 12;
+  crowd.pedestrians.resize(1);
+  auto& person = crowd.pedestrians.front();
+  person.id = "person-7";
+  person.position.x = 2.5;
+  person.position.y = 1.0;
+  person.velocity.x = -0.2;
+  person.confidence = 0.8;
+  person.position_covariance = {0.1, 0.0, 0.0, 0.2};
+  person.predicted_positions.resize(1);
+  person.predicted_positions.front().x = 2.3;
+  person.predicted_positions.front().y = 1.0;
+  person.prediction_stamps.resize(1);
+  person.prediction_stamps.front().sec = 13;
 
-  const semaforr::domain::CrowdModel domain_crowd =
-    semaforr::ros::toDomain(crowd);
-  assert(domain_crowd.header.frame_id == "map");
-  assert(domain_crowd.child_frame_id == "crowd");
-  assert(domain_crowd.width == 2);
-  assert(domain_crowd.height == 1);
-  assert(domain_crowd.resolution == 4);
-  assert(domain_crowd.densities == crowd.densities);
-  assert(domain_crowd.risk == crowd.risk);
-  assert(domain_crowd.up == crowd.up);
-  assert(domain_crowd.down == crowd.down);
-  assert(domain_crowd.left == crowd.left);
-  assert(domain_crowd.right == crowd.right);
-  assert(domain_crowd.up_left == crowd.up_left);
-  assert(domain_crowd.up_right == crowd.up_right);
-  assert(domain_crowd.down_left == crowd.down_left);
-  assert(domain_crowd.down_right == crowd.down_right);
-  assert(domain_crowd.crowd_count == crowd.crowd_count);
-  assert(domain_crowd.crowd_observations == crowd.crowd_observations);
-  assert(domain_crowd.risk_count == crowd.risk_count);
-  assert(domain_crowd.risk_experiences == crowd.risk_experiences);
+  const rclcpp::Time received(
+    12'100'000'000LL, RCL_ROS_TIME);
+  const semaforr::domain::CrowdObservation domain_crowd =
+    semaforr::ros::toDomain(crowd, received);
+  assert(domain_crowd.frame_id == "map");
+  assert(domain_crowd.data_age == std::chrono::milliseconds(100));
+  assert(domain_crowd.pedestrians.size() == 1U);
+  assert(domain_crowd.pedestrians.front().id == "person-7");
+  assert(domain_crowd.pedestrians.front().velocity_mps.x_m == -0.2);
+  assert(
+    domain_crowd.pedestrians.front().predicted_trajectory.size() == 1U);
   return 0;
 }

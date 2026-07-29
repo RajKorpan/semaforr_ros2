@@ -32,11 +32,10 @@ NavigationEngineAdapter& NavigationEngineAdapter::operator=(
 
 void NavigationEngineAdapter::observe(
   const SynchronizedSensors& sensors,
-  const domain::PoseArray& crowd,
-  const domain::PoseArray& crowd_history)
+  const domain::CrowdState& crowd)
 {
   impl_->controller->updateState(
-    sensors.pose, sensors.scan, crowd, crowd_history);
+    sensors.pose, sensors.scan, crowd);
 }
 
 bool NavigationEngineAdapter::missionComplete()

@@ -1,5 +1,6 @@
 #include <semaforr/core/FORRAction.hpp>
 #include <semaforr/domain/SensorTypes.hpp>
+#include <semaforr/domain/social.hpp>
 
 #include <cassert>
 #include <cmath>
@@ -20,12 +21,12 @@ int main()
   pose.orientation.w = std::cos(expected_yaw / 2.0);
   assert(std::abs(pose.yaw() - expected_yaw) < 1e-12);
 
-  semaforr::domain::CrowdModel crowd;
-  crowd.width = 2;
-  crowd.height = 1;
-  crowd.densities = {0.25, 0.75};
-  assert(crowd.densities.size() ==
-         static_cast<std::size_t>(crowd.width * crowd.height));
+  semaforr::domain::CrowdObservation crowd;
+  crowd.frame_id = "map";
+  crowd.pedestrians.push_back({
+    "person-1", {0.25, 0.75}, {0.1, 0.0}, {}, 0.9, {}});
+  crowd.validate();
+  assert(crowd.pedestrians.front().id == "person-1");
 
   const FORRAction action(FORWARD, 2);
   assert(action.type == FORWARD);

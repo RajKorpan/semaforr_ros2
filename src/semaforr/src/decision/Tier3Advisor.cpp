@@ -3308,7 +3308,7 @@ double Tier3LeastAngleRotation::actionComment(FORRAction action){
 
 void Tier3Interpersonal::set_commenting(){
   //cout << "In Interpersonal set commenting " << endl;
-  if(beliefs->getAgentState()->getCrowdPose().poses.size() > 0)
+  if(beliefs->getAgentState()->hasValidCrowd())
     advisor_commenting = true;
   else
     advisor_commenting = false;
@@ -3316,7 +3316,7 @@ void Tier3Interpersonal::set_commenting(){
 
 double Tier3Interpersonal::actionComment(FORRAction action){
   //cout << "Inside Interpersonal" << endl;
-  vector <Position> crowdPositions = beliefs->getAgentState()->getCrowdPositions(beliefs->getAgentState()->getCrowdPose());
+  vector <Position> crowdPositions = beliefs->getAgentState()->getCrowdPositions();
   Position expectedPosition = beliefs->getAgentState()->getExpectedPositionAfterAction(action);
   double metric = 0;
   for(int i = 0; i < crowdPositions.size(); i++){
@@ -3336,7 +3336,7 @@ double Tier3Interpersonal::actionComment(FORRAction action){
 
 void Tier3InterpersonalRotation::set_commenting(){
   //cout << "In InterpersonalRotation set commenting " << endl;
-  if(beliefs->getAgentState()->getCrowdPose().poses.size() > 0)
+  if(beliefs->getAgentState()->hasValidCrowd())
     advisor_commenting = true;
   else
     advisor_commenting = false;
@@ -3344,7 +3344,7 @@ void Tier3InterpersonalRotation::set_commenting(){
 
 double Tier3InterpersonalRotation::actionComment(FORRAction action){
   //cout << "Inside InterpersonalRotation" << endl;
-  vector <Position> crowdPositions = beliefs->getAgentState()->getCrowdPositions(beliefs->getAgentState()->getCrowdPose());
+  vector <Position> crowdPositions = beliefs->getAgentState()->getCrowdPositions();
   Position expectedPosition = beliefs->getAgentState()->getExpectedPositionAfterAction(action);
   double metric = 0;
   for(int i = 0; i < crowdPositions.size(); i++){
@@ -3364,7 +3364,7 @@ double Tier3InterpersonalRotation::actionComment(FORRAction action){
 
 /*void Tier3Formation::set_commenting(){
   cout << "In Interpersonal set commenting " << endl;
-  if(beliefs->getAgentState()->getCrowdPose().poses.size() > 0)
+  if(beliefs->getAgentState()->hasValidCrowd())
     advisor_commenting = true;
   else
     advisor_commenting = false;
@@ -3372,7 +3372,7 @@ double Tier3InterpersonalRotation::actionComment(FORRAction action){
 
 double Tier3Formation::actionComment(FORRAction action){
   cout << "Inside Interpersonal" << endl;
-  vector <Position> crowdPositions = beliefs->getAgentState()->getCrowdPositions(beliefs->getAgentState()->getCrowdPose());
+  vector <Position> crowdPositions = beliefs->getAgentState()->getCrowdPositions();
   Position expectedPosition = beliefs->getAgentState()->getExpectedPositionAfterAction(action);
   double metric = 0;
   for(int i = 0; i < crowdPositions.size(); i++){
@@ -3388,7 +3388,7 @@ double Tier3Formation::actionComment(FORRAction action){
 
 void Tier3FormationRotation::set_commenting(){
   cout << "In InterpersonalRotation set commenting " << endl;
-  if(beliefs->getAgentState()->getCrowdPose().poses.size() > 0)
+  if(beliefs->getAgentState()->hasValidCrowd())
     advisor_commenting = true;
   else
     advisor_commenting = false;
@@ -3396,7 +3396,7 @@ void Tier3FormationRotation::set_commenting(){
 
 double Tier3FormationRotation::actionComment(FORRAction action){
   cout << "Inside InterpersonalRotation" << endl;
-  vector <Position> crowdPositions = beliefs->getAgentState()->getCrowdPositions(beliefs->getAgentState()->getCrowdPose());
+  vector <Position> crowdPositions = beliefs->getAgentState()->getCrowdPositions();
   Position expectedPosition = beliefs->getAgentState()->getExpectedPositionAfterAction(action);
   double metric = 0;
   for(int i = 0; i < crowdPositions.size(); i++){
@@ -3412,7 +3412,7 @@ double Tier3FormationRotation::actionComment(FORRAction action){
 
 void Tier3Front::set_commenting(){
   //cout << "In Front set commenting " << endl;
-  if(beliefs->getAgentState()->getCrowdPose().poses.size() > 0)
+  if(beliefs->getAgentState()->hasValidCrowd())
     advisor_commenting = true;
   else
     advisor_commenting = false;
@@ -3420,7 +3420,7 @@ void Tier3Front::set_commenting(){
 
 double Tier3Front::actionComment(FORRAction action){
   //cout << "Inside Front" << endl;
-  vector <Position> crowdPositions = beliefs->getAgentState()->getCrowdPositions(beliefs->getAgentState()->getCrowdPose());
+  vector <Position> crowdPositions = beliefs->getAgentState()->getCrowdPositions();
   Position expectedPosition = beliefs->getAgentState()->getExpectedPositionAfterAction(action);
   Position currentPosition = beliefs->getAgentState()->getCurrentPosition();
   double facingAngle = 0;
@@ -3453,7 +3453,7 @@ double Tier3Front::actionComment(FORRAction action){
 
 void Tier3FrontRotation::set_commenting(){
   //cout << "In FrontRotation set commenting " << endl;
-  if(beliefs->getAgentState()->getCrowdPose().poses.size() > 0)
+  if(beliefs->getAgentState()->hasValidCrowd())
     advisor_commenting = true;
   else
     advisor_commenting = false;
@@ -3461,7 +3461,7 @@ void Tier3FrontRotation::set_commenting(){
 
 double Tier3FrontRotation::actionComment(FORRAction action){
   //cout << "Inside FrontRotation" << endl;
-  vector <Position> crowdPositions = beliefs->getAgentState()->getCrowdPositions(beliefs->getAgentState()->getCrowdPose());
+  vector <Position> crowdPositions = beliefs->getAgentState()->getCrowdPositions();
   Position expectedPosition = beliefs->getAgentState()->getExpectedPositionAfterAction(action);
   Position currentPosition = beliefs->getAgentState()->getCurrentPosition();
   double facingAngle = 0;
@@ -3494,7 +3494,7 @@ double Tier3FrontRotation::actionComment(FORRAction action){
 
 void Tier3Rear::set_commenting(){
   //cout << "In Rear set commenting " << endl;
-  if(beliefs->getAgentState()->getCrowdPose().poses.size() > 0)
+  if(beliefs->getAgentState()->hasValidCrowd())
     advisor_commenting = true;
   else
     advisor_commenting = false;
@@ -3502,7 +3502,7 @@ void Tier3Rear::set_commenting(){
 
 double Tier3Rear::actionComment(FORRAction action){
   //cout << "Inside Rear" << endl;
-  vector <Position> crowdPositions = beliefs->getAgentState()->getCrowdPositions(beliefs->getAgentState()->getCrowdPose());
+  vector <Position> crowdPositions = beliefs->getAgentState()->getCrowdPositions();
   Position expectedPosition = beliefs->getAgentState()->getExpectedPositionAfterAction(action);
   Position currentPosition = beliefs->getAgentState()->getCurrentPosition();
   double facingAngle = currentPosition.getTheta();
@@ -3526,7 +3526,7 @@ double Tier3Rear::actionComment(FORRAction action){
 
 void Tier3RearRotation::set_commenting(){
   //cout << "In RearRotation set commenting " << endl;
-  if(beliefs->getAgentState()->getCrowdPose().poses.size() > 0)
+  if(beliefs->getAgentState()->hasValidCrowd())
     advisor_commenting = true;
   else
     advisor_commenting = false;
@@ -3534,7 +3534,7 @@ void Tier3RearRotation::set_commenting(){
 
 double Tier3RearRotation::actionComment(FORRAction action){
   //cout << "Inside RearRotation" << endl;
-  vector <Position> crowdPositions = beliefs->getAgentState()->getCrowdPositions(beliefs->getAgentState()->getCrowdPose());
+  vector <Position> crowdPositions = beliefs->getAgentState()->getCrowdPositions();
   Position expectedPosition = beliefs->getAgentState()->getExpectedPositionAfterAction(action);
   Position currentPosition = beliefs->getAgentState()->getCurrentPosition();
   double facingAngle = currentPosition.getTheta();
@@ -3558,7 +3558,7 @@ double Tier3RearRotation::actionComment(FORRAction action){
 
 void Tier3Side::set_commenting(){
   //cout << "In Side set commenting " << endl;
-  if(beliefs->getAgentState()->getCrowdPose().poses.size() > 0)
+  if(beliefs->getAgentState()->hasValidCrowd())
     advisor_commenting = true;
   else
     advisor_commenting = false;
@@ -3566,7 +3566,7 @@ void Tier3Side::set_commenting(){
 
 double Tier3Side::actionComment(FORRAction action){
   //cout << "Inside Side" << endl;
-  vector <Position> crowdPositions = beliefs->getAgentState()->getCrowdPositions(beliefs->getAgentState()->getCrowdPose());
+  vector <Position> crowdPositions = beliefs->getAgentState()->getCrowdPositions();
   Position expectedPosition = beliefs->getAgentState()->getExpectedPositionAfterAction(action);
   Position currentPosition = beliefs->getAgentState()->getCurrentPosition();
   //cout << "current Theta = " << currentPosition.getTheta() << endl;
@@ -3601,7 +3601,7 @@ double Tier3Side::actionComment(FORRAction action){
 
 void Tier3SideRotation::set_commenting(){
   //cout << "In SideRotation set commenting " << endl;
-  if(beliefs->getAgentState()->getCrowdPose().poses.size() > 0)
+  if(beliefs->getAgentState()->hasValidCrowd())
     advisor_commenting = true;
   else
     advisor_commenting = false;
@@ -3609,7 +3609,7 @@ void Tier3SideRotation::set_commenting(){
 
 double Tier3SideRotation::actionComment(FORRAction action){
   //cout << "Inside SideRotation" << endl;
-  vector <Position> crowdPositions = beliefs->getAgentState()->getCrowdPositions(beliefs->getAgentState()->getCrowdPose());
+  vector <Position> crowdPositions = beliefs->getAgentState()->getCrowdPositions();
   Position expectedPosition = beliefs->getAgentState()->getExpectedPositionAfterAction(action);
   Position currentPosition = beliefs->getAgentState()->getCurrentPosition();
   //cout << "current Theta = " << currentPosition.getTheta() << endl;
@@ -3644,7 +3644,7 @@ double Tier3SideRotation::actionComment(FORRAction action){
 
 void Tier3Visible::set_commenting(){
   //cout << "In Visible set commenting " << endl;
-  if(beliefs->getAgentState()->getCrowdPose().poses.size() > 0)
+  if(beliefs->getAgentState()->hasValidCrowd())
     advisor_commenting = true;
   else
     advisor_commenting = false;
@@ -3652,7 +3652,7 @@ void Tier3Visible::set_commenting(){
 
 double Tier3Visible::actionComment(FORRAction action){
   //cout << "Inside Visible" << endl;
-  vector <Position> crowdPositions = beliefs->getAgentState()->getCrowdPositions(beliefs->getAgentState()->getCrowdPose());
+  vector <Position> crowdPositions = beliefs->getAgentState()->getCrowdPositions();
   Position expectedPosition = beliefs->getAgentState()->getExpectedPositionAfterAction(action);
   Position currentPosition = beliefs->getAgentState()->getCurrentPosition();
   double metric = 0, currentVisibility = 0, expectedVisibility = 0;
@@ -3687,7 +3687,7 @@ double Tier3Visible::actionComment(FORRAction action){
 
 void Tier3VisibleRotation::set_commenting(){
   //cout << "In VisibleRotation set commenting " << endl;
-  if(beliefs->getAgentState()->getCrowdPose().poses.size() > 0)
+  if(beliefs->getAgentState()->hasValidCrowd())
     advisor_commenting = true;
   else
     advisor_commenting = false;
@@ -3695,7 +3695,7 @@ void Tier3VisibleRotation::set_commenting(){
 
 double Tier3VisibleRotation::actionComment(FORRAction action){
   //cout << "Inside VisibleRotation" << endl;
-  vector <Position> crowdPositions = beliefs->getAgentState()->getCrowdPositions(beliefs->getAgentState()->getCrowdPose());
+  vector <Position> crowdPositions = beliefs->getAgentState()->getCrowdPositions();
   Position expectedPosition = beliefs->getAgentState()->getExpectedPositionAfterAction(action);
   Position currentPosition = beliefs->getAgentState()->getCurrentPosition();
   double metric = 0, currentVisibility = 0, expectedVisibility = 0;
@@ -3730,7 +3730,7 @@ double Tier3VisibleRotation::actionComment(FORRAction action){
 
 /*void Tier3Wait::set_commenting(){
   cout << "In Wait set commenting " << endl;
-  if(beliefs->getAgentState()->getCrowdPose().poses.size() > 0)
+  if(beliefs->getAgentState()->hasValidCrowd())
     advisor_commenting = true;
   else
     advisor_commenting = false;
@@ -3738,7 +3738,7 @@ double Tier3VisibleRotation::actionComment(FORRAction action){
 
 double Tier3Wait::actionComment(FORRAction action){
   cout << "Inside Wait" << endl;
-  vector <Position> crowdPositions = beliefs->getAgentState()->getCrowdPositions(beliefs->getAgentState()->getCrowdPose());
+  vector <Position> crowdPositions = beliefs->getAgentState()->getCrowdPositions();
   Position expectedPosition = beliefs->getAgentState()->getExpectedPositionAfterAction(action);
   Position currentPosition = beliefs->getAgentState()->getCurrentPosition();
   cout << "current Theta = " << currentPosition.getTheta() << endl;
@@ -3764,7 +3764,7 @@ double Tier3Wait::actionComment(FORRAction action){
 
 void Tier3WaitRotation::set_commenting(){
   cout << "In WaitRotation set commenting " << endl;
-  if(beliefs->getAgentState()->getCrowdPose().poses.size() > 0)
+  if(beliefs->getAgentState()->hasValidCrowd())
     advisor_commenting = true;
   else
     advisor_commenting = false;
@@ -3772,7 +3772,7 @@ void Tier3WaitRotation::set_commenting(){
 
 double Tier3WaitRotation::actionComment(FORRAction action){
   cout << "Inside WaitRotation" << endl;
-  vector <Position> crowdPositions = beliefs->getAgentState()->getCrowdPositions(beliefs->getAgentState()->getCrowdPose());
+  vector <Position> crowdPositions = beliefs->getAgentState()->getCrowdPositions();
   Position expectedPosition = beliefs->getAgentState()->getExpectedPositionAfterAction(action);
   Position currentPosition = beliefs->getAgentState()->getCurrentPosition();
   cout << "current Theta = " << currentPosition.getTheta() << endl;

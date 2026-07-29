@@ -11,11 +11,14 @@
 #include <utility>
 
 #include <geometry_msgs/msg/pose_stamped.hpp>
+#include <geometry_msgs/msg/point_stamped.hpp>
 #include <geometry_msgs/msg/twist.hpp>
+#include <geometry_msgs/msg/vector3_stamped.hpp>
 #include <rclcpp/create_timer.hpp>
 #include <rclcpp/qos.hpp>
 #include <sensor_msgs/msg/laser_scan.hpp>
 #include <std_msgs/msg/string.hpp>
+#include <social_context_msgs/msg/social_observation.hpp>
 #include <tf2/time.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 #include <tf2_ros/buffer.h>
@@ -25,6 +28,7 @@
 #include <semaforr/ros/command_executor.hpp>
 #include <semaforr/ros/navigation_engine_adapter.hpp>
 #include <semaforr/ros/sensor_synchronizer.hpp>
+#include <semaforr/ros/social_observation_buffer.hpp>
 #include <semaforr/ros/visualization_publisher.hpp>
 
 namespace semaforr::ros {
@@ -41,9 +45,11 @@ struct RuntimeConfiguration {
   std::string scan_topic{"scan_raw"};
   std::string command_topic{"cmd_vel"};
   std::string state_topic{"navigation_state"};
+  std::string social_topic{"social_observations"};
   QosConfiguration sensor_qos;
   QosConfiguration command_qos{1U, "reliable", "volatile"};
   SensorSynchronizerConfiguration sensors;
+  SocialObservationConfiguration social;
   CommandExecutorConfiguration commands;
   double control_rate_hz{30.0};
   double transform_timeout_s{0.05};
@@ -72,6 +78,8 @@ void declareRuntimeParameters(rclcpp::Node& node)
   node.declare_parameter("topics.command", std::string{"cmd_vel"});
   node.declare_parameter(
     "topics.navigation_state", std::string{"navigation_state"});
+  node.declare_parameter(
+    "topics.social_observations", std::string{"social_observations"});
 
   node.declare_parameter("qos.sensors.depth", 10);
   node.declare_parameter(
@@ -92,6 +100,8 @@ void declareRuntimeParameters(rclcpp::Node& node)
   node.declare_parameter("timing.control_rate_hz", 30.0);
   node.declare_parameter("timing.sensor_timeout_s", 0.5);
   node.declare_parameter("timing.sensor_sync_tolerance_s", 0.1);
+  node.declare_parameter("social.maximum_age_s", 0.75);
+  node.declare_parameter("social.minimum_confidence", 0.25);
 
   node.declare_parameter("command.linear_velocity_mps", 0.5);
   node.declare_parameter("command.angular_velocity_radps", 0.5);
@@ -150,12 +160,20 @@ RuntimeConfiguration readRuntimeConfiguration(rclcpp::Node& node)
   configuration.state_topic = requireNonEmpty(
     node.get_parameter("topics.navigation_state").as_string(),
     "topics.navigation_state");
+  configuration.social_topic = requireNonEmpty(
+    node.get_parameter("topics.social_observations").as_string(),
+    "topics.social_observations");
   configuration.sensor_qos = readQos(node, "qos.sensors");
   configuration.command_qos = readQos(node, "qos.command");
   configuration.sensors.pose_frame = requireNonEmpty(
     node.get_parameter("frames.global").as_string(), "frames.global");
   configuration.sensors.scan_frame = requireNonEmpty(
     node.get_parameter("frames.scan").as_string(), "frames.scan");
+  configuration.social.frame = configuration.sensors.pose_frame;
+  configuration.social.maximum_age_s =
+    node.get_parameter("social.maximum_age_s").as_double();
+  configuration.social.minimum_confidence =
+    node.get_parameter("social.minimum_confidence").as_double();
   configuration.transform_timeout_s =
     node.get_parameter("frames.transform_timeout_s").as_double();
   configuration.control_rate_hz =
@@ -190,6 +208,7 @@ RuntimeConfiguration readRuntimeConfiguration(rclcpp::Node& node)
     configuration.control_rate_hz, "timing.control_rate_hz");
   // Constructing these value objects performs the remainder of validation.
   (void)SensorSynchronizer(configuration.sensors);
+  (void)SocialObservationBuffer(configuration.social);
   (void)CommandExecutor(configuration.commands);
   (void)makeQos(configuration.sensor_qos);
   (void)makeQos(configuration.command_qos);
@@ -228,6 +247,41 @@ std::string_view actionName(domain::ActionType type) noexcept
   return "unknown";
 }
 
+void rotatePositionCovariance(
+  social_context_msgs::msg::PedestrianObservation& pedestrian,
+  const geometry_msgs::msg::TransformStamped& transform)
+{
+  const auto& quaternion = transform.transform.rotation;
+  const double sin_yaw = 2.0 * (
+    quaternion.w * quaternion.z +
+    quaternion.x * quaternion.y);
+  const double cos_yaw = 1.0 - 2.0 * (
+    quaternion.y * quaternion.y +
+    quaternion.z * quaternion.z);
+  const double yaw = std::atan2(sin_yaw, cos_yaw);
+  const double cosine = std::cos(yaw);
+  const double sine = std::sin(yaw);
+  const auto covariance = pedestrian.position_covariance;
+  pedestrian.position_covariance[0] =
+    cosine * cosine * covariance[0] -
+    cosine * sine * (covariance[1] + covariance[2]) +
+    sine * sine * covariance[3];
+  pedestrian.position_covariance[1] =
+    cosine * sine * covariance[0] -
+    sine * sine * covariance[2] +
+    cosine * cosine * covariance[1] -
+    cosine * sine * covariance[3];
+  pedestrian.position_covariance[2] =
+    cosine * sine * covariance[0] +
+    cosine * cosine * covariance[2] -
+    sine * sine * covariance[1] -
+    cosine * sine * covariance[3];
+  pedestrian.position_covariance[3] =
+    sine * sine * covariance[0] +
+    cosine * sine * (covariance[1] + covariance[2]) +
+    cosine * cosine * covariance[3];
+}
+
 }  // namespace
 
 class SemaFORRNode::Impl {
@@ -246,6 +300,8 @@ public:
       std::move(controller_configuration));
     synchronizer_ =
       std::make_unique<SensorSynchronizer>(runtime_.sensors);
+    social_buffer_ =
+      std::make_unique<SocialObservationBuffer>(runtime_.social);
     executor_ = std::make_unique<CommandExecutor>(runtime_.commands);
     visualization_ =
       std::make_unique<VisualizationPublisher>(
@@ -283,6 +339,16 @@ public:
         sensor_qos,
         [this](sensor_msgs::msg::LaserScan::ConstSharedPtr message) {
           onScan(*message);
+        });
+    social_subscription_ =
+      node_.create_subscription<
+        social_context_msgs::msg::SocialObservation>(
+        runtime_.social_topic,
+        sensor_qos,
+        [this](
+          social_context_msgs::msg::SocialObservation::ConstSharedPtr
+            message) {
+          onSocialObservation(*message);
         });
     timer_ = rclcpp::create_timer(
       node_shared,
@@ -355,6 +421,66 @@ private:
     }
   }
 
+  void onSocialObservation(
+    const social_context_msgs::msg::SocialObservation& message)
+  {
+    std::scoped_lock lock(mutex_);
+    if (state_ == NavigationNodeState::Stopped) {
+      return;
+    }
+    const rclcpp::Time received_at = node_.now();
+    social_context_msgs::msg::SocialObservation normalized = message;
+    if (message.header.frame_id != runtime_.social.frame) {
+      try {
+        const auto transform = transform_buffer_.lookupTransform(
+          runtime_.social.frame,
+          message.header.frame_id,
+          rclcpp::Time(
+            message.header.stamp, received_at.get_clock_type()),
+          tf2::durationFromSec(runtime_.transform_timeout_s));
+        normalized.header.frame_id = runtime_.social.frame;
+        for (auto& pedestrian : normalized.pedestrians) {
+          rotatePositionCovariance(pedestrian, transform);
+          geometry_msgs::msg::PointStamped point;
+          point.header = message.header;
+          point.point = pedestrian.position;
+          geometry_msgs::msg::PointStamped transformed_point;
+          tf2::doTransform(point, transformed_point, transform);
+          pedestrian.position = transformed_point.point;
+
+          geometry_msgs::msg::Vector3Stamped velocity;
+          velocity.header = message.header;
+          velocity.vector = pedestrian.velocity;
+          geometry_msgs::msg::Vector3Stamped transformed_velocity;
+          tf2::doTransform(velocity, transformed_velocity, transform);
+          pedestrian.velocity = transformed_velocity.vector;
+
+          for (auto& prediction : pedestrian.predicted_positions) {
+            point.point = prediction;
+            tf2::doTransform(point, transformed_point, transform);
+            prediction = transformed_point.point;
+          }
+        }
+      } catch (const tf2::TransformException& error) {
+        last_social_failure_ =
+          "social transform unavailable from '" +
+          message.header.frame_id + "' to '" + runtime_.social.frame +
+          "': " + error.what();
+        return;
+      }
+    }
+    if (social_buffer_->accept(normalized, received_at)) {
+      if (const auto observation = social_buffer_->snapshot(received_at)) {
+        crowd_state_.update(*observation);
+      }
+      last_social_failure_.clear();
+    } else {
+      last_social_failure_ =
+        "social_" +
+        std::string(toString(social_buffer_->status(received_at)));
+    }
+  }
+
   void controlTick()
   {
     std::scoped_lock lock(mutex_);
@@ -373,7 +499,7 @@ private:
 
     switch (state_) {
       case NavigationNodeState::WaitingForSensors:
-        updateNavigationEngine(*sensors);
+        updateNavigationEngine(*sensors, now);
         last_failure_.clear();
         transition(NavigationNodeState::ReadyToDecide, "sensors_ready");
         decide(*sensors, now);
@@ -411,10 +537,23 @@ private:
       last_failure_);
   }
 
-  void updateNavigationEngine(const SynchronizedSensors& sensors)
+  void updateNavigationEngine(
+    const SynchronizedSensors& sensors,
+    const rclcpp::Time& now)
   {
-    navigation_engine_->observe(
-      sensors, crowd_pose_, crowd_pose_all_);
+    domain::CrowdState effective_crowd = crowd_state_;
+    if (const auto observation = social_buffer_->snapshot(now)) {
+      effective_crowd.replaceCurrent(*observation);
+      last_social_failure_.clear();
+    } else {
+      effective_crowd.clearCurrent();
+      const auto status = social_buffer_->status(now);
+      if (status != SocialObservationStatus::NoData) {
+        last_social_failure_ =
+          "social_" + std::string(toString(status));
+      }
+    }
+    navigation_engine_->observe(sensors, effective_crowd);
     visualization_->publishSnapshot();
     last_observation_generation_ = sensors.generation;
   }
@@ -468,7 +607,7 @@ private:
       last_failure_.clear();
     }
     finishDecisionLog(now);
-    updateNavigationEngine(sensors);
+    updateNavigationEngine(sensors, now);
 
     if (navigation_engine_->missionComplete()) {
       publishZero();
@@ -538,6 +677,7 @@ private:
   RuntimeConfiguration runtime_;
   std::unique_ptr<NavigationEngineAdapter> navigation_engine_;
   std::unique_ptr<SensorSynchronizer> synchronizer_;
+  std::unique_ptr<SocialObservationBuffer> social_buffer_;
   std::unique_ptr<CommandExecutor> executor_;
   std::unique_ptr<VisualizationPublisher> visualization_;
 
@@ -547,19 +687,22 @@ private:
     pose_subscription_;
   rclcpp::Subscription<sensor_msgs::msg::LaserScan>::SharedPtr
     scan_subscription_;
+  rclcpp::Subscription<
+    social_context_msgs::msg::SocialObservation>::SharedPtr
+    social_subscription_;
   rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr
     command_publisher_;
   rclcpp::Publisher<std_msgs::msg::String>::SharedPtr state_publisher_;
   rclcpp::TimerBase::SharedPtr timer_;
 
-  domain::PoseArray crowd_pose_;
-  domain::PoseArray crowd_pose_all_;
+  domain::CrowdState crowd_state_;
   std::optional<decision::DecisionResult> pending_decision_;
   rclcpp::Time mission_started_at_;
   double computation_time_s_{0.0};
   std::size_t last_observation_generation_{0U};
   NavigationNodeState state_{NavigationNodeState::WaitingForSensors};
   std::string last_failure_;
+  std::string last_social_failure_;
   std::string last_transition_detail_;
   bool started_{false};
   bool ever_had_sensors_{false};

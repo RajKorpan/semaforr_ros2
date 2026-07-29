@@ -25,6 +25,7 @@
 #include <set>
 
 #include <semaforr/domain/SensorTypes.hpp>
+#include <semaforr/domain/social.hpp>
 
 using namespace std;
 
@@ -413,23 +414,23 @@ public:
  
   void setAgentStateParameters(double val1, double val2, double val3, double val4, double val5, double val6, double val7);
   
-  semaforr::domain::PoseArray getCrowdPose(){ return currentCrowd;}
-  void setCrowdPose(const semaforr::domain::PoseArray& crowdpose){
-	currentCrowd = crowdpose;
+  void setCrowdState(const semaforr::domain::CrowdState& crowd) {
+    crowdState = crowd;
+  }
+  const semaforr::domain::CrowdState& getCrowdState() const noexcept {
+    return crowdState;
+  }
+  bool hasValidCrowd() const noexcept {
+    return crowdState.current() &&
+      !crowdState.current()->pedestrians.empty();
   }
 
-  vector<Position> getCrowdPositions(
-    const semaforr::domain::PoseArray& crowdpose);
+  vector<Position> getCrowdPositions() const;
 
-  semaforr::domain::PoseArray getCrowdPoseAll(){ return allCrowd;}
-  void setCrowdPoseAll(const semaforr::domain::PoseArray& crowdposeall){
-	allCrowd = crowdposeall;
-  }
-
-  void setCrowdModel(const semaforr::domain::CrowdModel& c){
-    crowdModel = c;
-  }
-  semaforr::domain::CrowdModel getCrowdModel(){ return crowdModel;}
+  // Read-only compatibility projections for established diagnostics and
+  // advisors. Both are derived from the single CrowdState input.
+  semaforr::domain::PoseArray getCrowdPose() const;
+  semaforr::domain::PoseArray getCrowdPoseAll() const;
 
   bool crowdModelLearned();
   bool riskModelLearned();
@@ -570,14 +571,8 @@ public:
   //Converts current laser range scanner to endpoints
   void transformToEndpoints();
 
-  // Nearby crowd positions
-  semaforr::domain::PoseArray currentCrowd;
-
-  // All crowd positions
-  semaforr::domain::PoseArray allCrowd;
-
-  // Current crowd model
-  semaforr::domain::CrowdModel crowdModel;
+  // The one social-navigation state; no ROS messages or parallel pose inputs.
+  semaforr::domain::CrowdState crowdState;
 
   //Rotate mode tells if the t3 should rotate or move
   bool rotateMode;

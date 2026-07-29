@@ -46,8 +46,7 @@ public:
   void updateState(
     Position current,
     const semaforr::domain::LaserScan& laserscan,
-    const semaforr::domain::PoseArray& crowdpose,
-    const semaforr::domain::PoseArray& crowdposeall);
+    const semaforr::domain::CrowdState& crowd);
 
   //Returns the state of the robots mission (True 
   bool isMissionComplete();
@@ -67,9 +66,9 @@ public:
     return planners;
   }
 
-  void updatePlannersModels(const semaforr::domain::CrowdModel& c) {
+  void updatePlannersModels(const semaforr::domain::CrowdState& c) {
     for (const auto& ownedPlanner : tier2Planners) {
-      ownedPlanner->setCrowdModel(c);
+      ownedPlanner->setCrowdState(c);
     }
   }
 

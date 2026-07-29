@@ -43,9 +43,11 @@ DecisionResult NavigationEngine::decide(
   observation.laser.validate();
   world_.robot.pose = observation.pose;
   world_.robot.laser = observation.laser;
-  world_.robot.crowd = observation.crowd;
-  world_.crowd.current = observation.crowd;
-  world_.crowd.history.push_back(observation.crowd);
+  if (observation.crowd) {
+    world_.crowd.update(*observation.crowd);
+  } else {
+    world_.crowd.clearCurrent();
+  }
 
   const MissionStep mission_step = mission_.prepareDecision();
   if (mission_step == MissionStep::Complete) {

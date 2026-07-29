@@ -8,6 +8,7 @@ semaforr:
       scan: scan_raw
       command: cmd_vel
       navigation_state: navigation_state
+      social_observations: social_observations
 
     qos:
       sensors:
@@ -28,6 +29,10 @@ semaforr:
       control_rate_hz: 30.0
       sensor_timeout_s: 0.5
       sensor_sync_tolerance_s: 0.1
+
+    social:
+      maximum_age_s: 0.75
+      minimum_confidence: 0.25
 
     command:
       linear_velocity_mps: 0.5
@@ -109,7 +114,15 @@ semaforr:
         - TrailerRotation
         - LeastAngle
         - LeastAngleRotation
+        - Interpersonal
+        - InterpersonalRotation
+        - CrowdAvoid
+        - CrowdAvoidRotation
       enabled:
+        - true
+        - true
+        - true
+        - true
         - true
         - true
         - true
@@ -153,6 +166,10 @@ semaforr:
         - 1.0
         - 1.0
         - 1.0
+        - 1.0
+        - 1.0
+        - 1.0
+        - 1.0
       # Four values per advisor, flattened because ROS parameters do not
       # support arrays of mappings.
       parameters:
@@ -164,6 +181,10 @@ semaforr:
          0.0, 0.0, 0.0, 0.0,
          0.05, 0.0, 0.0, 0.0,
          1.25, 0.0, 0.0, 0.0,
+         0.0, 0.0, 0.0, 0.0,
+         0.0, 0.0, 0.0, 0.0,
+         0.0, 0.0, 0.0, 0.0,
+         0.0, 0.0, 0.0, 0.0,
          0.0, 0.0, 0.0, 0.0,
          0.0, 0.0, 0.0, 0.0,
          0.0, 0.0, 0.0, 0.0,
