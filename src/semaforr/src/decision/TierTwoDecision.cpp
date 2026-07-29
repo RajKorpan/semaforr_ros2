@@ -3,6 +3,7 @@
  */
 
 #include <semaforr/decision/DecisionTier.h>
+#include <semaforr/decision/Arbitration.h>
 #include "DecisionTierFactory.h"
 
 #include <semaforr/decision/Beliefs.h>
@@ -10,9 +11,9 @@
 #include <semaforr/navigation/PathPlanner.h>
 
 #include <algorithm>
-#include <cstdlib>
-#include <ctime>
+#include <cmath>
 #include <list>
+#include <limits>
 #include <sstream>
 #include <string>
 #include <sys/time.h>
@@ -83,9 +84,9 @@ public:
         beliefs.getAgentState()->getPlansWaypoints(
           current, planner, dependencies_.a_star_enabled);
       for (const std::list<int>& candidate : multiple_plans) {
-        plans.push_back(candidate);
-        planner_names.push_back(planner->getName());
         if (!candidate.empty()) {
+          plans.push_back(candidate);
+          planner_names.push_back(planner->getName());
           plan_created = true;
         }
       }
@@ -109,16 +110,37 @@ public:
 
       std::vector<std::vector<double>> normalized_costs;
       for (const std::vector<double>& planner_costs : plan_costs) {
-        const double maximum =
-          *std::max_element(planner_costs.begin(), planner_costs.end());
-        const double minimum =
-          *std::min_element(planner_costs.begin(), planner_costs.end());
-        const double normalization_factor = (maximum - minimum) / 10.0;
+        double maximum = -std::numeric_limits<double>::infinity();
+        double minimum = std::numeric_limits<double>::infinity();
+        bool has_finite_cost = false;
+        for (const double cost : planner_costs) {
+          if (std::isfinite(cost)) {
+            maximum = std::max(maximum, cost);
+            minimum = std::min(minimum, cost);
+            has_finite_cost = true;
+          }
+        }
+        const double range = maximum - minimum;
+        const bool uniform_costs =
+          has_finite_cost && maximum == minimum;
+        const bool valid_range =
+          has_finite_cost && maximum != minimum &&
+          std::isfinite(range) && range > 0.0;
+        const double normalization_factor =
+          valid_range ? range / 10.0 : 0.0;
         std::vector<double> normalized;
         for (const double cost : planner_costs) {
-          if (maximum != minimum) {
+          if (!std::isfinite(cost) ||
+              (!uniform_costs && !valid_range)) {
             normalized.push_back(
-              (cost - minimum) / normalization_factor);
+              std::numeric_limits<double>::infinity());
+          } else if (valid_range) {
+            const double normalized_cost =
+              (cost - minimum) / normalization_factor;
+            normalized.push_back(
+              std::isfinite(normalized_cost)
+                ? normalized_cost
+                : std::numeric_limits<double>::infinity());
           } else {
             normalized.push_back(0.0);
           }
@@ -130,67 +152,64 @@ public:
       std::vector<double> total_costs;
       for (std::size_t index = 0; index < plans.size(); ++index) {
         double cost = 0.0;
+        bool valid_cost = true;
         planner_comments << planner_names[index] << " ";
         for (const std::vector<double>& normalized : normalized_costs) {
-          cost += normalized.at(index);
-          planner_comments << normalized.at(index) << " ";
-        }
-        planner_comments << cost << ";";
-        total_costs.push_back(cost);
-      }
-
-      double minimum_cost = 100000.0;
-      for (const double cost : total_costs) {
-        if (cost < minimum_cost) {
-          minimum_cost = cost;
-        }
-      }
-
-      std::vector<std::string> best_plan_names;
-      std::vector<int> best_plan_indices;
-      for (std::size_t index = 0; index < total_costs.size(); ++index) {
-        if (total_costs[index] == minimum_cost) {
-          best_plan_names.push_back(planner_names[index]);
-          best_plan_indices.push_back(static_cast<int>(index));
-        }
-      }
-
-      std::srand(std::time(nullptr));
-      const int random_number =
-        std::rand() % static_cast<int>(best_plan_indices.size());
-      result.chosen_planner = best_plan_names.at(random_number);
-      for (const std::string& planner_name : planner_names) {
-        if (planner_name != best_plan_names.at(random_number)) {
-          result.chosen_planner += ">" + planner_name;
-        }
-      }
-
-      for (const auto& owned_planner : dependencies_.planners) {
-        PathPlanner* planner = owned_planner.get();
-        if (planner->getName() == best_plan_names.at(random_number)) {
-          beliefs.getAgentState()->setCurrentWaypoints(
-            current,
-            beliefs.getAgentState()->getCurrentLaserEndpoints(),
-            planner,
-            dependencies_.a_star_enabled,
-            plans.at(best_plan_indices.at(random_number)),
-            beliefs.getSpatialModel()->getRegionList()->getRegions());
-          if (planner->getName() == "hallwayskel") {
-            if (beliefs.getAgentState()
-                  ->getCurrentTask()
-                  ->getSkeletonWaypoint()
-                  .getCreator() == 0) {
-              result.chosen_planner = "skeletonhall>hallwayskel";
-            } else {
-              result.chosen_planner = "hallwayskel>skeletonhall";
-            }
-          } else if (planner->getName() == "skeleton") {
-            result.chosen_planner = "skeleton>distance";
+          const double component = normalized.at(index);
+          planner_comments << component << " ";
+          if (!std::isfinite(component) ||
+              !std::isfinite(cost + component)) {
+            valid_cost = false;
+          } else {
+            cost += component;
           }
-          break;
+        }
+        const double recorded_cost = valid_cost
+          ? cost
+          : std::numeric_limits<double>::infinity();
+        planner_comments << recorded_cost << ";";
+        total_costs.push_back(recorded_cost);
+      }
+
+      const PlanArbitrationResult selection =
+        selectLowestCostPlan(total_costs);
+      if (selection.selected) {
+        const std::string& selected_planner =
+          planner_names.at(selection.index);
+        result.chosen_planner = selected_planner;
+        for (const std::string& planner_name : planner_names) {
+          if (planner_name != selected_planner) {
+            result.chosen_planner += ">" + planner_name;
+          }
+        }
+
+        for (const auto& owned_planner : dependencies_.planners) {
+          PathPlanner* planner = owned_planner.get();
+          if (planner->getName() == selected_planner) {
+            beliefs.getAgentState()->setCurrentWaypoints(
+              current,
+              beliefs.getAgentState()->getCurrentLaserEndpoints(),
+              planner,
+              dependencies_.a_star_enabled,
+              plans.at(selection.index),
+              beliefs.getSpatialModel()->getRegionList()->getRegions());
+            if (planner->getName() == "hallwayskel") {
+              if (beliefs.getAgentState()
+                    ->getCurrentTask()
+                    ->getSkeletonWaypoint()
+                    .getCreator() == 0) {
+                result.chosen_planner = "skeletonhall>hallwayskel";
+              } else {
+                result.chosen_planner = "hallwayskel>skeletonhall";
+              }
+            } else if (planner->getName() == "skeleton") {
+              result.chosen_planner = "skeleton>distance";
+            }
+            result.plan_selected = true;
+            break;
+          }
         }
       }
-      result.plan_selected = true;
       result.planner_comments = planner_comments.str();
     }
 

@@ -3,17 +3,16 @@
  */
 
 #include <semaforr/decision/DecisionTier.h>
+#include <semaforr/decision/Arbitration.h>
 #include "DecisionTierFactory.h"
 
 #include <semaforr/decision/Tier3Advisor.h>
 
-#include <cstdlib>
-#include <ctime>
+#include <cmath>
 #include <iostream>
 #include <map>
 #include <sstream>
 #include <utility>
-#include <vector>
 
 namespace semaforr {
 namespace decision {
@@ -28,7 +27,6 @@ public:
     TierThreeResult result;
     std::map<FORRAction, double> comments;
     std::map<FORRAction, double> all_comments;
-    std::vector<FORRAction> best_decisions;
 
     // Retain the baseline lookup performed by the legacy tier-three pipeline.
     double rotation_baseline = 0.0;
@@ -77,45 +75,50 @@ public:
                               << comment.second << ";";
 
         std::cout << "Start of score aggregation" << std::endl;
-        if (all_comments.find(comment.first) == all_comments.end()) {
-          all_comments[comment.first] = comment.second * weight;
+        const double contribution = comment.second * weight;
+        if (!std::isfinite(contribution)) {
+          continue;
+        }
+
+        const auto existing = all_comments.find(comment.first);
+        if (existing == all_comments.end()) {
+          all_comments[comment.first] = contribution;
         } else {
-          all_comments[comment.first] += comment.second * weight;
+          const double aggregate = existing->second + contribution;
+          if (std::isfinite(aggregate)) {
+            existing->second = aggregate;
+          }
         }
       }
     }
 
     std::cout << "After score aggregation" << std::endl;
-    double max_advice_strength = -1000.0;
-    double max_weight = 1.0;
     for (const auto& comment : all_comments) {
       const double action_weight = 1.0;
       std::cout << "Values are : " << comment.first.type << " "
                 << comment.first.parameter << " with value: "
                 << comment.second << " and weight: "
                 << action_weight << std::endl;
-      if (action_weight * comment.second > max_advice_strength) {
-        max_advice_strength = action_weight * comment.second;
-        max_weight = action_weight;
-      }
     }
-    std::cout << "Max vote strength " << max_advice_strength << std::endl;
 
+    const ActionArbitrationResult selection =
+      selectHighestScoringAction(all_comments);
+    std::size_t tied_decisions = 0;
     for (const auto& comment : all_comments) {
-      if (max_weight * comment.second == max_advice_strength) {
-        best_decisions.push_back(comment.first);
+      if (selection.selected && std::isfinite(comment.second) &&
+          comment.second == selection.score) {
+        ++tied_decisions;
       }
     }
 
-    std::cout << "There are " << best_decisions.size()
+    std::cout << "Max vote strength "
+              << (selection.selected ? selection.score : 0.0) << std::endl;
+    std::cout << "There are " << tied_decisions
               << " decisions that got the highest grade " << std::endl;
-    if (best_decisions.empty()) {
+    if (!selection.selected) {
       result.action = FORRAction(PAUSE, 0);
     } else {
-      std::srand(std::time(nullptr));
-      const int random_number =
-        std::rand() % static_cast<int>(best_decisions.size());
-      result.action = best_decisions.at(random_number);
+      result.action = selection.action;
     }
 
     result.advisors = advisors_list.str();

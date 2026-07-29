@@ -69,6 +69,7 @@ rosidl_get_typesupport_target(cpp_typesupport_target
 set(SEMAFORR_DOMAIN_SOURCES
   src/config/Configuration.cpp
   src/decision/AgentState.cpp
+  src/decision/Arbitration.cpp
   src/navigation/astar.cpp
   src/decision/Controller.cpp
   src/decision/ControllerMission.cpp
@@ -250,6 +251,17 @@ if(BUILD_TESTING)
     COMMAND semaforr_configuration_test
   )
 
+  add_executable(
+    semaforr_arbitration_test
+    test/arbitration_test.cpp
+  )
+  target_link_libraries(semaforr_arbitration_test semaforr_domain)
+  semaforr_apply_project_options(semaforr_arbitration_test)
+  add_test(
+    NAME semaforr_arbitration_test
+    COMMAND semaforr_arbitration_test
+  )
+
   ament_add_pytest_test(semaforr_source_contract_test
     test/test_source_contract.py
     ENV "SEMAFORR_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
@@ -280,6 +292,10 @@ if(BUILD_TESTING)
   )
   ament_add_pytest_test(semaforr_decision_tier_interface_test
     test/test_decision_tier_interfaces.py
+    ENV "SEMAFORR_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
+  )
+  ament_add_pytest_test(semaforr_arbitration_contract_test
+    test/test_arbitration_contract.py
     ENV "SEMAFORR_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
   )
 endif()

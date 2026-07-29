@@ -80,6 +80,21 @@ values instead of writable action or statistics pointers. This leaves the
 public controller API unchanged while allowing a tier implementation to be
 substituted or tested without moving tier logic back into the controller.
 
+## Deterministic arbitration
+
+Tier arbitration does not use the process-global random-number generator.
+`selectHighestScoringAction` chooses the highest finite Tier 3 score and keeps
+the first action in `FORRAction` map order when scores tie.
+`selectLowestCostPlan` chooses the lowest finite Tier 2 cost and keeps the
+earliest planner candidate when costs tie.
+
+The arbitration helpers return an explicit `selected` state. Tier 3 converts
+an empty or entirely non-finite score set to `PAUSE`. Tier 2 rejects empty
+plans, excludes candidates with non-finite cost components, and leaves the
+current task without a newly selected plan when no valid candidate remains.
+This avoids empty-vector modulo, fixed numeric sentinels, and non-finite
+normalization while keeping the policy independently testable.
+
 ## Configuration boundary
 
 `semaforr::config::loadConfiguration` reads the five runtime files into one

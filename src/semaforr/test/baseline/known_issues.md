@@ -45,3 +45,10 @@ should become a regression test when its initialization path is corrected.
 
 Refactoring may fix these items, but each intentional behavior change should be
 covered by a new expectation and called out in the corresponding change.
+
+## Resolved after the baseline
+
+Phase 8 replaced Tier 2 and Tier 3 time-seeded tie selection with stable
+ordering. Tier 3 now returns `PAUSE` when no finite candidate exists instead of
+performing modulo by zero. Tier 2 rejects empty plans and safely declines
+selection when all candidate costs are non-finite.

@@ -33,6 +33,7 @@ def test_domain_sources_are_explicit_and_complete():
     assert declared_in_order == [
         "src/config/Configuration.cpp",
         "src/decision/AgentState.cpp",
+        "src/decision/Arbitration.cpp",
         "src/navigation/astar.cpp",
         "src/decision/Controller.cpp",
         "src/decision/ControllerMission.cpp",
