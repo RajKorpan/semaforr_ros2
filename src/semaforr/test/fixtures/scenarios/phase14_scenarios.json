@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "fixture_type": "deterministic_equivalent_to_ros_bag",
+  "frame_id": "map",
+  "scenarios": [
+    {"name": "empty_corridor", "expected": "forward"},
+    {"name": "doorway", "expected": "forward"},
+    {"name": "obstacle_ahead", "expected": "turn_left"},
+    {"name": "dead_end", "expected": "safe_stop"},
+    {"name": "multiple_targets", "expected": "activate_in_order"},
+    {"name": "stuck_robot", "expected": "skip_at_decision_limit"},
+    {"name": "pedestrian_crossing", "expected": "pause"},
+    {"name": "dense_crowd", "expected": "pause"},
+    {"name": "sensor_timeout", "expected": "zero_velocity"}
+  ]
+}

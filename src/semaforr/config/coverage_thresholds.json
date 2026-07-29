@@ -1,0 +1,10 @@
+{
+  "minimum_line_percent": 80.0,
+  "files": [
+    "src/domain/MotionModel.cpp",
+    "src/decision/ObstacleVetoRule.cpp",
+    "src/decision/DecisionCoordinator.cpp",
+    "src/decision/MissionManager.cpp",
+    "src/navigation/PlanningCoordinator.cpp"
+  ]
+}

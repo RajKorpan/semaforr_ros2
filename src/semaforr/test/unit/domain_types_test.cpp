@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <limits>
 #include <stdexcept>
 #include <vector>
@@ -27,6 +28,20 @@ TEST(Action, ValidatesMagnitudeAtConstruction)
   EXPECT_THROW(
     Action(ActionType::Forward, Action::maximum_magnitude_index + 1U),
     std::out_of_range);
+}
+
+TEST(Action, OrdersByTypeThenMagnitude)
+{
+  const std::vector<Action> expected{
+    Action(ActionType::Forward, 1U),
+    Action(ActionType::Forward, 2U),
+    Action(ActionType::TurnRight, 1U),
+    Action(ActionType::TurnLeft, 1U),
+    Action::pause()};
+  auto shuffled = std::vector<Action>{
+    expected[4], expected[2], expected[1], expected[3], expected[0]};
+  std::sort(shuffled.begin(), shuffled.end());
+  EXPECT_EQ(shuffled, expected);
 }
 
 TEST(ActionSpace, RequiresStrictlyIncreasingPositiveValues)

@@ -178,3 +178,26 @@ TEST(CommandExecutor, ReportsTimeoutsAndOdometryResetsSafely)
   EXPECT_EQ(reset.status, ActionExecutionStatus::OdometryReset);
   EXPECT_DOUBLE_EQ(reset.command.linear_mps, 0.0);
 }
+
+TEST(CommandExecutor, SensorTimeoutCancellationPublishesAZeroCommand)
+{
+  using namespace semaforr;
+  using namespace semaforr::ros;
+
+  SensorSynchronizer synchronizer({
+    "map", "base_laser_link", 0.25, 0.05});
+  ASSERT_TRUE(
+    synchronizer.acceptPose(pose(1.0, 0.0, 0.0, 0.0), at(1.0)));
+  ASSERT_TRUE(synchronizer.acceptScan(scan(1.0), at(1.0)));
+
+  CommandExecutor executor(CommandExecutorConfiguration{});
+  executor.start(
+    {domain::Action(domain::ActionType::Forward, 1U), 1.0, 0.0},
+    domainPose(0.0, 0.0, 0.0),
+    at(1.0));
+  ASSERT_NE(synchronizer.status(at(1.3)), SensorStatus::Ready);
+  const auto cancelled = executor.cancel();
+  EXPECT_EQ(cancelled.status, ActionExecutionStatus::Cancelled);
+  EXPECT_DOUBLE_EQ(cancelled.command.linear_mps, 0.0);
+  EXPECT_DOUBLE_EQ(cancelled.command.angular_radps, 0.0);
+}

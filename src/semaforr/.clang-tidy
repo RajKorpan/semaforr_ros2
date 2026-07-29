@@ -1,0 +1,10 @@
+Checks: >-
+  bugprone-*,
+  clang-analyzer-*,
+  modernize-*,
+  performance-*,
+  readability-container-size-empty,
+  readability-implicit-bool-conversion
+WarningsAsErrors: ''
+HeaderFilterRegex: 'include/semaforr/(domain|decision|planning|spatial|ros)/.*'
+FormatStyle: file

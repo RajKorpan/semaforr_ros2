@@ -5,6 +5,8 @@ option(SEMAFORR_ENABLE_SANITIZERS
   "Build SemaFORR with AddressSanitizer and UndefinedBehaviorSanitizer" OFF)
 option(SEMAFORR_ENABLE_COVERAGE
   "Build SemaFORR with GCC/Clang coverage instrumentation" OFF)
+option(SEMAFORR_STRICT_MODERN_CODE
+  "Promote warnings to errors in refactored component code" ON)
 
 if(SEMAFORR_ENABLE_SANITIZERS AND SEMAFORR_ENABLE_COVERAGE)
   message(FATAL_ERROR
@@ -46,6 +48,16 @@ function(semaforr_apply_project_options target)
   endif()
 endfunction()
 
+function(semaforr_apply_strict_warnings target)
+  if(SEMAFORR_STRICT_MODERN_CODE)
+    if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+      target_compile_options(${target} PRIVATE -Werror)
+    elseif(MSVC)
+      target_compile_options(${target} PRIVATE /WX)
+    endif()
+  endif()
+endfunction()
+
 find_package(ament_cmake REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
@@ -67,6 +79,7 @@ set(SEMAFORR_CORE_DOMAIN_SOURCES
   src/core/FORRGeometry.cpp
   src/core/Position.cpp
   src/domain/CrowdModel.cpp
+  src/domain/MotionModel.cpp
   src/decision/DecisionResult.cpp
   src/decision/LearnedCrowdAdvisor.cpp
   src/decision/SocialAdvisorRegistry.cpp
@@ -78,6 +91,7 @@ set(SEMAFORR_DECISION_SOURCES
   src/decision/Arbitration.cpp
   src/decision/MissionManager.cpp
   src/decision/NavigationEngine.cpp
+  src/decision/ObstacleVetoRule.cpp
   src/decision/TierOneDecision.cpp
   src/decision/TierTwoDecision.cpp
   src/decision/TierThreeDecision.cpp
@@ -111,6 +125,22 @@ set(SEMAFORR_ENGINE_SOURCES
   src/decision/ControllerPlanning.cpp
 )
 
+if(SEMAFORR_STRICT_MODERN_CODE)
+  if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    set_source_files_properties(
+      src/domain/MotionModel.cpp
+      src/decision/ObstacleVetoRule.cpp
+      PROPERTIES COMPILE_OPTIONS "-Werror"
+    )
+  elseif(MSVC)
+    set_source_files_properties(
+      src/domain/MotionModel.cpp
+      src/decision/ObstacleVetoRule.cpp
+      PROPERTIES COMPILE_OPTIONS "/WX"
+    )
+  endif()
+endif()
+
 set(SEMAFORR_DOMAIN_SOURCES
   ${SEMAFORR_CORE_DOMAIN_SOURCES}
   ${SEMAFORR_DECISION_SOURCES}
@@ -133,6 +163,7 @@ target_include_directories(semaforr_planning
     "$<INSTALL_INTERFACE:include>"
 )
 semaforr_apply_project_options(semaforr_planning)
+semaforr_apply_strict_warnings(semaforr_planning)
 
 add_library(semaforr_advisors SHARED
   src/decision/DecisionCoordinator.cpp
@@ -146,6 +177,7 @@ target_include_directories(semaforr_advisors
     "$<INSTALL_INTERFACE:include>"
 )
 semaforr_apply_project_options(semaforr_advisors)
+semaforr_apply_strict_warnings(semaforr_advisors)
 
 add_library(semaforr_spatial SHARED
   src/spatial/BarrierLearner.cpp
@@ -166,6 +198,7 @@ target_include_directories(semaforr_spatial
     "$<INSTALL_INTERFACE:include>"
 )
 semaforr_apply_project_options(semaforr_spatial)
+semaforr_apply_strict_warnings(semaforr_spatial)
 
 add_library(semaforr_domain SHARED ${SEMAFORR_DOMAIN_SOURCES})
 set_target_properties(semaforr_domain PROPERTIES EXPORT_NAME domain)
@@ -269,6 +302,13 @@ install(
 install(
   DIRECTORY config docs launch
   DESTINATION share/${PROJECT_NAME}
+)
+install(
+  PROGRAMS
+    scripts/check_coverage.py
+    scripts/check_source_quality.py
+    scripts/compare_decision_traces.py
+  DESTINATION lib/${PROJECT_NAME}
 )
 install(
   PROGRAMS scripts/record_baseline.py
@@ -441,6 +481,30 @@ if(BUILD_TESTING)
     semaforr_crowd_model_test semaforr_domain)
   semaforr_apply_project_options(semaforr_crowd_model_test)
 
+  ament_add_gtest(
+    semaforr_navigation_behavior_test
+    test/unit/navigation_behavior_test.cpp
+  )
+  target_link_libraries(
+    semaforr_navigation_behavior_test semaforr_domain)
+  semaforr_apply_project_options(semaforr_navigation_behavior_test)
+
+  ament_add_gtest(
+    semaforr_component_strategy_test
+    test/unit/component_strategy_test.cpp
+  )
+  target_link_libraries(
+    semaforr_component_strategy_test semaforr_domain)
+  semaforr_apply_project_options(semaforr_component_strategy_test)
+
+  ament_add_gtest(
+    semaforr_navigation_scenario_test
+    test/integration/navigation_scenario_test.cpp
+  )
+  target_link_libraries(
+    semaforr_navigation_scenario_test semaforr_domain)
+  semaforr_apply_project_options(semaforr_navigation_scenario_test)
+
   ament_add_pytest_test(semaforr_source_contract_test
     test/contracts/test_source_contract.py
     ENV "SEMAFORR_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
@@ -495,6 +559,10 @@ if(BUILD_TESTING)
   )
   ament_add_pytest_test(semaforr_observability_contract_test
     test/contracts/test_observability_contract.py
+    ENV "SEMAFORR_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
+  )
+  ament_add_pytest_test(semaforr_phase14_strategy_test
+    test/contracts/test_phase14_strategy.py
     ENV "SEMAFORR_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
   )
 endif()
