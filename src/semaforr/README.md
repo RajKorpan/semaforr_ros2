@@ -19,7 +19,8 @@ SemaFORR is designed to enable robots to navigate complex environments using cog
 - Deterministic tier arbitration with safe empty and non-finite fallbacks
 - Decomposed path planning and robust geometry edge-case handling
 - Independently enabled, inspected, rebuilt, and serialized spatial learners
-- ROS2 node integration
+- Responsive callback/timer ROS 2 node with synchronized sensors and safe-stop
+  action execution
 - Example configuration files for quick setup
 
 ## Usage
@@ -81,3 +82,6 @@ The implementation and verification status of Phases 0-9 is recorded in
 Phase 10 and the per-representation observation/update/consumer contracts are
 documented in `docs/phase-10-completion.md` and
 `docs/spatial-learning.md`.
+
+The event-driven ROS node architecture, parameters, state machine, and
+sensor-loss verification are documented in `docs/phase-11-completion.md`.

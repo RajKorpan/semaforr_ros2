@@ -50,7 +50,7 @@ def test_owners_use_values_or_unique_ptrs():
         SOURCE_DIR / "include" / "semaforr" / "navigation" / "Graph.hpp"
     ).read_text(encoding="utf-8")
     node = (
-        SOURCE_DIR / "src" / "ros" / "semaforr_node.cpp"
+        SOURCE_DIR / "src" / "ros" / "SemaFORRNode.cpp"
     ).read_text(encoding="utf-8")
     visualizer = (
         SOURCE_DIR / "include" / "semaforr" / "ros" / "Visualizer.hpp"
@@ -62,6 +62,8 @@ def test_owners_use_values_or_unique_ptrs():
     assert "vector<std::unique_ptr<Task>> owned_tasks" in agent_state
     assert "vector<std::unique_ptr<Node>> ownedNodes" in graph
     assert "vector<std::unique_ptr<Edge>> ownedEdges" in graph
-    assert "std::unique_ptr<Controller> controller" in node
-    assert "std::unique_ptr<Visualizer> viz_" in node
+    assert (
+        "std::unique_ptr<NavigationEngineAdapter> navigation_engine_" in node
+    )
+    assert "std::unique_ptr<VisualizationPublisher> visualization_" in node
     assert "std::shared_ptr<rclcpp::Node> node_" not in visualizer

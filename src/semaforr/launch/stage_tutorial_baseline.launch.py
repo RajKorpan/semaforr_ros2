@@ -16,6 +16,7 @@ def generate_launch_description():
 
     output = LaunchConfiguration("output")
     duration = LaunchConfiguration("duration")
+    sensor_cutoff = LaunchConfiguration("sensor_cutoff")
 
     semaforr = Node(
         package="semaforr",
@@ -36,7 +37,14 @@ def generate_launch_description():
         executable="semaforr_record_baseline",
         name="semaforr_baseline_recorder",
         output="screen",
-        arguments=["--output", output, "--duration", duration],
+        arguments=[
+            "--output",
+            output,
+            "--duration",
+            duration,
+            "--sensor-cutoff",
+            sensor_cutoff,
+        ],
     )
 
     stop_after_recording = RegisterEventHandler(
@@ -63,6 +71,14 @@ def generate_launch_description():
                 "duration",
                 default_value="20.0",
                 description="Scenario duration in seconds",
+            ),
+            DeclareLaunchArgument(
+                "sensor_cutoff",
+                default_value="-1.0",
+                description=(
+                    "Stop publishing sensors at this time; negative disables "
+                    "the cutoff"
+                ),
             ),
             semaforr,
             recorder,

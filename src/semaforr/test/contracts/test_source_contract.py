@@ -34,91 +34,67 @@ def extract_number(source, pattern):
     return float(match.group(1))
 
 
+def extract_yaml_number(source, key):
+    match = re.search(
+        rf"^\s*{re.escape(key)}:\s*([0-9.]+)\s*$",
+        source,
+        re.MULTILINE,
+    )
+    assert match is not None, f"YAML setting was not found: {key}"
+    return float(match.group(1))
+
+
 def test_ros_topic_contract():
     contract = load_contract()["ros"]
-    source = (
-        SOURCE_DIR / "src" / "ros" / "semaforr_node.cpp"
-    ).read_text(encoding="utf-8")
+    source = (SOURCE_DIR / "src" / "ros" / "SemaFORRNode.cpp").read_text(
+        encoding="utf-8"
+    )
+    yaml = (SOURCE_DIR / "config" / "semaforr.yaml").read_text(
+        encoding="utf-8"
+    )
 
-    assert f'Node("{contract["node_name"]}")' in source
+    assert f'rclcpp::Node("{contract["node_name"]}", options)' in source
     for topic, message_type in contract["subscriptions"].items():
-        pattern = (
-            rf"create_subscription<{re.escape(message_type)}>\s*\(\s*"
-            rf'"{re.escape(topic)}"'
-        )
-        assert re.search(pattern, source)
+        assert f"create_subscription<{message_type}>" in source
+        assert re.search(rf"^\s*\w+:\s*{re.escape(topic)}\s*$", yaml, re.MULTILINE)
 
     publisher = contract["publisher"]
     topic, message_type = next(iter(publisher.items()))
-    pattern = (
-        rf"create_publisher<{re.escape(message_type)}>\s*\(\s*"
-        rf'"{re.escape(topic)}"'
-    )
-    assert re.search(pattern, source)
+    assert f"create_publisher<{message_type}>" in source
+    assert re.search(rf"^\s*\w+:\s*{re.escape(topic)}\s*$", yaml, re.MULTILINE)
 
 
 def test_motion_command_contract():
     contract = load_contract()["command_velocities"]
-    source = (
-        SOURCE_DIR / "src" / "ros" / "semaforr_node.cpp"
-    ).read_text(encoding="utf-8")
-    source = source[source.index(
-        "geometry_msgs::msg::Twist convert_to_vel"
-    ):]
-
-    blocks = {
-        name: re.search(
-            rf"(?:if|else if)\s*\(\s*action\.type\s*==\s*{name}\s*\)"
-            rf"\s*\{{(?P<body>.*?)\n\s*\}}",
-            source,
-            re.DOTALL,
-        )
-        for name in contract
+    yaml = (SOURCE_DIR / "config" / "semaforr.yaml").read_text(
+        encoding="utf-8"
+    )
+    observed = {
+        "FORWARD": {
+            "linear_x": extract_yaml_number(yaml, "linear_velocity_mps"),
+            "angular_z": 0.0,
+        },
+        "RIGHT_TURN": {
+            "linear_x": extract_yaml_number(yaml, "turn_linear_velocity_mps"),
+            "angular_z": -extract_yaml_number(yaml, "angular_velocity_radps"),
+        },
+        "LEFT_TURN": {
+            "linear_x": extract_yaml_number(yaml, "turn_linear_velocity_mps"),
+            "angular_z": extract_yaml_number(yaml, "angular_velocity_radps"),
+        },
+        "PAUSE": {"linear_x": 0.0, "angular_z": 0.0},
     }
-    for name, match in blocks.items():
-        assert match is not None, f"command block for {name} was not found"
-        body = match.group("body")
-        expected = contract[name]
-        if name != "PAUSE":
-            assert extract_number(
-                body, r"base_cmd\.linear\.x\s*=\s*(-?[0-9.]+)"
-            ) == expected["linear_x"]
-        if name in ("RIGHT_TURN", "LEFT_TURN"):
-            angular_assignments = re.findall(
-                r"^\s*base_cmd\.angular\.z\s*=\s*(-?[0-9.]+)",
-                body,
-                re.MULTILINE,
-            )
-            assert angular_assignments
-            assert float(angular_assignments[-1]) == expected["angular_z"]
+    assert observed == contract
 
 
 def test_action_completion_contract():
     contract = load_contract()["completion"]
-    source = (
-        SOURCE_DIR / "src" / "ros" / "semaforr_node.cpp"
-    ).read_text(encoding="utf-8")
-
+    yaml = (SOURCE_DIR / "config" / "semaforr.yaml").read_text(
+        encoding="utf-8"
+    )
     observed = {
-        "loop_rate_hz": extract_number(
-            source, r"rclcpp::Rate\s+rate\(\s*([0-9.]+)\s*\)"
-        ),
-        "move_epsilon_m": extract_number(
-            source, r"epsilon_move\s*=\s*([0-9.]+)"
-        ),
-        "turn_epsilon_rad": extract_number(
-            source, r"epsilon_turn\s*=\s*([0-9.]+)"
-        ),
-        "forward_timeout_multiplier": extract_number(
-            source, r"elapsed_time\s*>=\s*([0-9.]+)\s*\*\s*expected_travel"
-        ),
-        "turn_timeout_multiplier": extract_number(
-            source, r"elapsed_time\s*>=\s*turn_expected\s*\*\s*([0-9.]+)"
-        ),
-        "pause_timeout_s": extract_number(
-            source,
-            r"action\.type\s*==\s*PAUSE\)\s*or\s*\(elapsed_time\s*>=\s*([0-9.]+)",
-        ),
+        key: extract_yaml_number(yaml, key)
+        for key in contract
     }
     assert observed == contract
 

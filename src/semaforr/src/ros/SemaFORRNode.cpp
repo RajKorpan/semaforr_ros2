@@ -1,0 +1,615 @@
+#include <semaforr/ros/semaforr_node.hpp>
+
+#include <algorithm>
+#include <cmath>
+#include <functional>
+#include <memory>
+#include <mutex>
+#include <optional>
+#include <stdexcept>
+#include <string>
+#include <utility>
+
+#include <geometry_msgs/msg/pose_stamped.hpp>
+#include <geometry_msgs/msg/twist.hpp>
+#include <rclcpp/create_timer.hpp>
+#include <rclcpp/qos.hpp>
+#include <sensor_msgs/msg/laser_scan.hpp>
+#include <std_msgs/msg/string.hpp>
+#include <tf2/time.h>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
+#include <tf2_ros/buffer.h>
+#include <tf2_ros/transform_listener.h>
+
+#include <semaforr/ros/ParameterConfiguration.hpp>
+#include <semaforr/ros/command_executor.hpp>
+#include <semaforr/ros/navigation_engine_adapter.hpp>
+#include <semaforr/ros/sensor_synchronizer.hpp>
+#include <semaforr/ros/visualization_publisher.hpp>
+
+namespace semaforr::ros {
+namespace {
+
+struct QosConfiguration {
+  std::size_t depth{10U};
+  std::string reliability{"reliable"};
+  std::string durability{"volatile"};
+};
+
+struct RuntimeConfiguration {
+  std::string pose_topic{"pose"};
+  std::string scan_topic{"scan_raw"};
+  std::string command_topic{"cmd_vel"};
+  std::string state_topic{"navigation_state"};
+  QosConfiguration sensor_qos;
+  QosConfiguration command_qos{1U, "reliable", "volatile"};
+  SensorSynchronizerConfiguration sensors;
+  CommandExecutorConfiguration commands;
+  double control_rate_hz{30.0};
+  double transform_timeout_s{0.05};
+};
+
+std::string requireNonEmpty(std::string value, std::string_view name)
+{
+  if (value.empty()) {
+    throw std::runtime_error(std::string(name) + " must not be empty");
+  }
+  return value;
+}
+
+void requirePositive(double value, std::string_view name)
+{
+  if (!std::isfinite(value) || value <= 0.0) {
+    throw std::runtime_error(
+      std::string(name) + " must be finite and positive");
+  }
+}
+
+void declareRuntimeParameters(rclcpp::Node& node)
+{
+  node.declare_parameter("topics.pose", std::string{"pose"});
+  node.declare_parameter("topics.scan", std::string{"scan_raw"});
+  node.declare_parameter("topics.command", std::string{"cmd_vel"});
+  node.declare_parameter(
+    "topics.navigation_state", std::string{"navigation_state"});
+
+  node.declare_parameter("qos.sensors.depth", 10);
+  node.declare_parameter(
+    "qos.sensors.reliability", std::string{"reliable"});
+  node.declare_parameter(
+    "qos.sensors.durability", std::string{"volatile"});
+  node.declare_parameter("qos.command.depth", 1);
+  node.declare_parameter(
+    "qos.command.reliability", std::string{"reliable"});
+  node.declare_parameter(
+    "qos.command.durability", std::string{"volatile"});
+
+  node.declare_parameter("frames.global", std::string{"map"});
+  node.declare_parameter(
+    "frames.scan", std::string{"base_laser_link"});
+  node.declare_parameter("frames.transform_timeout_s", 0.05);
+
+  node.declare_parameter("timing.control_rate_hz", 30.0);
+  node.declare_parameter("timing.sensor_timeout_s", 0.5);
+  node.declare_parameter("timing.sensor_sync_tolerance_s", 0.1);
+
+  node.declare_parameter("command.linear_velocity_mps", 0.5);
+  node.declare_parameter("command.angular_velocity_radps", 0.5);
+  node.declare_parameter("command.turn_linear_velocity_mps", 0.01);
+  node.declare_parameter("command.distance_tolerance_m", 0.06);
+  node.declare_parameter("command.angle_tolerance_rad", 0.11);
+  node.declare_parameter("command.timeout_multiplier", 1.5);
+  node.declare_parameter("command.minimum_timeout_s", 0.1);
+  node.declare_parameter("command.odometry_reset_distance_m", 2.0);
+  node.declare_parameter("command.odometry_reset_angle_rad", 2.8);
+}
+
+QosConfiguration readQos(rclcpp::Node& node, const std::string& prefix)
+{
+  const auto depth = node.get_parameter(prefix + ".depth").as_int();
+  if (depth <= 0) {
+    throw std::runtime_error(prefix + ".depth must be positive");
+  }
+  return {
+    static_cast<std::size_t>(depth),
+    node.get_parameter(prefix + ".reliability").as_string(),
+    node.get_parameter(prefix + ".durability").as_string()};
+}
+
+rclcpp::QoS makeQos(const QosConfiguration& configuration)
+{
+  rclcpp::QoS qos(rclcpp::KeepLast(configuration.depth));
+  if (configuration.reliability == "reliable") {
+    qos.reliable();
+  } else if (configuration.reliability == "best_effort") {
+    qos.best_effort();
+  } else {
+    throw std::runtime_error(
+      "QoS reliability must be 'reliable' or 'best_effort'");
+  }
+  if (configuration.durability == "volatile") {
+    qos.durability_volatile();
+  } else if (configuration.durability == "transient_local") {
+    qos.transient_local();
+  } else {
+    throw std::runtime_error(
+      "QoS durability must be 'volatile' or 'transient_local'");
+  }
+  return qos;
+}
+
+RuntimeConfiguration readRuntimeConfiguration(rclcpp::Node& node)
+{
+  RuntimeConfiguration configuration;
+  configuration.pose_topic = requireNonEmpty(
+    node.get_parameter("topics.pose").as_string(), "topics.pose");
+  configuration.scan_topic = requireNonEmpty(
+    node.get_parameter("topics.scan").as_string(), "topics.scan");
+  configuration.command_topic = requireNonEmpty(
+    node.get_parameter("topics.command").as_string(), "topics.command");
+  configuration.state_topic = requireNonEmpty(
+    node.get_parameter("topics.navigation_state").as_string(),
+    "topics.navigation_state");
+  configuration.sensor_qos = readQos(node, "qos.sensors");
+  configuration.command_qos = readQos(node, "qos.command");
+  configuration.sensors.pose_frame = requireNonEmpty(
+    node.get_parameter("frames.global").as_string(), "frames.global");
+  configuration.sensors.scan_frame = requireNonEmpty(
+    node.get_parameter("frames.scan").as_string(), "frames.scan");
+  configuration.transform_timeout_s =
+    node.get_parameter("frames.transform_timeout_s").as_double();
+  configuration.control_rate_hz =
+    node.get_parameter("timing.control_rate_hz").as_double();
+  configuration.sensors.maximum_age_s =
+    node.get_parameter("timing.sensor_timeout_s").as_double();
+  configuration.sensors.maximum_skew_s =
+    node.get_parameter("timing.sensor_sync_tolerance_s").as_double();
+
+  configuration.commands.linear_velocity_mps =
+    node.get_parameter("command.linear_velocity_mps").as_double();
+  configuration.commands.angular_velocity_radps =
+    node.get_parameter("command.angular_velocity_radps").as_double();
+  configuration.commands.turn_linear_velocity_mps =
+    node.get_parameter("command.turn_linear_velocity_mps").as_double();
+  configuration.commands.distance_tolerance_m =
+    node.get_parameter("command.distance_tolerance_m").as_double();
+  configuration.commands.angle_tolerance_rad =
+    node.get_parameter("command.angle_tolerance_rad").as_double();
+  configuration.commands.timeout_multiplier =
+    node.get_parameter("command.timeout_multiplier").as_double();
+  configuration.commands.minimum_timeout_s =
+    node.get_parameter("command.minimum_timeout_s").as_double();
+  configuration.commands.odometry_reset_distance_m =
+    node.get_parameter("command.odometry_reset_distance_m").as_double();
+  configuration.commands.odometry_reset_angle_rad =
+    node.get_parameter("command.odometry_reset_angle_rad").as_double();
+
+  requirePositive(
+    configuration.transform_timeout_s, "frames.transform_timeout_s");
+  requirePositive(
+    configuration.control_rate_hz, "timing.control_rate_hz");
+  // Constructing these value objects performs the remainder of validation.
+  (void)SensorSynchronizer(configuration.sensors);
+  (void)CommandExecutor(configuration.commands);
+  (void)makeQos(configuration.sensor_qos);
+  (void)makeQos(configuration.command_qos);
+  return configuration;
+}
+
+geometry_msgs::msg::Twist toRos(const domain::VelocityCommand& command)
+{
+  geometry_msgs::msg::Twist message;
+  message.linear.x = command.linear_mps;
+  message.angular.z = command.angular_radps;
+  return message;
+}
+
+domain::Pose2D toDomainPose(const Position& pose)
+{
+  return {
+    {pose.getX(), pose.getY()},
+    domain::Angle(pose.getTheta())};
+}
+
+bool isWaitingStatus(SensorStatus status) noexcept
+{
+  return status == SensorStatus::WaitingForPose ||
+    status == SensorStatus::WaitingForScan;
+}
+
+std::string_view actionName(domain::ActionType type) noexcept
+{
+  switch (type) {
+    case domain::ActionType::Forward: return "forward";
+    case domain::ActionType::TurnRight: return "turn_right";
+    case domain::ActionType::TurnLeft: return "turn_left";
+    case domain::ActionType::Pause: return "pause";
+  }
+  return "unknown";
+}
+
+}  // namespace
+
+class SemaFORRNode::Impl {
+public:
+  explicit Impl(SemaFORRNode& node)
+    : node_(node),
+      transform_buffer_(node.get_clock())
+  {
+    declareConfigurationParameters(node_);
+    declareRuntimeParameters(node_);
+    runtime_ = readRuntimeConfiguration(node_);
+
+    config::Configuration controller_configuration =
+      configurationFromParameters(node_);
+    navigation_engine_ = std::make_unique<NavigationEngineAdapter>(
+      std::move(controller_configuration));
+    synchronizer_ =
+      std::make_unique<SensorSynchronizer>(runtime_.sensors);
+    executor_ = std::make_unique<CommandExecutor>(runtime_.commands);
+    visualization_ =
+      std::make_unique<VisualizationPublisher>(
+        node_, navigation_engine_->visualizationModel());
+
+    command_publisher_ =
+      node_.create_publisher<geometry_msgs::msg::Twist>(
+        runtime_.command_topic, makeQos(runtime_.command_qos));
+    state_publisher_ =
+      node_.create_publisher<std_msgs::msg::String>(
+        runtime_.state_topic, makeQos(runtime_.command_qos));
+    mission_started_at_ = node_.now();
+  }
+
+  void start()
+  {
+    std::scoped_lock lock(mutex_);
+    if (started_ || state_ == NavigationNodeState::Stopped) {
+      return;
+    }
+    const auto node_shared = node_.shared_from_this();
+    transform_listener_ = std::make_unique<tf2_ros::TransformListener>(
+      transform_buffer_, node_shared, false);
+    const rclcpp::QoS sensor_qos = makeQos(runtime_.sensor_qos);
+    pose_subscription_ =
+      node_.create_subscription<geometry_msgs::msg::PoseStamped>(
+        runtime_.pose_topic,
+        sensor_qos,
+        [this](geometry_msgs::msg::PoseStamped::ConstSharedPtr message) {
+          onPose(*message);
+        });
+    scan_subscription_ =
+      node_.create_subscription<sensor_msgs::msg::LaserScan>(
+        runtime_.scan_topic,
+        sensor_qos,
+        [this](sensor_msgs::msg::LaserScan::ConstSharedPtr message) {
+          onScan(*message);
+        });
+    timer_ = rclcpp::create_timer(
+      node_shared,
+      node_.get_clock(),
+      rclcpp::Duration::from_seconds(1.0 / runtime_.control_rate_hz),
+      [this]() { controlTick(); });
+    started_ = true;
+    transition(NavigationNodeState::WaitingForSensors, "started");
+  }
+
+  void stop()
+  {
+    std::scoped_lock lock(mutex_);
+    if (state_ == NavigationNodeState::Stopped) {
+      return;
+    }
+    if (timer_) {
+      timer_->cancel();
+    }
+    if (executor_) {
+      executor_->cancel();
+    }
+    publishZero(true);
+    transition(NavigationNodeState::Stopped, "shutdown");
+  }
+
+  NavigationNodeState state() const noexcept
+  {
+    std::scoped_lock lock(mutex_);
+    return state_;
+  }
+
+  std::string lastFailure() const
+  {
+    std::scoped_lock lock(mutex_);
+    return last_failure_;
+  }
+
+private:
+  void onPose(const geometry_msgs::msg::PoseStamped& message)
+  {
+    std::scoped_lock lock(mutex_);
+    if (state_ == NavigationNodeState::Stopped) {
+      return;
+    }
+    const rclcpp::Time received_at = node_.now();
+    if (message.header.frame_id == runtime_.sensors.pose_frame) {
+      synchronizer_->acceptPose(message, received_at);
+      return;
+    }
+    try {
+      const auto normalized = transform_buffer_.transform(
+        message,
+        runtime_.sensors.pose_frame,
+        tf2::durationFromSec(runtime_.transform_timeout_s));
+      synchronizer_->acceptPose(normalized, received_at);
+    } catch (const tf2::TransformException& error) {
+      synchronizer_->acceptPose(message, received_at);
+      last_failure_ =
+        "pose transform unavailable from '" + message.header.frame_id +
+        "' to '" + runtime_.sensors.pose_frame + "': " + error.what();
+    }
+  }
+
+  void onScan(const sensor_msgs::msg::LaserScan& message)
+  {
+    std::scoped_lock lock(mutex_);
+    if (state_ != NavigationNodeState::Stopped) {
+      synchronizer_->acceptScan(message, node_.now());
+    }
+  }
+
+  void controlTick()
+  {
+    std::scoped_lock lock(mutex_);
+    if (!started_ || state_ == NavigationNodeState::Stopped) {
+      return;
+    }
+    const rclcpp::Time now = node_.now();
+    const SensorStatus sensor_status = synchronizer_->status(now);
+    const auto sensors = synchronizer_->snapshot(now);
+    if (!sensors) {
+      handleUnavailableSensors(sensor_status, now);
+      return;
+    }
+    zero_latched_ = false;
+    ever_had_sensors_ = true;
+
+    switch (state_) {
+      case NavigationNodeState::WaitingForSensors:
+        updateNavigationEngine(*sensors);
+        last_failure_.clear();
+        transition(NavigationNodeState::ReadyToDecide, "sensors_ready");
+        decide(*sensors, now);
+        return;
+      case NavigationNodeState::ReadyToDecide:
+        decide(*sensors, now);
+        return;
+      case NavigationNodeState::ExecutingAction:
+        execute(*sensors, now);
+        return;
+      case NavigationNodeState::Stopped:
+        return;
+    }
+  }
+
+  void handleUnavailableSensors(
+    SensorStatus status,
+    const rclcpp::Time& now)
+  {
+    if (status == SensorStatus::ClockReset) {
+      synchronizer_->clear();
+    }
+    if (isWaitingStatus(status) && !ever_had_sensors_) {
+      return;
+    }
+
+    if (state_ == NavigationNodeState::ExecutingAction) {
+      executor_->cancel();
+      finishDecisionLog(now);
+    }
+    last_failure_ = "sensor_" + std::string(toString(status));
+    publishZero();
+    transition(
+      NavigationNodeState::WaitingForSensors,
+      last_failure_);
+  }
+
+  void updateNavigationEngine(const SynchronizedSensors& sensors)
+  {
+    navigation_engine_->observe(
+      sensors, crowd_pose_, crowd_pose_all_);
+    visualization_->publishSnapshot();
+    last_observation_generation_ = sensors.generation;
+  }
+
+  void decide(
+    const SynchronizedSensors& sensors,
+    const rclcpp::Time& now)
+  {
+    if (navigation_engine_->missionComplete()) {
+      publishZero();
+      transition(NavigationNodeState::Stopped, "mission_complete");
+      return;
+    }
+
+    const rclcpp::Time computation_started = node_.now();
+    pending_decision_ = navigation_engine_->decide();
+    const rclcpp::Time computation_finished = node_.now();
+    computation_time_s_ =
+      std::max(0.0, (computation_finished - computation_started).seconds());
+
+    const domain::Action& action = pending_decision_->action;
+    const ActionExecutionRequest request =
+      navigation_engine_->executionRequest(action);
+
+    const ActionExecutionUpdate update =
+      executor_->start(request, toDomainPose(sensors.pose), now);
+    publishCommand(update.command);
+    transition(
+      NavigationNodeState::ExecutingAction,
+      std::string("action_") +
+        std::string(actionName(action.type())));
+  }
+
+  void execute(
+    const SynchronizedSensors& sensors,
+    const rclcpp::Time& now)
+  {
+    const ActionExecutionUpdate update =
+      executor_->update(toDomainPose(sensors.pose), now);
+    if (update.status == ActionExecutionStatus::Executing) {
+      publishCommand(update.command);
+      return;
+    }
+
+    const bool succeeded =
+      update.status == ActionExecutionStatus::Completed;
+    if (!succeeded) {
+      last_failure_ = "action_" + std::string(toString(update.status));
+      publishZero();
+    } else {
+      last_failure_.clear();
+    }
+    finishDecisionLog(now);
+    updateNavigationEngine(sensors);
+
+    if (navigation_engine_->missionComplete()) {
+      publishZero();
+      transition(NavigationNodeState::Stopped, "mission_complete");
+    } else {
+      transition(
+        NavigationNodeState::ReadyToDecide,
+        succeeded ? "action_completed" : last_failure_);
+      if (succeeded) {
+        decide(sensors, now);
+      }
+    }
+  }
+
+  void finishDecisionLog(const rclcpp::Time& now)
+  {
+    if (!pending_decision_) {
+      return;
+    }
+    visualization_->publishDecision(
+      *pending_decision_,
+      std::max(0.0, (now - mission_started_at_).seconds()),
+      computation_time_s_);
+    const double mission_time_s =
+      std::max(0.0, (now - mission_started_at_).seconds());
+    navigation_engine_->markDecisionComplete(mission_time_s);
+    pending_decision_.reset();
+  }
+
+  void publishCommand(const domain::VelocityCommand& command)
+  {
+    command_publisher_->publish(toRos(command));
+    zero_latched_ =
+      command.linear_mps == 0.0 && command.angular_radps == 0.0;
+  }
+
+  void publishZero(bool force = false)
+  {
+    if ((force || !zero_latched_) && command_publisher_) {
+      command_publisher_->publish(geometry_msgs::msg::Twist{});
+      zero_latched_ = true;
+    }
+  }
+
+  void transition(NavigationNodeState next, const std::string& detail)
+  {
+    if (state_ == next && last_transition_detail_ == detail) {
+      return;
+    }
+    state_ = next;
+    last_transition_detail_ = detail;
+    std_msgs::msg::String message;
+    message.data = std::string(toString(state_));
+    if (!detail.empty()) {
+      message.data += ":" + detail;
+    }
+    if (state_publisher_) {
+      state_publisher_->publish(message);
+    }
+    RCLCPP_INFO(
+      node_.get_logger(), "Navigation state: %s",
+      message.data.c_str());
+  }
+
+  SemaFORRNode& node_;
+  mutable std::mutex mutex_;
+  RuntimeConfiguration runtime_;
+  std::unique_ptr<NavigationEngineAdapter> navigation_engine_;
+  std::unique_ptr<SensorSynchronizer> synchronizer_;
+  std::unique_ptr<CommandExecutor> executor_;
+  std::unique_ptr<VisualizationPublisher> visualization_;
+
+  tf2_ros::Buffer transform_buffer_;
+  std::unique_ptr<tf2_ros::TransformListener> transform_listener_;
+  rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr
+    pose_subscription_;
+  rclcpp::Subscription<sensor_msgs::msg::LaserScan>::SharedPtr
+    scan_subscription_;
+  rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr
+    command_publisher_;
+  rclcpp::Publisher<std_msgs::msg::String>::SharedPtr state_publisher_;
+  rclcpp::TimerBase::SharedPtr timer_;
+
+  domain::PoseArray crowd_pose_;
+  domain::PoseArray crowd_pose_all_;
+  std::optional<decision::DecisionResult> pending_decision_;
+  rclcpp::Time mission_started_at_;
+  double computation_time_s_{0.0};
+  std::size_t last_observation_generation_{0U};
+  NavigationNodeState state_{NavigationNodeState::WaitingForSensors};
+  std::string last_failure_;
+  std::string last_transition_detail_;
+  bool started_{false};
+  bool ever_had_sensors_{false};
+  bool zero_latched_{true};
+};
+
+std::string_view toString(NavigationNodeState state) noexcept
+{
+  switch (state) {
+    case NavigationNodeState::WaitingForSensors:
+      return "WaitingForSensors";
+    case NavigationNodeState::ReadyToDecide:
+      return "ReadyToDecide";
+    case NavigationNodeState::ExecutingAction:
+      return "ExecutingAction";
+    case NavigationNodeState::Stopped:
+      return "Stopped";
+  }
+  return "Unknown";
+}
+
+SemaFORRNode::SemaFORRNode(const rclcpp::NodeOptions& options)
+  : rclcpp::Node("semaforr", options),
+    impl_(std::make_unique<Impl>(*this))
+{
+}
+
+SemaFORRNode::~SemaFORRNode()
+{
+  impl_->stop();
+}
+
+void SemaFORRNode::start()
+{
+  impl_->start();
+}
+
+void SemaFORRNode::stop()
+{
+  impl_->stop();
+}
+
+NavigationNodeState SemaFORRNode::state() const noexcept
+{
+  return impl_->state();
+}
+
+std::string SemaFORRNode::lastFailure() const
+{
+  return impl_->lastFailure();
+}
+
+}  // namespace semaforr::ros

@@ -20,10 +20,11 @@ class BaselineRecorder(Node):
     TICK_HZ = 20.0
     TICK_PERIOD_S = 1.0 / TICK_HZ
 
-    def __init__(self, output_path, duration):
+    def __init__(self, output_path, duration, sensor_cutoff=None):
         super().__init__("semaforr_baseline_recorder")
         self._output_path = output_path
         self._duration = duration
+        self._sensor_cutoff = sensor_cutoff
         self._wall_started_at = time.monotonic()
         self._tick_count = 0
         self._pose = [100.0, 100.0, 0.0]
@@ -33,6 +34,7 @@ class BaselineRecorder(Node):
         self._decisions = []
         self._pose_messages = []
         self._computation_times = []
+        self._navigation_states = []
         self._finished = False
         self._trace_written = False
 
@@ -43,6 +45,12 @@ class BaselineRecorder(Node):
         self.create_subscription(Twist, "/cmd_vel", self._command_callback, 10)
         self.create_subscription(
             String, "/decision_log", self._decision_callback, 10
+        )
+        self.create_subscription(
+            String,
+            "/navigation_state",
+            self._navigation_state_callback,
+            10,
         )
         self.create_timer(self.TICK_PERIOD_S, self._tick)
 
@@ -103,6 +111,19 @@ class BaselineRecorder(Node):
             }
         )
 
+    def _navigation_state_callback(self, message):
+        if (
+            self._navigation_states
+            and self._navigation_states[-1]["state"] == message.data
+        ):
+            return
+        self._navigation_states.append(
+            {
+                "time_s": round(self._elapsed(), 3),
+                "state": message.data,
+            }
+        )
+
     def _tick(self):
         linear_x = self._command.linear.x
         angular_z = self._command.angular.z
@@ -117,6 +138,15 @@ class BaselineRecorder(Node):
             linear_x * math.sin(self._pose[2]) * self.TICK_PERIOD_S
         )
         self._tick_count += 1
+
+        sensors_enabled = (
+            self._sensor_cutoff is None
+            or self._elapsed() <= self._sensor_cutoff
+        )
+        if not sensors_enabled:
+            if self._elapsed() >= self._duration:
+                self._finished = True
+            return
 
         stamp = self.get_clock().now().to_msg()
         pose = PoseStamped()
@@ -193,6 +223,7 @@ class BaselineRecorder(Node):
                 "initial_pose": [100.0, 100.0, 0.0],
                 "laser_range_m": 5.0,
                 "laser_sample_count": 1081,
+                "sensor_cutoff_s": self._sensor_cutoff,
                 "sensor_fixture": {
                     "pose_topic": "/pose",
                     "laser_topic": "/scan_raw",
@@ -217,6 +248,7 @@ class BaselineRecorder(Node):
                 "commands": self._commands,
                 "decisions": self._decisions,
                 "task_transitions": task_transitions,
+                "navigation_states": self._navigation_states,
                 "metrics": metrics,
             },
         }
@@ -234,16 +266,36 @@ def parse_arguments(arguments):
     parser = argparse.ArgumentParser()
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--duration", type=float, default=20.0)
+    parser.add_argument(
+        "--sensor-cutoff",
+        type=float,
+        default=-1.0,
+        help=(
+            "Stop publishing pose and scan messages after this time; "
+            "negative disables the cutoff"
+        ),
+    )
     parsed = parser.parse_args(arguments)
     if parsed.duration <= 0.0:
         parser.error("--duration must be positive")
+    if parsed.sensor_cutoff >= 0.0:
+        if parsed.sensor_cutoff == 0.0:
+            parser.error("--sensor-cutoff must be positive or negative")
+        if parsed.sensor_cutoff >= parsed.duration:
+            parser.error("--sensor-cutoff must be less than --duration")
+    else:
+        parsed.sensor_cutoff = None
     return parsed
 
 
 def main(args=None):
     rclpy.init(args=args)
     parsed = parse_arguments(rclpy.utilities.remove_ros_args(args=args)[1:])
-    node = BaselineRecorder(parsed.output, parsed.duration)
+    node = BaselineRecorder(
+        parsed.output,
+        parsed.duration,
+        parsed.sensor_cutoff,
+    )
     try:
         while rclpy.ok() and not node.finished:
             rclpy.spin_once(node, timeout_sec=0.1)

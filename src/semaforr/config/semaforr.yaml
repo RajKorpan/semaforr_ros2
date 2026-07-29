@@ -3,6 +3,43 @@ semaforr:
     configuration:
       use_legacy_files: false
 
+    topics:
+      pose: pose
+      scan: scan_raw
+      command: cmd_vel
+      navigation_state: navigation_state
+
+    qos:
+      sensors:
+        depth: 10
+        reliability: reliable
+        durability: volatile
+      command:
+        depth: 1
+        reliability: reliable
+        durability: volatile
+
+    frames:
+      global: map
+      scan: base_laser_link
+      transform_timeout_s: 0.05
+
+    timing:
+      control_rate_hz: 30.0
+      sensor_timeout_s: 0.5
+      sensor_sync_tolerance_s: 0.1
+
+    command:
+      linear_velocity_mps: 0.5
+      angular_velocity_radps: 0.5
+      turn_linear_velocity_mps: 0.01
+      distance_tolerance_m: 0.06
+      angle_tolerance_rad: 0.11
+      timeout_multiplier: 1.5
+      minimum_timeout_s: 0.1
+      odometry_reset_distance_m: 2.0
+      odometry_reset_angle_rad: 2.8
+
     # The launch file resolves these data files from the installed package.
     map:
       path: ""

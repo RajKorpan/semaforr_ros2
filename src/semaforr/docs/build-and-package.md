@@ -48,7 +48,8 @@ Domain components accept `semaforr::domain::LaserScan`, `PoseArray`, and
 
 ## Controller decomposition
 
-`Controller` remains the public facade used by the ROS node and downstream
+`NavigationEngineAdapter` is the ROS node's compatibility boundary around the
+established `Controller` facade. `Controller` remains available to downstream
 consumers. Its implementation is grouped into focused translation units:
 
 | File | Responsibility |
@@ -146,7 +147,9 @@ and can also parse streams directly for tests and embedding.
 Project code uses values for small, mandatory components and
 `std::unique_ptr` for polymorphic or dynamically assembled ownership:
 
-- `RobotDriver` uniquely owns its controller and visualizer.
+- `SemaFORRNode` uniquely owns its navigation-engine adapter, sensor
+  synchronizer, command executor, and visualization publisher.
+- `NavigationEngineAdapter` uniquely owns the established controller facade.
 - `Controller` uniquely owns beliefs, explorers, planners, and advisors.
 - `AgentState` uniquely owns tasks while agenda and current-task pointers are
   non-owning views.
@@ -191,8 +194,9 @@ colcon test-result --verbose
 
 The test suite includes behavior characterization, domain-value and
 message-adapter checks, ownership/destruction checks, configuration parser and
-validation checks, source/build boundary contracts, launch-file checks, and a
-fixed-timestep contract for the runtime baseline driver.
+validation checks, source/build boundary contracts, launch-file checks,
+sensor/action execution checks, and a fixed-timestep runtime driver with a
+reproducible sensor-cutoff mode.
 `test/integration/downstream` verifies both the canonical `semaforr::domain` target and the
 `semaforr::core` compatibility target from an installed package:
 

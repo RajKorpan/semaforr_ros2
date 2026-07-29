@@ -27,13 +27,16 @@ def test_configuration_parsing_is_outside_controller():
 
 
 def test_ros_entry_point_loads_one_typed_configuration():
-    node = (SOURCE_DIR / "src" / "ros" / "semaforr_node.cpp").read_text(
+    node = (SOURCE_DIR / "src" / "ros" / "SemaFORRNode.cpp").read_text(
         encoding="utf-8"
     )
 
-    assert "semaforr::config::Configuration configuration" in node
-    assert "semaforr::ros::configurationFromParameters(*this)" in node
-    assert "std::make_unique<Controller>(std::move(configuration))" in node
+    assert "config::Configuration controller_configuration" in node
+    assert "configurationFromParameters(node_)" in node
+    assert (
+        "std::make_unique<NavigationEngineAdapter>(" in node
+        and "std::move(controller_configuration)" in node
+    )
     parameter_adapter = (
         SOURCE_DIR / "src" / "ros" / "ParameterConfiguration.cpp"
     ).read_text(encoding="utf-8")

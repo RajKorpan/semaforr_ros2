@@ -54,6 +54,8 @@ find_package(rosidl_default_generators REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(tf2 REQUIRED)
+find_package(tf2_geometry_msgs REQUIRED)
+find_package(tf2_ros REQUIRED)
 find_package(visualization_msgs REQUIRED)
 
 rosidl_generate_interfaces(${PROJECT_NAME}
@@ -186,8 +188,13 @@ add_library(semaforr::core ALIAS semaforr_core)
 target_link_libraries(semaforr_core INTERFACE semaforr_domain)
 
 add_library(semaforr_ros_adapters SHARED
-  src/ros/MessageAdapters.cpp
-  src/ros/ParameterConfiguration.cpp
+  src/ros/CommandExecutor.cpp
+    src/ros/MessageAdapters.cpp
+    src/ros/NavigationEngineAdapter.cpp
+    src/ros/ParameterConfiguration.cpp
+  src/ros/SemaFORRNode.cpp
+  src/ros/SensorSynchronizer.cpp
+  src/ros/VisualizationPublisher.cpp
 )
 set_target_properties(
   semaforr_ros_adapters PROPERTIES EXPORT_NAME ros_adapters)
@@ -201,9 +208,14 @@ target_link_libraries(
   semaforr_ros_adapters semaforr_domain "${cpp_typesupport_target}")
   ament_target_dependencies(semaforr_ros_adapters
   geometry_msgs
+  nav_msgs
   rclcpp
   sensor_msgs
   std_msgs
+  tf2
+  tf2_geometry_msgs
+  tf2_ros
+  visualization_msgs
 )
 semaforr_apply_project_options(semaforr_ros_adapters)
 
@@ -222,13 +234,7 @@ target_link_libraries(
   "${cpp_typesupport_target}"
 )
 ament_target_dependencies(semaforr_node
-  geometry_msgs
-  nav_msgs
   rclcpp
-  sensor_msgs
-  std_msgs
-  tf2
-  visualization_msgs
 )
 semaforr_apply_project_options(semaforr_node)
 
@@ -404,6 +410,14 @@ if(BUILD_TESTING)
     semaforr_spatial_learning_test semaforr_domain)
   semaforr_apply_project_options(semaforr_spatial_learning_test)
 
+  ament_add_gtest(
+    semaforr_ros_execution_test
+    test/unit/ros_execution_test.cpp
+  )
+  target_link_libraries(
+    semaforr_ros_execution_test semaforr_ros_adapters)
+  semaforr_apply_project_options(semaforr_ros_execution_test)
+
   ament_add_pytest_test(semaforr_source_contract_test
     test/contracts/test_source_contract.py
     ENV "SEMAFORR_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
@@ -448,6 +462,10 @@ if(BUILD_TESTING)
     test/contracts/test_spatial_learning_contract.py
     ENV "SEMAFORR_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
   )
+  ament_add_pytest_test(semaforr_ros_node_contract_test
+    test/contracts/test_ros_node_contract.py
+    ENV "SEMAFORR_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
+  )
 endif()
 
 ament_export_targets(export_${PROJECT_NAME} HAS_LIBRARY_TARGET)
@@ -459,6 +477,8 @@ ament_export_dependencies(
   sensor_msgs
   std_msgs
   tf2
+  tf2_geometry_msgs
+  tf2_ros
   visualization_msgs
 )
 
