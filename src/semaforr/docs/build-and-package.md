@@ -95,6 +95,29 @@ current task without a newly selected plan when no valid candidate remains.
 This avoids empty-vector modulo, fixed numeric sentinels, and non-finite
 normalization while keeping the policy independently testable.
 
+## Planning and geometry
+
+`PathPlanner` keeps its existing public API, while its implementation is split
+by responsibility:
+
+| File | Responsibility |
+| --- | --- |
+| `PathPlanner.cpp` | Path calculation, graph updates, and edge-cost assembly |
+| `PathPlannerCosts.cpp` | Traversal costs, path costs, and cost estimates |
+| `PathPlannerQueries.cpp` | Remaining-distance and closest-node queries |
+| `PathPlannerSmoothing.cpp` | Smoothing, diagnostics, and waypoint validation |
+
+Planner scalar and lifecycle state has explicit initialization. Empty trail
+collections and out-of-map position-history samples are handled without
+indexing outside their grids.
+
+Geometry primitives use normal copy/assignment value semantics and expose
+their free algorithms as ordinary declarations. Cartesian point ordering is
+lexicographic, so it is a valid strict ordering for maps and sets. Degenerate
+lines, negative radii, vertical and tangent circle intersections, and laser
+arrays with fewer than five samples now have finite, bounded behavior.
+`kGeometryTolerance` replaces the former preprocessor error constant.
+
 ## Configuration boundary
 
 `semaforr::config::loadConfiguration` reads the five runtime files into one

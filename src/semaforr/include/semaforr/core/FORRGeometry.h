@@ -24,9 +24,7 @@
 #include <utility>
 #include <vector>
 
-// our computation is involving doubles we have to define error
-// we are comfortable with
-#define ERROR 0.01
+constexpr double kGeometryTolerance = 0.01;
 
 using std::pair;
 
@@ -48,7 +46,8 @@ class CartesianPoint{
   ********************************************************************/
   CartesianPoint ();                       // initializes point to (0,0)
   CartesianPoint (double x_c, double y_c); 
-  CartesianPoint (const CartesianPoint& other);    
+  CartesianPoint (const CartesianPoint& other) = default;
+  CartesianPoint& operator=(const CartesianPoint& other) = default;
 
 
   /********************************************************************
@@ -69,7 +68,7 @@ class CartesianPoint{
   void set_y(double new_y);
   double get_x() const;
   double get_y() const;
-  double get_distance(CartesianPoint point) const;
+  double get_distance(const CartesianPoint& point) const;
 
 
   /********************************************************************
@@ -121,8 +120,9 @@ class Line{
   ********************************************************************/
   Line (CartesianPoint first, CartesianPoint second);
   Line (double x1, double y1, double x2, double y2);
-  Line (const Line& other);
-  Line (){};
+  Line (const Line& other) = default;
+  Line& operator=(const Line& other) = default;
+  Line (): coefficient_a(0.0), coefficient_b(0.0), coefficient_c(0.0) {}
 
   /********************************************************************
                       accessors and mutators
@@ -137,6 +137,7 @@ class Line{
   void set_value_c(double new_c);
 
   double get_slope() const;
+  bool is_degenerate() const;
   /********************************************************************
           friends for common functionality between classes
   ********************************************************************/
@@ -180,9 +181,9 @@ class LineSegment: public Line{
   /*******************************************************************
                          Accessors
   ********************************************************************/
-  pair<CartesianPoint, CartesianPoint> get_endpoints();
+  pair<CartesianPoint, CartesianPoint> get_endpoints() const;
 
-  double get_length();
+  double get_length() const;
 
   /*  
     function as in do_lines_intersect will store the point of intersection
@@ -233,8 +234,8 @@ class Vector{
   double get_angle() const;
   double get_intensity() const;
   double turn_vector(double angle);
-  CartesianPoint get_endpoint();
-  CartesianPoint get_point(double distance, double angle);
+  CartesianPoint get_endpoint() const;
+  CartesianPoint get_point(double distance, double angle) const;
 
   /********************************************************************
                      friends for interclass calculations
@@ -262,8 +263,8 @@ class Circle{
   //constructors
   Circle(CartesianPoint center, double radius);
   //getters and setters
-  CartesianPoint get_center();
-  double get_radius();
+  CartesianPoint get_center() const;
+  double get_radius() const;
   //verify intersection 
   friend bool do_intersect(Circle circle, Line line);
   friend CartesianPoint intersection_point(Circle circle, LineSegment line_segment);
@@ -274,5 +275,46 @@ class Circle{
   double radius;
 };
 
+double distance(CartesianPoint first, CartesianPoint second);
+double distance(CartesianPoint point, Line line);
+double distance(CartesianPoint point, LineSegment segment);
+double distance_to_intersection(
+  CartesianPoint point,
+  LineSegment segment);
+CartesianPoint get_perpendicular(CartesianPoint point, Line line);
+bool is_point_on_line(CartesianPoint point, Line line);
+bool is_point_in_segment(
+  CartesianPoint point,
+  LineSegment segment);
+bool do_intersect(
+  Line first,
+  Line second,
+  CartesianPoint& point_of_intersection);
+bool do_intersect(
+  LineSegment first,
+  LineSegment second,
+  CartesianPoint& intersection);
+bool do_intersect(
+  Vector vector,
+  Line line,
+  CartesianPoint& intersection);
+bool do_intersect(
+  Vector vector,
+  LineSegment line_segment,
+  CartesianPoint& intersection);
+bool do_intersect(
+  Vector first,
+  Vector second,
+  CartesianPoint& intersection);
+bool do_intersect(Circle circle, Line line);
+bool do_intersect(Circle circle, LineSegment line_segment);
+CartesianPoint intersection_point(
+  Circle circle,
+  LineSegment line_segment);
+bool canAccessPoint(
+  std::vector<CartesianPoint> givenLaserEndpoints,
+  CartesianPoint laserPos,
+  CartesianPoint point,
+  double distanceLimit);
 
 #endif

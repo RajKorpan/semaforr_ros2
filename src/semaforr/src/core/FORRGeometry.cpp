@@ -21,11 +21,6 @@ CartesianPoint::CartesianPoint(): x(0), y(0) {}
 
 CartesianPoint::CartesianPoint(double x_c, double y_c): x(x_c), y(y_c) {}
 
-CartesianPoint::CartesianPoint(const CartesianPoint& other){
-  x = other.x;
-  y = other.y;
-}
-
 /**********************************************************************
                  Cartesian Point getters and setters
 **********************************************************************/
@@ -37,44 +32,29 @@ double CartesianPoint::get_x() const { return x; }
 
 double CartesianPoint::get_y() const { return y; }
 
-double CartesianPoint::get_distance(CartesianPoint point) const{
-	
-	return sqrt((x - point.x)*(x - point.x) + (y - point.y)*(y - point.y));
+double CartesianPoint::get_distance(const CartesianPoint& point) const{
+  return std::hypot(x - point.x, y - point.y);
 }
 
 /**********************************************************************
                   equality operator
 **********************************************************************/
 bool CartesianPoint::operator==(const CartesianPoint& lhs) const{
-  return (abs(this->x - lhs.x) < ERROR && abs(this->y - lhs.y) < ERROR);
+  return (
+    std::abs(this->x - lhs.x) < kGeometryTolerance &&
+    std::abs(this->y - lhs.y) < kGeometryTolerance);
 }
 
 /********************************************************************
                    other operators
 ********************************************************************/
 bool CartesianPoint::operator<(const CartesianPoint& lhs) const{
-  if(this->x < lhs.x){
-    return true;
-  }
-  else if(this->y < lhs.y){
-    return true;
-  }
-  else{
-    return false;
-  }
+  return x < lhs.x || (x == lhs.x && y < lhs.y);
 }
 
 
 bool CartesianPoint::operator>(const CartesianPoint& lhs) const{
-  if(this->x > lhs.x){
-    return true;
-  }
-  else if(this->y > lhs.y){
-    return true;
-  }
-  else{
-    return false;
-  }
+  return lhs < *this;
 }
 
 
@@ -91,13 +71,6 @@ Line::Line(double x1, double y1, double x2, double y2):
   coefficient_b(x1 - x2),
   coefficient_c(coefficient_a * x1 + coefficient_b * y1) {}
 
-Line::Line(const Line& other) {
-  coefficient_a = other.coefficient_a;
-  coefficient_b = other.coefficient_b;
-  coefficient_c = other.coefficient_c;
-}
-
-  
 /**********************************************************************
                   Line getters and setters
 ***********************************************************************/
@@ -119,6 +92,11 @@ double Line::get_slope() const{
     answer = -coefficient_a / coefficient_b;
 
   return answer;
+}
+
+bool Line::is_degenerate() const {
+  return std::abs(coefficient_a) < kGeometryTolerance &&
+         std::abs(coefficient_b) < kGeometryTolerance;
 }
 	      
 
@@ -147,7 +125,7 @@ LineSegment::LineSegment(double x1, double y1, double x2, double y2):
  * This way we get the end points and we can do whatever needs to
  * be done.
  */
-pair<CartesianPoint, CartesianPoint> LineSegment::get_endpoints(){
+pair<CartesianPoint, CartesianPoint> LineSegment::get_endpoints() const{
   return std::make_pair(end_point_1, end_point_2);
 }
 /*LineSegment::LineSegment(const LineSegment& other): 
@@ -157,7 +135,7 @@ pair<CartesianPoint, CartesianPoint> LineSegment::get_endpoints(){
   end_point_1(other.end_point_1), 
   end_point_2(other.end_point_2) {}*/
 
-double LineSegment::get_length(){
+double LineSegment::get_length() const{
   return end_point_1.get_distance(end_point_2);
 }
 
@@ -195,13 +173,13 @@ double Vector::turn_vector(double angle){
    return new_angle;
 }
 
-CartesianPoint Vector::get_endpoint(){
+CartesianPoint Vector::get_endpoint() const{
   return get_point(this->get_intensity(), 0);
 }
 
-CartesianPoint Vector::get_point(double distance, double angle){
+CartesianPoint Vector::get_point(double distance, double angle) const{
 
-  double turned_angle = this->turn_vector(angle);
+  double turned_angle = this->get_angle() + angle;
   CartesianPoint point = this->get_origin();
 
   //cout << "Casting new points at angle: " << normal_angle << " and from " << point.get_x() << " " << point.get_y() << endl;
@@ -214,11 +192,14 @@ CartesianPoint Vector::get_point(double distance, double angle){
      friend functions for common interclass computations
 *********************************************************************/
 double distance(CartesianPoint first, CartesianPoint second){
-  return sqrt((first.x - second.x)*(first.x - second.x) + (first.y - second.y)*(first.y - second.y));
+  return std::hypot(first.x - second.x, first.y - second.y);
 }
 
 
 CartesianPoint get_perpendicular(CartesianPoint point, Line line){
+  if (line.is_degenerate()) {
+    return point;
+  }
   // cout << "get_perpendicular " << line.get_value_a() << " " << line.get_value_b() << " " << line.get_value_c() << endl;
   if(line.get_value_b() != 0 and line.get_value_a() != 0){
     double orig_slope = -line.get_value_a() / line.get_value_b();
@@ -241,7 +222,15 @@ CartesianPoint get_perpendicular(CartesianPoint point, Line line){
 
 // Formula taken from Wikipedia
 double distance(CartesianPoint point, Line line){
-  return abs(line.coefficient_a * point.x + line.coefficient_b * point.y - line.coefficient_c) / sqrt (line.coefficient_a*line.coefficient_a + line.coefficient_b*line.coefficient_b);
+  const double denominator =
+    std::hypot(line.coefficient_a, line.coefficient_b);
+  if (denominator < kGeometryTolerance) {
+    return std::numeric_limits<double>::infinity();
+  }
+  return std::abs(
+    line.coefficient_a * point.x +
+    line.coefficient_b * point.y -
+    line.coefficient_c) / denominator;
 }
 
 
@@ -295,113 +284,101 @@ double distance_to_intersection(CartesianPoint point, LineSegment segment){
 
 
 bool is_point_on_line(CartesianPoint point, Line line){
-  return abs(line.coefficient_a * point.x + line.coefficient_b * point.y - line.coefficient_c) < ERROR;
+  if (line.is_degenerate()) {
+    return false;
+  }
+  return std::abs(
+    line.coefficient_a * point.x +
+    line.coefficient_b * point.y -
+    line.coefficient_c) < kGeometryTolerance;
 }
 
 
 bool is_point_in_segment(CartesianPoint point, LineSegment segment){
   // cout << "is_point_in_segment " << distance(point, segment.end_point_1) << " " << distance(point, segment.end_point_2) << " " << distance(segment.end_point_1, segment.end_point_2) << " " << abs(distance(point, segment.end_point_1) + distance(point, segment.end_point_2) - distance(segment.end_point_1, segment.end_point_2)) << endl;
   // when all else failed I used triangular equation  
-  return (abs(distance(point, segment.end_point_1) + distance(point, segment.end_point_2) - distance(segment.end_point_1, segment.end_point_2)) < ERROR);
+  return (
+    std::abs(
+      distance(point, segment.end_point_1) +
+      distance(point, segment.end_point_2) -
+      distance(segment.end_point_1, segment.end_point_2)) <
+    kGeometryTolerance);
 }
 
 //constructors
-Circle::Circle(CartesianPoint center, double radius):center(center), radius(radius){}
+Circle::Circle(CartesianPoint center, double radius)
+  : center(center), radius(std::max(0.0, radius)) {}
 
 //getters and setters
-CartesianPoint Circle::get_center(){
+CartesianPoint Circle::get_center() const{
   return center;
 }
 
-double Circle::get_radius(){
+double Circle::get_radius() const{
   return radius;
 }
 
 CartesianPoint intersection_point(Circle circle, LineSegment line_segment){
-  double r = circle.get_radius();
-  double cx = circle.get_center().get_x();
-  double cy = circle.get_center().get_y();
-  double m = line_segment.get_slope();
-  double b = (line_segment.get_value_c() / line_segment.get_value_b());
-  double A = (m*m) + 1;
-  double B = 2*(m*b - m*cy - cx);
-  double C = (cx*cx) + (b*b) + (cy*cy) - (2*b*cy) - (r*r);
-  //cout << r << " " << cx << " " << cy << " " << m << " " << b << " " << A << " " << B << " " << C << endl;
-  // solution of the equation of point of intersection of the line segment and the circle assuming they intersect
-  double firstx = (-B + sqrt( ((B*B) - (4*A*C)) ))/(2*A);
-  double firsty = m*firstx + b;
-  double secondx = (-B - sqrt( ((B*B) - (4*A*C)) ))/(2*A);
-  double secondy = m*secondx + b;
-  //cout << firstx << " " << firsty << " " << secondx << " " << secondy << endl;
-  pair<CartesianPoint, CartesianPoint> endpoints = line_segment.get_endpoints();
-  if(endpoints.first.get_x() <= endpoints.second.get_x() && firstx >= endpoints.first.get_x() && firstx <= endpoints.second.get_x()) {
-    return CartesianPoint(firstx, firsty);
-  } else if(endpoints.first.get_x() > endpoints.second.get_x() && firstx >= endpoints.second.get_x() && firstx <= endpoints.first.get_x()) {
-    return CartesianPoint(firstx, firsty);
-  } else if(endpoints.first.get_x() <= endpoints.second.get_x() && secondx >= endpoints.first.get_x() && secondx <= endpoints.second.get_x()) {
-    return CartesianPoint(secondx, secondy);
-  } else if(endpoints.first.get_x() > endpoints.second.get_x() && secondx >= endpoints.second.get_x() && secondx <= endpoints.first.get_x()) {
-    return CartesianPoint(secondx, secondy);
+  const double radius = circle.get_radius();
+  const CartesianPoint center = circle.get_center();
+  const auto endpoints = line_segment.get_endpoints();
+  const double dx =
+    endpoints.second.get_x() - endpoints.first.get_x();
+  const double dy =
+    endpoints.second.get_y() - endpoints.first.get_y();
+  const double fx = endpoints.first.get_x() - center.get_x();
+  const double fy = endpoints.first.get_y() - center.get_y();
+  const double a = dx * dx + dy * dy;
+
+  if (a >= kGeometryTolerance * kGeometryTolerance) {
+    const double b = 2.0 * (fx * dx + fy * dy);
+    const double c = fx * fx + fy * fy - radius * radius;
+    const double discriminant = b * b - 4.0 * a * c;
+    if (discriminant >= 0.0) {
+      const double root = std::sqrt(discriminant);
+      double first_t = (-b - root) / (2.0 * a);
+      double second_t = (-b + root) / (2.0 * a);
+      if (second_t < first_t) {
+        std::swap(first_t, second_t);
+      }
+      for (const double candidate : {first_t, second_t}) {
+        if (candidate >= -kGeometryTolerance &&
+            candidate <= 1.0 + kGeometryTolerance) {
+          const double t = std::max(0.0, std::min(1.0, candidate));
+          return CartesianPoint(
+            endpoints.first.get_x() + t * dx,
+            endpoints.first.get_y() + t * dy);
+        }
+      }
+    }
   }
-  else{
-    double angle = atan2(endpoints.first.get_y() - cy, endpoints.first.get_x() - cx); 
-    return CartesianPoint (cx + (r * cos(angle)), cy + (r * sin(angle))); 
-  }
+
+  const double angle = std::atan2(
+    endpoints.first.get_y() - center.get_y(),
+    endpoints.first.get_x() - center.get_x());
+  return CartesianPoint(
+    center.get_x() + radius * std::cos(angle),
+    center.get_y() + radius * std::sin(angle));
 }
 
-// solve equations for the line and circle and check if there is a solution (b^2 - 4ac > 0)
 bool do_intersect(Circle circle, Line line){
-  double r = circle.get_radius();
-  double p = circle.get_center().get_x();
-  double q = circle.get_center().get_y();
-  double m = line.get_slope();
-  double c = -(line.get_value_c() / line.get_value_a());
-  double A = (m*m) + 1;
-  double B = 2*(m*c - m*q - p);
-  double C = (q*q) - (r*r) + (p*p) - (2*c*q) + (c*c);
-  // solution of the equation of point of intersection of the line and the circle
-  if((B*B - 4*A*C) <= 0)
+  if (line.is_degenerate()) {
     return false;
-  else
-    return true;
+  }
+  return distance(circle.get_center(), line) <=
+         circle.get_radius() + kGeometryTolerance;
 }
 
 bool do_intersect(Circle circle, LineSegment line_segment){
-  double r = circle.get_radius();
-  double cx = circle.get_center().get_x();
-  double cy = circle.get_center().get_y();
-  double m = line_segment.get_slope();
-  double b = (line_segment.get_value_c() / line_segment.get_value_b());
-  double A = (m*m) + 1;
-  double B = 2*(m*b - m*cy - cx);
-  double C = (cx*cx) + (b*b) + (cy*cy) - (2*b*cy) - (r*r);
-  //cout << r << " " << cx << " " << cy << " " << m << " " << b << " " << A << " " << B << " " << C << endl;
-  // solution of the equation of point of intersection of the line segment and the circle assuming they intersect
-  double firstx = (-B + sqrt( ((B*B) - (4*A*C)) ))/(2*A);
-  double firsty = m*firstx + b;
-  double secondx = (-B - sqrt( ((B*B) - (4*A*C)) ))/(2*A);
-  double secondy = m*secondx + b;
-  //cout << firstx << " " << firsty << " " << secondx << " " << secondy << endl;
-  pair<CartesianPoint, CartesianPoint> endpoints = line_segment.get_endpoints();
-  if(endpoints.first.get_x() <= endpoints.second.get_x() && firstx >= endpoints.first.get_x() && firstx <= endpoints.second.get_x()) {
-    return true;
-  } else if(endpoints.first.get_x() > endpoints.second.get_x() && firstx >= endpoints.second.get_x() && firstx <= endpoints.first.get_x()) {
-    return true;
-  } else if(endpoints.first.get_x() <= endpoints.second.get_x() && secondx >= endpoints.first.get_x() && secondx <= endpoints.second.get_x()) {
-    return true;
-  } else if(endpoints.first.get_x() > endpoints.second.get_x() && secondx >= endpoints.second.get_x() && secondx <= endpoints.first.get_x()) {
-    return true;
-  }
-  else{
-    return false; 
-  }
+  return distance(circle.get_center(), line_segment) <=
+         circle.get_radius() + kGeometryTolerance;
 }
 
 bool do_intersect (Line first, Line second, CartesianPoint& point_of_intersection){
   bool answer;
   double determinant = 1.0 * first.coefficient_a * second.coefficient_b - second.coefficient_a * first.coefficient_b;
 
-  if(determinant == 0)
+  if(std::abs(determinant) < kGeometryTolerance)
     answer = false;
   
   else{
@@ -465,6 +442,9 @@ bool canAccessPoint(std::vector<CartesianPoint> givenLaserEndpoints, CartesianPo
   // cout << "AgentState:canAccessPoint() , robot pos " << laserPos.get_x() << "," << laserPos.get_y() << " target " << point.get_x() << "," << point.get_y() << endl; 
   // cout << "Number of laser endpoints " << givenLaserEndpoints.size() << endl; 
   bool canAccessPoint = false;
+  if (givenLaserEndpoints.size() < 5 || distanceLimit < 0.0) {
+    return false;
+  }
   double distLaserPosToPoint = laserPos.get_distance(point);
   if(distLaserPosToPoint > distanceLimit){
     // cout << "Cannot access, too far away" << endl;

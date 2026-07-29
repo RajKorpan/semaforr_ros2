@@ -32,7 +32,7 @@ using namespace std;
  */
 
 class PathPlanner {
-private: 
+private:
   std::unique_ptr<Graph> ownedNavGraph;
   std::unique_ptr<Graph> ownedOriginalNavGraph;
   Graph * navGraph = nullptr;
@@ -42,27 +42,27 @@ private:
   Node source, target; 
   list<int> path;
   vector< list<int> > paths;
-  double pathCost;
+  double pathCost = 0.0;
   list<int> origPath;
   list<int> origPath1;
   list<int> origPath2;
   list<int> origPath3;
   vector< list<int> > origPaths;
-  double origPathCost;
+  double origPathCost = 0.0;
   vector <double> pathCosts;
   vector <double> origPathCosts;
   string name;
   vector< vector<int> > posHistMap;
   vector< vector<double> > posHistMapNorm;
-  double width;
-  double height;
-  int granularity;
-  int boxes_width;
-  int boxes_height;
-  int map_height;
-  int map_width;
+  double width = 0.0;
+  double height = 0.0;
+  int granularity = 0;
+  int boxes_width = 0;
+  int boxes_height = 0;
+  int map_height = 0;
+  int map_width = 0;
   //SpatialModel* spatialModel;
-  FORRConveyors* conveyors;
+  FORRConveyors* conveyors = nullptr;
   vector<FORRRegion> regions;
   vector< vector<Door> > doors;
   vector< vector<CartesianPoint> > trails;
@@ -74,16 +74,16 @@ private:
   vector<Node> otherIntersection;
   vector<bool> usedOtherIntersection;
   vector< vector<int> > coverage_grid;
-  bool use_coverage_grid;
+  bool use_coverage_grid = false;
 
   //list<int>::iterator head;
   Node waypoint; 
-  bool objectiveSet;
-  bool pathCompleted;
-  bool pathCalculated;
-  bool origObjectiveSet;
-  bool origPathCompleted;
-  bool origPathCalculated;
+  bool objectiveSet = false;
+  bool pathCompleted = false;
+  bool pathCalculated = false;
+  bool origObjectiveSet = false;
+  bool origPathCompleted = false;
+  bool origPathCalculated = false;
 
   void smoothPath(list<int>&, Node, Node);
   double computeCrowdFlow(Node s, Node d);
@@ -158,7 +158,7 @@ public:
   }
   semaforr::domain::CrowdModel getCrowdModel(){ return crowdModel;}
 
-  void setOriginalNavGraph(Graph * navGraph){ 
+  void setOriginalNavGraph(Graph * navGraph){
     originalNavGraph = navGraph;
   }
   void setOriginalNavGraph(std::unique_ptr<Graph> navGraph){
@@ -188,7 +188,17 @@ public:
         for(int j = 0; j < all_trace[i].size(); j++) {
           //cout << "Pose " << i << ", " << j << " : x = " << all_trace[i][j].get_x() << " y = " << all_trace[i][j].get_y() << endl;
           //cout << "Modified x = " << (int)((all_trace[i][j].get_x()/(map_width*1.0)) * boxes_width) << " Modified y = " << (int)((all_trace[i][j].get_y()/(map_height*1.0)) * boxes_height) << endl;
-          posHistMap[(int)((all_trace[i][j].get_x()/(map_width*1.0)) * boxes_width)][(int)((all_trace[i][j].get_y()/(map_height*1.0)) * boxes_height)] += 1;
+          if (map_width <= 0 || map_height <= 0) {
+            continue;
+          }
+          const int x_index = static_cast<int>(
+            (all_trace[i][j].get_x() / map_width) * boxes_width);
+          const int y_index = static_cast<int>(
+            (all_trace[i][j].get_y() / map_height) * boxes_height);
+          if (x_index >= 0 && x_index < boxes_width &&
+              y_index >= 0 && y_index < boxes_height) {
+            posHistMap[x_index][y_index] += 1;
+          }
         }
       }
       // double cmax=-1.0, cmin=1000000.0;
@@ -229,6 +239,10 @@ public:
     vector< vector<CartesianPoint> > interpolatedTrails;
     for(int i = 0; i < trl.size(); i++){
       vector<CartesianPoint> tempTrail;
+      if (trl[i].empty()) {
+        interpolatedTrails.push_back(tempTrail);
+        continue;
+      }
       for(int j = 0; j < trl[i].size()-1; j++){
         tempTrail.push_back(trl[i][j]);
         tempTrail.push_back(CartesianPoint((trl[i][j].get_x()+trl[i][j+1].get_x())/2.0, (trl[i][j].get_y()+trl[i][j+1].get_y())/2.0));

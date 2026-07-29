@@ -88,6 +88,9 @@ set(SEMAFORR_DOMAIN_SOURCES
   src/navigation/Graph.cpp
   src/navigation/Map.cpp
   src/navigation/PathPlanner.cpp
+  src/navigation/PathPlannerCosts.cpp
+  src/navigation/PathPlannerQueries.cpp
+  src/navigation/PathPlannerSmoothing.cpp
   src/core/Position.cpp
   src/decision/Tier1Advisor.cpp
   src/decision/Tier3Advisor.cpp
@@ -262,6 +265,17 @@ if(BUILD_TESTING)
     COMMAND semaforr_arbitration_test
   )
 
+  add_executable(
+    semaforr_planning_geometry_test
+    test/planning_geometry_test.cpp
+  )
+  target_link_libraries(semaforr_planning_geometry_test semaforr_domain)
+  semaforr_apply_project_options(semaforr_planning_geometry_test)
+  add_test(
+    NAME semaforr_planning_geometry_test
+    COMMAND semaforr_planning_geometry_test
+  )
+
   ament_add_pytest_test(semaforr_source_contract_test
     test/test_source_contract.py
     ENV "SEMAFORR_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
@@ -296,6 +310,10 @@ if(BUILD_TESTING)
   )
   ament_add_pytest_test(semaforr_arbitration_contract_test
     test/test_arbitration_contract.py
+    ENV "SEMAFORR_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
+  )
+  ament_add_pytest_test(semaforr_planning_geometry_contract_test
+    test/test_planning_geometry_contract.py
     ENV "SEMAFORR_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
   )
 endif()
