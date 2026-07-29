@@ -20,14 +20,25 @@ class BaselineRecorder(Node):
     TICK_HZ = 20.0
     TICK_PERIOD_S = 1.0 / TICK_HZ
 
-    def __init__(self, output_path, duration, sensor_cutoff=None):
+    def __init__(
+        self,
+        output_path,
+        duration,
+        sensor_cutoff=None,
+        initial_x=100.0,
+        initial_y=100.0,
+        initial_yaw=0.0,
+        scenario_name="stage_tutorial_open_space",
+    ):
         super().__init__("semaforr_baseline_recorder")
         self._output_path = output_path
         self._duration = duration
         self._sensor_cutoff = sensor_cutoff
         self._wall_started_at = time.monotonic()
         self._tick_count = 0
-        self._pose = [100.0, 100.0, 0.0]
+        self._initial_pose = [initial_x, initial_y, initial_yaw]
+        self._scenario_name = scenario_name
+        self._pose = list(self._initial_pose)
         self._command = Twist()
         self._last_command_signature = None
         self._commands = []
@@ -294,10 +305,10 @@ class BaselineRecorder(Node):
         trace = {
             "schema_version": 3,
             "scenario": {
-                "name": "stage_tutorial_open_space",
+                "name": self._scenario_name,
                 "duration_s": self._duration,
                 "tick_hz": self.TICK_HZ,
-                "initial_pose": [100.0, 100.0, 0.0],
+                "initial_pose": self._initial_pose,
                 "laser_range_m": 5.0,
                 "laser_sample_count": 1081,
                 "sensor_cutoff_s": self._sensor_cutoff,
@@ -343,6 +354,13 @@ def parse_arguments(arguments):
     parser = argparse.ArgumentParser()
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--duration", type=float, default=20.0)
+    parser.add_argument("--initial-x", type=float, default=100.0)
+    parser.add_argument("--initial-y", type=float, default=100.0)
+    parser.add_argument("--initial-yaw", type=float, default=0.0)
+    parser.add_argument(
+        "--scenario-name",
+        default="stage_tutorial_open_space",
+    )
     parser.add_argument(
         "--sensor-cutoff",
         type=float,
@@ -372,6 +390,10 @@ def main(args=None):
         parsed.output,
         parsed.duration,
         parsed.sensor_cutoff,
+        parsed.initial_x,
+        parsed.initial_y,
+        parsed.initial_yaw,
+        parsed.scenario_name,
     )
     try:
         while rclpy.ok() and not node.finished:

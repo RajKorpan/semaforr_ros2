@@ -1,0 +1,92 @@
+Panels:
+  - Class: rviz_common/Displays
+    Name: Displays
+  - Class: rviz_common/Views
+    Name: Views
+Visualization Manager:
+  Class: ""
+  Displays:
+    - Alpha: 0.5
+      Cell Size: 1
+      Class: rviz_default_plugins/Grid
+      Color: 160; 160; 164
+      Enabled: true
+      Name: Metric Grid
+      Plane: XY
+      Reference Frame: map
+    - Class: rviz_default_plugins/Path
+      Color: 25; 255; 0
+      Enabled: true
+      Line Style: Lines
+      Line Width: 0.08
+      Name: Selected Plan
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        Reliability Policy: Reliable
+        Value: /plan
+    - Class: rviz_default_plugins/PointStamped
+      Color: 255; 25; 0
+      Enabled: true
+      Name: Current Target
+      Radius: 0.25
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        Reliability Policy: Reliable
+        Value: /target_point
+    - Class: rviz_default_plugins/PointStamped
+      Color: 255; 200; 0
+      Enabled: true
+      Name: Current Waypoint
+      Radius: 0.18
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        Reliability Policy: Reliable
+        Value: /waypoint
+    - Class: rviz_default_plugins/Pose
+      Enabled: true
+      Name: Decision Pose
+      Shape: Arrow
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        Reliability Policy: Reliable
+        Value: /decision_pose
+    - Class: rviz_default_plugins/MarkerArray
+      Enabled: true
+      Name: Learned Regions
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        Reliability Policy: Reliable
+        Value: /region
+    - Class: rviz_default_plugins/Marker
+      Enabled: true
+      Name: Skeleton
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        Reliability Policy: Reliable
+        Value: /skeleton
+  Enabled: true
+  Global Options:
+    Background Color: 48; 48; 48
+    Fixed Frame: map
+    Frame Rate: 30
+  Name: root
+  Tools:
+    - Class: rviz_default_plugins/Interact
+    - Class: rviz_default_plugins/MoveCamera
+    - Class: rviz_default_plugins/Select
+  Views:
+    Current:
+      Angle: 0
+      Class: rviz_default_plugins/TopDownOrtho
+      Name: Top Down
+      Scale: 25
+      Target Frame: map
+Window Geometry:
+  Height: 900
+  Width: 1400

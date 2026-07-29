@@ -300,7 +300,7 @@ install(
   DESTINATION include/${PROJECT_NAME}
 )
 install(
-  DIRECTORY config docs launch
+  DIRECTORY config docs launch rviz
   DESTINATION share/${PROJECT_NAME}
 )
 install(
@@ -563,6 +563,10 @@ if(BUILD_TESTING)
   )
   ament_add_pytest_test(semaforr_phase14_strategy_test
     test/contracts/test_phase14_strategy.py
+    ENV "SEMAFORR_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
+  )
+  ament_add_pytest_test(semaforr_phase15_deployment_test
+    test/contracts/test_phase15_deployment.py
     ENV "SEMAFORR_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
   )
 endif()

@@ -1,0 +1,11 @@
+<?xml version="1.0"?>
+<Experiment version="2.0">
+  <ObstacleSet type="explicit" class="1">
+    <Obstacle closed="1">
+      <Vertex p_x="0.5" p_y="0.5" />
+      <Vertex p_x="11.5" p_y="0.5" />
+      <Vertex p_x="11.5" p_y="11.5" />
+      <Vertex p_x="0.5" p_y="11.5" />
+    </Obstacle>
+  </ObstacleSet>
+</Experiment>

@@ -42,11 +42,16 @@ colcon test-result --verbose
 
 ### Run SemaFORR Node
 
-Launch the tutorial configuration from the installed package:
+Run the complete deterministic example from installed package data:
 
 ```bash
-ros2 launch semaforr stage_tutorial.launch.py
+ros2 launch semaforr example_simulation.launch.py
 ```
+
+It supplies map, mission, pose, and scan inputs and writes a structured trace
+to `~/.ros/semaforr/example-simulation.json`. Use `rviz:=true` for the installed
+RViz layout. `stage_tutorial.launch.py` is the navigation-only launch for a
+real robot or external simulator.
 
 ## Configuration
 
@@ -93,3 +98,10 @@ sensor-loss verification are documented in `docs/phase-11-completion.md`.
 The canonical social API, unified `CrowdModel`, learning strategies, planner
 and advisor consumers, stale-data fallback, persistence, and diagnostic
 projection are documented in `docs/social_navigation.md`.
+
+## Documentation
+
+The maintained documentation starts at `docs/README.md` and includes the
+architecture, decision tiers, advisor and planner catalogs, full configuration
+reference, topic/frame contract, spatial learning, troubleshooting,
+contributor, deployment, and legacy migration guides.

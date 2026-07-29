@@ -1,70 +1,54 @@
+# Social-SemaFORR for ROS 2
 
-# Social-SemaFORR ROS2
+Social-SemaFORR is a cognitively inspired navigation workspace for ROS 2
+Humble. It combines deterministic decision tiers, graph planning, modular
+spatial learning, structured diagnostics, and a stable social-observation API.
 
-A cognitively-inspired system for social robot navigation, built on ROS2 Humble. Social-SemaFORR integrates navigation and social context modeling for navigating in dynamic, human-crowded environments.
-
-## Features
-
-- **Cognitive Navigation**: SemaFORR navigation system for intelligent path planning.
-- **Social Context Modeling**: Deep learning-based human trajectory prediction.
-- **ROS2 Integration**: Bridge nodes for message compatibility.
-- **Docker Support**: Easy setup and reproducibility.
-
-## Quick Start
-
-### 1. Clone & Build
+## Build and run the example
 
 ```bash
-git clone https://github.com/ericguan04/semaforr_ros2.git
-cd semaforr_ros2
+source /opt/ros/humble/setup.bash
+rosdep install --from-paths src --ignore-src -r -y
 colcon build
-```
-
-### 2. Run with Docker
-
-Build and start the ROS2 Humble container:
-
-```bash
-docker-compose up --build
-```
-
-This will launch a container with all dependencies pre-installed.
-
-### 3. Source Workspace
-
-After building, source your workspace:
-
-```bash
 source install/setup.bash
+colcon test --packages-select semaforr
+colcon test-result --verbose
+ros2 launch semaforr example_simulation.launch.py
 ```
 
-## Packages
+The installed example supplies its own map, mission, pose, and laser stream. It
+exits after 20 seconds and writes a structured trace to
+`~/.ros/semaforr/example-simulation.json`; no source-tree path or manual topic
+publisher is required. Add `rviz:=true` to open the installed RViz layout.
 
-- **semaforr**: Core navigation system.  
-	_Run:_  
-	`ros2 run semaforr semaforr_node --ros-args -p semaforr_path:=... [other params]`
+## Docker
 
-- **social_context**: Social context model and trajectory prediction.  
-	_Run:_  
-	`ros2 run social_context social_context_hunav`
+```bash
+docker compose build
+docker compose up
+```
 
-- **semaforr_bridge**: Bridges Odometry to PoseStamped for SemaFORR.  
-	_Run:_  
-	`ros2 run semaforr_bridge odom_to_pose_bridge`
+The image builds the copied ROS 2 workspace and runs the same example. Its
+trace is written to `baseline-results/example-simulation.json`.
 
-See each package’s README in `src/<package>/README.md` for details and example commands.
+## Workspace packages
 
-## Dependencies
+- `semaforr`: navigation domain, decision tiers, planners, spatial learning,
+  ROS adapters, launch files, and tests
+- `semaforr_msgs`: structured navigation and decision diagnostics
+- `social_context_msgs`: canonical social observation and crowd-field messages
+- `social_context`: social observation and trajectory-prediction producers
+- `semaforr_bridge`: odometry and tracked-person adapters
+- `semaforr_crowd`: optional crowd-field diagnostics
+- `semaforr_examples`: installed retained maps and scenarios
+- `why`, `why_plan`: decision and plan explanation tools
 
-- [SemaFORR](https://github.com/ericguan04/semaforr)
-- GST Trajectory Prediction (see `src/social_context/README.md`)
-- ROS2 Humble
-- Python 3.10 (for social context model)
+Start with the
+[documentation index](src/semaforr/docs/README.md), especially the
+[architecture overview](src/semaforr/docs/architecture.md),
+[configuration reference](src/semaforr/docs/configuration-reference.md),
+[topic/frame contract](src/semaforr/docs/topics-and-frames.md), and
+[troubleshooting guide](src/semaforr/docs/troubleshooting.md).
 
-## Social Context Model Setup
-
-1. Create a Python 3.10 virtual environment (recommended: conda).
-2. Install dependencies:
-	 ```bash
-	 pip install -r src/social_context/trajectory_prediction/requirements.txt
-	 ```
+ROS 1 crowd estimator sources are retained for reference but excluded from ROS
+2 package discovery with `COLCON_IGNORE`.
