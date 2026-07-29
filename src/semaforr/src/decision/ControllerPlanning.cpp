@@ -12,7 +12,6 @@ void Controller::planForCurrentTask(
 
   if (result.plan_selected) {
     decisionStats.chosenPlanner = result.chosen_planner;
-    decisionStats.plannerComments = result.planner_comments;
   }
   decisionStats.planningComputationTime =
     result.computation_time_seconds;

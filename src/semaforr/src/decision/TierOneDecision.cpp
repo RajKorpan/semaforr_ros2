@@ -5,20 +5,31 @@
 #include <semaforr/decision/DecisionTier.hpp>
 #include "DecisionTierFactory.h"
 
+#include <semaforr/core/action_adapter.hpp>
 #include <semaforr/core/FORRGeometry.hpp>
 #include <semaforr/decision/Beliefs.hpp>
 #include <semaforr/decision/Tier1Advisor.hpp>
 
 #include <algorithm>
-#include <iostream>
 #include <set>
-#include <sstream>
 #include <utility>
 #include <vector>
 
 namespace semaforr {
 namespace decision {
 namespace {
+
+void appendVetoes(
+  TierOneResult& result,
+  const std::vector<FORRAction>& actions,
+  std::string rule,
+  std::string explanation)
+{
+  for (const auto& action : actions) {
+    result.vetoes.push_back({
+      core::toDomainAction(action), rule, explanation});
+  }
+}
 
 class DefaultTierOneDecision final : public TierOneDecision {
 public:
@@ -30,35 +41,26 @@ public:
     Beliefs& beliefs = dependencies_.beliefs;
     Tier1Advisor& advisor = dependencies_.advisor;
 
-    std::cout << "Tier 1 Decision Making" << std::endl;
     CartesianPoint current_position(
       beliefs.getAgentState()->getCurrentPosition().getX(),
       beliefs.getAgentState()->getCurrentPosition().getY());
-    std::cout << "Inside tier 1 decision. Current Position: "
-              << current_position.get_x() << " "
-              << current_position.get_y() << std::endl;
 
     if (current_position.get_distance(
           beliefs.getAgentState()->getFarthestPoint()) <= 0.75) {
-      std::cout << "if statement 1 triggered" << std::endl;
       beliefs.getAgentState()->setGetOutTriggered(false);
     }
     if (current_position.get_distance(
           beliefs.getAgentState()->getRepositionPoint()) <= 0.75 ||
         beliefs.getAgentState()->getRepositionCount() >= 20) {
-      std::cout << "if statement 2 triggered" << std::endl;
       beliefs.getAgentState()->setRepositionTriggered(false);
       beliefs.getAgentState()->setRepositionCount(0);
     }
 
     if (advisor.advisorVictory(&result.action)) {
-      std::cout << "if statement 3 triggered" << std::endl;
-      result.decision_tier = 1.1;
+      result.selected_policy = "victory";
       result.decided = true;
     } else {
-      std::cout << "else statement triggered" << std::endl;
       advisor.advisorAvoidObstacles();
-      std::cout << "Advisor AvoidObstacles vetoed actions" << std::endl;
 
       std::vector<FORRAction> obstacle_vetoes;
       std::set<FORRAction>* vetoed_actions =
@@ -68,7 +70,6 @@ public:
       }
 
       advisor.advisorNotOpposite();
-      std::cout << "Advisor NotOpposite vetoed actions" << std::endl;
       std::vector<FORRAction> opposite_vetoes;
       vetoed_actions = beliefs.getAgentState()->getVetoedActions();
       for (const FORRAction& action : *vetoed_actions) {
@@ -80,8 +81,6 @@ public:
       }
 
       if (advisor.advisorEnforcer(&result.action)) {
-        std::cout << "if statement 1 inside else statement triggered"
-                  << std::endl;
         const std::string planner_name =
           beliefs.getAgentState()->getCurrentTask()->getPlannerName();
         if (planner_name == "skeleton" || planner_name == "hallwayskel") {
@@ -90,38 +89,39 @@ public:
                                 ->getSkeletonWaypoint()
                                 .getCreator();
           if (creator == 2) {
-            result.decision_tier = 1.5;
+            result.selected_policy = "enforcer_exit";
           } else if (creator == 3) {
-            result.decision_tier = 1.6;
+            result.selected_policy = "enforcer_passage";
           } else {
-            result.decision_tier = advisor.getShortcut() ? 1.21 : 1.2;
+            result.selected_policy =
+              advisor.getShortcut() ? "enforcer_shortcut" : "enforcer";
           }
         } else {
-          result.decision_tier = 1.2;
+          result.selected_policy = "enforcer";
         }
         result.decided = true;
       }
 
       if (dependencies_.doorway_enabled && !result.decided &&
           advisor.advisorDoorway(&result.action)) {
-        result.decision_tier = 1.3;
+        result.selected_policy = "doorway";
         result.decided = true;
       }
       if (dependencies_.behind_enabled && !result.decided &&
           advisor.advisorBehindYou(&result.action)) {
-        result.decision_tier = 1.4;
+        result.selected_policy = "behind_you";
         result.decided = true;
       }
       if (dependencies_.get_out_enabled && !result.decided &&
           advisor.advisorGetOut(&result.action)) {
-        result.decision_tier = 1.5;
+        result.selected_policy = "get_out";
         result.decided = true;
       }
       if (dependencies_.find_a_way_enabled && !result.decided &&
           (dependencies_.highway_finished > 1 ||
            dependencies_.frontier_finished > 1) &&
           advisor.advisorFindAWay(&result.action)) {
-        result.decision_tier = 1.6;
+        result.selected_policy = "find_a_way";
         result.decided = true;
       }
       if (dependencies_.dont_go_back_enabled) {
@@ -141,18 +141,15 @@ public:
         }
       }
 
-      std::stringstream veto_list;
-      for (const FORRAction& action : obstacle_vetoes) {
-        veto_list << action.type << " " << action.parameter << " 1a;";
-      }
-      for (const FORRAction& action : opposite_vetoes) {
-        veto_list << action.type << " " << action.parameter << " 1b;";
-      }
-      for (const FORRAction& action : dont_go_back_vetoes) {
-        veto_list << action.type << " " << action.parameter << " 1c;";
-      }
-      result.vetoes_recorded = true;
-      result.vetoed_actions = veto_list.str();
+      appendVetoes(
+        result, obstacle_vetoes, "avoid_obstacles",
+        "action exceeds currently visible obstacle clearance");
+      appendVetoes(
+        result, opposite_vetoes, "not_opposite",
+        "action immediately reverses recent motion");
+      appendVetoes(
+        result, dont_go_back_vetoes, "dont_go_back",
+        "action returns toward recently visited space");
     }
 
     advisor.resetShortcut();

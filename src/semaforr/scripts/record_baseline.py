@@ -13,7 +13,7 @@ import rclpy
 from geometry_msgs.msg import PoseStamped, Twist
 from rclpy.node import Node
 from sensor_msgs.msg import LaserScan
-from std_msgs.msg import String
+from semaforr_msgs.msg import DecisionRecord, NavigationState
 
 
 class BaselineRecorder(Node):
@@ -44,10 +44,13 @@ class BaselineRecorder(Node):
         )
         self.create_subscription(Twist, "/cmd_vel", self._command_callback, 10)
         self.create_subscription(
-            String, "/decision_log", self._decision_callback, 10
+            DecisionRecord,
+            "/decision_records",
+            self._decision_callback,
+            10,
         )
         self.create_subscription(
-            String,
+            NavigationState,
             "/navigation_state",
             self._navigation_state_callback,
             10,
@@ -77,50 +80,124 @@ class BaselineRecorder(Node):
         )
 
     def _decision_callback(self, message):
-        fields = message.data.split("\t")
-        if len(fields) < 16:
-            self.get_logger().warning(
-                "Ignoring malformed decision_log message with "
-                f"{len(fields)} fields"
-            )
-            return
-
-        computation_time = float(fields[3])
+        tier_names = {
+            DecisionRecord.TIER_ONE: "tier_one",
+            DecisionRecord.TIER_TWO: "tier_two",
+            DecisionRecord.TIER_THREE: "tier_three",
+            DecisionRecord.EXPLORATION: "exploration",
+            DecisionRecord.FALLBACK: "fallback",
+            DecisionRecord.SAFE_STOP: "safe_stop",
+        }
+        source_names = {
+            DecisionRecord.SOURCE_MANDATORY_RULE: "mandatory_rule",
+            DecisionRecord.SOURCE_TIER_THREE_ADVISOR:
+                "tier_three_advisor",
+            DecisionRecord.SOURCE_PLANNER: "planner",
+            DecisionRecord.SOURCE_EXPLORATION: "exploration",
+            DecisionRecord.SOURCE_FALLBACK: "fallback",
+            DecisionRecord.SOURCE_SAFE_STOP: "safe_stop",
+        }
+        outcome_names = {
+            DecisionRecord.OUTCOME_PENDING: "pending",
+            DecisionRecord.OUTCOME_COMPLETED: "completed",
+            DecisionRecord.OUTCOME_TIMED_OUT: "timed_out",
+            DecisionRecord.OUTCOME_ODOMETRY_RESET: "odometry_reset",
+            DecisionRecord.OUTCOME_CLOCK_RESET: "clock_reset",
+            DecisionRecord.OUTCOME_CANCELLED: "cancelled",
+            DecisionRecord.OUTCOME_SENSOR_LOST: "sensor_lost",
+            DecisionRecord.OUTCOME_SHUTDOWN: "shutdown",
+        }
+        computation_time = message.decision_latency_s
         self._computation_times.append(computation_time)
+        task = message.task if message.has_task else None
         self._decisions.append(
             {
                 "time_s": round(self._elapsed(), 3),
-                "task": int(fields[0]),
-                "decision": int(fields[1]),
-                "overall_time_s": float(fields[2]),
+                "sequence": message.sequence,
+                "task": task.task_index if task else None,
+                "decision": task.decision_count if task else None,
                 "computation_time_s": computation_time,
-                "target": [float(fields[4]), float(fields[5])],
+                "target": (
+                    [task.target.x, task.target.y] if task else None
+                ),
+                "waypoint": (
+                    [task.waypoint.x, task.waypoint.y]
+                    if task and task.has_waypoint
+                    else None
+                ),
                 "robot_pose": [
-                    float(fields[6]),
-                    float(fields[7]),
-                    float(fields[8]),
+                    message.robot_pose.x,
+                    message.robot_pose.y,
+                    message.robot_pose.theta,
                 ],
-                "max_forward_parameter": int(fields[9]),
-                "decision_tier": float(fields[10]),
-                "vetoed_actions": fields[11],
-                "chosen_action": [int(fields[12]), int(fields[13])],
-                "advisors": fields[14],
-                "advisor_comments": fields[15],
-                "chosen_planner": fields[25] if len(fields) > 25 else "",
-                "planner_comments": fields[28] if len(fields) > 28 else "",
+                "candidate_actions": [
+                    [action.type, action.magnitude_index]
+                    for action in message.candidates
+                ],
+                "decision_tier": tier_names[message.selected_tier],
+                "decision_source": source_names[message.selected_source],
+                "selected_policy": message.selected_policy,
+                "vetoes": [
+                    {
+                        "action": [
+                            veto.action.type,
+                            veto.action.magnitude_index,
+                        ],
+                        "rule": veto.rule,
+                        "explanation": veto.explanation,
+                    }
+                    for veto in message.vetoes
+                ],
+                "chosen_action": [
+                    message.selected_action.type,
+                    message.selected_action.magnitude_index,
+                ],
+                "advisor_contributions": [
+                    {
+                        "advisor": contribution.advisor,
+                        "action": [
+                            contribution.action.type,
+                            contribution.action.magnitude_index,
+                        ],
+                        "raw_score": contribution.raw_score,
+                        "weight": contribution.weight,
+                        "weighted_score": contribution.weighted_score,
+                        "explanation": contribution.explanation,
+                    }
+                    for contribution in message.advisor_contributions
+                ],
+                "chosen_planner": (
+                    message.selected_planner if message.has_planner else None
+                ),
+                "action_outcome": outcome_names[message.action_outcome],
+                "action_duration_s": message.action_duration_s,
+                "action_progress": message.action_progress,
+                "action_target": message.action_target,
+                "outcome_detail": message.outcome_detail,
             }
         )
 
     def _navigation_state_callback(self, message):
+        state_names = {
+            NavigationState.WAITING_FOR_SENSORS: "waiting_for_sensors",
+            NavigationState.READY_TO_DECIDE: "ready_to_decide",
+            NavigationState.EXECUTING_ACTION: "executing_action",
+            NavigationState.STOPPED: "stopped",
+        }
+        state = state_names[message.state]
         if (
             self._navigation_states
-            and self._navigation_states[-1]["state"] == message.data
+            and self._navigation_states[-1]["state"] == state
+            and self._navigation_states[-1]["detail"] == message.detail
         ):
             return
         self._navigation_states.append(
             {
                 "time_s": round(self._elapsed(), 3),
-                "state": message.data,
+                "sequence": message.transition_sequence,
+                "state": state,
+                "detail": message.detail,
+                "failure": message.failure,
             }
         )
 
@@ -215,7 +292,7 @@ class BaselineRecorder(Node):
                 previous_task = decision["task"]
 
         trace = {
-            "schema_version": 2,
+            "schema_version": 3,
             "scenario": {
                 "name": "stage_tutorial_open_space",
                 "duration_s": self._duration,

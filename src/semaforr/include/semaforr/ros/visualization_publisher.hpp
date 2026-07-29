@@ -24,10 +24,7 @@ public:
   VisualizationPublisher& operator=(VisualizationPublisher&&) noexcept;
 
   void publishSnapshot();
-  void publishDecision(
-    const decision::DecisionResult& result,
-    double mission_time_s,
-    double computation_time_s);
+  void publishDecision(const decision::DecisionResult& result);
 
 private:
   class Impl;

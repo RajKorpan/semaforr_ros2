@@ -17,7 +17,7 @@ Map::Map(){}
 Map::Map(double length, double height) {
   this->length = length;
   this->height = height;
-  cout << length  << " " << height << " " << length/50 << " " << height/50 << endl;  
+  (void)0;
   occupancySize = 20;
   for(int j = 0 ; j <= length/occupancySize; j++){
 	vector<bool> column;
@@ -37,7 +37,7 @@ void Map::addWall(double x1, double y1, double x2, double y2){
   walls.push_back(wall);
   double distance = Map::distance(x1,y1,x2,y2);
   double stepSize = 2; //cms
-  cout << "Wall : " << x1 << " " << y1 << " " << x2 << " " << y2 << " " << endl;
+  (void)0;
   for(int step = 0; step <= distance; step += stepSize ){
 	double t = step/distance;
   	double xtest = (x1 * t) + ((1-t)*x2);
@@ -67,7 +67,7 @@ bool Map::readMapFromXML(string filename){
     }
     return true;
   } catch (const std::exception& error) {
-    cout << error.what() << '\n';
+    (void)0;
     return false;
   }
 }

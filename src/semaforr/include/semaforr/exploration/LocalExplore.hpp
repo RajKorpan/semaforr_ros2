@@ -44,7 +44,7 @@ struct PotentialPoints{
 		// printDetails();
 	}
 	void printDetails(){
-		cout << "start " << start.get_x() << " " << start.get_y() << " end " << end.get_x() << " " << end.get_y() << " dist_to_goal " << dist_to_goal << " start_dist_to_goal " << start_dist_to_goal << " end_dist_to_goal " << end_dist_to_goal << endl;
+    (void)0;
 	}
 	bool operator==(const PotentialPoints& p) const{
 		if((start == p.start and end == p.end) or end.get_distance(p.end) < 0.75){
@@ -156,31 +156,31 @@ public:
 	bool getStartedRandom() { return started_random; }
 	bool getAtStartOfPotential() { return start_of_potential; }
 	bool getFinishedPotentials() {
-		cout << "potential_queue " << potential_queue.size() << endl;
+    (void)0;
 		if(potential_queue.size() > 0){
 			bool picked_new = false;
 			int count = potential_queue.size()-1;
-			cout << "count " << count << endl;
+      (void)0;
 			while(!picked_new and count > 0){
-				cout << "inside while loop" << endl;
+        (void)0;
 				if(potential_queue.empty()){
-					cout << "potential queue empty" << endl;
+          (void)0;
 				}
 				else {
-					cout << "potential queue not empty" << endl;
+          (void)0;
 				}
 				current_potential = potential_queue.top();
-				cout << "current_potential ";
+        (void)0;
 				if(!alreadyInStack(current_potential)){
 					picked_new = true;
 				}
 				potential_exploration.push_back(current_potential);
 				potential_queue.pop();
 				count = count - 1;
-				cout << "potential_queue " << potential_queue.size() << " count " << count << " picked_new " << picked_new << endl;
+        (void)0;
 			}
 			if(picked_new == true){
-				cout << "current_potential ";
+        (void)0;
 				// current_potential.printDetails();
 				// potential_queue.pop();
 				finished_potentials = false;
@@ -301,7 +301,7 @@ public:
 		// cout << current_potential.start.get_x() << " " << current_potential.start.get_y() << endl;
 		Node t(1, current_potential.start.get_x()*100, current_potential.start.get_y()*100);
 		pathPlanner->setTarget(t);
-		cout << "plan generation status" << pathPlanner->calcPath(true) << endl;
+    (void)0;
 		list<int> waypointInd;
 		if(pathPlanner->getName() == "skeleton"){
 			waypointInd = pathPlanner->getPath();
@@ -462,7 +462,7 @@ public:
 					// cout << laser_to_explore.start.get_x() << " " << laser_to_explore.start.get_y() << endl;
 					Node t(1, laser_to_explore.start.get_x()*100, laser_to_explore.start.get_y()*100);
 					pathPlanner->setTarget(t);
-					cout << "plan generation status" << pathPlanner->calcPath(true) << endl;
+          (void)0;
 					list<int> waypointInd;
 					if(pathPlanner->getName() == "skeleton"){
 						waypointInd = pathPlanner->getPath();
@@ -561,7 +561,7 @@ public:
 		// cout << closest_coverage.start.get_x() << " " << closest_coverage.start.get_y() << endl;
 		Node t(1, closest_coverage.start.get_x()*100, closest_coverage.start.get_y()*100);
 		pathPlanner->setTarget(t);
-		cout << "plan generation status" << pathPlanner->calcPath(true) << endl;
+    (void)0;
 		list<int> waypointInd;
 		if(pathPlanner->getName() == "skeleton"){
 			waypointInd = pathPlanner->getPath();

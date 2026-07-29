@@ -51,7 +51,7 @@ Node PathPlanner::getClosestNode(Node n, Node ref, bool isTarget){
   if(name == "skeleton"){
     Node temp;
     if(PATH_DEBUG)
-      cout << signature << "Searching for any closest node " << endl;
+      (void)0;
 
     int nRegion=-1;
     for(int i = 0; i < regions.size() ; i++){
@@ -65,7 +65,7 @@ Node PathPlanner::getClosestNode(Node n, Node ref, bool isTarget){
     if(nRegion >= 0){
       int x = (int)(regions[nRegion].getCenter().get_x()*100);
       int y = (int)(regions[nRegion].getCenter().get_y()*100);
-      cout << "Point in region " << nRegion << " x " << x << " y " << y << endl;
+      (void)0;
       temp = navGraph->getNode(navGraph->getNodeID(x, y));
       return temp;
     }
@@ -76,7 +76,7 @@ Node PathPlanner::getClosestNode(Node n, Node ref, bool isTarget){
         if(coverage_grid[(int)(regions[i].getCenter().get_x())][(int)(regions[i].getCenter().get_y())] != 0 and regions[i].visibleFromRegion(CartesianPoint(n.getX()/100.0, n.getY()/100.0), 20) and regions[i].getMinExits().size() > 0){
           double dist_to_region = regions[i].getCenter().get_distance(CartesianPoint(n.getX()/100.0, n.getY()/100.0));
           if(dist_to_region < vDist){
-            cout << "Region " << i << " visible to point and distance " << dist_to_region << endl;
+            (void)0;
             vRegion = i;
             vDist = dist_to_region;
           }
@@ -85,11 +85,11 @@ Node PathPlanner::getClosestNode(Node n, Node ref, bool isTarget){
       if(vRegion >= 0){
         int x = (int)(regions[vRegion].getCenter().get_x()*100);
         int y = (int)(regions[vRegion].getCenter().get_y()*100);
-        cout << "Point visible to region " << vRegion << " x " << x << " y " << y << endl;
+        (void)0;
         temp = navGraph->getNode(navGraph->getNodeID(x, y));
         return temp;
       }
-      cout << "Not in region or visible to region, searching for close node" << endl;
+      (void)0;
       vector<Node*> nodes = navGraph->getNodes();
       vector<Node*>::iterator iter;
       // double min_distance = 100000000.0;
@@ -104,10 +104,10 @@ Node PathPlanner::getClosestNode(Node n, Node ref, bool isTarget){
           max_score = score;
           temp = (*(*iter));
           if(PATH_DEBUG) {
-            cout << "\tFound a new candidate!: ";
+            (void)0;
             temp.printNode();
-            cout << endl;
-            cout << "\tDistance between n and this node: " << d / -3.0 << " this node's num of neighbors: " << neighbors << " score: " << score << endl;
+            (void)0;
+            (void)0;
           }
         }
       }
@@ -120,7 +120,7 @@ Node PathPlanner::getClosestNode(Node n, Node ref, bool isTarget){
         if(regions[i].visibleFromRegion(CartesianPoint(n.getX()/100.0, n.getY()/100.0), 20) and regions[i].getMinExits().size() > 0){
           double dist_to_region = regions[i].getCenter().get_distance(CartesianPoint(n.getX()/100.0, n.getY()/100.0));
           if(dist_to_region < vDist){
-            cout << "Region " << i << " visible to point and distance " << dist_to_region << endl;
+            (void)0;
             vRegion = i;
             vDist = dist_to_region;
           }
@@ -129,11 +129,11 @@ Node PathPlanner::getClosestNode(Node n, Node ref, bool isTarget){
       if(vRegion >= 0){
         int x = (int)(regions[vRegion].getCenter().get_x()*100);
         int y = (int)(regions[vRegion].getCenter().get_y()*100);
-        cout << "Point visible to region " << vRegion << " x " << x << " y " << y << endl;
+        (void)0;
         temp = navGraph->getNode(navGraph->getNodeID(x, y));
         return temp;
       }
-      cout << "Not in region or visible to region, searching for close node" << endl;
+      (void)0;
       vector<Node*> nodes = navGraph->getNodes();
       vector<Node*>::iterator iter;
       // double min_distance = 100000000.0;
@@ -148,10 +148,10 @@ Node PathPlanner::getClosestNode(Node n, Node ref, bool isTarget){
           max_score = score;
           temp = (*(*iter));
           if(PATH_DEBUG) {
-            cout << "\tFound a new candidate!: ";
+            (void)0;
             temp.printNode();
-            cout << endl;
-            cout << "\tDistance between n and this node: " << d / -3.0 << " this node's num of neighbors: " << neighbors << " score: " << score << endl;
+            (void)0;
+            (void)0;
           }
         }
       }
@@ -166,7 +166,7 @@ Node PathPlanner::getClosestNode(Node n, Node ref, bool isTarget){
     do {
 
       if(PATH_DEBUG)
-        cout << signature << "Searching for the closest node within " << s_radius << endl;
+        (void)0;
 
       vector<Node*> nodes = navGraph->getNodesInRegion(n.getX(), n.getY(), s_radius);
 
@@ -177,10 +177,10 @@ Node PathPlanner::getClosestNode(Node n, Node ref, bool isTarget){
         double d = Map::distance( (*iter)->getX(), (*iter)->getY(), n.getX(), n.getY() );
 
         if(PATH_DEBUG){
-          cout << "\tChecking ";
+          (void)0;
           (*iter)->printNode();
-          cout << endl;
-          cout << "\tDistance between the n and this node: " << d << endl;
+          (void)0;
+          (void)0;
         }
 
         double d_t = 0.0;
@@ -188,7 +188,7 @@ Node PathPlanner::getClosestNode(Node n, Node ref, bool isTarget){
           d_t = Map::distance((*iter)->getX(), (*iter)->getY(), ref.getX(), ref.getY());
 
         if(PATH_DEBUG)
-          cout << "\tDistance between this node to ref: " << d_t << endl;
+          (void)0;
 
         if(name != "skeleton" and name != "hallwayskel"){
           if (( d + d_t < dist ) && !map.isPathObstructed( (*iter)->getX(), (*iter)->getY(), n.getX(), n.getY()) && (*iter)->isAccessible()) {
@@ -196,9 +196,9 @@ Node PathPlanner::getClosestNode(Node n, Node ref, bool isTarget){
             dist = d + d_t;
             temp = (*(*iter));
             if(PATH_DEBUG) {
-              cout << "\tFound a new candidate!: ";
+              (void)0;
               temp.printNode();
-              cout << endl << endl;
+              (void)0;
             }
           }
         }
@@ -208,9 +208,9 @@ Node PathPlanner::getClosestNode(Node n, Node ref, bool isTarget){
             dist = d + d_t;
             temp = (*(*iter));
             if(PATH_DEBUG) {
-              cout << "\tFound a new candidate!: ";
+              (void)0;
               temp.printNode();
-              cout << endl << endl;
+              (void)0;
             }
           }
         }
@@ -219,7 +219,7 @@ Node PathPlanner::getClosestNode(Node n, Node ref, bool isTarget){
       if(temp.getID() == Node::invalid_node_index) {
         s_radius += 0.1 * s_radius;
         if(PATH_DEBUG)
-          cout << signature << "Didn't find a suitable candidate. Increasing search radius to: " << s_radius << endl;
+          (void)0;
       }
 
     } while(temp.getID() == Node::invalid_node_index && s_radius <= max_radius);
@@ -233,7 +233,7 @@ vector<Node> PathPlanner::getClosestNodes(Node n, Node ref, bool findAny){
   Node temp, region_temp, lregion_temp, otemp;
   bool otemp_created = false;
   if(PATH_DEBUG)
-    cout << signature << "Searching for any closest node " << endl;
+    (void)0;
   vector<Node> nodes_for_point;
   // cout << "node n " << ((int)(n.getX()/100.0)) << " " << ((int)(n.getY()/100.0)) << endl;
   // cout << "passage_grid " << passage_grid.size() << " " << passage_grid[0].size() << endl;
@@ -247,11 +247,11 @@ vector<Node> PathPlanner::getClosestNodes(Node n, Node ref, bool findAny){
     temp = navGraph->getNode(navGraph->getNodeID(x, y));
     // Node placeHolder;
     if(PATH_DEBUG) {
-      cout << "\tFound a new candidate!: ";
+      (void)0;
       temp.printNode();
       // placeHolder.printNode();
       // placeHolder.printNode();
-      cout << endl << endl;
+      (void)0;
     }
     nodes_for_point.push_back(temp);
     // nodes_for_point.push_back(placeHolder);
@@ -291,11 +291,11 @@ vector<Node> PathPlanner::getClosestNodes(Node n, Node ref, bool findAny){
     temp = navGraph->getNode(navGraph->getNodeID(x, y));
     // Node placeHolder;
     if(PATH_DEBUG) {
-      cout << "\tFound a new candidate!: ";
+      (void)0;
       temp.printNode();
       // placeHolder.printNode();
       // placeHolder.printNode();
-      cout << endl << endl;
+      (void)0;
     }
     nodes_for_point.push_back(temp);
     // nodes_for_point.push_back(placeHolder);
@@ -372,10 +372,10 @@ vector<Node> PathPlanner::getClosestNodes(Node n, Node ref, bool findAny){
         // cout << "x " << x << " y " << y << endl;
         temp = navGraph->getNode(navGraph->getNodeID(x, y));
         if(PATH_DEBUG) {
-          cout << "\tFound a new candidate!: ";
+          (void)0;
           temp.printNode();
           region_temp.printNode();
-          cout << endl << endl;
+          (void)0;
         }
         if(nodes_for_point.size() == 0){
           nodes_for_point.push_back(temp);
@@ -423,13 +423,13 @@ vector<Node> PathPlanner::getClosestNodes(Node n, Node ref, bool findAny){
         // cout << "x " << x << " y " << y << endl;
         temp = navGraph->getNode(navGraph->getNodeID(x, y));
         if(PATH_DEBUG) {
-          cout << "\tFound a new candidate!: ";
+          (void)0;
           temp.printNode();
-          cout << endl << endl;
+          (void)0;
           region_temp.printNode();
-          cout << endl << endl;
+          (void)0;
           region_temp.printNode();
-          cout << endl << endl;
+          (void)0;
         }
         if(nodes_for_point.size() == 0){
           nodes_for_point.push_back(temp);
@@ -520,13 +520,13 @@ vector<Node> PathPlanner::getClosestNodes(Node n, Node ref, bool findAny){
             // cout << "x " << x << " y " << y << endl;
             temp = navGraph->getNode(navGraph->getNodeID(x, y));
             if(PATH_DEBUG) {
-              cout << "\tFound a new candidate!: ";
+              (void)0;
               temp.printNode();
-              cout << endl << endl;
+              (void)0;
               region_temp.printNode();
-              cout << endl << endl;
+              (void)0;
               lregion_temp.printNode();
-              cout << endl << endl;
+              (void)0;
             }
             if(nodes_for_point.size() == 0){
               nodes_for_point.push_back(temp);
@@ -572,13 +572,13 @@ vector<Node> PathPlanner::getClosestNodes(Node n, Node ref, bool findAny){
           // cout << "x " << x << " y " << y << endl;
           temp = navGraph->getNode(navGraph->getNodeID(x, y));
           if(PATH_DEBUG) {
-            cout << "\tFound a new candidate!: ";
+            (void)0;
             temp.printNode();
-            cout << endl << endl;
+            (void)0;
             region_temp.printNode();
-            cout << endl << endl;
+            (void)0;
             lregion_temp.printNode();
-            cout << endl << endl;
+            (void)0;
           }
           if(nodes_for_point.size() == 0){
             nodes_for_point.push_back(temp);

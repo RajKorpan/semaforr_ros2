@@ -20,7 +20,7 @@ Position AgentState::getExpectedPositionAfterAction(FORRAction action){
   int intensity = action.parameter;
   FORRActionType type = action.type;
   Position initialPosition = getCurrentPosition();
-  cout << "Agent initial position: " << initialPosition.getX() << " " << initialPosition.getY() << " " << initialPosition.getTheta() << endl;
+  (void)0;
   
   switch(type){
   case FORWARD:
@@ -645,7 +645,7 @@ FORRAction AgentState::maxForwardAction(Position initialPosition, vector<Cartesi
 
 FORRAction AgentState::get_max_allowed_forward_move(){
   FORRAction max_forward(FORWARD, numMoves-1);
-  cout << " Number of vetoed actions : " << vetoedActions.size() << endl;
+  (void)0;
   for(int intensity = 1; intensity <= numMoves; intensity++){
     if(vetoedActions.find(FORRAction(FORWARD,intensity)) != vetoedActions.end()){
       max_forward.type = FORWARD;
@@ -771,7 +771,7 @@ FORRAction AgentState::moveTowards(CartesianPoint target){
 
 bool AgentState::getRobotConfined(int decisionLimit, double distanceLimit){
   // RCLCPP_DEBUG(this->get_logger(), "AgentState :: In getRobotConfined");
-  cout << "decisionLimit " << decisionLimit << " distanceLimit " << distanceLimit << endl;
+  (void)0;
   Position current_position = currentPosition;
   vector<Position> *pos_hist = currentTask->getPositionHistory();
   if(pos_hist->size() < decisionLimit){
@@ -785,7 +785,7 @@ bool AgentState::getRobotConfined(int decisionLimit, double distanceLimit){
   }
 
   vector< vector <CartesianPoint> > *laser_hist = currentTask->getLaserHistory();
-  cout << "laser_hist " << laser_hist->size() << endl;
+  (void)0;
   int dimension = currentTask->getDimension();
   vector< vector<int> > total_coverages;
   for(int k = startPosition; k < laser_hist->size(); k++){
@@ -823,7 +823,7 @@ bool AgentState::getRobotConfined(int decisionLimit, double distanceLimit){
     // cout << endl;
     total_coverages.push_back(coverage);
   }
-  cout << "total_coverages " << total_coverages.size() << endl;
+  (void)0;
   vector<int> total_coverage_previous;
   for(int i = 0; i < total_coverages[0].size(); i++){
     int total_cell = 0;
@@ -845,21 +845,21 @@ bool AgentState::getRobotConfined(int decisionLimit, double distanceLimit){
     }
   }
   double percent_alot = filled_cells_alot / filled_cells;
-  cout << "filled_cells " << filled_cells << " filled_cells_alot " << filled_cells_alot << " percent_alot " << percent_alot << endl;
+  (void)0;
   double num_new = 0;
   for(int i = 0; i < total_coverage_previous.size(); i++){
     if(total_coverages[total_coverages.size()-1][i] > 0 and total_coverage_previous[i] == 0){
       num_new++;
     }
   }
-  cout << "num_new " << num_new << endl;
+  (void)0;
   if(percent_alot >= 0.75 and num_new <= 1){
     robotConfined = true;
   }
   else{
     robotConfined = false;
   }
-  cout << "robotConfined " << robotConfined << endl;
+  (void)0;
   return robotConfined;
 }
 

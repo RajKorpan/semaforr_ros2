@@ -8,6 +8,7 @@ semaforr:
       scan: scan_raw
       command: cmd_vel
       navigation_state: navigation_state
+      decision_records: decision_records
       social_observations: social_observations
       crowd_field: crowd_field
 

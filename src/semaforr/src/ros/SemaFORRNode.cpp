@@ -17,7 +17,7 @@
 #include <rclcpp/create_timer.hpp>
 #include <rclcpp/qos.hpp>
 #include <sensor_msgs/msg/laser_scan.hpp>
-#include <std_msgs/msg/string.hpp>
+#include <semaforr_msgs/msg/navigation_state.hpp>
 #include <social_context_msgs/msg/social_observation.hpp>
 #include <tf2/time.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
@@ -45,6 +45,7 @@ struct RuntimeConfiguration {
   std::string scan_topic{"scan_raw"};
   std::string command_topic{"cmd_vel"};
   std::string state_topic{"navigation_state"};
+  std::string decision_topic{"decision_records"};
   std::string social_topic{"social_observations"};
   QosConfiguration sensor_qos;
   QosConfiguration command_qos{1U, "reliable", "volatile"};
@@ -78,6 +79,8 @@ void declareRuntimeParameters(rclcpp::Node& node)
   node.declare_parameter("topics.command", std::string{"cmd_vel"});
   node.declare_parameter(
     "topics.navigation_state", std::string{"navigation_state"});
+  node.declare_parameter(
+    "topics.decision_records", std::string{"decision_records"});
   node.declare_parameter(
     "topics.social_observations", std::string{"social_observations"});
   node.declare_parameter(
@@ -177,6 +180,9 @@ RuntimeConfiguration readRuntimeConfiguration(rclcpp::Node& node)
   configuration.state_topic = requireNonEmpty(
     node.get_parameter("topics.navigation_state").as_string(),
     "topics.navigation_state");
+  configuration.decision_topic = requireNonEmpty(
+    node.get_parameter("topics.decision_records").as_string(),
+    "topics.decision_records");
   configuration.social_topic = requireNonEmpty(
     node.get_parameter("topics.social_observations").as_string(),
     "topics.social_observations");
@@ -264,6 +270,41 @@ std::string_view actionName(domain::ActionType type) noexcept
   return "unknown";
 }
 
+decision::ActionOutcome toOutcome(ActionExecutionStatus status) noexcept
+{
+  switch (status) {
+    case ActionExecutionStatus::Completed:
+      return decision::ActionOutcome::Completed;
+    case ActionExecutionStatus::TimedOut:
+      return decision::ActionOutcome::TimedOut;
+    case ActionExecutionStatus::OdometryReset:
+      return decision::ActionOutcome::OdometryReset;
+    case ActionExecutionStatus::ClockReset:
+      return decision::ActionOutcome::ClockReset;
+    case ActionExecutionStatus::Cancelled:
+      return decision::ActionOutcome::Cancelled;
+    case ActionExecutionStatus::Idle:
+    case ActionExecutionStatus::Executing:
+      return decision::ActionOutcome::Pending;
+  }
+  return decision::ActionOutcome::Cancelled;
+}
+
+std::uint8_t toMessage(NavigationNodeState state) noexcept
+{
+  switch (state) {
+    case NavigationNodeState::WaitingForSensors:
+      return semaforr_msgs::msg::NavigationState::WAITING_FOR_SENSORS;
+    case NavigationNodeState::ReadyToDecide:
+      return semaforr_msgs::msg::NavigationState::READY_TO_DECIDE;
+    case NavigationNodeState::ExecutingAction:
+      return semaforr_msgs::msg::NavigationState::EXECUTING_ACTION;
+    case NavigationNodeState::Stopped:
+      return semaforr_msgs::msg::NavigationState::STOPPED;
+  }
+  return semaforr_msgs::msg::NavigationState::STOPPED;
+}
+
 void rotatePositionCovariance(
   social_context_msgs::msg::PedestrianObservation& pedestrian,
   const geometry_msgs::msg::TransformStamped& transform)
@@ -328,7 +369,7 @@ public:
       node_.create_publisher<geometry_msgs::msg::Twist>(
         runtime_.command_topic, makeQos(runtime_.command_qos));
     state_publisher_ =
-      node_.create_publisher<std_msgs::msg::String>(
+      node_.create_publisher<semaforr_msgs::msg::NavigationState>(
         runtime_.state_topic, makeQos(runtime_.command_qos));
     mission_started_at_ = node_.now();
   }
@@ -371,7 +412,15 @@ public:
       node_shared,
       node_.get_clock(),
       rclcpp::Duration::from_seconds(1.0 / runtime_.control_rate_hz),
-      [this]() { controlTick(); });
+      [this]() {
+        try {
+          controlTick();
+        } catch (const std::exception& error) {
+          handleRuntimeError(error.what());
+        } catch (...) {
+          handleRuntimeError("unknown invariant failure");
+        }
+      });
     started_ = true;
     transition(NavigationNodeState::WaitingForSensors, "started");
   }
@@ -385,8 +434,10 @@ public:
     if (timer_) {
       timer_->cancel();
     }
-    if (executor_) {
-      executor_->cancel();
+    if (executor_ && pending_decision_) {
+      const ActionExecutionUpdate update = executor_->cancel();
+      completeDecision(
+        node_.now(), decision::ActionOutcome::Shutdown, update, "shutdown");
     }
     publishZero(true);
     transition(NavigationNodeState::Stopped, "shutdown");
@@ -405,6 +456,25 @@ public:
   }
 
 private:
+  void handleRuntimeError(const std::string& detail)
+  {
+    std::scoped_lock lock(mutex_);
+    RCLCPP_ERROR(
+      node_.get_logger(), "Navigation invariant failed: %s",
+      detail.c_str());
+    last_failure_ = "invariant_failure: " + detail;
+    if (pending_decision_) {
+      const ActionExecutionUpdate update = executor_->cancel();
+      completeDecision(
+        node_.now(),
+        decision::ActionOutcome::Cancelled,
+        update,
+        last_failure_);
+    }
+    publishZero(true);
+    transition(NavigationNodeState::Stopped, last_failure_, true);
+  }
+
   void onPose(const geometry_msgs::msg::PoseStamped& message)
   {
     std::scoped_lock lock(mutex_);
@@ -427,6 +497,7 @@ private:
       last_failure_ =
         "pose transform unavailable from '" + message.header.frame_id +
         "' to '" + runtime_.sensors.pose_frame + "': " + error.what();
+      RCLCPP_WARN(node_.get_logger(), "%s", last_failure_.c_str());
     }
   }
 
@@ -483,6 +554,8 @@ private:
           "social transform unavailable from '" +
           message.header.frame_id + "' to '" + runtime_.social.frame +
           "': " + error.what();
+        RCLCPP_WARN(
+          node_.get_logger(), "%s", last_social_failure_.c_str());
         return;
       }
     }
@@ -495,6 +568,7 @@ private:
       last_social_failure_ =
         "social_" +
         std::string(toString(social_buffer_->status(received_at)));
+      RCLCPP_WARN(node_.get_logger(), "%s", last_social_failure_.c_str());
     }
   }
 
@@ -544,14 +618,21 @@ private:
     }
 
     if (state_ == NavigationNodeState::ExecutingAction) {
-      executor_->cancel();
-      finishDecisionLog(now);
+      const ActionExecutionUpdate update = executor_->cancel();
+      const decision::ActionOutcome outcome =
+        status == SensorStatus::ClockReset
+        ? decision::ActionOutcome::ClockReset
+        : decision::ActionOutcome::SensorLost;
+      completeDecision(
+        now, outcome, update,
+        "sensor_" + std::string(toString(status)));
     }
     last_failure_ = "sensor_" + std::string(toString(status));
     publishZero();
     transition(
       NavigationNodeState::WaitingForSensors,
-      last_failure_);
+      last_failure_,
+      true);
   }
 
   void updateNavigationEngine(
@@ -566,8 +647,12 @@ private:
       effective_crowd.clearCurrent();
       const auto status = social_buffer_->status(now);
       if (status != SocialObservationStatus::NoData) {
-        last_social_failure_ =
+        const std::string failure =
           "social_" + std::string(toString(status));
+        if (failure != last_social_failure_) {
+          RCLCPP_WARN(node_.get_logger(), "%s", failure.c_str());
+        }
+        last_social_failure_ = failure;
       }
     }
     navigation_engine_->observe(sensors, effective_crowd);
@@ -590,6 +675,7 @@ private:
     const rclcpp::Time computation_finished = node_.now();
     computation_time_s_ =
       std::max(0.0, (computation_finished - computation_started).seconds());
+    pending_decision_->decision_latency_s = computation_time_s_;
 
     const domain::Action& action = pending_decision_->action;
     const ActionExecutionRequest request =
@@ -597,6 +683,9 @@ private:
 
     const ActionExecutionUpdate update =
       executor_->start(request, toDomainPose(sensors.pose), now);
+    pending_decision_->action_progress = update.progress;
+    pending_decision_->action_target = update.target;
+    action_started_at_ = now;
     publishCommand(update.command);
     transition(
       NavigationNodeState::ExecutingAction,
@@ -623,7 +712,11 @@ private:
     } else {
       last_failure_.clear();
     }
-    finishDecisionLog(now);
+    completeDecision(
+      now,
+      toOutcome(update.status),
+      update,
+      succeeded ? "completed" : last_failure_);
     updateNavigationEngine(sensors, now);
 
     if (navigation_engine_->missionComplete()) {
@@ -632,26 +725,36 @@ private:
     } else {
       transition(
         NavigationNodeState::ReadyToDecide,
-        succeeded ? "action_completed" : last_failure_);
+        succeeded ? "action_completed" : last_failure_,
+        !succeeded);
       if (succeeded) {
         decide(sensors, now);
       }
     }
   }
 
-  void finishDecisionLog(const rclcpp::Time& now)
+  void completeDecision(
+    const rclcpp::Time& now,
+    decision::ActionOutcome outcome,
+    const ActionExecutionUpdate& update,
+    std::string detail)
   {
     if (!pending_decision_) {
       return;
     }
-    visualization_->publishDecision(
-      *pending_decision_,
-      std::max(0.0, (now - mission_started_at_).seconds()),
-      computation_time_s_);
+    pending_decision_->action_outcome = outcome;
+    pending_decision_->action_progress = update.progress;
+    pending_decision_->action_target = update.target;
+    pending_decision_->action_duration_s = action_started_at_
+      ? std::max(0.0, (now - *action_started_at_).seconds())
+      : 0.0;
+    pending_decision_->outcome_detail = std::move(detail);
+    visualization_->publishDecision(*pending_decision_);
     const double mission_time_s =
       std::max(0.0, (now - mission_started_at_).seconds());
     navigation_engine_->markDecisionComplete(mission_time_s);
     pending_decision_.reset();
+    action_started_at_.reset();
   }
 
   void publishCommand(const domain::VelocityCommand& command)
@@ -669,24 +772,35 @@ private:
     }
   }
 
-  void transition(NavigationNodeState next, const std::string& detail)
+  void transition(
+    NavigationNodeState next,
+    const std::string& detail,
+    bool failure = false)
   {
     if (state_ == next && last_transition_detail_ == detail) {
       return;
     }
     state_ = next;
     last_transition_detail_ = detail;
-    std_msgs::msg::String message;
-    message.data = std::string(toString(state_));
-    if (!detail.empty()) {
-      message.data += ":" + detail;
-    }
+    semaforr_msgs::msg::NavigationState message;
+    message.header.stamp = node_.now();
+    message.header.frame_id = runtime_.sensors.pose_frame;
+    message.transition_sequence = ++transition_sequence_;
+    message.state = toMessage(state_);
+    message.detail = detail;
+    message.failure = failure;
     if (state_publisher_) {
       state_publisher_->publish(message);
     }
-    RCLCPP_INFO(
-      node_.get_logger(), "Navigation state: %s",
-      message.data.c_str());
+    if (failure) {
+      RCLCPP_WARN(
+        node_.get_logger(), "Navigation state: %s (%s)",
+        std::string(toString(state_)).c_str(), detail.c_str());
+    } else {
+      RCLCPP_INFO(
+        node_.get_logger(), "Navigation state: %s (%s)",
+        std::string(toString(state_)).c_str(), detail.c_str());
+    }
   }
 
   SemaFORRNode& node_;
@@ -709,11 +823,13 @@ private:
     social_subscription_;
   rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr
     command_publisher_;
-  rclcpp::Publisher<std_msgs::msg::String>::SharedPtr state_publisher_;
+  rclcpp::Publisher<semaforr_msgs::msg::NavigationState>::SharedPtr
+    state_publisher_;
   rclcpp::TimerBase::SharedPtr timer_;
 
   domain::CrowdState crowd_state_;
   std::optional<decision::DecisionResult> pending_decision_;
+  std::optional<rclcpp::Time> action_started_at_;
   rclcpp::Time mission_started_at_;
   double computation_time_s_{0.0};
   std::size_t last_observation_generation_{0U};
@@ -724,6 +840,7 @@ private:
   bool started_{false};
   bool ever_had_sensors_{false};
   bool zero_latched_{true};
+  std::uint64_t transition_sequence_{0U};
 };
 
 std::string_view toString(NavigationNodeState state) noexcept

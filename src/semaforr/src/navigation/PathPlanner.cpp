@@ -28,12 +28,12 @@ int PathPlanner::calcPath(bool cautious){
   if ( source.getID() != Node::invalid_node_index && target.getID() != Node::invalid_node_index ){
 
     if(PATH_DEBUG) {
-      cout << signature << "Source:";
+      (void)0;
       source.printNode();
-      cout << endl;
-      cout << signature << "Target:";
+      (void)0;
+      (void)0;
       target.printNode();
-      cout << endl;
+      (void)0;
     }
     if(name == "skeleton" or name == "hallwayskel"){
       if(!navGraph->isConnected()){
@@ -45,12 +45,12 @@ int PathPlanner::calcPath(bool cautious){
     Node rs, rt, ts, tt;
     if ( navGraph->isNode(source) ) {
       if(PATH_DEBUG)
-        cout << signature << "Source is a valid Node in the navigation graph" << endl;
+        (void)0;
       s = source ;
     }
     else {
       if(PATH_DEBUG)
-        cout << signature << "Source is not a valid Node in the navigation graph. Getting closest valid node." << endl;
+        (void)0;
       if(name == "skeleton"){
         s = getClosestNode(source, target, false);
       }
@@ -70,12 +70,12 @@ int PathPlanner::calcPath(bool cautious){
 
     if ( navGraph->isNode(target) ) {
       if(PATH_DEBUG)
-        cout << signature << "Target is a valid Node in the navigation graph" << endl;
+        (void)0;
       t = target ;
     }
     else {
       if(PATH_DEBUG)
-        cout << signature << "Target is not a valid Node in the navigation graph. Getting closest valid node." << endl;
+        (void)0;
       if(name == "skeleton"){
         t = getClosestNode(target, source, true);
       }
@@ -95,24 +95,24 @@ int PathPlanner::calcPath(bool cautious){
 
     //cout << signature << "Completed finding source and destination nodes" << endl;
     if(PATH_DEBUG) {
-      cout << signature << "s:";
+      (void)0;
       s.printNode();
-      cout << endl;
-      cout << signature << "t:";
+      (void)0;
+      (void)0;
       t.printNode();
-      cout << endl;
+      (void)0;
     }
     if(s.getID() == t.getID() and name != "hallwayskel")
       return 4;
     //cout << signature << "Updating nav graph" << endl;
     // update the nav graph with the latest crowd model to change the edge weights
     if (name != "distance" and name != "skeleton" and name != "hallwayskel") {
-      cout << "Updating nav graph for non-distance planners" << endl;
+      (void)0;
       updateNavGraph();
-      cout << "Finished nav graph update" << endl;
+      (void)0;
     }
     astar newsearch(*navGraph, s, t, name);
-    cout << "Finished search" << endl;
+    (void)0;
     // cout << "finished search" << endl;
     if ( newsearch.isPathFound() ) {
       path = newsearch.getPathToTarget();
@@ -160,12 +160,12 @@ int PathPlanner::calcPath(bool cautious){
         origPathCosts.clear();
         if(rs.getID() != Node::invalid_node_index and rt.getID() != Node::invalid_node_index){
           if(PATH_DEBUG) {
-            cout << signature << "rs:";
+            (void)0;
             rs.printNode();
-            cout << endl;
-            cout << signature << "rt:";
+            (void)0;
+            (void)0;
             rt.printNode();
-            cout << endl;
+            (void)0;
           }
           astar rnewsearch(*originalNavGraph, rs, rt, name);
           if ( rnewsearch.isPathFound()) {
@@ -195,12 +195,12 @@ int PathPlanner::calcPath(bool cautious){
         }
         if(ts.getID() != Node::invalid_node_index and tt.getID() != Node::invalid_node_index){
           if(PATH_DEBUG) {
-            cout << signature << "ts:";
+            (void)0;
             ts.printNode();
-            cout << endl;
-            cout << signature << "tt:";
+            (void)0;
+            (void)0;
             tt.printNode();
-            cout << endl;
+            (void)0;
           }
           astar tnewsearch(*originalNavGraph, ts, tt, name);
           if ( tnewsearch.isPathFound()) {
@@ -230,12 +230,12 @@ int PathPlanner::calcPath(bool cautious){
         }
         if(rs.getID() != Node::invalid_node_index and tt.getID() != Node::invalid_node_index){
           if(PATH_DEBUG) {
-            cout << signature << "rs:";
+            (void)0;
             rs.printNode();
-            cout << endl;
-            cout << signature << "tt:";
+            (void)0;
+            (void)0;
             tt.printNode();
-            cout << endl;
+            (void)0;
           }
           astar rtnewsearch(*originalNavGraph, rs, tt, name);
           if ( rtnewsearch.isPathFound()) {
@@ -259,10 +259,10 @@ int PathPlanner::calcPath(bool cautious){
           origPathCost += 0;
           origPathCosts.push_back(0);
         }
-        cout << "Plan " << name << " cost = " << pathCost << " origPathCost " << origPathCost << endl;
+        (void)0;
       }
       else{
-        cout << "Plan " << name << " cost = " << pathCost << endl;
+        (void)0;
       }
     }
     else {
@@ -278,23 +278,23 @@ int PathPlanner::calcOrigPath(bool cautious){
   if ( source.getID() != Node::invalid_node_index && target.getID() != Node::invalid_node_index ){
 
     if(PATH_DEBUG) {
-      cout << signature << "Source:"; 
+      (void)0;
       source.printNode(); 
-      cout << endl;
-      cout << signature << "Target:"; 
+      (void)0;
+      (void)0;
       target.printNode();
-      cout << endl;
+      (void)0;
     }
 
     Node s, t;
     if ( originalNavGraph->isNode(source) ) {
       if(PATH_DEBUG)
-        cout << signature << "Source is a valid Node in the navigation graph" << endl; 
+        (void)0;
       s = source ;
     }
     else {
       if(PATH_DEBUG)
-        cout << signature << "Source is not a valid Node in the navigation graph. Getting closest valid node." << endl; 
+        (void)0;
       s = getClosestNode(source, target, false);
     }
     //cout << signature << "Checking if source node is invalid" << endl;
@@ -303,12 +303,12 @@ int PathPlanner::calcOrigPath(bool cautious){
 
     if ( originalNavGraph->isNode(target) ) {
       if(PATH_DEBUG)
-        cout << signature << "Target is a valid Node in the navigation graph" << endl; 
+        (void)0;
       t = target ;
     }
     else {
       if(PATH_DEBUG)
-        cout << signature << "Target is not a valid Node in the navigation graph. Getting closest valid node." << endl; 
+        (void)0;
       t = getClosestNode(target, source, false);
     }
     //cout << signature << "Checking if target node is invalid" << endl;
@@ -317,12 +317,12 @@ int PathPlanner::calcOrigPath(bool cautious){
 
     //cout << signature << "Completed finding source and destination nodes" << endl;
     if(PATH_DEBUG) {
-      cout << signature << "s:"; 
+      (void)0;
       s.printNode(); 
-      cout << endl;
-      cout << signature << "t:"; 
+      (void)0;
+      (void)0;
       t.printNode();
-      cout << endl;
+      (void)0;
     }
 
     astar newsearch(*originalNavGraph, s, t, "distance");
@@ -345,10 +345,10 @@ int PathPlanner::calcOrigPath(bool cautious){
 }
 
 void PathPlanner::updateNavGraph(){
-	cout << "Updating nav graph before" << endl;
+  (void)0;
 	if(!crowdModel.learnedAvailable() and
       (name == "density" or name == "risk" or name == "flow")){
-		cout << "learned crowd field not available" << endl;
+    (void)0;
 	}
 	else{
 		vector<Edge*> edges = navGraph->getEdges();
@@ -395,7 +395,7 @@ double PathPlanner::computeNewEdgeCost(Node s, Node d, bool direction, double ol
     double ns_cost = novelCost(s.getX(), s.getY());
     double nd_cost = novelCost(d.getX(), d.getY());
     /*if (ns_cost > 0 or nd_cost > 0) {
-      cout << "old cost = " << oldcost << " novelCost = " << (ns_cost+nd_cost)/2 << " combined cost = " << (w1 * oldcost) + (w5 * (ns_cost+nd_cost)/2) << endl;
+      (void)0;
     }*/
     //return (w1 * oldcost) + (w5 * (ns_cost+nd_cost)/2);
     if (ns_cost > 0 or nd_cost > 0){
@@ -1024,12 +1024,12 @@ double PathPlanner::computeNewEdgeCost(Node s, Node d, bool direction, double ol
 
 	//cout << "Flow cost --------- " << endl;
   /*if (s_cost > 0 or d_cost > 0 or flowcost > 0 or s_risk_cost > 0 or d_risk_cost > 0){
-    cout << "Dist cost    :" << oldcost << endl;
-  	cout << "Node penalty : " << s_cost << " + " << d_cost << endl;
-    cout << "Flow cost    :" << flowcost << endl;
-    cout << "Risk penalty : " << s_risk_cost << " + " << d_risk_cost << endl;
+    (void)0;
+    (void)0;
+    (void)0;
+    (void)0;
   	//cout << "Old cost : " << oldcost << " new cost : " << newEdgeCost << std::endl;
-    cout << "New cost    :" << newEdgeCost << endl;
+    (void)0;
   }*/
 	//return newEdgeCost;
   return oldcost;

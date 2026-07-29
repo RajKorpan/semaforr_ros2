@@ -4,9 +4,7 @@
 #include <iostream>
 #include <stdlib.h>
 #include <semaforr/decision/Beliefs.hpp>
-#include <semaforr/decision/decision_result.hpp>
 #include <semaforr/ros/MessageAdapters.hpp>
-#include <semaforr/core/action_adapter.hpp>
 #include <sstream>
 
 #include <rclcpp/rclcpp.hpp>
@@ -17,11 +15,11 @@
 #include <nav_msgs/msg/occupancy_grid.hpp>
 #include <nav_msgs/msg/path.hpp>
 #include <sensor_msgs/msg/laser_scan.hpp>
+#include <std_msgs/msg/color_rgba.hpp>
 #include <tf2/LinearMath/Quaternion.h>
 #include <tf2/transform_datatypes.h>
 #include <visualization_msgs/msg/marker.hpp>
 #include <visualization_msgs/msg/marker_array.hpp>
-#include <std_msgs/msg/string.hpp>
 #include <string>
 
 using namespace std;
@@ -52,7 +50,6 @@ private:
 	rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr nodes2_pub_;
 	rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr edges_pub_;
 	rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr edges_cost_pub_;
-	rclcpp::Publisher<std_msgs::msg::String>::SharedPtr stats_pub_;
 	rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr doors_pub_;
 	rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr barriers_pub_;
 	rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr walls_pub_;
@@ -100,7 +97,6 @@ public:
 		edges_pub_ = node_->create_publisher<visualization_msgs::msg::MarkerArray>("edges", 10);
 		edges_cost_pub_ = node_->create_publisher<visualization_msgs::msg::MarkerArray>("edges_cost", 10);
 		trails_pub_ = node_->create_publisher<visualization_msgs::msg::Marker>("trail", 10);
-		stats_pub_ = node_->create_publisher<std_msgs::msg::String>("decision_log", 10);
 		doors_pub_ = node_->create_publisher<visualization_msgs::msg::Marker>("door", 10);
 		barriers_pub_ = node_->create_publisher<visualization_msgs::msg::Marker>("barrier", 10);
 		walls_pub_ = node_->create_publisher<visualization_msgs::msg::Marker>("walls", 10);
@@ -143,7 +139,7 @@ public:
 	publish_skeleton();
 	publish_trails();
 	publish_doors();
-	cout << "Doors published" << endl;
+	RCLCPP_DEBUG(node_->get_logger(), "Door visualization published");
 	// publish_barriers();
 	// publish_walls(); comment out because we no longer provide a map
 	// cout << "Walls published" << endl;
@@ -152,7 +148,7 @@ public:
 	publish_highway_plan();
 	publish_highway_target();
 	publish_highway_stack();
-	cout << "Highways published" << endl;
+	RCLCPP_DEBUG(node_->get_logger(), "Highway visualization published");
   }
 
 
@@ -339,12 +335,6 @@ public:
 	edges_pub_->publish(markerArray);
   }
 
-  void publishLog(
-    const semaforr::decision::DecisionResult& result,
-    double overallTimeSec,
-    double computationTimeSec){
-	publish_log(result, overallTimeSec, computationTimeSec);
-  }
 
   void publish_next_target(){
 	// // RCLCPP_DEBUG(this->get_logger(), "Inside visualization tool!!");
@@ -728,7 +718,8 @@ public:
 
 	visualization_msgs::msg::MarkerArray markerArray;
 	vector<FORRRegion> regions = beliefs->getSpatialModel()->getRegionList()->getRegions();
-	cout << "There are currently " << regions.size() << " regions" << endl;
+	RCLCPP_DEBUG(
+		node_->get_logger(), "Publishing %zu regions", regions.size());
 	for(int i = 0 ; i < regions.size(); i++){
 		//regions[i].print();
 		visualization_msgs::msg::Marker marker;
@@ -983,7 +974,8 @@ public:
   void publish_walls(){
 	// // RCLCPP_DEBUG(this->get_logger(), "Inside publish walls");
 	vector<Wall> walls = con->getPlanner()->getMap()->getWalls();
-	cout << "There are currently " << walls.size() << " walls" << endl;
+	RCLCPP_DEBUG(
+		node_->get_logger(), "Publishing %zu walls", walls.size());
 	visualization_msgs::msg::Marker line_list;
 	line_list.header.frame_id = "map";
     	line_list.header.stamp = node_->now();
@@ -1280,375 +1272,4 @@ public:
   	highway_stack_pub_->publish(marker);
   }
 
-  void publish_log(
-    const semaforr::decision::DecisionResult& result,
-    double overallTimeSec,
-    double computationTimeSec){
-	cout << "Inside publish decision log!!" << endl;
-	// // RCLCPP_DEBUG(this->get_logger(), "Inside publish decision log!!");
-	std_msgs::msg::String log;
-	double robotX = beliefs->getAgentState()->getCurrentPosition().getX();
-	double robotY = beliefs->getAgentState()->getCurrentPosition().getY();
-	double targetX;
-	double targetY;
-	double robotTheta = beliefs->getAgentState()->getCurrentPosition().getTheta();
-
-	geometry_msgs::msg::PoseStamped poseStamped;
-	poseStamped.header.frame_id = "map";
-	poseStamped.header.stamp = node_->now();
-	poseStamped.pose.position.x = robotX;
-	poseStamped.pose.position.y = robotY;
-	poseStamped.pose.position.z = 0;
-
-	float roll = 0.0;
-	float pitch = 0.0;
-	float yaw = robotTheta;
-
-	tf2::Quaternion myQuaternion;
-	myQuaternion.setRPY( roll, pitch, yaw );
-
-	// Convert tf2::Quaternion to geometry_msgs::msg::Quaternion
-	geometry_msgs::msg::Quaternion quat;
-	quat.x = myQuaternion.x();
-	quat.y = myQuaternion.y();
-	quat.z = myQuaternion.z();
-	quat.w = myQuaternion.w();
-
-	poseStamped.pose.orientation = quat;
-	pose_pub_->publish(poseStamped);
-
-	if(beliefs->getAgentState()->getCurrentTask() != NULL) {
-		targetX = beliefs->getAgentState()->getCurrentTask()->getTaskX();
-		targetY = beliefs->getAgentState()->getCurrentTask()->getTaskY();
-	} else {
-		targetX = 0;
-		targetY = 0;
-	}
-	vector<CartesianPoint> laserEndpoints = beliefs->getAgentState()->getCurrentLaserEndpoints();
-	semaforr::domain::LaserScan laserScan =
-		beliefs->getAgentState()->getCurrentLaserScan();
-	laser_pub_->publish(semaforr::ros::toRos(laserScan));
-
-	FORRAction max_forward = beliefs->getAgentState()->maxForwardAction();
-	//cout << "After max_forward" << endl;
-	// RCLCPP_DEBUG(this->get_logger(), "After max_forward");
-	//vector< vector<CartesianPoint> > allTrace = beliefs->getAgentState()->getAllTrace();
-	list<Task*>& agenda = beliefs->getAgentState()->getAgenda();
-	list<Task*>& all_agenda = beliefs->getAgentState()->getAllAgenda();
-	//cout << "After all_agenda" << endl;
-	// RCLCPP_DEBUG(this->get_logger(), "After all_agenda");
-	vector<FORRRegion> regions = beliefs->getSpatialModel()->getRegionList()->getRegions();
-	vector< vector< CartesianPoint> > trails =  beliefs->getSpatialModel()->getTrails()->getTrailsPoints();
-	//cout << "After trails" << endl;
-	// RCLCPP_DEBUG(this->get_logger(), "After trails");
-	const FORRAction decision = semaforr::core::toLegacyAction(result.action);
-	FORRActionType chosenActionType = decision.type;
-	int chosenActionParameter = decision.parameter;
-	double decisionTier = result.diagnostics.legacy_tier;
-	const string& vetoedActions = result.diagnostics.veto_summary;
-	const string& advisors = result.diagnostics.advisor_summary;
-	const string& advisorComments = result.diagnostics.advisor_comments;
-	const string& advisorInfluence = result.diagnostics.advisor_influence;
-	double planningComputationTime = result.diagnostics.planning_seconds;
-	double learningComputationTime = result.diagnostics.learning_seconds;
-	double graphingComputationTime = result.diagnostics.graphing_seconds;
-	const string chosenPlanner = result.planner.value_or(" ");
-	const string& plannerComments = result.diagnostics.planner_comments;
-	// cout << "vetoedActions = " << vetoedActions << " decisionTier = " << decisionTier << " advisors = " << advisors << " advisorComments = " << advisorComments << endl;
-	vector< vector<int> > conveyors = beliefs->getSpatialModel()->getConveyors()->getConveyors();
-	std::vector< std::vector<Door> > doors = beliefs->getSpatialModel()->getDoors()->getDoors();
-	vector<Aggregate> hallways = beliefs->getSpatialModel()->getHallways()->getHallways();
-
-	//cout << "After decision statistics" << endl;
-	// RCLCPP_DEBUG(this->get_logger(), "After decision statistics");
-	int decisionCount = -1;
-	int currentTask = -1;
-	if(!agenda.empty()){
-		currentTask = all_agenda.size() - agenda.size();
-  		//if(currentTask != 0)
-		decisionCount = beliefs->getAgentState()->getCurrentTask()->getDecisionCount();
-	}
-	//cout << "After decisionCount" << endl;
-	// RCLCPP_DEBUG(this->get_logger(), "After decisionCount");
-
-	cout << "Current task " << currentTask << " and decision number " << decisionCount << " with overall time " << overallTimeSec << " and computation time " << computationTimeSec << endl;
-
-	std::stringstream lep;
-	for(int i = 0; i < laserEndpoints.size(); i++){
-		double x = laserEndpoints[i].get_x();
- 		double y = laserEndpoints[i].get_y();
-		lep << x << "," << y << ";";
-	}
-	//cout << "After laserEndpoints" << endl;
-	// RCLCPP_DEBUG(this->get_logger(), "After laserEndpoints");
-
-
-	std::stringstream ls;
-	double min_laser_scan = 25; //meters
-	for(int i = 0; i < laserScan.ranges.size(); i++){
-		double length = laserScan.ranges[i];
-		if(length < min_laser_scan){
-			min_laser_scan = length;
-		}
-		ls << length << ",";
-	}
-	//cout << "After laserScan" << endl;
-	// RCLCPP_DEBUG(this->get_logger(), "After laserScan");
-	/*int totalSize = 0;
-	for(int i = 0; i < allTrace.size(); i++){
-		totalSize += allTrace[i].size();
-	}*/
-
-
-	std::stringstream regionsstream;
-	for(int i = 0; i < regions.size(); i++){
-		regionsstream << regions[i].getCenter().get_x() << " " << regions[i].getCenter().get_y() << " " << regions[i].getRadius();
-		vector<FORRExit> exits = regions[i].getExits();
-		for(int j = 0; j < exits.size() ; j++){
-			regionsstream << " " << exits[j].getExitPoint().get_x() << " "  << exits[j].getExitPoint().get_y() << " "  << exits[j].getExitRegion() << " "  << exits[j].getMidPoint().get_x() << " "  << exits[j].getMidPoint().get_y() << " "  << exits[j].getExitRegionPoint().get_x() << " "  << exits[j].getExitRegionPoint().get_y() << " "  << exits[j].getExitDistance() << " "  << exits[j].getConnectionPath();
-		}
-		regionsstream << ";";
-	}
-	//cout << "After regions" << endl;
-	// RCLCPP_DEBUG(this->get_logger(), "After regions");
-
-
-	std::stringstream trailstream;
-	for(int i = 0; i < trails.size(); i++){
-		for(int j = 0; j < trails[i].size(); j++){
-			trailstream << trails[i][j].get_x() << " " << trails[i][j].get_y() << " ";
-		}
-		trailstream << ";";
-	}
-	//cout << "After trails" << endl;
-	// RCLCPP_DEBUG(this->get_logger(), "After trails");
-
-	std::stringstream conveyorStream;
-	for(int j = 0; j < conveyors.size()-1; j++){
-		for(int i = 0; i < conveyors[j].size(); i++){
-			conveyorStream << conveyors[j][i] << " ";
-		}
-		conveyorStream << ";";
-	}
-	//cout << "After conveyors" << endl;
-	// // RCLCPP_DEBUG(this->get_logger(), "After conveyors");
-	
-
-	std::stringstream doorStream;
-	for(int i = 0; i < doors.size(); i++){
-		for(int j = 0; j < doors[i].size(); j++){
-			doorStream << doors[i][j].startPoint.getExitPoint().get_x() << " " << doors[i][j].startPoint.getExitPoint().get_y() << " " << doors[i][j].endPoint.getExitPoint().get_x() << " " << doors[i][j].endPoint.getExitPoint().get_y() << " " << doors[i][j].str << ", ";
-		}
-		doorStream << ";";
-	}
-	//cout << "After doors" << endl;
-	// // RCLCPP_DEBUG(this->get_logger(), "After doors");
-
-	std::stringstream hallwayStream;
-	for(int i = 0; i < hallways.size(); i++){
-		vector<CartesianPoint> points = hallways[i].getPoints();
-		hallwayStream << hallways[i].getHallwayType();
-		for(int j = 0; j < points.size(); j++){
-			hallwayStream << " " << points[j].get_x() << " " << points[j].get_y();
-		}
-		hallwayStream << ";";
-	}
-	//cout << "After hallways" << endl;
-	// // RCLCPP_DEBUG(this->get_logger(), "After hallways");
-
-	std::stringstream planStream;
-	if(beliefs->getAgentState()->getCurrentTask() != NULL){
-		vector <CartesianPoint> waypoints = beliefs->getAgentState()->getCurrentTask()->getWaypoints();
-		double pathCostInNavGraph = beliefs->getAgentState()->getCurrentTask()->getPathCostInNavGraph();
-		double pathCostInNavOrigGraph = beliefs->getAgentState()->getCurrentTask()->getPathCostInNavOrigGraph();
-		planStream << pathCostInNavGraph << " " << pathCostInNavOrigGraph << ";";
-
-		for(int i = 0; i < waypoints.size(); i++){
-			planStream << waypoints[i].get_x() << " " << waypoints[i].get_y();
-			planStream << ";";
-		}
-
-		//double plancost = beliefs->getAgentState()->getCurrentTask()->planCost(waypoints, con->getPlanner(), beliefs->getAgentState()->getCurrentPosition(), Position(targetX,targetY,0));
-		//planStream << "\t" << plancost;
-	}
-	//cout << "After planStream" << endl;
-	// // RCLCPP_DEBUG(this->get_logger(), "After planStream");
-
-	std::stringstream origPlanStream;
-	if(beliefs->getAgentState()->getCurrentTask() != NULL){
-		vector <CartesianPoint> waypoints = beliefs->getAgentState()->getCurrentTask()->getOrigWaypoints();
-		double origPathCostInNavGraph = beliefs->getAgentState()->getCurrentTask()->getOrigPathCostInNavGraph();
-		double origPathCostInOrigNavGraph = beliefs->getAgentState()->getCurrentTask()->getOrigPathCostInOrigNavGraph();
-		origPlanStream << origPathCostInNavGraph << " " << origPathCostInOrigNavGraph<< ";";
-
-		for(int i = 0; i < waypoints.size(); i++){
-			origPlanStream << waypoints[i].get_x() << " " << waypoints[i].get_y();
-			origPlanStream << ";";		
-		}
-
-		//double plancost = beliefs->getAgentState()->getCurrentTask()->planCost(waypoints, con->getPlanner(), beliefs->getAgentState()->getCurrentPosition(), Position(targetX,targetY,0));
-		//origPlanStream << "\t" << plancost;
-	}
-	//cout << "After origPlanStream" << endl;
-	//// RCLCPP_DEBUG(this->get_logger(), "After origPlanStream");
-
-	std::stringstream crowdStream;
-	semaforr::domain::PoseArray crowdpose =
-		beliefs->getAgentState()->getCrowdPose();
-
-	for(int i = 0; i < crowdpose.poses.size(); i++){
-		crowdStream << crowdpose.poses[i].position.x << " " << crowdpose.poses[i].position.y << " " << crowdpose.poses[i].orientation.x 
-		<< " " << crowdpose.poses[i].orientation.y << " " << crowdpose.poses[i].orientation.z << " " << crowdpose.poses[i].orientation.w;
-		crowdStream << ";";
-	}
-	//cout << "After crowdStream" << endl;
-	//// RCLCPP_DEBUG(this->get_logger(), "After crowdStream");
-
-	std::stringstream allCrowdStream;
-	semaforr::domain::PoseArray crowdposeall =
-		beliefs->getAgentState()->getCrowdPoseAll();
-
-	for(int i = 0; i < crowdposeall.poses.size(); i++){
-		allCrowdStream << crowdposeall.poses[i].position.x << " " << crowdposeall.poses[i].position.y << " " << crowdposeall.poses[i].orientation.x
-		<< " " << crowdposeall.poses[i].orientation.y << " " << crowdposeall.poses[i].orientation.z << " " << crowdposeall.poses[i].orientation.w;
-		allCrowdStream << ";";
-	}
-	//cout << "After allCrowdStream" << endl;
-	//// RCLCPP_DEBUG(this->get_logger(), "After all crowdStream");
-
-	// std::stringstream crowdModel;
-	// int resolution = model.resolution;
-	// int height = model.height;
-	// int width = model.width;
-	// std::vector<double> densities(
-	// 	model.densities.data, 
-	// 	model.densities.data + model.densities.size
-	// );
-	// std::vector<double> risk(
-	// 	model.risk.data, 
-	// 	model.risk.data + model.risk.size
-	// );
-	// crowdModel << height << " " << width << " " << resolution << ";";
-	// for(int i = 0; i < densities.size() ; i++){
-	// 	crowdModel << densities[i] << " ";
-	// }
-	// crowdModel << "\t";
-	// for(int i = 0; i < risk.size() ; i++){
-	// 	crowdModel << risk[i] << " ";
-	// }
-	// crowdModel << "\t";
-	// std::vector<double> left(
-	// 	model.left.data, 
-	// 	model.left.data + model.left.size
-	// );
-	// for(int i = 0; i < left.size() ; i++){
-	// 	crowdModel << left[i] << " ";
-	// }
-	// crowdModel << "\t";
-	// std::vector<double> right(
-	// 	model.right.data, 
-	// 	model.right.data + model.right.size
-	// );
-	// for(int i = 0; i < right.size() ; i++){
-	// 	crowdModel << right[i] << " ";
-	// }
-	// crowdModel << "\t";
-	// std::vector<double> up(
-	// 	model.up.data, 
-	// 	model.up.data + model.up.size
-	// );
-	// for(int i = 0; i < up.size() ; i++){
-	// 	crowdModel << up[i] << " ";
-	// }
-	// crowdModel << "\t";
-	// std::vector<double> down(
-	// 	model.down.data, 
-	// 	model.down.data + model.down.size
-	// );
-	// for(int i = 0; i < down.size() ; i++){
-	// 	crowdModel << down[i] << " ";
-	// }
-	// crowdModel << "\t";
-	// std::vector<double> up_left(
-	// 	model.up_left.data, 
-	// 	model.up_left.data + model.up_left.size
-	// );
-	// for(int i = 0; i < up_left.size() ; i++){
-	// 	crowdModel << up_left[i] << " ";
-	// }
-	// crowdModel << "\t";
-	// std::vector<double> up_right(
-	// 	model.up_right.data, 
-	// 	model.up_right.data + model.up_right.size
-	// );
-	// for(int i = 0; i < up_right.size() ; i++){
-	// 	crowdModel << up_right[i] << " ";
-	// }
-	// crowdModel << "\t";
-	// std::vector<double> down_left(
-	// 	model.down_left.data, 
-	// 	model.down_left.data + model.down_left.size
-	// );
-	// for(int i = 0; i < down_left.size() ; i++){
-	// 	crowdModel << down_left[i] << " ";
-	// }
-	// crowdModel << "\t";
-	// std::vector<double> down_right(
-	// 	model.down_right.data, 
-	// 	model.down_right.data + model.down_right.size
-	// );
-	// for(int i = 0; i < down_right.size() ; i++){
-	// 	crowdModel << down_right[i] << " ";
-	// }
-	// cout << "After crowdModel" << endl;
-	//// RCLCPP_DEBUG(this->get_logger(), "After all crowd model");
-
-	std::stringstream passageStream;
-	if(currentTask > 0 and decisionCount == 1){
-		vector< vector<int> > highways;
-		if(con->getHighwaysOn() == 1){
-			if(con->getHighwayFinished()){
-				highways = beliefs->getAgentState()->getPassageGrid();
-			}
-			else{
-				highways = con->gethighwayExploration()->getHighwayGrid();
-			}
-		}
-		else if(con->getHighwaysOn() == 2){
-			if(con->getFrontierFinished()){
-				highways = beliefs->getAgentState()->getPassageGrid();
-			}
-			else{
-				highways = con->getfrontierExploration()->getFrontierGrid();
-			}
-		}
-		if(highways.size() > 0){
-			for(int j = 0; j < highways.size()-1; j++){
-				for(int i = 0; i < highways[j].size(); i++){
-					passageStream << highways[j][i] << " ";
-				}
-				passageStream << ";";
-			}
-		}
-		else{
-			passageStream << " ";
-		}
-	}
-	else{
-		passageStream << " ";
-	}
-	//cout << "After passageStream" << endl;
-	// // RCLCPP_DEBUG(this->get_logger(), "After conveyors");
-
-	std::stringstream output;
-
-	output << currentTask << "\t" << decisionCount << "\t" << overallTimeSec << "\t" << computationTimeSec << "\t" << targetX << "\t" << targetY << "\t" << robotX << "\t" << robotY << "\t" << robotTheta << "\t" << max_forward.parameter << "\t" << decisionTier << "\t" << vetoedActions << "\t" << chosenActionType << "\t" << chosenActionParameter << "\t" << advisors << "\t" << advisorComments << "\t" << planStream.str() << "\t" << origPlanStream.str() << "\t" << regionsstream.str() << "\t" << trailstream.str() << "\t" << doorStream.str() << "\t" << conveyorStream.str() << "\t" << hallwayStream.str() << "\t" << planningComputationTime << "\t" << learningComputationTime << "\t" << chosenPlanner << "\t" << graphingComputationTime<< "\t" << passageStream.str() << "\t" << plannerComments  << "\t" << lep.str() << "\t" << ls.str();// << "\t" << crowdModel.str() << "\t" << crowdStream.str() << "\t" << allCrowdStream.str() << "\t" << advisorInfluence;
-
-	//output << currentTask << "\t" << decisionCount << "\t" << targetX << "\t" << targetY << "\t" << robotX << "\t" << robotY << "\t" << robotTheta << "\t" << lep.str() << "\t" << ls.str();
-
-	//output << currentTask << "\t" << decisionCount << "\t" << overallTimeSec << "\t" << computationTimeSec << "\t" << targetX << "\t" << targetY << "\t" << robotX << "\t" << robotY << "\t" << robotTheta << "\t" << max_forward.parameter << "\t" << decisionTier << "\t" << vetoedActions << "\t" << chosenActionType << "\t" << chosenActionParameter << "\t" << advisors << "\t" << advisorComments << "\t" << lep.str() << "\t" << ls.str() << "\t" << crowdStream.str() << "\t" << allCrowdStream.str() << "\t" << crowdModel.str() << "\t" << planStream.str();
-
-	log.data = output.str();
-	stats_pub_->publish(log);
-  }
 };

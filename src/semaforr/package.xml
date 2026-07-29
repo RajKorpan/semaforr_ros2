@@ -12,6 +12,7 @@
   <depend>nav_msgs</depend>
   <depend>rclcpp</depend>
   <depend>sensor_msgs</depend>
+  <depend>semaforr_msgs</depend>
   <depend>social_context_msgs</depend>
   <depend>std_msgs</depend>
   <depend>tf2</depend>

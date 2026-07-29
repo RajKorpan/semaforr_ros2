@@ -4,33 +4,32 @@
 
 #include <semaforr/decision/Controller.hpp>
 
-#include <iostream>
+#include <semaforr/core/action_adapter.hpp>
 
-FORRAction Controller::FORRDecision() {
-  std::cout << "In FORR decision" << std::endl;
-  std::cout << "Created decision object" << std::endl;
-
+semaforr::decision::DecisionResult Controller::FORRDecision() {
   const semaforr::decision::TierOneResult tier_one =
     tierOneDecision->decide();
-  if (tier_one.vetoes_recorded) {
-    decisionStats.vetoedActions = tier_one.vetoed_actions;
-  }
 
-  FORRAction decision;
+  semaforr::decision::DecisionResult result;
+  result.vetoes = tier_one.vetoes;
   if (tier_one.decided) {
-    decision = tier_one.action;
-    decisionStats.decisionTier = tier_one.decision_tier;
+    result.action = semaforr::core::toDomainAction(tier_one.action);
+    result.source = semaforr::decision::DecisionSource::MandatoryRule;
+    result.tier = semaforr::decision::DecisionTier::TierOne;
+    result.selected_policy = tier_one.selected_policy;
   } else {
-    std::cout << "Decision to be made by t3!!" << std::endl;
     const semaforr::decision::TierThreeResult tier_three =
       tierThreeDecision->decide();
-    decision = tier_three.action;
-    decisionStats.decisionTier = 3;
-    decisionStats.advisors = tier_three.advisors;
-    decisionStats.advisorComments = tier_three.advisor_comments;
+    result.action = semaforr::core::toDomainAction(tier_three.action);
+    result.source = tier_three.selected
+      ? semaforr::decision::DecisionSource::TierThreeAdvisor
+      : semaforr::decision::DecisionSource::SafeStop;
+    result.tier = tier_three.selected
+      ? semaforr::decision::DecisionTier::TierThree
+      : semaforr::decision::DecisionTier::SafeStop;
+    result.selected_policy =
+      tier_three.selected ? "advisor_arbitration" : "no_advisor_score";
+    result.contributions = tier_three.contributions;
   }
-
-  std::cout << "Exiting FORR decision with action: "
-            << decision.type << " " << decision.parameter << std::endl;
-  return decision;
+  return result;
 }

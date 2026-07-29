@@ -1587,12 +1587,12 @@ public:
         }
         // cout << "graph_nodes " << graph_nodes.size() << " graph_edges_map " << graph_edges_map.size() << endl;
         passages_grid = intersections;
-        cout << "final passages_grid" << endl;
+        (void)0;
         for(int i = 0; i < passages_grid.size(); i++){
           for(int j = 0; j < passages_grid[0].size(); j++){
-            cout << passages_grid[i][j] << " ";
+            (void)0;
           }
-          cout << endl;
+          (void)0;
         }
         
         int index_val = 0;

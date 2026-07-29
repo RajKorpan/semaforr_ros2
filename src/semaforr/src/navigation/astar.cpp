@@ -185,7 +185,7 @@ void astar::push_update(priority_queue<_VNode*, vector<_VNode*>, _Compare> &pq, 
 
 void astar::construct_path(_VNode* s, _VNode* g)
 {
-  cout << "Inside construct_path" << endl;
+  (void)0;
   _VNode* tmp = g;
   path.clear();
   paths.clear();

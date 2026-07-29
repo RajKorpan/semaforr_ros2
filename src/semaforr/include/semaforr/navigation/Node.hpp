@@ -73,19 +73,19 @@ public:
   bool getInBuffer() const { return inBuffer; }
 
   void printNode() const{
-    cout << "<NODE: " << id << " :(" << x << "," << y << ") >" ;
+    (void)0;
   }
   
   void printNeighbors() const {
-    cout << "Node " << id << " neighbors: " ; 
+    (void)0;
     for( unsigned int i = 0; i < neighbors.size(); i++ ) {
-      cout << neighbors.at(i) << "\t" ; 
+      (void)0;
     }
-    cout << endl ;
+    (void)0;
   }
 
   void printNodeEdges() const { 
-    cout << "Node " << id << " nodeEdges: " << endl;
+    (void)0;
     for ( unsigned int i = 0 ; i < nodeEdges.size(); i++ )
       nodeEdges.at(i)->printEdge(); 
   }

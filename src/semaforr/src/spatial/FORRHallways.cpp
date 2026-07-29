@@ -9,7 +9,7 @@ using namespace std;
 
 
 void FORRHallways::CreateSegments(vector<Segment> &segments, const vector<CartesianPoint> &trails, const vector < vector <CartesianPoint> > &laser_history) {
-  cout << "num of trail markers " << trails.size() << " num of laser history " << laser_history.size() << endl;
+  (void)0;
   for (int i = 0; i < trails.size()-1; i++){
     double diff_x = trails[i].get_x() - trails[i+1].get_x();
     double diff_y = trails[i].get_y() - trails[i+1].get_y();
@@ -352,27 +352,27 @@ vector<vector<CartesianPoint> > FORRHallways::ProcessHallwayData(const vector<Se
     //cout << heat_map.size() << " " << heat_map[0].size() << endl;
     //cout << hallway_groups[i].size() << endl;
     UpdateMap(heat_map, hallway_group);
-    cout << "Updated Map" << endl;
+    (void)0;
 
     SmoothMap(smoothed_heat_map, heat_map, threshold);
-    cout << "Smoothed Map" << endl;
+    (void)0;
     /*FilterImage(filtered_heat_map,heat_map,9);
 
     BinarizeImage(binarized_heat_map, filtered_heat_map, 0);*/
     //BinarizeImage(binarized_heat_map, heat_map, 1);
     BinarizeImage(binarized_heat_map, smoothed_heat_map, threshold);
-    cout << "Binarized Image" << endl;
+    (void)0;
 
     LabelImage(binarized_heat_map,labeled_image);
-    cout << "Labeled Image" << endl; //error1
+    (void)0;
 
     vector<vector< pair<int,int> > > points_in_aggregates;
     ListGroups(points_in_aggregates, labeled_image);
-    cout << "List Groups" << endl;
+    (void)0;
 
     vector<vector<CartesianPoint> > points_in_groups;
     ConvertPairToCartesianPoint(points_in_groups, points_in_aggregates);
-    cout << "Covert Pair to Cartesian Point" << endl; //error1
+    (void)0;
 
     return points_in_groups;
 }
@@ -394,9 +394,9 @@ void FORRHallways::UpdateMap(vector<vector<double> > &frequency_map, const vecto
   /*cout << "Heat Map" << endl;
   for(int i = 0; i < frequency_map.size(); i++) {
     for(int j = 0; j < frequency_map[0].size(); j++) {
-      cout << frequency_map[i][j] << " ";
+      (void)0;
     }
-    cout << endl;
+    (void)0;
   }*/
 }
 
@@ -562,9 +562,9 @@ void FORRHallways::SmoothMap(vector<vector<double> > &frequency_map, const vecto
   /*cout << "Smoothed Heat Map" << endl;
   for(int i = 0; i < frequency_map.size(); i++) {
     for(int j = 0; j < frequency_map[0].size(); j++) {
-      cout << frequency_map[i][j] << " ";
+      (void)0;
     }
-    cout << endl;
+    (void)0;
   }*/
 }
 
@@ -733,7 +733,7 @@ void FORRHallways::ConvertPairToCartesianPoint(vector<vector<CartesianPoint> > &
 }
 
 vector<vector<CartesianPoint> > FORRHallways::MergeNearbyHallways(const vector<vector<CartesianPoint> > initial_hallway_groups, const vector<CartesianPoint> &trails, const vector < vector <CartesianPoint> > &laser_history, int hallway_type, double step, int width, int height, double threshold){
-  cout << "Inside MergeNearbyHallways" << endl;
+  (void)0;
   vector<vector<CartesianPoint> > merged_hallways;
   vector< vector<int> > poses_in_hallways;
   for(int i = 0; i < trails.size(); i++){
@@ -773,7 +773,7 @@ vector<vector<CartesianPoint> > FORRHallways::MergeNearbyHallways(const vector<v
       poses_in_hallways.push_back(values);
     }
   }
-  cout << "Poses in hallways created" << endl;
+  (void)0;
   vector<Segment> possible_mergers_joins;
   for(int i = 0; i < poses_in_hallways.size(); i++){
     if(poses_in_hallways[i][2] == poses_in_hallways[i][3]){
@@ -786,7 +786,7 @@ vector<vector<CartesianPoint> > FORRHallways::MergeNearbyHallways(const vector<v
       }
     }
   }
-  cout << "Fill hallways created " << possible_mergers_joins.size() << endl;
+  (void)0;
   for(int k = 0; k < initial_hallway_groups.size() - 1; k++){
     for(int j = k + 1; j < initial_hallway_groups.size(); j++) {
       vector<Segment> first_group;
@@ -812,7 +812,7 @@ vector<vector<CartesianPoint> > FORRHallways::MergeNearbyHallways(const vector<v
         }
       }
       if(first_group.size() > 0 and second_group.size() > 0){
-        cout << "Both see each other : " << k << " with " << first_group.size() << " and " << j << " with " << second_group.size() << endl;
+        (void)0;
         for(int i = 0; i < first_group.size(); i++){
           possible_mergers_joins.push_back(first_group[i]);
         }
@@ -937,7 +937,7 @@ vector<vector<CartesianPoint> > FORRHallways::MergeNearbyHallways(const vector<v
   //     }
   //   }
   // }
-  cout << "Possible Merger Joins created " << possible_mergers_joins.size() << endl;
+  (void)0;
   if(possible_mergers_joins.size()>0){
     vector<vector<double> > heat_map(width,vector<double>(height, 0));
     for(int i = 0; i < initial_hallway_groups.size(); i++){
@@ -945,7 +945,7 @@ vector<vector<CartesianPoint> > FORRHallways::MergeNearbyHallways(const vector<v
         heat_map[round(initial_hallway_groups[i][j].get_x())][round(initial_hallway_groups[i][j].get_y())] = 1;
       }
     }
-    cout << "Created Heat Map" << endl;
+    (void)0;
     for(int i = 0; i < possible_mergers_joins.size(); i++){
       CartesianPoint left = possible_mergers_joins[i].GetLeftPoint();
       CartesianPoint right = possible_mergers_joins[i].GetRightPoint();
@@ -956,21 +956,21 @@ vector<vector<CartesianPoint> > FORRHallways::MergeNearbyHallways(const vector<v
         heat_map[xcoord][ycoord] = 1;
       }
     }
-    cout << "Populated Heat Map" << endl;
+    (void)0;
     vector<vector<double> > smoothed_heat_map(width,vector<double>(height, 0));
     SmoothMap(smoothed_heat_map, heat_map, threshold);
-    cout << "Smooth Map" << endl;
+    (void)0;
     vector<vector<int> > binarized_heat_map(width,vector<int>(height, 0));
     BinarizeImage(binarized_heat_map, smoothed_heat_map, threshold);
-    cout << "Binarize Image" << endl;
+    (void)0;
     vector<vector<int> > labeled_image(width,vector<int>(height, 0));
     LabelImage(binarized_heat_map,labeled_image);
-    cout << "Label Image" << endl;
+    (void)0;
     vector<vector< pair<int,int> > > points_in_aggregates;
     ListGroups(points_in_aggregates, labeled_image);
-    cout << "List Groups" << endl;
+    (void)0;
     ConvertPairToCartesianPoint(merged_hallways, points_in_aggregates);
-    cout << "Convert Pair To Cartesian Point" << endl;
+    (void)0;
     return merged_hallways;
   }
   else{
@@ -992,7 +992,7 @@ vector<vector<CartesianPoint> > FORRHallways::FillHallways(const vector<vector<C
     }
   }
   /*for(int i = 0; i < poses_in_hallways.size(); i++){
-    cout << poses_in_hallways[i].size() << endl;
+    (void)0;
   }*/
   vector<Segment> possible_fills;
   for(int i = 0; i < initial_hallway_groups.size(); i++) {

@@ -26,9 +26,13 @@ def test_recorder_can_reproduce_sensor_loss_and_capture_node_states():
 
     assert "--sensor-cutoff" in source
     assert "self._sensor_cutoff" in source
+    assert '"/decision_records"' in source
+    assert "DecisionRecord" in source
     assert '"/navigation_state"' in source
+    assert "NavigationState" in source
     assert '"navigation_states": self._navigation_states' in source
 
     verifier = TIMEOUT_VERIFIER_PATH.read_text(encoding="utf-8")
     assert '"last velocity command is not zero"' in verifier
-    assert '"WaitingForSensors:sensor_"' in verifier
+    assert '"waiting_for_sensors"' in verifier
+    assert 'state.get("failure")' in verifier

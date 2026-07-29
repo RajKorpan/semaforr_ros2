@@ -287,11 +287,11 @@ public:
 
   bool getRobotConfined(int decisionLimit, double distanceLimit);
   bool getGetOutTriggered(){
-    cout << "getOutTriggered " << getOutTriggered << endl;
+    (void)0;
     return getOutTriggered;
   }
   void setGetOutTriggered(bool status){
-    cout << "setGetOutTriggered " << status << endl;
+    (void)0;
     getOutTriggered = status;
     if(status == false){
       farthestPoint = CartesianPoint(0.0,0.0);
@@ -301,24 +301,24 @@ public:
   }
 
   void setFarthestPoint(CartesianPoint farthest_point){
-    cout << "setFarthestPoint " << farthest_point.get_x() << " " << farthest_point.get_y() << endl;
+    (void)0;
     farthestPoint = farthest_point;
   }
 
   void setIntermediatePoint(CartesianPoint intermediate_point){
-    cout << "setIntermediatePoint " << intermediate_point.get_x() << " " << intermediate_point.get_y() << endl;
+    (void)0;
     intermediatePoint = intermediate_point;
   }
   CartesianPoint getFarthestPoint(){return farthestPoint;}
   CartesianPoint getIntermediatePoint(){return intermediatePoint;}
   
   void setGetOutGrid(vector< vector<int> > grid){
-    cout << "setGetOutGrid" << endl;
+    (void)0;
     getOutGrid = grid;
   }
 
   vector< vector<int> > getGetOutGrid(){
-    cout << "getGetOutGrid" << endl;
+    (void)0;
     return getOutGrid;
   }
 
@@ -353,11 +353,11 @@ public:
   }
 
   bool getRepositionTriggered(){
-    cout << "repositionTriggered " << repositionTriggered << endl;
+    (void)0;
     return repositionTriggered;
   }
   void setRepositionTriggered(bool status){
-    cout << "setRepositionTriggered " << status << endl;
+    (void)0;
     repositionTriggered = status;
     if(status == false){
       repositionPoint = CartesianPoint(0.0,0.0);
@@ -365,7 +365,7 @@ public:
   }
 
   void setRepositionPoint(CartesianPoint reposition_point){
-    cout << "setRepositionPoint " << reposition_point.get_x() << " " << reposition_point.get_y() << endl;
+    (void)0;
     repositionPoint = reposition_point;
   }
 

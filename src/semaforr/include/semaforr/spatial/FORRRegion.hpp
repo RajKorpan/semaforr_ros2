@@ -71,19 +71,19 @@ class FORRRegion{
   }
 
   void print(){
-    cout << center.get_x() << " " << center.get_y() << " " << this->getRadius();
+    (void)0;
     for(int i = 0; i < exits.size() ; i++){
-      cout << " " << exits[i].getExitPoint().get_x() << " "  << exits[i].getExitPoint().get_y() << " "  << exits[i].getExitRegion();
+      (void)0;
     }
-    cout << endl;
+    (void)0;
   }
 
   void printVisibility(){
-    cout << center.get_x() << " " << center.get_y() << " " << this->getRadius();
+    (void)0;
     for(int i = 0; i < max_visibility.size(); i++){
-      cout << " " << max_visibility[i];
+      (void)0;
     }
-    cout << endl;
+    (void)0;
   }
 
   bool equals(FORRRegion test) { 

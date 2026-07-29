@@ -367,7 +367,7 @@ std::unique_ptr<Tier3Advisor> Tier3Advisor::makeAdvisor(
   else if(name == "StayRotation")
     return makeAdvisorInstance<Tier3StayRotation>(beliefs, name, description, weight, magic_init, is_active);
   else 
-    std::cout << "No such advisor " << std::endl;
+    (void)0;
   return nullptr;
 }
 
@@ -2131,12 +2131,12 @@ double Tier3ConveyLinear::actionComment(FORRAction action){
 
 void Tier3ConveyLinear::set_commenting(){
   set<int> grid_values;
-  cout << "set commenting for conveylinear" << endl;
+  (void)0;
   set<FORRAction> *vetoed_actions = beliefs->getAgentState()->getVetoedActions();
-  cout << "after vetoactions" << endl;
+  (void)0;
   set<FORRAction> *action_set;
   action_set = beliefs->getAgentState()->getActionSet();
-  cout << "after actionset" << endl;
+  (void)0;
   FORRAction forrAction;
   set<FORRAction>::iterator actionIter;
   for(actionIter = action_set->begin(); actionIter != action_set->end(); actionIter++){
@@ -2145,9 +2145,9 @@ void Tier3ConveyLinear::set_commenting(){
     if(vetoed_actions->find(forrAction) != vetoed_actions->end())// is this action vetoed
       continue;
     Position expectedPosition = beliefs->getAgentState()->getExpectedPositionAfterAction(forrAction);
-    cout << "after get expected position" << expectedPosition.getX() << " " << expectedPosition.getY() << endl;
+    (void)0;
     int grid_value = beliefs->getSpatialModel()->getConveyors()->getGridValue(expectedPosition.getX(), expectedPosition.getY());
-    cout << "after get grid value" << endl;
+    (void)0;
     if(grid_value > 1)
       grid_values.insert(grid_value);
   }
@@ -2689,7 +2689,7 @@ void Tier3AccessRotation::set_commenting(){
 }
 
 void Tier3NeighborDoorLinear::set_commenting(){
-  cout << "In neighbor door linear set commenting " << endl;
+  (void)0;
   std::vector< std::vector<Door> > doors = beliefs->getSpatialModel()->getDoors()->getDoors();
   vector<FORRRegion> regions = beliefs->getSpatialModel()->getRegionList()->getRegions();
   Position curr_pos = beliefs->getAgentState()->getCurrentPosition();
@@ -2716,10 +2716,10 @@ void Tier3NeighborDoorLinear::set_commenting(){
       std::vector<FORRRegion>::iterator it = std::find(nearRegions.begin(),nearRegions.end(), test);
       if(nearRegions.empty() or (it == nearRegions.end())){
         nearRegions.push_back(test);
-        cout << "Neighbour Region : " << test.getCenter().get_x() << " " << test.getCenter().get_y() << endl;
+        (void)0;
       }
     }
-    cout << "#Neighbors found :" << nearRegions.size() << endl;
+    (void)0;
     if(nearRegions.size() >= 1) {
       targetHasNeighbors = true;
     }
@@ -2766,7 +2766,7 @@ double Tier3NeighborDoorRotation::actionComment(FORRAction action){
 }
 
 void Tier3NeighborDoorRotation::set_commenting(){
-  cout << "In neighbor door linear set commenting " << endl;
+  (void)0;
   std::vector< std::vector<Door> > doors = beliefs->getSpatialModel()->getDoors()->getDoors();
   vector<FORRRegion> regions = beliefs->getSpatialModel()->getRegionList()->getRegions();
   Position curr_pos = beliefs->getAgentState()->getCurrentPosition();
@@ -2793,10 +2793,10 @@ void Tier3NeighborDoorRotation::set_commenting(){
       std::vector<FORRRegion>::iterator it = std::find(nearRegions.begin(),nearRegions.end(), test);
       if(nearRegions.empty() or (it == nearRegions.end())){
         nearRegions.push_back(test);
-        cout << "Neighbour Region : " << test.getCenter().get_x() << " " << test.getCenter().get_y() << endl;
+        (void)0;
       }
     }
-    cout << "#Neighbors found :" << nearRegions.size() << endl;
+    (void)0;
     if(nearRegions.size() >= 1) {
       targetHasNeighbors = true;
     }
@@ -3372,7 +3372,7 @@ double Tier3InterpersonalRotation::actionComment(FORRAction action){
 }
 
 /*void Tier3Formation::set_commenting(){
-  cout << "In Interpersonal set commenting " << endl;
+  (void)0;
   if(beliefs->getAgentState()->hasValidCrowd())
     advisor_commenting = true;
   else
@@ -3380,23 +3380,23 @@ double Tier3InterpersonalRotation::actionComment(FORRAction action){
 }
 
 double Tier3Formation::actionComment(FORRAction action){
-  cout << "Inside Interpersonal" << endl;
+  (void)0;
   vector <Position> crowdPositions = beliefs->getAgentState()->getCrowdPositions();
   Position expectedPosition = beliefs->getAgentState()->getExpectedPositionAfterAction(action);
   double metric = 0;
   for(int i = 0; i < crowdPositions.size(); i++){
     double distanceToPedestrian = expectedPosition.getDistance(crowdPositions[i]);
-    cout << "distance to pedestrian = " << distanceToPedestrian << endl;
+    (void)0;
     if(distanceToPedestrian<=3.6){
       metric += -log(-distanceToPedestrian+4.22)+0.44;
-      cout << "metric = " << metric << endl;
+      (void)0;
     }
   }
   return metric;
 }
 
 void Tier3FormationRotation::set_commenting(){
-  cout << "In InterpersonalRotation set commenting " << endl;
+  (void)0;
   if(beliefs->getAgentState()->hasValidCrowd())
     advisor_commenting = true;
   else
@@ -3404,16 +3404,16 @@ void Tier3FormationRotation::set_commenting(){
 }
 
 double Tier3FormationRotation::actionComment(FORRAction action){
-  cout << "Inside InterpersonalRotation" << endl;
+  (void)0;
   vector <Position> crowdPositions = beliefs->getAgentState()->getCrowdPositions();
   Position expectedPosition = beliefs->getAgentState()->getExpectedPositionAfterAction(action);
   double metric = 0;
   for(int i = 0; i < crowdPositions.size(); i++){
     double distanceToPedestrian = expectedPosition.getDistance(crowdPositions[i]);
-    cout << "distance to pedestrian = " << distanceToPedestrian << endl;
+    (void)0;
     if(distanceToPedestrian<=3.6){
       metric += -log(-distanceToPedestrian+4.22)+0.44;
-      cout << "metric = " << metric << endl;
+      (void)0;
     }
   }
   return metric;
@@ -3738,7 +3738,7 @@ double Tier3VisibleRotation::actionComment(FORRAction action){
 }
 
 /*void Tier3Wait::set_commenting(){
-  cout << "In Wait set commenting " << endl;
+  (void)0;
   if(beliefs->getAgentState()->hasValidCrowd())
     advisor_commenting = true;
   else
@@ -3746,16 +3746,16 @@ double Tier3VisibleRotation::actionComment(FORRAction action){
 }
 
 double Tier3Wait::actionComment(FORRAction action){
-  cout << "Inside Wait" << endl;
+  (void)0;
   vector <Position> crowdPositions = beliefs->getAgentState()->getCrowdPositions();
   Position expectedPosition = beliefs->getAgentState()->getExpectedPositionAfterAction(action);
   Position currentPosition = beliefs->getAgentState()->getCurrentPosition();
-  cout << "current Theta = " << currentPosition.getTheta() << endl;
+  (void)0;
   double metric = 0;
   for(int i = 0; i < crowdPositions.size(); i++){
     double pedestrianTheta = crowdPositions[i].getTheta();
     double angleDiff = min(abs(pedestrianTheta - currentPosition.getTheta()),(2*M_PI) - abs(pedestrianTheta - currentPosition.getTheta()));
-    cout << "pedestrianTheta = " << pedestrianTheta << " angleDiff = " << angleDiff << endl;
+    (void)0;
     if(angleDiff <= 5*M_PI/8 and angleDiff >= 3*M_PI/8){
       LineSegment robotLineSegment(CartesianPoint(currentPosition.getX(),currentPosition.getY()),CartesianPoint(currentPosition.getX()+5*cos(currentPosition.getTheta()),currentPosition.getY()+5*sin(currentPosition.getTheta())));
       LineSegment pedestrianLineSegment(CartesianPoint(crowdPositions[i].getX(),crowdPositions[i].getY()),CartesianPoint(crowdPositions[i].getX()+5*cos(pedestrianTheta),crowdPositions[i].getY()+5*sin(pedestrianTheta)));
@@ -3764,7 +3764,7 @@ double Tier3Wait::actionComment(FORRAction action){
         double distPedestrian = crowdPositions[i].getDistance(intersectionPoint.get_x(), intersectionPoint.get_y());
         double expectedDistRobot = expectedPosition.getDistance(intersectionPoint.get_x(), intersectionPoint.get_y());
         metric += (-1) * min(distPedestrian,expectedDistRobot)/max(distPedestrian,expectedDistRobot);
-        cout << "distPedestrian = " << distPedestrian << " expectedDistRobot = " << expectedDistRobot << " metric = " << metric << endl;
+        (void)0;
       }
     }
   }
@@ -3772,7 +3772,7 @@ double Tier3Wait::actionComment(FORRAction action){
 }
 
 void Tier3WaitRotation::set_commenting(){
-  cout << "In WaitRotation set commenting " << endl;
+  (void)0;
   if(beliefs->getAgentState()->hasValidCrowd())
     advisor_commenting = true;
   else
@@ -3780,16 +3780,16 @@ void Tier3WaitRotation::set_commenting(){
 }
 
 double Tier3WaitRotation::actionComment(FORRAction action){
-  cout << "Inside WaitRotation" << endl;
+  (void)0;
   vector <Position> crowdPositions = beliefs->getAgentState()->getCrowdPositions();
   Position expectedPosition = beliefs->getAgentState()->getExpectedPositionAfterAction(action);
   Position currentPosition = beliefs->getAgentState()->getCurrentPosition();
-  cout << "current Theta = " << currentPosition.getTheta() << endl;
+  (void)0;
   double metric = 0;
   for(int i = 0; i < crowdPositions.size(); i++){
     double pedestrianTheta = crowdPositions[i].getTheta();
     double angleDiff = min(abs(pedestrianTheta - currentPosition.getTheta()),(2*M_PI) - abs(pedestrianTheta - currentPosition.getTheta()));
-    cout << "pedestrianTheta = " << pedestrianTheta << " angleDiff = " << angleDiff << endl;
+    (void)0;
     if(angleDiff <= 5*M_PI/8 and angleDiff >= 3*M_PI/8){
       LineSegment robotLineSegment(CartesianPoint(currentPosition.getX(),currentPosition.getY()),CartesianPoint(currentPosition.getX()+5*cos(currentPosition.getTheta()),currentPosition.getY()+5*sin(currentPosition.getTheta())));
       LineSegment pedestrianLineSegment(CartesianPoint(crowdPositions[i].getX(),crowdPositions[i].getY()),CartesianPoint(crowdPositions[i].getX()+5*cos(pedestrianTheta),crowdPositions[i].getY()+5*sin(pedestrianTheta)));
@@ -3798,7 +3798,7 @@ double Tier3WaitRotation::actionComment(FORRAction action){
         double distPedestrian = crowdPositions[i].getDistance(intersectionPoint.get_x(), intersectionPoint.get_y());
         double expectedDistRobot = expectedPosition.getDistance(intersectionPoint.get_x(), intersectionPoint.get_y());
         metric += (-1) * min(distPedestrian,expectedDistRobot)/max(distPedestrian,expectedDistRobot);
-        cout << "distPedestrian = " << distPedestrian << " expectedDistRobot = " << expectedDistRobot << " metric = " << metric << endl;
+        (void)0;
       }
     }
   }

@@ -346,9 +346,7 @@ double PathPlanner::estimateCost(Node s, Node t, int l){
   }
   else {
     if(PATH_DEBUG)
-      cout << "PathPlanner::estimateCost> no path found to target! "
-	   << "Source accessible: " << sn.isAccessible()
-	   << ", target accessible: " << tn.isAccessible() << endl;
+      (void)0;
     pathCost = INT_MAX;
   }
 

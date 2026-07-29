@@ -11,7 +11,7 @@ Graph::Graph(Map * m, int p): map(m) {
 
   int l = map->getLength();
   int h = map->getHeight();
-  cout << l << " " << h << " " << proximity << endl;
+  (void)0;
   // create nodes
   for( int x = 0; x < l; x++ ){
     vector<int> column; 
@@ -20,7 +20,7 @@ Graph::Graph(Map * m, int p): map(m) {
     }
     nodeIndex.push_back(column);
   }
-  cout << "Node index columns : " << nodeIndex.size() << endl;
+  (void)0;
   maxInd = -1;
   generateNavGraph();
 }
@@ -35,7 +35,7 @@ Graph::Graph(int p, int l, int h){
     this->proximity = 20;
   this->length = l;
   this->height = h;
-  cout << l << " " << h << " " << proximity << endl;
+  (void)0;
   // create nodes
   for( int x = 0; x < l; x++ ){
     vector<int> column; 
@@ -44,7 +44,7 @@ Graph::Graph(int p, int l, int h){
     }
     nodeIndex.push_back(column);
   }
-  cout << "Node index columns : " << nodeIndex.size() << endl;
+  (void)0;
   maxInd = -1;
 }
 
@@ -58,7 +58,7 @@ void Graph::resetGraph(){
       nodeIndex[x][y] = -1;
     }
   }
-  cout << "Graph reset complete" << endl;
+  (void)0;
 }
 
 /*
@@ -121,7 +121,7 @@ bool Graph::isEdge(Edge e) {
 void Graph::generateNavGraph() {
   int l = map->getLength();
   int h = map->getHeight();
-  cout << l << " " << h << endl;
+  (void)0;
   // create nodes
   int index = 0;
   for( int x = 0; x < l; x += proximity ){
@@ -140,11 +140,11 @@ void Graph::generateNavGraph() {
   }
   maxInd = index-1;
 
-  cout << "Completed creating nodes" << endl;
+  (void)0;
   // update node neighbors
   populateNodeNeighbors(true);
 
-  cout << "Completed populating neighbors" << endl;
+  (void)0;
   // create edges
   
   vector<Node*>::iterator iter;
@@ -518,11 +518,11 @@ double Graph::calcCost(Node n1, Node n2){
 } 
 
 void Graph::printGraph() {
-  cout << "Printing graph..." << endl ;
+  (void)0;
   vector<Edge*>::iterator iter; 
   for( iter = edges.begin(); iter != edges.end(); iter++ )
     (*iter)->printEdge();
-  cout << "Total number of nodes: " << numNodes() << ", number of edges: " << numEdges() << endl;
+  (void)0;
 }
 
 // output graph in menge format
@@ -534,10 +534,10 @@ void Graph::outputGraph() {
   vector<Node*>::iterator iter; 
   double degree = 0;
   for( iter = nodes.begin(); iter != nodes.end(); iter++ ){
-    cout << (*iter)->getX() << " " << (*iter)->getX()/100.0f << endl;
+    (void)0;
     myfile << (*iter)->getNeighbors().size() << " " << (*iter)->getX()/100.0f << " " << (*iter)->getY()/100.0f << endl;
     if((*iter)->getNeighbors().size() != (*iter)->getNodeEdges().size()){
-    	cout << (*iter)->getNeighbors().size() << " : " << (*iter)->getNodeEdges().size() << endl; 
+      (void)0;
     }
     degree += (*iter)->getNeighbors().size();
   }
@@ -547,7 +547,7 @@ void Graph::outputGraph() {
   for( iter1 = edges.begin(); iter1 != edges.end(); iter1++ )
   	myfile << (*iter1)->getFrom() << " " << (*iter1)->getTo() << endl;
   
-  cout << "Degree : " << degree << endl;
+  (void)0;
   myfile.close();
 }
 

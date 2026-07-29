@@ -49,22 +49,22 @@ public:
 
         vector<LineSegment> laser_segments;
         CreateSegments(laser_segments, position_history, laser_history);
-        cout << "num of segments " << laser_segments.size() << endl;
+        (void)0;
 
         /*for(int i = 0 ; i < barriers.size() ; i++){
           laser_segments.push_back(barriers[i]);
         }*/
         vector<vector<double> > segments_similarities;
         ListSimilarities(segments_similarities, laser_segments);
-        cout << "num of segments similarities " << segments_similarities.size() << endl;
+        (void)0;
 
         vector<vector<double> > most_similar_segments;
         FindMostSimilarSegments(most_similar_segments, segments_similarities);
-        cout << "num of most similar segments " << most_similar_segments.size() << endl;
+        (void)0;
 
         vector<LineSegment> initial_barriers;
         CreateInitialSegments(initial_barriers, most_similar_segments, laser_segments);
-        cout << "num of initial_barriers " << initial_barriers.size() << endl;
+        (void)0;
         for(int i = 0 ; i < barriers.size() ; i++){
           initial_barriers.push_back(barriers[i]);
         }
@@ -73,7 +73,7 @@ public:
         /*if(initial_barriers.size() > 1){
           vector<LineSegment> merged_barriers;
           MergeNearbyBarriers(merged_barriers, initial_barriers);
-          cout << "num of merged_barriers " << merged_barriers.size() << endl;
+          (void)0;
           if(merged_barriers.size() > 0){
             barriers = merged_barriers;
           }

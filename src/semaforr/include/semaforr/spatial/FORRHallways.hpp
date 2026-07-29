@@ -48,7 +48,7 @@ public:
 
 
   void PrintSegment() {
-    cout << left_point_.get_x() << " " << left_point_.get_y() << " " << right_point_.get_x() << " " << right_point_.get_y() << " " << angle_ << endl;
+    (void)0;
   }
 
   CartesianPoint GetLeftPoint() const {return left_point_;}
@@ -167,7 +167,7 @@ public:
         
         vector<Segment> trails_segments;
         CreateSegments(trails_segments, new_trails_coordinates, new_laser_history);
-        cout << "num of segments " << trails_segments.size() << endl;
+        (void)0;
 
         // vector<vector<Segment> > hallway_sections(4);
         for(int i = 0; i < trails_segments.size(); i++) {
@@ -199,7 +199,7 @@ public:
         
         vector<Aggregate> all_aggregates;
         for(int i = 0; i < hallway_sections.size(); i++) {
-          cout << "num of segments in hallway section " << hallway_sections[i].size() << endl;
+          (void)0;
           if(hallway_sections[i].size() > 0){
 
             //vector<vector<double> > segments_normalized(hallway_sections[i].size(), vector<double>(5,0));
@@ -212,15 +212,15 @@ public:
             vector<vector<double> > segments_similarities;
             ListSimilarities(segments_similarities, segments_data);
             //ListSimilarities(segments_similarities, segments_normalized);
-            cout << "num of segments similarities " << segments_similarities.size() << endl;
+            (void)0;
 
             vector<vector<double> > most_similar_segments;
             FindMostSimilarSegments(most_similar_segments, segments_similarities);
-            cout << "num of most similar segments " << most_similar_segments.size() << endl;
+            (void)0;
 
             vector<Segment> mean_segments;
             CreateMeanSegments(mean_segments, most_similar_segments, hallway_sections[i], step);
-            cout << "num of mean_segments " << mean_segments.size() << endl;
+            (void)0;
 
             vector<vector<CartesianPoint> > initial_hallway_groups = ProcessHallwayData(mean_segments, map_width_, map_height_, threshold);
             if(initial_hallways.size() > 0){
@@ -231,30 +231,14 @@ public:
               }
             }
             if(initial_hallway_groups.size()>0){
-              /*cout << "Initial Aggregates" << endl;
-              for(int j = 0; j < initial_hallway_groups.size(); j++){
-                for(int k = 0; k < initial_hallway_groups[j].size(); k++){
-                  cout << initial_hallway_groups[j][k].get_x() << " " << initial_hallway_groups[j][k].get_y() << " ";
-                }
-                cout << ";";
-              }
-              cout << endl;*/
               vector<vector<CartesianPoint> > merged_hallway_groups = MergeNearbyHallways(initial_hallway_groups, trails_coordinates, laser_history, i, step, map_width_, map_height_, threshold);
               // vector<vector<CartesianPoint> > hallway_groups = FillHallways(merged_hallway_groups, trails_coordinates, laser_history, i, step, map_width_, map_height_, threshold);
-              /*cout << "Final Aggregates" << endl;
-              for(int j = 0; j < hallway_groups.size(); j++){
-                for(int k = 0; k < hallway_groups[j].size(); k++){
-                  cout << hallway_groups[j][k].get_x() << " " << hallway_groups[j][k].get_y() << " ";
-                }
-                cout << ";";
-              }
-              cout << endl;*/
               //cout << "process agg" << endl;
               for(int j = 0; j< merged_hallway_groups.size(); j++) {
                   Aggregate group = Aggregate(merged_hallway_groups.at(j), i);
                   all_aggregates.push_back(group);
               }
-              cout << "Num of hallways " << merged_hallway_groups.size() << endl;
+              (void)0;
               merged_hallway_groups.clear();
             }
             segments_data.clear();
@@ -263,7 +247,7 @@ public:
             mean_segments.clear();
             initial_hallway_groups.clear();
           }
-          cout << "done proccessing " << hallway_names[i] << endl;
+          (void)0;
         }
         //cout << "finished map" << endl;
         if(all_aggregates.size() > 0){

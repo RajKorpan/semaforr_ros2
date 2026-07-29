@@ -357,7 +357,7 @@ class Task {
 	Node t(1, x*100, y*100);
 	planner->setTarget(t);
 
-	cout << "plan generation status" << planner->calcPath(true) << endl;
+  (void)0;
 
 	// waypointInd = planner->getPath();
 	plansInds = planner->getPaths();
@@ -383,17 +383,17 @@ class Task {
 	for ( it = waypointInd.begin(); it != waypointInd.end(); it++ ){
 		double x = navGraph->getNode(*it).getX()/100.0;
 		double y = navGraph->getNode(*it).getY()/100.0;
-		cout << x << " " << y << endl;
+    (void)0;
 		CartesianPoint waypoint(x,y);
 		waypoints.push_back(waypoint);
 		//if atleast one point is generated
-		cout << "Plan active is true" << endl;
+    (void)0;
 		isPlanActive = true;
 	}
 	setupNextWaypoint(source);*/
 	planner->resetPath();
 	pathPlanner = planner;
-	cout << "plan generation complete" << endl;
+  (void)0;
   }
 
   void generateOriginalWaypoints(Position source, PathPlanner *planner){
@@ -406,7 +406,7 @@ class Task {
 		Node t(1, x*100, y*100);
 		planner->setTarget(t);
 
-		cout << "plan generation status" << planner->calcOrigPath(true) << endl;
+    (void)0;
 
 		list<int> path = planner->getOrigPath();
 		navGraph = planner->getOrigGraph(); // we don't have to worry about this line
@@ -425,7 +425,7 @@ class Task {
 		}
 		origWaypoints = skippedwaypoints;*/
 		planner->resetOrigPath();
-		cout << "plan generation complete" << endl;
+    (void)0;
 	}
   }
 
@@ -576,7 +576,7 @@ class Task {
 			skeleton_waypoints.push_back(sk_waypoint(1, FORRRegion(), path_from_e, vector< vector<int> >(), 0));
 		}
 		if(skeleton_waypoints.size() > 0){
-			cout << "Plan active is true" << endl;
+      (void)0;
 			isPlanActive = true;
 			isPlanComplete = false;
 		}
@@ -587,7 +587,7 @@ class Task {
 		// origNavGraph = planner->getOrigGraph();
 		// origPlansInds = planner->getOrigPaths();
 		// cout << "Generate hallwayskel plan " << waypointInd.size() << endl;
-		cout << "origPlansInds " << origPlansInds.size() << " " << origPlansInds[0].size() << " " << origPlansInds[1].size() << " " << origPlansInds[2].size() << endl;
+    (void)0;
 		if(origPlansInds[0].size() > 0){
 			// cout << "prologue creation" << endl;
 			int step = -1;
@@ -1511,10 +1511,10 @@ class Task {
 				// cout << "added e_vis " << path_from_e.size() << endl;
 			}
 		}
-		cout << "final passage num of waypoints " << skeleton_waypoints.size() << endl;
+    (void)0;
 		// vector<sk_waypoint> alternate_skeleton_waypoints;
 		if(origPlansInds[2].size() > 0){
-			cout << "generate plan in skeleton graph" << endl;
+      (void)0;
 			int step = -1;
 			int max_step = origPlansInds[2].size()-1;
 			double s_x = origNavGraph->getNode(origPlansInds[2].front()).getX()/100.0;
@@ -1664,7 +1664,7 @@ class Task {
 					main_path_cost += skeleton_waypoints[i].getPassageCentroid().get_distance(skeleton_waypoints[i+1].getPassageCentroid());
 				}
 			}
-			cout << "skeleton_waypoints " << skeleton_waypoints.size() << " cost " << main_path_cost << endl;
+      (void)0;
 			double alternate_path_cost = 0;
 			for(int i = 0; i < alternate_skeleton_waypoints.size()-1; i++){
 				if(alternate_skeleton_waypoints[i].getType() == 1 and alternate_skeleton_waypoints[i+1].getType() == 0){
@@ -1682,7 +1682,7 @@ class Task {
 					}
 				}
 			}
-			cout << "alternate_skeleton_waypoints " << alternate_skeleton_waypoints.size() << " cost " << alternate_path_cost << endl;
+      (void)0;
 			pathCostInNavGraph = main_path_cost;
 			pathCostInNavOrigGraph = planner->getPathCost() + planner->getOrigPathCost();
 			origPathCostInOrigNavGraph = planner->getOrigPathCosts()[2];
@@ -1707,7 +1707,7 @@ class Task {
       origPathCostInNavGraph = 0;
 		}
 		if(skeleton_waypoints.size() > 0){
-			cout << "Plan active is true" << endl;
+      (void)0;
 			isPlanActive = true;
 			isPlanComplete = false;
 		}
@@ -1889,10 +1889,10 @@ class Task {
 		}
 		// cout << "skeleton_waypoints size: " << skeleton_waypoints.size() << " finished_sk_waypoints size: " << finished_sk_waypoints.size() << endl;
 		
-		cout << "check plan active: " << skeleton_waypoints.size() << endl;
+    (void)0;
 		if(skeleton_waypoints.size() > 0){
 			wr = skeleton_waypoints[0];
-			cout << "new current waypoint " << this->getX() << " " << this->getY() << endl;
+      (void)0;
 			isPlanActive = true;
 		}
 		else{
@@ -2055,10 +2055,10 @@ class Task {
 		// 	}
 		// }
 		// cout << "skeleton_waypoints size: " << skeleton_waypoints.size() << " finished_sk_waypoints size: " << finished_sk_waypoints.size() << endl;
-		cout << "check plan active: " << skeleton_waypoints.size() << endl;
+    (void)0;
 		if(skeleton_waypoints.size() > 0){
 			wr = skeleton_waypoints[0];
-			cout << "new current waypoint " << this->getX() << " " << this->getY() << endl;
+      (void)0;
 			isPlanActive = true;
 		}
 		else{
@@ -2074,7 +2074,7 @@ class Task {
 		skeleton_waypoints.erase(skeleton_waypoints.begin());
 		if(skeleton_waypoints.size() > 0){
 			wr = skeleton_waypoints[0];
-			cout << "new current waypoint " << this->getX() << " " << this->getY() << endl;
+      (void)0;
 			isPlanActive = true;
 		}
 		else{
@@ -2210,7 +2210,7 @@ class Task {
   double getOrigPathCostInNavGraph(){return origPathCostInNavGraph;}
 
   void updatePlanPositions(double p_x, double p_y){
-  	cout << "In updatePlanPositions p_x " << p_x << " p_y " << p_y << endl;
+    (void)0;
   	int floor_x = (int)(floor(p_x))-1;
   	int floor_y = (int)(floor(p_y))-1;
   	int ceil_x = (int)(ceil(p_x))+1;
@@ -2223,7 +2223,7 @@ class Task {
   		ceil_x = planPositions[0].size()-1;
   	if(ceil_y >= planPositions[0].size())
   		ceil_y = planPositions[0].size()-1;
-  	cout << "Updating planPositions floor " << floor_x << " " << floor_y << " ceil " << ceil_x << " " << ceil_y << endl;
+    (void)0;
   	for(int i = floor_x; i <= ceil_x; i++){
   		for(int j = floor_y; j <= ceil_y; j++){
   			planPositions[i][j] = 1;
@@ -2244,7 +2244,7 @@ class Task {
   }
 
   bool getPlanPositionValue(double p_x, double p_y){
-  	cout << "In getPlanPositionValue" << endl;
+    (void)0;
   	int floor_x = (int)(floor(p_x));
   	int floor_y = (int)(floor(p_y));
   	int ceil_x = (int)(ceil(p_x));
@@ -2273,7 +2273,7 @@ class Task {
   }
 
   void resetPlanPositions(){
-  	cout << "In resetPlanPositions" << endl;
+    (void)0;
   	vector< vector<int> > grid;
   	// int dimension = 330;
 	for(int i = 0; i < dimension; i++){

@@ -73,9 +73,6 @@ void FORRTrails::findNearbyTrail(AgentState *agentState){
 	
 	//looks at the intersection between segments
 	if(agentState->canSeeSegment(trails[i][j].coordinates, trails[i][j+1].coordinates)){
-	  /*cout << "Trail marker at coordinates ("<<trails[i][j].coordinates.get_x()<<","<<
-	    trails[i][j].coordinates.get_y()<<") visible to robot"<<endl;
-	  cout << "----------TRAIL FOUND!---------- i ="<<i<<endl;*/
 	  chosen_trail = i;
 	  
 	  //if the trail marker that saw the target is greater along the sequence than what you're seeing,
@@ -136,9 +133,9 @@ CartesianPoint FORRTrails::getFurthestVisiblePointOnChosenTrail(AgentState *agen
 void FORRTrails::printTrails(){
   for(int i = 0; i < trails.size(); i++){
     for(int j = 0; j < trails[i].size(); j++){
-      cout << "("<<trails[i][j].coordinates.get_x()<<","<<trails[i][j].coordinates.get_y()<<") ";
+      (void)0;
     }
-    cout <<endl;
+    (void)0;
   }
 }
 

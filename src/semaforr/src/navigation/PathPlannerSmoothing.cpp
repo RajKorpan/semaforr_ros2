@@ -22,13 +22,13 @@ void PathPlanner::smoothPath(list<int>& pathCalc, Node s, Node t){
     iter--; // point back to the first element
 
     if ( PATH_DEBUG ) {
-      cout << "source: ";
+      (void)0;
       s.printNode();
-      cout << " - first: " ;
+      (void)0;
       first.printNode();
-      cout << " - second: " ;
+      (void)0;
       second.printNode();
-      cout << endl ;
+      (void)0;
     }
 
     if ( !map.isPathObstructed(s.getX(), s.getY(), second.getX(), second.getY()) &&
@@ -48,13 +48,13 @@ void PathPlanner::smoothPath(list<int>& pathCalc, Node s, Node t){
     iter++;
 
     if ( PATH_DEBUG ){
-      cout << "onebeforelast: ";
+      (void)0;
       onebeforelast.printNode();
-      cout << " - last: " ;
+      (void)0;
       last.printNode();
-      cout << " - target: " ;
+      (void)0;
       t.printNode();
-      cout << endl;
+      (void)0;
     }
 
     if ( !map.isPathObstructed(onebeforelast.getX(), onebeforelast.getY(), t.getX(), t.getY()) &&
@@ -67,7 +67,7 @@ void PathPlanner::smoothPath(list<int>& pathCalc, Node s, Node t){
   }
 
   if ( PATH_DEBUG ) {
-    cout << "after smoothing: " << endl;
+    (void)0;
     printPath(pathCalc);
   }
 }
@@ -79,7 +79,7 @@ void PathPlanner::printPath(){
   list<int>::iterator it;
   for ( it = path.begin(); it != path.end(); it++ ){
     navGraph->getNode(*it).printNode() ;
-    cout << endl;
+    (void)0;
   }
 }
 
@@ -87,7 +87,7 @@ void PathPlanner::printPath(list<int> p){
   list<int>::iterator it ;
   for ( it = p.begin(); it != p.end(); it++ ){
     navGraph->getNode(*it).printNode() ;
-    cout << endl;
+    (void)0;
   }
 }
 
@@ -97,11 +97,11 @@ void PathPlanner::printPath(list<pair<int,int> > p) {
   for ( it = p.begin(); it != p.end(); it++ ){
     int nodeId = navGraph->getNodeID(it->first, it->second);
     if ( nodeId == -1 ) {
-      cout << "Not a graph node - (" << it->first << ", " << it->second << ")" << endl;
+      (void)0;
     }
     else {
       navGraph->getNode(nodeId).printNode() ;
-      cout << endl;
+      (void)0;
     }
   }
 }

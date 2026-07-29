@@ -51,6 +51,7 @@ find_package(geometry_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(sensor_msgs REQUIRED)
+find_package(semaforr_msgs REQUIRED)
 find_package(social_context_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(tf2 REQUIRED)
@@ -66,6 +67,7 @@ set(SEMAFORR_CORE_DOMAIN_SOURCES
   src/core/FORRGeometry.cpp
   src/core/Position.cpp
   src/domain/CrowdModel.cpp
+  src/decision/DecisionResult.cpp
   src/decision/LearnedCrowdAdvisor.cpp
   src/decision/SocialAdvisorRegistry.cpp
   src/social/CrowdFieldLearner.cpp
@@ -209,6 +211,7 @@ ament_target_dependencies(semaforr_ros_adapters
   nav_msgs
   rclcpp
   sensor_msgs
+  semaforr_msgs
   social_context_msgs
   std_msgs
   tf2
@@ -386,6 +389,13 @@ if(BUILD_TESTING)
   semaforr_apply_project_options(semaforr_decision_coordinator_test)
 
   ament_add_gtest(
+    semaforr_decision_record_test
+    test/unit/decision_record_test.cpp
+  )
+  target_link_libraries(semaforr_decision_record_test semaforr_domain)
+  semaforr_apply_project_options(semaforr_decision_record_test)
+
+  ament_add_gtest(
     semaforr_domain_planning_test
     test/unit/domain_planning_test.cpp
   )
@@ -483,6 +493,10 @@ if(BUILD_TESTING)
     test/contracts/test_social_navigation_contract.py
     ENV "SEMAFORR_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
   )
+  ament_add_pytest_test(semaforr_observability_contract_test
+    test/contracts/test_observability_contract.py
+    ENV "SEMAFORR_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
+  )
 endif()
 
 ament_export_targets(export_${PROJECT_NAME} HAS_LIBRARY_TARGET)
@@ -491,6 +505,7 @@ ament_export_dependencies(
   nav_msgs
   rclcpp
   sensor_msgs
+  semaforr_msgs
   social_context_msgs
   std_msgs
   tf2

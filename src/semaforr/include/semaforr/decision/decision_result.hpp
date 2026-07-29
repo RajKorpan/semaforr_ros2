@@ -1,11 +1,14 @@
 #ifndef SEMAFORR_DECISION_DECISION_RESULT_HPP
 #define SEMAFORR_DECISION_DECISION_RESULT_HPP
 
+#include <cstdint>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include <semaforr/domain/action.hpp>
+#include <semaforr/domain/geometry.hpp>
 
 namespace semaforr::decision {
 
@@ -16,6 +19,26 @@ enum class DecisionSource {
   Exploration,
   Fallback,
   SafeStop
+};
+
+enum class DecisionTier {
+  TierOne,
+  TierTwo,
+  TierThree,
+  Exploration,
+  Fallback,
+  SafeStop
+};
+
+enum class ActionOutcome {
+  Pending,
+  Completed,
+  TimedOut,
+  OdometryReset,
+  ClockReset,
+  Cancelled,
+  SensorLost,
+  Shutdown
 };
 
 struct Veto {
@@ -37,28 +60,38 @@ struct AdvisorContribution {
   bool operator==(const AdvisorContribution&) const = default;
 };
 
-// Compatibility diagnostics keep the legacy log format available while callers
-// migrate to the typed veto and contribution collections above.
-struct DecisionDiagnostics {
-  double legacy_tier{0.0};
-  std::string veto_summary;
-  std::string advisor_summary;
-  std::string advisor_comments;
-  std::string advisor_influence;
-  double planning_seconds{0.0};
-  double learning_seconds{0.0};
-  double graphing_seconds{0.0};
-  std::string planner_comments;
+struct TaskDiagnostic {
+  std::uint64_t task_index{0U};
+  std::uint64_t decision_count{0U};
+  domain::Point2D target;
+  std::optional<domain::Point2D> waypoint;
+
+  bool operator==(const TaskDiagnostic&) const = default;
 };
 
 struct DecisionResult {
+  std::uint64_t sequence{0U};
+  domain::Pose2D robot_pose;
+  std::optional<TaskDiagnostic> task;
+  std::vector<domain::Action> candidates;
   domain::Action action{domain::Action::pause()};
   DecisionSource source{DecisionSource::SafeStop};
+  DecisionTier tier{DecisionTier::SafeStop};
+  std::string selected_policy;
   std::vector<Veto> vetoes;
   std::vector<AdvisorContribution> contributions;
   std::optional<std::string> planner;
-  DecisionDiagnostics diagnostics;
+  double decision_latency_s{0.0};
+  ActionOutcome action_outcome{ActionOutcome::Pending};
+  double action_duration_s{0.0};
+  double action_progress{0.0};
+  double action_target{0.0};
+  std::string outcome_detail;
 };
+
+std::string_view toString(DecisionSource source) noexcept;
+std::string_view toString(DecisionTier tier) noexcept;
+std::string_view toString(ActionOutcome outcome) noexcept;
 
 }  // namespace semaforr::decision
 

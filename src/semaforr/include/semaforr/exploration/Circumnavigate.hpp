@@ -80,7 +80,7 @@ public:
 				min_distance = new_laser.ranges[i];
 			}
 		}
-		cout << "min_distance " << min_distance << endl;
+    (void)0;
 		visited_grid[(int)(new_pose.getX())][(int)(new_pose.getY())] = 1;
 		visited_grid[(int)(new_pose.getX()+min_distance)][(int)(new_pose.getY())] = 1;
 		visited_grid[(int)(new_pose.getX())][(int)(new_pose.getY()+min_distance)] = 1;
@@ -90,12 +90,12 @@ public:
 		visited_grid[(int)(new_pose.getX()+min_distance)][(int)(new_pose.getY()-min_distance)] = 1;
 		visited_grid[(int)(new_pose.getX()-min_distance)][(int)(new_pose.getY()+min_distance)] = 1;
 		visited_grid[(int)(new_pose.getX()-min_distance)][(int)(new_pose.getY()-min_distance)] = 1;
-		cout << "Visited grid" << endl;
+    (void)0;
 		for(int i = 0; i < visited_grid[0].size(); i++){
 			for(int j = 0; j < visited_grid.size(); j++){
-				cout << visited_grid[j][i] << " ";
+        (void)0;
 			}
-			cout << endl;
+      (void)0;
 		}
 	}
 
@@ -103,7 +103,7 @@ public:
 		bool decisionMade = false;
 		CartesianPoint task(beliefs->getAgentState()->getCurrentTask()->getTaskX(),beliefs->getAgentState()->getCurrentTask()->getTaskY());
 		Position currentPosition = beliefs->getAgentState()->getCurrentPosition();
-		cout << "Target = " << task.get_x() << " " << task.get_y() << " Current Position = " << currentPosition.getX() << " " << currentPosition.getY() << " " << currentPosition.getTheta() << endl;
+    (void)0;
 		addToStack(beliefs->getAgentState()->getCurrentPosition(), beliefs->getAgentState()->getCurrentLaserScan());
 		if(foundAlignmentPoint == false){
 			CartesianPoint potentialAlignmentPoint1 = CartesianPoint(task.get_x(), currentPosition.getY());
@@ -113,12 +113,12 @@ public:
 			if(can_see_1){
 				foundAlignmentPoint = true;
 				alignmentPoints.push_back(Position(potentialAlignmentPoint1.get_x(), potentialAlignmentPoint1.get_y(), 0));
-				cout << "alignmentPoint 1 = " << potentialAlignmentPoint1.get_x() << " " << potentialAlignmentPoint1.get_y() << endl;
+        (void)0;
 			}
 			if(can_see_2){
 				foundAlignmentPoint = true;
 				alignmentPoints.push_back(Position(potentialAlignmentPoint2.get_x(), potentialAlignmentPoint2.get_y(), 0));
-				cout << "alignmentPoint 2 = " << potentialAlignmentPoint2.get_x() << " " << potentialAlignmentPoint2.get_y() << endl;
+        (void)0;
 			}
 			if(foundAlignmentPoint == true){
 				currentAlignmentPoint = alignmentPoints[0];
@@ -134,9 +134,9 @@ public:
 				required_rotation = required_rotation - (2*M_PI);
 			if(required_rotation < -M_PI)
 				required_rotation = required_rotation + (2*M_PI);
-			cout << "robot_direction " << robot_direction << " goal_direction " << goal_direction << " required_rotation " << required_rotation << " distance " << currentPosition.getDistance(currentAlignmentPoint) << endl;
+      (void)0;
 			if(currentPosition.getDistance(currentAlignmentPoint) > 0.75){
-				cout << "move towards currentAlignmentPoint" << endl;
+        (void)0;
 				CartesianPoint align(currentAlignmentPoint.getX(),currentAlignmentPoint.getY());
 				(*decision) = beliefs->getAgentState()->moveTowards(align);
 				FORRAction forward = beliefs->getAgentState()->maxForwardAction();
@@ -146,13 +146,13 @@ public:
 						decisionMade = false;
 					}
 					else{
-						cout << "Circumnavigate advisor to take decision" << endl;
+            (void)0;
 						decisionMade = true;
 					}
 				}
 			}
 			else if(fabs(required_rotation) > 0.174532925){
-				cout << "rotate to face target" << endl;
+        (void)0;
 				int rotIntensity=0;
 				while(fabs(required_rotation) > rotate[rotIntensity] and rotIntensity < numRotates) {
 					rotIntensity++;
@@ -169,18 +169,18 @@ public:
 						decisionMade = false;
 					}
 					else{
-						cout << "Circumnavigate advisor to take decision" << endl;
+            (void)0;
 						decisionMade = true;
 					}
 				}
 			}
 			else{
-				cout << "on currentAlignmentPoint and facing target" << endl;
+        (void)0;
 				gotToAlignmentPoint = true;
 			}
 		}
 		if(foundAlignmentPoint == true and gotToAlignmentPoint == true and checkedForOpeningPoint == false){
-			cout << "on alignmentpoint, look for opening" << endl;
+      (void)0;
 			set<FORRAction> *vetoed_actions = beliefs->getAgentState()->getVetoedActions();
 			double robot_direction = currentPosition.getTheta();
 			double goal_direction = atan2((task.get_y() - currentPosition.getY()), (task.get_x() - currentPosition.getX()));
@@ -204,19 +204,19 @@ public:
 			for(int i = 0; i < laserGrid.size(); i++){
 				for(int j = 0; j < laserGrid[i].size(); j++){
 					if(i == (int)(currentPosition.getX()) and j == (int)(currentPosition.getY())){
-						cout << 2 << " ";
+            (void)0;
 					}
 					else if(i == (int)(task.get_x()) and j == (int)(task.get_y())){
-						cout << 3 << " ";
+            (void)0;
 					}
 					else{
-						cout << laserGrid[i][j] << " ";
+            (void)0;
 					}
 				}
-				cout << endl;
+        (void)0;
 			}
 			if(fabs(robot_direction) > M_PI/4 and fabs(robot_direction) < 3*M_PI/4){
-				cout << "facing north or south" << endl;
+        (void)0;
 				int start_row = (int)(currentLaserEndpoints[(int)(currentLaserEndpoints.size()/2)].get_x());
 				int col = (int)(currentLaserEndpoints[(int)(currentLaserEndpoints.size()/2)].get_y());
 				int end_row_r = start_row;
@@ -233,26 +233,26 @@ public:
 					value = laserGrid[end_row_l][col];
 				}
 				end_row_l = end_row_l + 1;
-				cout << "col " << col << " start_row " << start_row << " end_row_l " << end_row_l << " end_row_r " << end_row_r << endl;
+        (void)0;
 				if(laserGrid[end_row_r+1][col-1] == 0 and laserGrid[end_row_r+1][col] == 0 and laserGrid[end_row_r+1][col+1] == 0){
-					cout << "found an opening 1 " << end_row_r+1 << " " << col << endl;
+          (void)0;
 					foundOpeningPoint = true;
 					openingPoints.push_back(Position(end_row_r+1, col, 0));
 					openingPointsAligns.push_back(Position(end_row_r+1, currentPosition.getY(), currentPosition.getTheta()));
 				}
 				else if(laserGrid[end_row_l-1][col-1] == 0 and laserGrid[end_row_l-1][col] == 0 and laserGrid[end_row_l-1][col+1] == 0){
-					cout << "found an opening 2 " << end_row_l-1 << " " << col << endl;
+          (void)0;
 					foundOpeningPoint = true;
 					openingPoints.push_back(Position(end_row_l-1, col, 0));
 					openingPointsAligns.push_back(Position(end_row_l-1, currentPosition.getY(), currentPosition.getTheta()));
 				}
 				else{
-					cout << "no opening visible" << endl;
+          (void)0;
 					foundOpeningPoint = false;
 				}
 			}
 			else{
-				cout << "facing east or west" << endl;
+        (void)0;
 				int row = (int)(currentLaserEndpoints[(int)(currentLaserEndpoints.size()/2)].get_x());
 				int start_col = (int)(currentLaserEndpoints[(int)(currentLaserEndpoints.size()/2)].get_y());
 				int end_col_r = start_col;
@@ -269,21 +269,21 @@ public:
 					value = laserGrid[row][end_col_l];
 				}
 				end_col_l = end_col_l + 1;
-				cout << "row " << row << " start_col " << start_col << " end_col_l " << end_col_l << " end_col_r " << end_col_r << endl;
+        (void)0;
 				if(laserGrid[row-1][end_col_l-1] == 0 and laserGrid[row][end_col_l-1] == 0 and laserGrid[row+1][end_col_l-1] == 0){
-					cout << "found an opening 1 " << row << " " << end_col_l-1 << endl;
+          (void)0;
 					foundOpeningPoint = true;
 					openingPoints.push_back(Position(row, end_col_l-1, 0));
 					openingPointsAligns.push_back(Position(currentPosition.getX(), end_col_l-1, currentPosition.getTheta()));
 				}
 				else if(laserGrid[row-1][end_col_r+1] == 0 and laserGrid[row][end_col_r+1] == 0 and laserGrid[row+1][end_col_r+1] == 0){
-					cout << "found an opening 2" << endl;
+          (void)0;
 					foundOpeningPoint = true;
 					openingPoints.push_back(Position(row, end_col_r+1, 0));
 					openingPointsAligns.push_back(Position(currentPosition.getX(), end_col_r+1, currentPosition.getTheta()));
 				}
 				else{
-					cout << "no opening visible" << endl;
+          (void)0;
 					foundOpeningPoint = false;
 				}
 			}
@@ -299,9 +299,9 @@ public:
 			set<FORRAction> *vetoed_actions = beliefs->getAgentState()->getVetoedActions();
 			if(openingPointAligned == false){
 				set<FORRAction> *vetoed_actions = beliefs->getAgentState()->getVetoedActions();
-				cout << "distance " << currentPosition.getDistance(currOpeningPointAlign) << endl;
+        (void)0;
 				if(currentPosition.getDistance(currOpeningPointAlign) > 0.5 and beliefs->getAgentState()->canSeePoint(CartesianPoint(currOpeningPointAlign.getX(),currOpeningPointAlign.getY()), 25)){
-					cout << "move towards currOpeningPointAlign" << endl;
+          (void)0;
 					CartesianPoint align(currOpeningPointAlign.getX(),currOpeningPointAlign.getY());
 					(*decision) = beliefs->getAgentState()->moveTowards(align);
 					FORRAction forward = beliefs->getAgentState()->maxForwardAction();
@@ -311,17 +311,17 @@ public:
 							decisionMade = false;
 						}
 						else{
-							cout << "Circumnavigate advisor to take decision" << endl;
+              (void)0;
 							decisionMade = true;
 						}
 					}
 				}
 				else if(currentPosition.getDistance(currOpeningPointAlign) <= 0.5){
-					cout << "on currOpeningPointAlign" << endl;
+          (void)0;
 					openingPointAligned = true;
 				}
 				else if(!beliefs->getAgentState()->canSeePoint(CartesianPoint(currOpeningPointAlign.getX(),currOpeningPointAlign.getY()), 25)){
-					cout << "move forward" << endl;
+          (void)0;
 					CartesianPoint align;
 					if(currentOpeningPoint.getX() == currOpeningPointAlign.getX()){
 						align = CartesianPoint(currOpeningPointAlign.getX(), currentPosition.getY());
@@ -338,14 +338,14 @@ public:
 							decisionMade = false;
 						}
 						else{
-							cout << "Circumnavigate advisor to take decision" << endl;
+              (void)0;
 							decisionMade = true;
 						}
 					}
 				}
 			}
 			else{
-				cout << "move towards currentOpeningPoint" << endl;
+        (void)0;
 				CartesianPoint align(currentOpeningPoint.getX(),currentOpeningPoint.getY());
 				(*decision) = beliefs->getAgentState()->moveTowards(align);
 				FORRAction forward = beliefs->getAgentState()->maxForwardAction();
@@ -355,14 +355,14 @@ public:
 						decisionMade = false;
 					}
 					else{
-						cout << "Circumnavigate advisor to take decision" << endl;
+            (void)0;
 						decisionMade = true;
 					}
 				}
 			}
 		}
 		else if(foundAlignmentPoint == true and gotToAlignmentPoint == true and checkedForOpeningPoint == true and foundOpeningPoint == false){
-			cout << "no opening point" << endl;
+      (void)0;
 		}
 
 
@@ -576,7 +576,7 @@ public:
 		// 		decisionMade = false;
 		// 	}
 		// }
-		cout << "decisionMade " << decisionMade << endl;
+    (void)0;
 		return decisionMade;
 	}
 

@@ -234,9 +234,9 @@ public:
       // }
       /*for(int i = 0; i < boxes_width; i++){
         for(int j = 0; j < boxes_height; j++){
-          cout << posHistMapNorm[i][j] << " ";
+          (void)0;
         }
-        cout << endl;
+        (void)0;
       }*/
     }
   }

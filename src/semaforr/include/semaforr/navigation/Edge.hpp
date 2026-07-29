@@ -69,10 +69,7 @@ public:
   bool isUsable() { return usable; }
 
   void printEdge() const{
-    cout << "<EDGE-From Node:" << from 
-	 << " -To Node:" << to 
-	 << " - Costfromto: " << costfromto 
-	 << " - Costtofrom: " << costtofrom << " >" << endl;
+    (void)0;
   }
 }; 
 

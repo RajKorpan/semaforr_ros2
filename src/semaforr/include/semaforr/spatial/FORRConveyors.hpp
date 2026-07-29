@@ -30,7 +30,7 @@ class FORRConveyors{
   //Constructor
   FORRConveyors(double width, double height, double granularity_para){
 	granularity = granularity_para;  
-  	cout << "Initialize conveyors by setting up the grid"<<endl;
+    (void)0;
   	boxes_width = width/granularity;
   	boxes_height = height/granularity;
   	map_height = height;
@@ -42,7 +42,7 @@ class FORRConveyors{
     		}
     		conveyors.push_back(col);
   	}
-  	cout << "Exit setgrid."<<endl;
+    (void)0;
   	max_grid_value = 0;
   }
 

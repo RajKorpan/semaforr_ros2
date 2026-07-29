@@ -2,9 +2,11 @@
 #define SEMAFORR_DECISION_DECISION_TIER_H
 
 #include <string>
+#include <vector>
 
 #include <semaforr/core/FORRAction.hpp>
 #include <semaforr/core/Position.hpp>
+#include <semaforr/decision/decision_result.hpp>
 
 namespace semaforr {
 namespace decision {
@@ -12,9 +14,8 @@ namespace decision {
 struct TierOneResult {
   bool decided = false;
   FORRAction action;
-  double decision_tier = 0.0;
-  bool vetoes_recorded = false;
-  std::string vetoed_actions;
+  std::string selected_policy;
+  std::vector<Veto> vetoes;
 };
 
 class TierOneDecision {
@@ -26,7 +27,6 @@ public:
 struct TierTwoResult {
   bool plan_selected = false;
   std::string chosen_planner;
-  std::string planner_comments;
   double computation_time_seconds = 0.0;
 };
 
@@ -37,9 +37,9 @@ public:
 };
 
 struct TierThreeResult {
+  bool selected = false;
   FORRAction action;
-  std::string advisors;
-  std::string advisor_comments;
+  std::vector<AdvisorContribution> contributions;
 };
 
 class TierThreeDecision {

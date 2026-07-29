@@ -10,6 +10,7 @@
 #include <time.h>
 #include <math.h>
 #include <memory>
+#include <cstdint>
 #include <vector>
 #include <utility>
 
@@ -114,7 +115,7 @@ public:
 private:
 
   //FORR decision loop and tiers
-  FORRAction FORRDecision();
+  semaforr::decision::DecisionResult FORRDecision();
 
   FORRActionStats decisionStats;
   
@@ -180,6 +181,7 @@ private:
   std::unique_ptr<semaforr::decision::TierOneDecision> tierOneDecision;
   std::unique_ptr<semaforr::decision::TierTwoDecision> tierTwoDecision;
   std::unique_ptr<semaforr::decision::TierThreeDecision> tierThreeDecision;
+  std::uint64_t decisionSequence = 0U;
 };
   
 #endif /* CONTROLLER_H */

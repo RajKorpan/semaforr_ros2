@@ -91,7 +91,7 @@ public:
                 min_radius = regions[i].getRadius();
             }
         }
-        std::cout << "Min Radius " << min_radius << std::endl;
+        (void)0;
     
         float min_exits = std::numeric_limits<double>::infinity();
         for (int i = 0; i < regions.size(); i++) {
@@ -99,7 +99,7 @@ public:
                 min_exits = regions[i].getExits().size();
             }
         }
-        std::cout << "Min Exits " << min_exits << std::endl;
+        (void)0;
     
         double numArcs=0, numRegionWithExits=0, avgArcSize, totalArcLength=0, avgArcLength;
     
@@ -112,14 +112,14 @@ public:
         }
 
         avgArcSize = (2 * M_PI * numRegionWithExits) / numArcs;
-        std::cout << "Num Arcs " << numArcs << " Total Arc Size " << (2 * M_PI * numRegionWithExits) << " Avg Arc Size " << avgArcSize << std::endl;
+        (void)0;
         avgArcLength = totalArcLength / numArcs;
-        std::cout << "Num Arcs " << numArcs << " Total Arc Length " << totalArcLength << " Avg Arc Length " << avgArcLength << std::endl;
+        (void)0;
         */
         for (int i = 0; i < regions.size(); i++) {
             std::vector<Door> regionDoors;
             vector< std::pair<double, FORRExit> > exitAngles = calculateExitAngles(regions[i]);
-            std::cout << "Number of exits for region " << i << " = " << exitAngles.size() << std::endl;
+            (void)0;
             //Door will be considered for regions with two exit points and above
             if (regions[i].getExits().size() >= 2) {
                 //A formula to calculate the maximum allowed distance between two points in radians
@@ -146,7 +146,7 @@ public:
                 //float epsilon = 1 / (1 + ((2 * M_PI * regions[i].getRadius()) / regions[i].getExits().size()));
                 //float epsilon = avgArcLength / regions[i].getRadius();
                 //std::cout << "Radius " << regions[i].getRadius() << " Epsilon " << epsilon << std::endl;
-                std::cout << epsilon << std::endl;
+                (void)0;
                 
                 vector< std::pair<double, FORRExit> >::iterator idx = exitAngles.begin();
                 Door doorToPush(FORRExit(CartesianPoint(-1,-1),CartesianPoint(-1,-1),CartesianPoint(-1,-1),-1, 0, 0, vector<CartesianPoint>()), FORRExit(CartesianPoint(-1,-1),CartesianPoint(-1,-1),CartesianPoint(-1,-1),-1, 0, 0, vector<CartesianPoint>()), 0);
@@ -224,9 +224,9 @@ public:
                     }
                 }
             }
-            std::cout << "regionDoors.size() = " << regionDoors.size() << std::endl;
+            (void)0;
             doors.push_back(regionDoors);
-            std::cout << "doors.size() = " << doors.size() << std::endl;
+            (void)0;
         }
     }
 

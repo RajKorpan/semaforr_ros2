@@ -26,7 +26,7 @@ class FORRExit{
   }
 
   void print(){
-    cout << exitPoint.get_x() << " " << exitPoint.get_y() << " " << exitRegion << endl;
+    (void)0;
   }
     
   double distance(CartesianPoint point1, CartesianPoint point2){

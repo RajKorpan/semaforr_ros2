@@ -134,13 +134,13 @@ public:
 		if(time >= time_threshold){
 			frontiers_complete = true;
 			if(time <= time_threshold+10){
-				cout << "Frontier grid" << endl;
+        (void)0;
 				for(int i = 0; i < frontier_grid[0].size(); i++){
-					cout << "final_grid ";
+          (void)0;
 					for(int j = 0; j < frontier_grid.size(); j++){
-						cout << frontier_grid[j][i] << " ";
+            (void)0;
 					}
-					cout << endl;
+          (void)0;
 				}
 			}
 		}
@@ -168,7 +168,7 @@ public:
 	}
 
 	vector< vector<Position> > getRemainingFrontierStack(){
-		cout << "getRemainingFrontierStack " << frontier_stack.size() << endl;
+    (void)0;
 		vector< vector<Position> > hwst;
 		for(int i = 0; i < frontier_stack.size(); i++){
 			vector<Position> pair_points;
@@ -176,7 +176,7 @@ public:
 			pair_points.push_back(frontier_stack[i]);
 			hwst.push_back(pair_points);
 		}
-		cout << "hwst " << hwst.size() << endl;
+    (void)0;
 		return hwst;
 	}
 
@@ -196,10 +196,10 @@ public:
 	  Position current_point,
 	  const semaforr::domain::LaserScan& current_laser){
 		Position current_position = current_point;
-		cout << "current_position " << current_position.getX() << " " << current_position.getY() << endl;
+    (void)0;
 		position_history.push_back(current_position);
 		traveled_grid[(int)(current_position.getX())][(int)(current_position.getY())] = 1;
-		cout << "after traveled_grid" << endl;
+    (void)0;
 		double start_angle = current_laser.angle_min;
 		double increment = current_laser.angle_increment;
 		double r_x = current_position.getX();
@@ -208,7 +208,7 @@ public:
 		double middle_distance = 0;
 		double middle_distance_min = 50;
 		vector<CartesianPoint> laserEndpoints;
-		cout << "before laserEndpoints" << endl;
+    (void)0;
 		for(int i = 0; i < current_laser.ranges.size(); i++){
 			double angle = start_angle + r_ang;
 			laserEndpoints.push_back(CartesianPoint(r_x + current_laser.ranges[i]*cos(angle), r_y + current_laser.ranges[i]*sin(angle)));
@@ -220,13 +220,13 @@ public:
 			}
 			start_angle = start_angle + increment;
 		}
-		cout << "after laserEndpoints " << laserEndpoints.size() << endl;
+    (void)0;
 		middle_distance = middle_distance / 271.0;
-		cout << "middle_distance " << middle_distance << " middle_distance_min " << middle_distance_min << endl;
+    (void)0;
 		laserEndpoints_history.push_back(laserEndpoints);
 		int startx = (int)(current_position.getX());
 		int starty = (int)(current_position.getY());
-		cout << "startx " << startx << " starty " << starty << endl;
+    (void)0;
 		for(int j = 0; j < laserEndpoints.size(); j++){
 			int ex = (int)(laserEndpoints[j].get_x());
 			int ey = (int)(laserEndpoints[j].get_y());
@@ -273,7 +273,7 @@ public:
 				}
 			}
 		}
-		cout << "before ratio_grid" << endl;
+    (void)0;
 		vector< vector<double> > ratio_grid;
 		for(int i = 0; i < length; i++){
 			vector<double> col;
@@ -293,7 +293,7 @@ public:
 				// cout << i << " " << j << " passed_grid " << passed_grid[i][j] << " hit_grid " << hit_grid[i][j] << " ratio_grid " << ratio_grid[i][j] << endl;
 			}
 		}
-		cout << "after ratio_grid" << endl;
+    (void)0;
 		for(int i = 0; i < ratio_grid.size(); i++){
 			for(int j = 0; j < ratio_grid[i].size(); j++){
 				if(ratio_grid[i][j] >= 0.75 and frontier_grid[i][j] == -1){
@@ -310,7 +310,7 @@ public:
 				}
 			}
 		}
-		cout << "updated frontier_grid" << endl;
+    (void)0;
 		for(int i = 0; i < frontier_grid.size(); i++){
 			for(int j = 0; j < frontier_grid[i].size(); j++){
 				if(stack_grid[i][j] == -1 and frontier_grid[i][j] == 0 and traveled_grid[i][j] == -1){
@@ -343,11 +343,11 @@ public:
 				}
 			}
 		}
-		cout << "updated stack_grid " << frontier_stack.size() << endl;
+    (void)0;
 		
 		// If the beginning then spin 360 degrees to add to stack
 		if(start_rotations < 72){
-			cout << "start_rotations " << start_rotations << endl;
+      (void)0;
 			start_rotations = start_rotations + 1;
 			return FORRAction(RIGHT_TURN, 1);
 		}
@@ -355,7 +355,7 @@ public:
 			start_rotations = start_rotations + 1;
 			top_point = frontier_stack_view[0];
 			current_target = frontier_stack[0];
-			cout << "Top point " << top_point.getX() << " " << top_point.getY() << endl;
+      (void)0;
 			frontier_stack.erase(frontier_stack.begin());
 			frontier_stack_view.erase(frontier_stack_view.begin());
 			top_point_decisions = 0;
@@ -366,57 +366,57 @@ public:
 			return FORRAction(FORWARD, 0);
 		}
 		// Once there are items on the stack, pop the top and start to go towards
-		cout << "current_target " << current_target.getX() << " " << current_target.getY() << endl;
-		cout << "top_point_decisions " << top_point_decisions << endl;
-		cout << "frontier_stack.size() " << frontier_stack.size() << endl;
-		cout << "position_history " << position_history.size() << endl;
+    (void)0;
+    (void)0;
+    (void)0;
+    (void)0;
 
 		double dist_to_current_target = current_target.getDistance(current_position);
 
 		if(((dist_to_current_target <= 0.5 or middle_distance <= 0.5 or middle_distance_min <= 0.3) and go_to_top_point == false) or top_point_decisions == decision_limit){
-			cout << "Decision limit reached " << top_point_decisions << endl;
-			cout << "Reached current target " << dist_to_current_target << endl;
-			cout << "Too close in front " << middle_distance << endl;
+      (void)0;
+      (void)0;
+      (void)0;
 			// Stop current point and go to next on stack
-			cout << "Frontier grid" << endl;
+      (void)0;
 			for(int i = 0; i < frontier_grid[0].size(); i++){
 				for(int j = 0; j < frontier_grid.size(); j++){
 					if(i == (int)(current_position.getY()) and j == (int)(current_position.getX())){
-						cout << "[" << frontier_grid[j][i] << "] "; 
+            (void)0;
 					}
 					else{
-						cout << frontier_grid[j][i] << " ";
+            (void)0;
 					}
 				}
-				cout << endl;
+        (void)0;
 			}
-			cout << "stack_grid" << endl;
+      (void)0;
 			for(int i = 0; i < stack_grid[0].size(); i++){
 				for(int j = 0; j < stack_grid.size(); j++){
 					if(i == (int)(current_position.getY()) and j == (int)(current_position.getX())){
-						cout << "[" << stack_grid[j][i] << "] "; 
+            (void)0;
 					}
 					else{
-						cout << stack_grid[j][i] << " ";
+            (void)0;
 					}
 				}
-				cout << endl;
+        (void)0;
 			}
-			cout << "traveled_grid" << endl;
+      (void)0;
 			for(int i = 0; i < traveled_grid[0].size(); i++){
 				for(int j = 0; j < traveled_grid.size(); j++){
 					if(i == (int)(current_position.getY()) and j == (int)(current_position.getX())){
-						cout << "[" << traveled_grid[j][i] << "] "; 
+            (void)0;
 					}
 					else{
-						cout << traveled_grid[j][i] << " ";
+            (void)0;
 					}
 				}
-				cout << endl;
+        (void)0;
 			}
 			// After finishing point on stack, pop next one
 			if(frontier_stack.size() > 0){
-				cout << "Going to top point on stack" << endl;
+        (void)0;
 				bool visited = true;
 				while(visited and frontier_stack.size() > 0){
 					top_point = frontier_stack_view[0];
@@ -458,7 +458,7 @@ public:
 				return FORRAction(RIGHT_TURN, 1);
 			}
 			else{
-				cout << "No more in stack" << endl;
+        (void)0;
 				go_to_top_point = false;
 				frontiers_complete = true;
 				return FORRAction(FORWARD, 0);
@@ -467,24 +467,24 @@ public:
 
 		if(go_to_top_point == true){
 			// cout << "Go to top point" << endl;
-			cout << "Top point " << top_point.getX() << " " << top_point.getY() << endl;
+      (void)0;
 			double dist_to_top_point = top_point.getDistance(current_position);
 			bool can_access_top_point = canAccessPoint(laserEndpoints, CartesianPoint(current_position.getX(), current_position.getY()), CartesianPoint(top_point.getX(), top_point.getY()), 5);
-			cout << "Distance to top point " << dist_to_top_point << " current theta " << current_position.getTheta() << endl;
+      (void)0;
 
 			if(dist_to_top_point <= 0.5){
-				cout << "Top point achieved, go towards current_target" << endl;
+        (void)0;
 				go_to_top_point = false;
 				top_point_decisions = 0;
 				return goTowardsPoint(current_position, current_target, middle_distance_min);
 			}
 			else if(dist_to_top_point <= 1 and can_access_top_point){
-				cout << "Top point close, go towards" << endl;
+        (void)0;
 				top_point_decisions++;
 				return goTowardsPoint(current_position, top_point, middle_distance_min);
 			}
 			else if(path_to_top_point.size() > 0){
-				cout << "Top point not in range, go to top point by following path" << endl;
+        (void)0;
 				waypointAchieved(current_position);
 				if(path_to_top_point.size() == 0){
 					top_point_decisions++;
@@ -493,7 +493,7 @@ public:
 				else{
 					bool can_access_waypoint = canAccessPoint(laserEndpoints, CartesianPoint(current_position.getX(), current_position.getY()), CartesianPoint(path_to_top_point[0][0], path_to_top_point[0][1]), 10);
 					if(can_access_waypoint){
-						cout << "Can Access Current waypoint " << path_to_top_point[0][0] << " " << path_to_top_point[0][1] << endl;
+            (void)0;
 						top_point_decisions++;
 						return goTowardsPoint(current_position, Position(path_to_top_point[0][0], path_to_top_point[0][1], 0), middle_distance_min);
 					}
@@ -503,14 +503,14 @@ public:
 							num = num + 1;
 							can_access_waypoint = canAccessPoint(laserEndpoints, CartesianPoint(current_position.getX(), current_position.getY()), CartesianPoint(path_to_top_point[num][0], path_to_top_point[num][1]), 10);
 						}
-						cout << "num " << num << " can_access_waypoint " << can_access_waypoint << endl;
+            (void)0;
 						if(can_access_waypoint){
-							cout << "New Access waypoint " << path_to_top_point[num][0] << " " << path_to_top_point[num][1] << endl;
+              (void)0;
 							top_point_decisions++;
 							return goTowardsPoint(current_position, Position(path_to_top_point[num][0], path_to_top_point[num][1], 0), middle_distance_min);
 						}
 						else{
-							cout << "Try Current waypoint " << path_to_top_point[0][0] << " " << path_to_top_point[0][1] << endl;
+              (void)0;
 							top_point_decisions++;
 							return goTowardsPoint(current_position, Position(path_to_top_point[0][0], path_to_top_point[0][1], 0), middle_distance_min);
 						}
@@ -518,7 +518,7 @@ public:
 				}
 			}
 			else{
-				cout << "find path to top point" << endl;
+        (void)0;
 				findPathFromHistory(current_position, top_point);
 				// cout << "Current waypoint " << path_to_top_point[0][0] << " " << path_to_top_point[0][1] << endl;
 				if(path_to_top_point.size() > 0){
@@ -535,16 +535,16 @@ public:
 			}
 		}
 		else{
-			cout << "Going to current_target " << current_target.getX() << " " << current_target.getY() << endl;
+      (void)0;
 			// cout << "Current grid value " << frontier_grid[(int)(current_position.getX())][(int)(current_position.getY())] << endl;
 			bool can_access_current_target = canAccessPoint(laserEndpoints, CartesianPoint(current_position.getX(), current_position.getY()), CartesianPoint(current_target.getX(), current_target.getY()), 5);
 			if(can_access_current_target){
-				cout << "Can access current target" << endl;
+        (void)0;
 				top_point_decisions++;
 				return goTowardsPoint(current_position, current_target, middle_distance_min);
 			}
 			else if(path_to_current_target.size() > 0){
-				cout << "current target not in range, go to current target by following path" << endl;
+        (void)0;
 				waypointAchieved(current_position);
 				if(path_to_current_target.size() == 0){
 					top_point_decisions++;
@@ -553,7 +553,7 @@ public:
 				else{
 					bool can_access_waypoint = canAccessPoint(laserEndpoints, CartesianPoint(current_position.getX(), current_position.getY()), CartesianPoint(path_to_current_target[0][0], path_to_current_target[0][1]), 10);
 					if(can_access_waypoint){
-						cout << "Can Access Current waypoint " << path_to_current_target[0][0] << " " << path_to_current_target[0][1] << endl;
+            (void)0;
 						top_point_decisions++;
 						return goTowardsPoint(current_position, Position(path_to_current_target[0][0], path_to_current_target[0][1], 0), middle_distance_min);
 					}
@@ -563,14 +563,14 @@ public:
 							num = num + 1;
 							can_access_waypoint = canAccessPoint(laserEndpoints, CartesianPoint(current_position.getX(), current_position.getY()), CartesianPoint(path_to_current_target[num][0], path_to_current_target[num][1]), 5);
 						}
-						cout << "num " << num << " can_access_waypoint " << can_access_waypoint << endl;
+            (void)0;
 						if(can_access_waypoint){
-							cout << "New Access waypoint " << path_to_current_target[num][0] << " " << path_to_current_target[num][1] << endl;
+              (void)0;
 							top_point_decisions++;
 							return goTowardsPoint(current_position, Position(path_to_current_target[num][0], path_to_current_target[num][1], 0), middle_distance_min);
 						}
 						else{
-							cout << "Try Current waypoint " << path_to_current_target[0][0] << " " << path_to_current_target[0][1] << endl;
+              (void)0;
 							top_point_decisions++;
 							return goTowardsPoint(current_position, Position(path_to_current_target[0][0], path_to_current_target[0][1], 0), middle_distance_min);
 						}
@@ -578,7 +578,7 @@ public:
 				}
 			}
 			else{
-				cout << "Follow open grid to try to get to target" << endl;
+        (void)0;
 				findPathOnGrid(current_position, current_target);
 				// cout << "Current waypoint " << path_to_current_target[0][0] << " " << path_to_current_target[0][1] << endl;
 				if(path_to_current_target.size() > 0){
@@ -599,7 +599,7 @@ public:
 
 	void findPathFromHistory(Position current_point, Position target_point){
 		path_to_top_point.clear();
-		cout << "current_point " << current_point.getX() << " " << current_point.getY() << " target_point " << target_point.getX() << " " << target_point.getY() << endl;
+    (void)0;
 		int target_point_index = -1;
 		int closest_index = -1;
 		double dist_to_top = 50;
@@ -619,7 +619,7 @@ public:
 				closest_index = i;
 			}
 		}
-		cout << "target_point_index " << target_point_index << endl;
+    (void)0;
 		if(target_point_index == -1){
 			target_point_index = closest_index;
 		}
@@ -634,19 +634,19 @@ public:
 			}
 		}
 		trailPositions.push_back(position_history[position_history.size()-1]);
-		cout << "path_to_top_point " << trailPositions.size() << endl;
+    (void)0;
 		for(int i = trailPositions.size()-1; i >= 0; i--){
 			vector<double> marker;
 			marker.push_back(trailPositions[i].getX());
 			marker.push_back(trailPositions[i].getY());
-			cout << marker[0] << " " << marker[1] << endl;
+      (void)0;
 			path_to_top_point.push_back(marker);
 		}
 	}
 
 	void findPathOnGrid(Position current_point, Position target_point){
 		path_to_current_target.clear();
-		cout << "current_point " << current_point.getX() << " " << current_point.getY() << " target_point " << target_point.getX() << " " << target_point.getY() << endl;
+    (void)0;
 		int current_x = (int)(current_point.getX());
 		int current_y = (int)(current_point.getY());
 		int target_x = (int)(target_point.getX());
@@ -889,14 +889,14 @@ public:
 	}
 
 	void waypointAchieved(Position current_position){
-		cout << "In waypointAchieved" << endl;
+    (void)0;
 		bool erase_waypoint = true;
 		if(go_to_top_point){
 			while(erase_waypoint and path_to_top_point.size() > 0){
 				Position current_waypoint = Position(path_to_top_point[0][0], path_to_top_point[0][1], 0);
 				double dist_to_current_waypoint = current_position.getDistance(current_waypoint);
 				if(dist_to_current_waypoint <= 0.75){
-					cout << "Waypoint Achieved, removing waypoint" << endl;
+          (void)0;
 					path_to_top_point.erase(path_to_top_point.begin());
 				}
 				else{
@@ -909,7 +909,7 @@ public:
 				Position current_waypoint = Position(path_to_current_target[0][0], path_to_current_target[0][1], 0);
 				double dist_to_current_waypoint = current_position.getDistance(current_waypoint);
 				if(dist_to_current_waypoint <= 0.75){
-					cout << "Waypoint Achieved, removing waypoint" << endl;
+          (void)0;
 					path_to_current_target.erase(path_to_current_target.begin());
 				}
 				else{
@@ -920,9 +920,9 @@ public:
 	}
 
 	FORRAction goTowardsPoint(Position current_position, Position target_position, double middle_distance_min){
-		cout << "In goTowardsPoint" << endl;
+    (void)0;
 		double distance_from_target = current_position.getDistance(target_position);
-		cout << "Distance from target : " << distance_from_target << endl;
+    (void)0;
 
 		// compute the angular difference between the direction to the target and the current robot direction
 		double robot_direction = current_position.getTheta();
@@ -933,7 +933,7 @@ public:
 			required_rotation = required_rotation - (2*M_PI);
 		if(required_rotation < -M_PI)
 			required_rotation = required_rotation + (2*M_PI);
-		cout << "Robot direction : " << robot_direction << ", Goal Direction : " << goal_direction << ", Required rotation : " << required_rotation << endl;
+    (void)0;
 		// if the angular difference is greater than smallest turn possible 
 		// pick the right turn to allign itself to the target
 
@@ -942,7 +942,7 @@ public:
 		while(fabs(required_rotation) > rotate[rotIntensity] and rotIntensity < numRotates) {
 			rotIntensity++;
 		}
-		cout << "Rotation Intensity : " << rotIntensity << endl;
+    (void)0;
 		if (rotIntensity > 1) {
 			if (required_rotation < 0){
 				decision = FORRAction(RIGHT_TURN, rotIntensity-1);
@@ -959,16 +959,16 @@ public:
 			}
 			if(intensity > 1)
 				intensity--;
-			cout << "Move Intensity : " << intensity << endl;
+      (void)0;
 
 			while(move[intensity] > middle_distance_min){
 				intensity--;
 			}
-			cout << "Move Intensity : " << intensity << endl;
+      (void)0;
 			if(go_to_top_point == true and intensity > 0)
 				decision = FORRAction(FORWARD, intensity);
 		}
-		cout << "Action choosen : " << decision.type << "," << decision.parameter << endl;
+    (void)0;
 		return decision;
 	}
 

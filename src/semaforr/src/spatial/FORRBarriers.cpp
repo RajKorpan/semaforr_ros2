@@ -9,9 +9,9 @@ using namespace std;
 
 
 void FORRBarriers::CreateSegments(vector<LineSegment> &segments, vector<CartesianPoint> position_history, vector < vector <CartesianPoint> > laser_history) {
-  cout << "num of pos history " << position_history.size() << " num of laser history " << laser_history.size() << endl;
+  (void)0;
   for (int i = 0; i < laser_history.size(); i+=1){
-    cout << "num of laser sensors " << laser_history[i].size() << endl;
+    (void)0;
     for (int j = 0; j < laser_history[i].size()-1; j++){
       LineSegment current_segment = LineSegment(laser_history[i][j], laser_history[i][j+1]);
       if(laser_history[i][j].get_distance(position_history[i]) <= 10 and laser_history[i][j+1].get_distance(position_history[i]) <= 10 and laser_history[i][j].get_distance(laser_history[i][j+1]) <= 0.5 and laser_history[i][j].get_distance(laser_history[i][j+1]) >= 0.1){
@@ -93,20 +93,20 @@ void FORRBarriers::FindMostSimilarSegments(vector<vector<double> > &most_similar
     sum_of_distances += similarities[i][2]; // similarity score
   }
   average_of_distances = sum_of_distances / similarities.size();
-  cout << "average_of_distances = " << average_of_distances << endl;
+  (void)0;
   for(int i = 0; i < similarities.size(); i++) {
     sum_of_squared_differences += pow((similarities[i][2]-average_of_distances), 2);
   }
 
   double normalized_sum_of_squared_differences = sum_of_squared_differences/(similarities.size());
   std = pow(normalized_sum_of_squared_differences, .5); // square root of squared difference sum
-  cout << "std = " << std << endl;
+  (void)0;
   double deviations = 3.5;
   if(isinf(std) == false){
     while(most_similar.size() == 0 and deviations > 0){
       deviations = deviations-0.1;
       threshold = average_of_distances - (deviations*std);
-      cout << "threshold " << threshold << endl;
+      (void)0;
       for(int i = 0; i < similarities.size(); i++) {
         //cout << similarities[i][2] << endl;
         if(similarities[i][2] <= threshold) {
@@ -184,7 +184,7 @@ void FORRBarriers::CreateInitialSegments(vector<LineSegment> &initial_barriers,c
       additions.clear();
     }
   }
-  cout << "all_similar size " << all_similar.size() << " used_inds size " << used_inds.size() << endl;
+  (void)0;
   for(int i = 0; i < all_similar.size(); i++){
     vector<LineSegment> similar_segments;
     std::set<double>::iterator it;
@@ -192,7 +192,7 @@ void FORRBarriers::CreateInitialSegments(vector<LineSegment> &initial_barriers,c
       similar_segments.push_back(segments[*it]);
     }
     if(similar_segments.size() >= 10){
-      cout << "num of segments to be merged " << similar_segments.size() << endl;
+      (void)0;
       initial_barriers.push_back(MergeSegments(similar_segments));
     }
     similar_segments.clear();
@@ -292,11 +292,11 @@ void FORRBarriers::MergeNearbyBarriers(vector<LineSegment> &merged_barriers, con
   vector<LineSegment> barriers_to_merge = initial_barriers;
   vector<vector<double> > segments_similarities;
   ListSimilarities(segments_similarities, barriers_to_merge);
-  cout << "num of segments similarities " << segments_similarities.size() << endl;
+  (void)0;
 
   vector<vector<double> > most_similar_segments;
   FindMostSimilarSegments(most_similar_segments, segments_similarities);
-  cout << "num of most similar segments " << most_similar_segments.size() << endl;
+  (void)0;
 
   vector<LineSegment> final_barriers;
   CreateInitialSegments(final_barriers, most_similar_segments, barriers_to_merge);
@@ -307,15 +307,15 @@ void FORRBarriers::MergeNearbyBarriers(vector<LineSegment> &merged_barriers, con
   while(num_mergers > 0){
     vector<vector<double> > segments_similarities;
     ListSimilarities(segments_similarities, barriers_to_merge);
-    cout << "num of segments similarities " << segments_similarities.size() << endl;
+    (void)0;
 
     vector<vector<double> > most_similar_segments;
     FindMostSimilarSegments(most_similar_segments, segments_similarities);
-    cout << "num of most similar segments " << most_similar_segments.size() << endl;
+    (void)0;
 
     vector<LineSegment> final_barriers;
     CreateInitialSegments(final_barriers, most_similar_segments, barriers_to_merge);
-    cout << "num of final_barriers " << final_barriers.size() << endl;
+    (void)0;
     if(num_mergers == final_barriers.size()){
       num_mergers = 0;
     }
@@ -323,7 +323,7 @@ void FORRBarriers::MergeNearbyBarriers(vector<LineSegment> &merged_barriers, con
       num_mergers = final_barriers.size();
     }
     barriers_to_merge = final_barriers;
-    cout << "num_mergers " << num_mergers << endl;
+    (void)0;
   }*/
   merged_barriers = barriers_to_merge;
 }

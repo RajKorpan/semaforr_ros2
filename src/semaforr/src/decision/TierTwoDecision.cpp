@@ -148,15 +148,12 @@ public:
         normalized_costs.push_back(normalized);
       }
 
-      std::stringstream planner_comments;
       std::vector<double> total_costs;
       for (std::size_t index = 0; index < plans.size(); ++index) {
         double cost = 0.0;
         bool valid_cost = true;
-        planner_comments << planner_names[index] << " ";
         for (const std::vector<double>& normalized : normalized_costs) {
           const double component = normalized.at(index);
-          planner_comments << component << " ";
           if (!std::isfinite(component) ||
               !std::isfinite(cost + component)) {
             valid_cost = false;
@@ -167,7 +164,6 @@ public:
         const double recorded_cost = valid_cost
           ? cost
           : std::numeric_limits<double>::infinity();
-        planner_comments << recorded_cost << ";";
         total_costs.push_back(recorded_cost);
       }
 
@@ -210,7 +206,6 @@ public:
           }
         }
       }
-      result.planner_comments = planner_comments.str();
     }
 
     for (const auto& owned_planner : dependencies_.planners) {

@@ -35,10 +35,10 @@ WaitingForSensors
         +---- shutdown -------------------> Stopped
 ```
 
-The node publishes each transition on `topics.navigation_state`. A failure is
-included after the state name, for example
-`WaitingForSensors:sensor_pose_stale` or
-`ReadyToDecide:action_timed_out`.
+The node publishes each transition as a typed
+`semaforr_msgs/msg/NavigationState` on `topics.navigation_state`. Failures use
+the message's `failure` flag and `detail` field, for example state
+`WAITING_FOR_SENSORS` with detail `sensor_pose_stale`.
 
 `start()` creates subscriptions, TF listening, and the ROS-clock control timer.
 `stop()` cancels the timer and action, publishes zero velocity, and transitions

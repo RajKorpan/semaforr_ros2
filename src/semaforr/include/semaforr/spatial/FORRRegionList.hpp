@@ -219,7 +219,7 @@ class FORRRegionList{
       run_trace.push_back(regionpath);
       regionpathind = run_trace.size()-1;
     }
-    cout << "In learning exits: size of trace is " << run_trace.size() << endl;
+    (void)0;
     vector<CartesianPoint> stepped_history;
     vector< vector<int> > step_to_trace;
     for(int k = 0; k < run_trace.size() ; k++){
@@ -338,11 +338,11 @@ class FORRRegionList{
       }
     }
     for(int i = 0; i< regions.size(); i++){
-      cout << i << " ";
+      (void)0;
       regions[i].print();
     }
     for(int i = 0; i< regions.size(); i++){
-      cout << i << " ";
+      (void)0;
       regions[i].printVisibility();
     }
   }
@@ -350,7 +350,7 @@ class FORRRegionList{
   void learnRegionsAndExits(vector<Position> *pos_hist, vector< vector<CartesianPoint> > *laser_hist, vector< vector<CartesianPoint> > run_trace, vector< vector < vector<CartesianPoint> > > laser_trace){
     vector<Position> positionHis = *pos_hist;
     vector < vector <CartesianPoint> > laserHis = *laser_hist;
-    cout << "In learning regions and exits" << endl;
+    (void)0;
     // cout << "positionHis " << positionHis.size() << " laserHis " << laserHis.size() << " run_trace " << run_trace.size() << " " << run_trace[run_trace.size()-1].size() << " laser_trace " << laser_trace.size() << " " << laser_trace[laser_trace.size()-1].size() << endl;
     // vector <FORRRegion> new_regions;
     // vector <FORRRegion> regions_to_remove;
@@ -611,14 +611,14 @@ class FORRRegionList{
       }
       // cout << "regions size " << regions.size() << endl;
     }
-    cout << "regions " << regions.size() << endl;
+    (void)0;
     vector <int> selected_inds;
     for(int i = 0; i < run_trace.size(); i++){
       selected_inds.push_back(i);
     }
     clearAllExits();
     learnExits(run_trace, selected_inds, laser_trace);
-    cout << "Exit learning regions and exits" << endl;
+    (void)0;
   }
 
   void clearAllExits(){

@@ -128,7 +128,7 @@ void Controller::updateSkeletonGraph(AgentState* agentState){
   start_timecv = cv.tv_sec + (cv.tv_usec/1000000.0);
 
   if((skeleton) or (hallwayskel and (highwayFinished >= 1 or frontierFinished >= 1))){
-    cout << "Updating skeleton planner" << endl;
+    (void)0;
     PathPlanner *skeleton_planner;
     PathPlanner *hallway_skeleton_planner;
     for (const auto& ownedPlanner : tier2Planners){
@@ -197,9 +197,9 @@ void Controller::updateSkeletonGraph(AgentState* agentState){
       }
     }
     if(skeleton){
-      cout << "Finished updating skeleton planner" << endl;
+      (void)0;
       skeleton_planner->getGraph()->printGraph();
-      cout << "Connected Graph: " << skeleton_planner->getGraph()->isConnected() << endl;
+      (void)0;
       for (const auto& ownedPlanner : tier2Planners) {
         if (isCrowdCostPlanner(ownedPlanner->getName())) {
           copyNavigationGraph(
@@ -208,7 +208,7 @@ void Controller::updateSkeletonGraph(AgentState* agentState){
       }
     }
     if(hallwayskel){
-      cout << "Finished updating skeleton graph for passage planner" << endl;
+      (void)0;
       // skeleton_planner->getOrigGraph()->printGraph();
       beliefs->getSpatialModel()->getRegionList()->setRegionPassageValues(beliefs->getAgentState()->getPassageGrid());
       // cout << "Connected Graph: " << skeleton_planner->getOrigGraph()->isConnected() << endl;

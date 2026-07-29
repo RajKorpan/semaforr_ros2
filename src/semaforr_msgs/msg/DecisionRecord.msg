@@ -1,0 +1,43 @@
+uint8 TIER_ONE=0
+uint8 TIER_TWO=1
+uint8 TIER_THREE=2
+uint8 EXPLORATION=3
+uint8 FALLBACK=4
+uint8 SAFE_STOP=5
+
+uint8 SOURCE_MANDATORY_RULE=0
+uint8 SOURCE_TIER_THREE_ADVISOR=1
+uint8 SOURCE_PLANNER=2
+uint8 SOURCE_EXPLORATION=3
+uint8 SOURCE_FALLBACK=4
+uint8 SOURCE_SAFE_STOP=5
+
+uint8 OUTCOME_PENDING=0
+uint8 OUTCOME_COMPLETED=1
+uint8 OUTCOME_TIMED_OUT=2
+uint8 OUTCOME_ODOMETRY_RESET=3
+uint8 OUTCOME_CLOCK_RESET=4
+uint8 OUTCOME_CANCELLED=5
+uint8 OUTCOME_SENSOR_LOST=6
+uint8 OUTCOME_SHUTDOWN=7
+
+std_msgs/Header header
+uint64 sequence
+geometry_msgs/Pose2D robot_pose
+bool has_task
+semaforr_msgs/TaskDiagnostic task
+semaforr_msgs/DecisionAction[] candidates
+semaforr_msgs/DecisionVeto[] vetoes
+semaforr_msgs/AdvisorContribution[] advisor_contributions
+uint8 selected_tier
+uint8 selected_source
+string selected_policy
+bool has_planner
+string selected_planner
+semaforr_msgs/DecisionAction selected_action
+float64 decision_latency_s
+uint8 action_outcome
+float64 action_duration_s
+float64 action_progress
+float64 action_target
+string outcome_detail

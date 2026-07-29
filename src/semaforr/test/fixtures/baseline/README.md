@@ -6,7 +6,8 @@ It contains two complementary baselines:
 1. `source_contract.json` records behavior that can be characterized without
    starting ROS: topics, velocity conversion, action completion thresholds,
    default action magnitudes, feature flags, and tutorial targets.
-2. A runtime trace records `cmd_vel` transitions and `decision_log` messages
+2. A runtime trace records `cmd_vel` transitions and structured
+   `decision_records` messages
    while a deterministic virtual robot publishes pose and open-space laser
    observations. Robot motion advances in fixed 50 ms simulation steps; it
    does not integrate wall-clock timer jitter.

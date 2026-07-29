@@ -75,6 +75,8 @@ DecisionResult DecisionCoordinator::decide(
       DecisionResult result;
       result.action = decision->action;
       result.source = DecisionSource::MandatoryRule;
+      result.tier = DecisionTier::TierOne;
+      result.selected_policy = "mandatory_rule";
       return result;
     }
   }
@@ -105,6 +107,8 @@ DecisionResult DecisionCoordinator::decide(
   if (survivors.empty()) {
     result.action = Action::pause();
     result.source = DecisionSource::SafeStop;
+    result.tier = DecisionTier::SafeStop;
+    result.selected_policy = "no_safe_candidate";
     return result;
   }
 
@@ -165,9 +169,13 @@ DecisionResult DecisionCoordinator::decide(
           survivors.begin(), survivors.end(), *configuration_.fallback)) {
       result.action = *configuration_.fallback;
       result.source = DecisionSource::Fallback;
+      result.tier = DecisionTier::Fallback;
+      result.selected_policy = "configured_fallback";
     } else {
       result.action = Action::pause();
       result.source = DecisionSource::SafeStop;
+      result.tier = DecisionTier::SafeStop;
+      result.selected_policy = "no_advisor_score";
     }
     return result;
   }
@@ -196,6 +204,8 @@ DecisionResult DecisionCoordinator::decide(
   std::uniform_int_distribution<std::size_t> choose(0U, tied.size() - 1U);
   result.action = tied[choose(random_)];
   result.source = DecisionSource::TierThreeAdvisor;
+  result.tier = DecisionTier::TierThree;
+  result.selected_policy = "advisor_arbitration";
   return result;
 }
 

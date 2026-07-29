@@ -16,6 +16,7 @@ using semaforr::decision::AdvisorEvaluation;
 using semaforr::decision::DecisionContext;
 using semaforr::decision::DecisionCoordinator;
 using semaforr::decision::DecisionSource;
+using semaforr::decision::DecisionTier;
 using semaforr::decision::Veto;
 using semaforr::decision::VetoRule;
 using semaforr::domain::Action;
@@ -68,6 +69,8 @@ TEST(DecisionCoordinator, EmptyCandidateSetReturnsSafeStop)
   const auto result = coordinator.decide(DecisionContext{model}, {});
   EXPECT_EQ(result.action, Action::pause());
   EXPECT_EQ(result.source, DecisionSource::SafeStop);
+  EXPECT_EQ(result.tier, DecisionTier::SafeStop);
+  EXPECT_EQ(result.selected_policy, "no_safe_candidate");
 }
 
 TEST(DecisionCoordinator, VetoedActionsCannotReenterAggregation)
@@ -136,6 +139,8 @@ TEST(DecisionCoordinator, NoAdvisorUsesConfiguredFallback)
   const auto result = coordinator.decide(DecisionContext{model}, candidates);
   EXPECT_EQ(result.action, left);
   EXPECT_EQ(result.source, DecisionSource::Fallback);
+  EXPECT_EQ(result.tier, DecisionTier::Fallback);
+  EXPECT_EQ(result.selected_policy, "configured_fallback");
 }
 
 }  // namespace

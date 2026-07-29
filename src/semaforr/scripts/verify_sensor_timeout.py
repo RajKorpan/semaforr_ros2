@@ -22,9 +22,7 @@ def main():
     trace = json.loads(args.trace.read_text(encoding="utf-8"))
     result = trace["result"]
     commands = result.get("commands", [])
-    states = [
-        event["state"] for event in result.get("navigation_states", [])
-    ]
+    states = result.get("navigation_states", [])
 
     failures = []
     if trace["scenario"].get("sensor_cutoff_s") is None:
@@ -34,8 +32,10 @@ def main():
     if not commands or not is_zero(commands[-1]):
         failures.append("last velocity command is not zero")
     if not any(
-        state.startswith("WaitingForSensors:sensor_")
-        and state.endswith("_stale")
+        state.get("state") == "waiting_for_sensors"
+        and state.get("detail", "").startswith("sensor_")
+        and state.get("detail", "").endswith("_stale")
+        and state.get("failure")
         for state in states
     ):
         failures.append("no stale-sensor transition was recorded")

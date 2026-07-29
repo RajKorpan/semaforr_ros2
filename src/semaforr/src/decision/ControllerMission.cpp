@@ -23,7 +23,6 @@ void Controller::updateState(
   Position current,
   const semaforr::domain::LaserScan& laser_scan,
   const semaforr::domain::CrowdState& crowd){
-  cout << "In update state" << endl;
   beliefs->getAgentState()->setCurrentSensor(current, laser_scan);
   crowdModel.observations() = crowd;
   if (crowdLearner && crowd.current()) {
@@ -61,7 +60,6 @@ void Controller::updateState(
   beliefs->getAgentState()->setCrowdModel(crowdModel);
   updatePlannersModels(crowdModel);
   if(firstTaskAssigned == false){
-      cout << "Set first task" << endl;
       // if(aStarOn and (!highwaysOn or (highwaysOn and highwayExploration->getHighwaysComplete())) and (!frontiersOn or (frontiersOn and frontierExploration->getFrontiersComplete()))){
       //   planForCurrentTask(current, true);
       // }
@@ -112,15 +110,12 @@ void Controller::updateState(
     }
     //if task is complete
     if(taskCompleted == true){
-      cout << "Target Achieved, moving on to next target!!" << endl;
       // RCLCPP_DEBUG(this->get_logger(), "Target Achieved, moving on to next target!!");
       //Learn spatial model only on tasks completed successfully
       if(beliefs->getAgentState()->getAllAgenda().size() - beliefs->getAgentState()->getAgenda().size() <= 2000){
         learnSpatialModel(beliefs->getAgentState(), true, false);
-        cout << "Learned spatial model" << endl;
         // RCLCPP_DEBUG(this->get_logger(), "Finished Learning Spatial Model!!");
         updateSkeletonGraph(beliefs->getAgentState());
-        cout << "Updated skeleton graph" << endl;
         // RCLCPP_DEBUG(this->get_logger(), "Finished Updating Skeleton Graph!!");
       }
       beliefs->getAgentState()->setGetOutTriggered(false);
@@ -134,7 +129,6 @@ void Controller::updateState(
       beliefs->getAgentState()->getCurrentTask()->resetPlanPositions();
       //Clear existing task and associated plans
       beliefs->getAgentState()->finishTask(false);
-      cout << "Cleared task" << endl;
       //// RCLCPP_DEBUG(this->get_logger(), "Task Cleared!!");
       //cout << "Agenda Size = " << beliefs->getAgentState()->getAgenda().size() << endl;
       if(beliefs->getAgentState()->getAgenda().size() > 0){
@@ -143,16 +137,13 @@ void Controller::updateState(
         if((beliefs->getAgentState()->getAllAgenda().size() - beliefs->getAgentState()->getAgenda().size()) > (planLimit - 1)){
           aStarOn = false;
         }
-        cout << "Selecting Next Task " << endl;
         // RCLCPP_DEBUG(this->get_logger(), "Selecting Next Task");
         if(aStarOn){
           planForCurrentTask(current, true);
-          cout << "Next Plan Generated!!" << endl;
           // RCLCPP_DEBUG(this->get_logger(), "Next Plan Generated!!");
         }
         else{
           beliefs->getAgentState()->setCurrentTask(beliefs->getAgentState()->getNextTask());
-          cout << "Next Task Selected!!" << endl;
           // RCLCPP_DEBUG(this->get_logger(), "Next Task Selected!!");
         }
       }
@@ -203,10 +194,8 @@ void Controller::updateState(
         // beliefs->getAgentState()->resetDirections();
         // circumnavigator->resetCircumnavigate();
         learnSpatialModel(beliefs->getAgentState(), false, false);
-        cout << "Learned spatial model" << endl;
         // RCLCPP_DEBUG(this->get_logger(), "Finished Learning Spatial Model!!");
         updateSkeletonGraph(beliefs->getAgentState());
-        cout << "Updated skeleton graph" << endl;
         // RCLCPP_DEBUG(this->get_logger(), "Finished Updating Skeleton Graph!!");
         //beliefs->getAgentState()->skipTask();
         // if(beliefs->getAgentState()->getAllAgenda().size() < planLimit +1){
@@ -244,69 +233,78 @@ bool Controller::isMissionComplete(){
 // Manages switching tasks and stops if the robot is taking too long
 //
 semaforr::decision::DecisionResult Controller::decide() {
-  // RCLCPP_DEBUG(this->get_logger(), "Entering decision loop");
-  cout << "Entering decision loop" << endl;
+  semaforr::decision::DecisionResult result;
   FORRAction decidedAction;
   if(!highwayExploration->getHighwaysComplete() and highwaysOn){
-    cout << "highway decision " << endl;
     decidedAction = highwayExploration->exploreDecision(beliefs->getAgentState()->getCurrentPosition(), beliefs->getAgentState()->getCurrentLaserScan());
-    decisionStats.decisionTier = 1.7;
+    result.action = semaforr::core::toDomainAction(decidedAction);
+    result.source = semaforr::decision::DecisionSource::Exploration;
+    result.tier = semaforr::decision::DecisionTier::Exploration;
+    result.selected_policy = "highway_exploration";
   }
   else if(!frontierExploration->getFrontiersComplete() and frontiersOn){
-    cout << "frontier decision " << endl;
     decidedAction = frontierExploration->exploreDecision(beliefs->getAgentState()->getCurrentPosition(), beliefs->getAgentState()->getCurrentLaserScan());
-    cout << "frontier decision " << decidedAction.type << " " << decidedAction.parameter << endl;
-    decisionStats.decisionTier = 1.8;
+    result.action = semaforr::core::toDomainAction(decidedAction);
+    result.source = semaforr::decision::DecisionSource::Exploration;
+    result.tier = semaforr::decision::DecisionTier::Exploration;
+    result.selected_policy = "frontier_exploration";
   }
   else{
-    cout << "forr decision " << endl;
     if(highwayFinished < 3){
       highwayFinished++;
     }
     if(frontierFinished < 3){
       frontierFinished++;
     }
-    decidedAction = FORRDecision();
+    result = FORRDecision();
+    decidedAction = semaforr::core::toLegacyAction(result.action);
   }
-  //// RCLCPP_DEBUG(this->get_logger(), "After decision made");
-  cout << "Decided Action: " << decidedAction.type << " " << decidedAction.parameter << endl;
-  beliefs->getAgentState()->getCurrentTask()->incrementDecisionCount();
-  //// RCLCPP_DEBUG(this->get_logger(), "After incrementDecisionCount");
-  cout << "Decision Count: " << beliefs->getAgentState()->getCurrentTask()->getDecisionCount() << endl;
-  beliefs->getAgentState()->getCurrentTask()->saveDecision(decidedAction);
-  //// RCLCPP_DEBUG(this->get_logger(), "After saveDecision");
-  cout << "Clearing vetoed actions" << endl;
-  beliefs->getAgentState()->clearVetoedActions();
-  //// RCLCPP_DEBUG(this->get_logger(), "After clearVetoedActions");
-  cout << "Exiting decision loop" << endl;
-  semaforr::decision::DecisionResult result;
-  result.action = semaforr::core::toDomainAction(decidedAction);
-  if (decisionStats.decisionTier == 3.0) {
-    result.source = semaforr::decision::DecisionSource::TierThreeAdvisor;
-  } else if (
-    decisionStats.decisionTier == 1.7 ||
-    decisionStats.decisionTier == 1.8) {
-    result.source = semaforr::decision::DecisionSource::Exploration;
-  } else {
-    result.source = semaforr::decision::DecisionSource::MandatoryRule;
+
+  AgentState* const agent_state = beliefs->getAgentState();
+  const Position position = agent_state->getCurrentPosition();
+  result.sequence = ++decisionSequence;
+  result.robot_pose = {
+    {position.getX(), position.getY()},
+    semaforr::domain::Angle(position.getTheta())};
+  result.candidates.reserve(agent_state->getActionSet()->size());
+  for (const FORRAction& candidate : *agent_state->getActionSet()) {
+    result.candidates.push_back(semaforr::core::toDomainAction(candidate));
   }
+  std::sort(result.candidates.begin(), result.candidates.end());
+  result.candidates.erase(
+    std::unique(result.candidates.begin(), result.candidates.end()),
+    result.candidates.end());
+
+  Task* const task = agent_state->getCurrentTask();
+  task->incrementDecisionCount();
+  task->saveDecision(decidedAction);
+  semaforr::decision::TaskDiagnostic task_diagnostic;
+  const std::size_t all_tasks = agent_state->getAllAgenda().size();
+  const std::size_t pending_tasks = agent_state->getAgenda().size();
+  task_diagnostic.task_index =
+    static_cast<std::uint64_t>(
+      all_tasks >= pending_tasks ? all_tasks - pending_tasks : 0U);
+  task_diagnostic.decision_count =
+    static_cast<std::uint64_t>(task->getDecisionCount());
+  task_diagnostic.target = {task->getTaskX(), task->getTaskY()};
+  if (task->getIsPlanActive()) {
+    task_diagnostic.waypoint =
+      semaforr::domain::Point2D{task->getX(), task->getY()};
+  }
+  result.task = task_diagnostic;
+
   if (!decisionStats.chosenPlanner.empty() &&
       decisionStats.chosenPlanner.find_first_not_of(' ') !=
         std::string::npos) {
     result.planner = decisionStats.chosenPlanner;
+  } else {
+    const std::string planner_name = task->getPlannerName();
+    if (!planner_name.empty() && planner_name != "none") {
+      result.planner = planner_name;
+    }
   }
-  result.diagnostics.legacy_tier = decisionStats.decisionTier;
-  result.diagnostics.veto_summary = decisionStats.vetoedActions;
-  result.diagnostics.advisor_summary = decisionStats.advisors;
-  result.diagnostics.advisor_comments = decisionStats.advisorComments;
-  result.diagnostics.advisor_influence = decisionStats.advisorInfluence;
-  result.diagnostics.planning_seconds =
-    decisionStats.planningComputationTime;
-  result.diagnostics.learning_seconds =
-    decisionStats.learningComputationTime;
-  result.diagnostics.graphing_seconds =
-    decisionStats.graphingComputationTime;
-  result.diagnostics.planner_comments = decisionStats.plannerComments;
+
+  agent_state->clearVetoedActions();
   decisionStats = FORRActionStats();
   return result;
 }

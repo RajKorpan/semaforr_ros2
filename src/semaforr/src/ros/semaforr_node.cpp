@@ -1,5 +1,4 @@
 #include <exception>
-#include <iostream>
 #include <memory>
 
 #include <rclcpp/rclcpp.hpp>
@@ -24,7 +23,10 @@ int main(int argc, char** argv)
     node->stop();
     return 0;
   } catch (const std::exception& error) {
-    std::cerr << "SemaFORR startup failed: " << error.what() << '\n';
+    RCLCPP_ERROR(
+      rclcpp::get_logger("semaforr"),
+      "SemaFORR startup failed: %s",
+      error.what());
     if (rclcpp::ok()) {
       rclcpp::shutdown();
     }

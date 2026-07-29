@@ -57,11 +57,11 @@ void Controller::initialize_planner(
   if (skeleton) {
     std::unique_ptr<Graph> navigation_graph = std::make_unique<Graph>(
       static_cast<int>(granularity * 100.0), length * 100, height * 100);
-    cout << "initialized nav skeleton graph" << endl;
+    (void)0;
     std::unique_ptr<PathPlanner> skeleton_planner =
       std::make_unique<PathPlanner>(
         std::move(navigation_graph), node, node, "skeleton");
-    cout << "sk planner initialzied" << endl;
+    (void)0;
     if (planner == nullptr) {
       planner = skeleton_planner.get();
     }
@@ -71,7 +71,7 @@ void Controller::initialize_planner(
   if (hallwayskel) {
     std::unique_ptr<Graph> navigation_graph = std::make_unique<Graph>(
       static_cast<int>(granularity * 100.0), length * 100, height * 100);
-    cout << "initialized nav hallway skeleton graph" << endl;
+    (void)0;
     std::unique_ptr<PathPlanner> hallway_skeleton_planner =
       std::make_unique<PathPlanner>(
         std::move(navigation_graph), node, node, "hallwayskel");
@@ -102,7 +102,7 @@ void Controller::initialize_planner(
     }
     tier2Planners.push_back(std::move(cost_planner));
   }
-  cout << "initialized planners" << endl;
+  (void)0;
 }
 
 void Controller::initialize_tasks(
