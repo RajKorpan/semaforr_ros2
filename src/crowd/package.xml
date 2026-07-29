@@ -3,7 +3,7 @@
 <package format="3">
   <name>semaforr_crowd</name>
   <version>0.1.0</version>
-  <description>ROS 2 crowd-grid diagnostics derived from the canonical SemaFORR social observation.</description>
+  <description>ROS 2 diagnostics for domain-owned SemaFORR crowd fields.</description>
   <maintainer email="ericguan04@gmail.com">Eric Guan</maintainer>
   <license>Apache-2.0</license>
 

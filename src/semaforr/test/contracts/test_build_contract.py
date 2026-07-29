@@ -44,14 +44,17 @@ def test_source_and_header_layout_is_responsibility_based():
         "navigation",
         "planning",
         "ros",
+        "social",
         "spatial",
     }
     expected_source_areas = {
         "config",
         "core",
         "decision",
+        "domain",
         "navigation",
         "ros",
+        "social",
         "spatial",
     }
     include_root = SOURCE_DIR / "include" / "semaforr"
@@ -102,8 +105,8 @@ def test_social_input_uses_the_dedicated_interface_package():
         if path.suffix in {".h", ".hpp", ".cpp"}
     )
 
-    assert "CrowdModel" not in code
-    assert "crowd_model" not in code
+    assert "semaforr.msg" not in code
+    assert "CrowdModel.msg" not in code
     assert "social_context_msgs::msg::SocialObservation" in code
     assert "social_observation.hpp" in code
 

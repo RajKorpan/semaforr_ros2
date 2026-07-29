@@ -1,24 +1,27 @@
 # SemaFORR crowd diagnostics
 
-This ROS 2 package replaces the six legacy ROS 1 crowd learners with one
-parameterized implementation. It subscribes only to
-`social_context_msgs/msg/SocialObservation` and publishes `crowd_density`,
-`crowd_risk`, and `crowd_flow` for visualization and explanation consumers.
-SemaFORR navigation itself consumes `CrowdState` directly and does not ingest
-these diagnostic grids.
+`semaforr_crowd` is now a diagnostic adapter, not a second crowd learner.
+SemaFORR consumes the one canonical
+`social_context_msgs/msg/SocialObservation`, learns a visibility-normalized
+crowd field inside the ROS-independent navigation core, and publishes the
+derived `social_context_msgs/msg/CrowdField` snapshot.
 
-The historical executable names remain as aliases to the new node so old
-launch scripts can transition without restoring the removed `CrowdModel`
-message. The nested ROS 1 sources are retained as migration reference, but the
-top-level `semaforr_crowd` package is the only package discovered and installed
-by colcon.
+This package converts that snapshot into:
 
-Launch the complete diagnostic sidecar (crowd grids plus action and plan
-explanations) with:
+- `crowd_density` (`nav_msgs/msg/OccupancyGrid`)
+- `crowd_risk` (`nav_msgs/msg/OccupancyGrid`)
+- `crowd_flow` (`visualization_msgs/msg/MarkerArray`)
+
+The grids are visualization products and are never read back into navigation.
+The legacy count, discount, CUSUM, and Thompson variants are selected through
+the SemaFORR `social.learning.estimator` parameter; they are not separate ROS
+nodes.
+
+Run the diagnostic consumers alongside a running SemaFORR node with:
 
 ```bash
 ros2 launch semaforr_crowd social_diagnostics.launch.py
 ```
 
-The navigation core remains independently launchable and has no dependency on
-these diagnostic nodes.
+The nested ROS 1 sources remain migration references and are not discovered by
+colcon.

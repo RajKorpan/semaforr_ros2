@@ -13,6 +13,7 @@
 
 #include <semaforr/decision/decision_coordinator.hpp>
 #include <semaforr/decision/social_navigation_advisor.hpp>
+#include <semaforr/domain/crowd_model.hpp>
 #include <semaforr/domain/social.hpp>
 #include <semaforr/navigation/PathPlanner.hpp>
 #include <semaforr/ros/social_observation_buffer.hpp>
@@ -210,24 +211,44 @@ TEST(SocialNavigation, RecordedTrajectoryChangesDeterministicAction)
   EXPECT_NE(social.action, baseline.action);
 }
 
-TEST(SocialPlanning, DensityAndPredictionCostsConsumeCrowdState)
+TEST(SocialPlanning, DensityAndRiskCostsConsumeLearnedCrowdField)
 {
-  auto observation = crowd(pedestrian(
-    "planned",
-    1.0,
-    0.0,
-    0.5,
-    0.0,
-    {{{2.0, 0.0}, observed_at + std::chrono::seconds(2)}}));
-  semaforr::domain::CrowdState state;
-  state.update(std::move(observation));
+  semaforr::domain::CrowdFieldSnapshot field;
+  field.geometry = {"map", 10.0, 10.0, 1.0, 0.0, 0.0};
+  field.cells.resize(field.geometry.cellCount());
+  field.estimator = "count";
+  field.version = 1;
+  field.generated_at = std::chrono::seconds(1);
+
+  auto & density_cell =
+    field.cells.at(*field.geometry.index({1.0, 0.0}));
+  density_cell.visibility_exposures = 10.0;
+  density_cell.pedestrian_hits = 8.0;
+  density_cell.density = 0.8;
+  density_cell.confidence = 1.0;
+  density_cell.last_updated = std::chrono::seconds(1);
+
+  auto & risk_cell =
+    field.cells.at(*field.geometry.index({2.0, 0.0}));
+  risk_cell.visibility_exposures = 10.0;
+  risk_cell.pedestrian_hits = 2.0;
+  risk_cell.risk_experiences = 10.0;
+  risk_cell.risk_encounters = 9.0;
+  risk_cell.density = 0.2;
+  risk_cell.learned_encounter_risk = 0.9;
+  risk_cell.confidence = 1.0;
+  risk_cell.last_updated = std::chrono::seconds(1);
+  field.validate();
+
+  semaforr::domain::CrowdModel model;
+  model.setLearned(std::move(field));
   PathPlanner planner(Node{}, Node{}, "risk");
-  planner.setCrowdState(state);
+  planner.setCrowdModel(model);
 
   EXPECT_GT(planner.cellCost(100, 0, 0), planner.cellCost(500, 500, 0));
   EXPECT_GT(planner.riskCost(200, 0, 0), planner.cellCost(200, 0, 0));
 
-  planner.setCrowdState({});
+  planner.setCrowdModel({});
   EXPECT_DOUBLE_EQ(planner.cellCost(100, 0, 0), 0.0);
   EXPECT_DOUBLE_EQ(planner.riskCost(200, 0, 0), 0.0);
 }

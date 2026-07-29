@@ -26,10 +26,14 @@ struct LaserObservation {
         "laser maximum range must not be below minimum range");
     }
     for (const double range : ranges_m) {
-      if (!std::isfinite(range) || range < minimum_range.meters() ||
-          range > maximum_range.meters()) {
+      // Positive infinity is the conventional LaserScan representation for
+      // a beam with no return inside range_max.
+      if (std::isnan(range) || range < minimum_range.meters() ||
+          (std::isfinite(range) &&
+            range > maximum_range.meters())) {
         throw std::invalid_argument(
-          "laser ranges must be finite and within configured bounds");
+          "laser ranges must be within configured bounds or positive "
+          "infinity for no return");
       }
     }
   }

@@ -346,8 +346,9 @@ int PathPlanner::calcOrigPath(bool cautious){
 
 void PathPlanner::updateNavGraph(){
 	cout << "Updating nav graph before" << endl;
-	if(!crowdState.current() and (name == "density" or name == "risk" or name == "flow")){
-		cout << "valid crowd state not received" << endl;
+	if(!crowdModel.learnedAvailable() and
+      (name == "density" or name == "risk" or name == "flow")){
+		cout << "learned crowd field not available" << endl;
 	}
 	else{
 		vector<Edge*> edges = navGraph->getEdges();

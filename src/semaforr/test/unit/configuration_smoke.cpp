@@ -155,5 +155,26 @@ int main() {
       },
       "cannot open map file");
 
+  {
+    auto invalid = configuration;
+    invalid.controller.planners.cusum = true;
+    assertThrowsContaining(
+      [&invalid]() {
+        semaforr::config::validateConfiguration(invalid);
+      },
+      "crowd-learning estimators, not planners");
+  }
+
+  {
+    auto invalid = configuration;
+    invalid.controller.planners.risk = true;
+    invalid.controller.planners.skeleton = false;
+    assertThrowsContaining(
+      [&invalid]() {
+        semaforr::config::validateConfiguration(invalid);
+      },
+      "require the skeleton planner");
+  }
+
   return 0;
 }

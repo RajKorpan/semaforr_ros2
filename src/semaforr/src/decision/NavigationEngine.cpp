@@ -8,13 +8,15 @@ NavigationEngine::NavigationEngine(
   DecisionCoordinator& decisions,
   MissionManager& mission,
   planning::PlanningCoordinator& planning,
-  spatial::SpatialLearningCoordinator& learning)
+  spatial::SpatialLearningCoordinator& learning,
+  social::CrowdFieldLearner* crowd_learning)
   : world_(world),
     action_space_(action_space),
     decisions_(decisions),
     mission_(mission),
     planning_(planning),
-    learning_(learning)
+    learning_(learning),
+    crowd_learning_(crowd_learning)
 {
 }
 
@@ -45,6 +47,11 @@ DecisionResult NavigationEngine::decide(
   world_.robot.laser = observation.laser;
   if (observation.crowd) {
     world_.crowd.update(*observation.crowd);
+    if (crowd_learning_ &&
+        crowd_learning_->observe(
+          observation.pose, observation.laser, *observation.crowd)) {
+      world_.crowd.setLearned(crowd_learning_->snapshot());
+    }
   } else {
     world_.crowd.clearCurrent();
   }

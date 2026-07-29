@@ -27,19 +27,13 @@ setup(
     maintainer='Eric Guan',
     maintainer_email='ericguan04@gmail.com',
     description=(
-        'ROS 2 crowd-grid diagnostics for the canonical SemaFORR social API.'
+        'ROS 2 diagnostics for SemaFORR domain-owned learned crowd fields.'
     ),
     license='Apache-2.0',
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
             'crowd_model = semaforr_crowd.node:main',
-            'crowd_learner = semaforr_crowd.node:main',
-            'crowd_count = semaforr_crowd.node:main',
-            'crowd_behavior = semaforr_crowd.node:main',
-            'crowd_cusum = semaforr_crowd.node:main',
-            'crowd_bayes_cusum = semaforr_crowd.node:main',
-            'crowd_count_thompson = semaforr_crowd.node:main',
         ],
     },
 )

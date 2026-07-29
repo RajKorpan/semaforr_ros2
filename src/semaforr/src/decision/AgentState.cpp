@@ -865,11 +865,11 @@ bool AgentState::getRobotConfined(int decisionLimit, double distanceLimit){
 
 vector<Position> AgentState::getCrowdPositions() const {
   vector<Position> positions;
-  if (!crowdState.current()) {
+  if (!crowdModel.current()) {
     return positions;
   }
-  positions.reserve(crowdState.current()->pedestrians.size());
-  for (const auto& pedestrian : crowdState.current()->pedestrians) {
+  positions.reserve(crowdModel.current()->pedestrians.size());
+  for (const auto& pedestrian : crowdModel.current()->pedestrians) {
     const double speed = std::hypot(
       pedestrian.velocity_mps.x_m, pedestrian.velocity_mps.y_m);
     const double heading = speed > 1.0e-6
@@ -884,12 +884,12 @@ vector<Position> AgentState::getCrowdPositions() const {
 
 semaforr::domain::PoseArray AgentState::getCrowdPose() const {
   semaforr::domain::PoseArray result;
-  if (!crowdState.current()) {
+  if (!crowdModel.current()) {
     return result;
   }
-  result.header.frame_id = crowdState.current()->frame_id;
-  result.poses.reserve(crowdState.current()->pedestrians.size());
-  for (const auto& pedestrian : crowdState.current()->pedestrians) {
+  result.header.frame_id = crowdModel.current()->frame_id;
+  result.poses.reserve(crowdModel.current()->pedestrians.size());
+  for (const auto& pedestrian : crowdModel.current()->pedestrians) {
     semaforr::domain::Pose pose;
     pose.position.x = pedestrian.position.x_m;
     pose.position.y = pedestrian.position.y_m;
@@ -904,7 +904,7 @@ semaforr::domain::PoseArray AgentState::getCrowdPose() const {
 
 semaforr::domain::PoseArray AgentState::getCrowdPoseAll() const {
   semaforr::domain::PoseArray result;
-  for (const auto& observation : crowdState.history()) {
+  for (const auto& observation : crowdModel.history()) {
     result.header.frame_id = observation.frame_id;
     for (const auto& pedestrian : observation.pedestrians) {
       semaforr::domain::Pose pose;
@@ -921,86 +921,40 @@ semaforr::domain::PoseArray AgentState::getCrowdPoseAll() const {
 }
 
 bool AgentState::crowdModelLearned() {
-  return hasValidCrowd();
+  return crowdModel.learnedAvailable();
 }
 
 bool AgentState::riskModelLearned() {
-  return hasValidCrowd();
+  return crowdModel.learnedAvailable();
 }
 
 bool AgentState::flowModelLearned() {
-  return hasValidCrowd();
+  return crowdModel.learnedAvailable();
 }
 
 double AgentState::getGridValue(double x, double y) {
-  if (!crowdState.current()) {
-    return 0.0;
-  }
-  double density = 0.0;
-  for (const auto& pedestrian : crowdState.current()->pedestrians) {
-    const double dx = x - pedestrian.position.x_m;
-    const double dy = y - pedestrian.position.y_m;
-    density += pedestrian.confidence *
-      std::exp(-(dx * dx + dy * dy) / 2.0);
-  }
-  return density;
+  return crowdModel.densityAt({x, y});
 }
 
 double AgentState::getRiskValue(double x, double y) {
-  if (!crowdState.current()) {
-    return 0.0;
-  }
-  double risk = getGridValue(x, y);
-  for (const auto& pedestrian : crowdState.current()->pedestrians) {
-    for (const auto& prediction : pedestrian.predicted_trajectory) {
-      const double dx = x - prediction.position.x_m;
-      const double dy = y - prediction.position.y_m;
-      risk = std::max(
-        risk,
-        pedestrian.confidence *
-          std::exp(-(dx * dx + dy * dy) / 0.5));
-    }
-  }
-  return risk;
+  return crowdModel.navigationRiskAt({x, y});
 }
 
 double AgentState::getFlowValue(double x, double y, double theta) {
-  if (!crowdState.current()) {
-    return 0.0;
-  }
-  double aligned_flow = 0.0;
-  double weight = 0.0;
-  for (const auto& pedestrian : crowdState.current()->pedestrians) {
-    const double dx = x - pedestrian.position.x_m;
-    const double dy = y - pedestrian.position.y_m;
-    const double proximity = std::exp(-(dx * dx + dy * dy) / 2.0) *
-      pedestrian.confidence;
-    aligned_flow += proximity * (
-      pedestrian.velocity_mps.x_m * std::cos(theta) +
-      pedestrian.velocity_mps.y_m * std::sin(theta));
-    weight += proximity;
-  }
-  return weight > 0.0 ? aligned_flow / weight : 0.0;
+  return crowdModel.flowAlignmentAt(
+    {x, y}, semaforr::domain::Angle(theta));
 }
 
 double AgentState::getCrowdObservation(double x, double y) {
-  return getGridValue(x, y);
+  return crowdModel.visibilityExposuresAt({x, y});
 }
 
 double AgentState::getRiskExperience(double x, double y) {
-  return getRiskValue(x, y);
+  return crowdModel.riskExperiencesAt({x, y});
 }
 
 double AgentState::getFLowObservation(double x, double y) {
-  if (!crowdState.current()) {
-    return 0.0;
-  }
-  double magnitude = 0.0;
-  for (const auto& pedestrian : crowdState.current()->pedestrians) {
-    magnitude += pedestrian.confidence * std::hypot(
-      pedestrian.velocity_mps.x_m, pedestrian.velocity_mps.y_m);
-  }
-  return magnitude * getGridValue(x, y);
+  return crowdModel.flowObservationAt({x, y});
 }
 
 void AgentState::dfs(int x, int y, int current_label, vector<int> dx, vector<int> dy, int row_count, int col_count, vector< vector<int> > *label, vector< vector<int> > *m) {

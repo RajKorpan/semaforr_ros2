@@ -80,6 +80,8 @@ void declareRuntimeParameters(rclcpp::Node& node)
     "topics.navigation_state", std::string{"navigation_state"});
   node.declare_parameter(
     "topics.social_observations", std::string{"social_observations"});
+  node.declare_parameter(
+    "topics.crowd_field", std::string{"crowd_field"});
 
   node.declare_parameter("qos.sensors.depth", 10);
   node.declare_parameter(
@@ -102,6 +104,21 @@ void declareRuntimeParameters(rclcpp::Node& node)
   node.declare_parameter("timing.sensor_sync_tolerance_s", 0.1);
   node.declare_parameter("social.maximum_age_s", 0.75);
   node.declare_parameter("social.minimum_confidence", 0.25);
+  node.declare_parameter("social.learning.enabled", true);
+  node.declare_parameter(
+    "social.learning.estimator", std::string{"count_exposure"});
+  node.declare_parameter("social.learning.resolution_m", 1.0);
+  node.declare_parameter("social.learning.origin_x_m", 0.0);
+  node.declare_parameter("social.learning.origin_y_m", 0.0);
+  node.declare_parameter("social.learning.discount_factor", 0.7);
+  node.declare_parameter("social.learning.minimum_update_period_s", 1.0);
+  node.declare_parameter("social.learning.encounter_radius_m", 1.0);
+  node.declare_parameter("social.learning.minimum_flow_speed_mps", 0.05);
+  node.declare_parameter("social.learning.confidence_exposures", 10.0);
+  node.declare_parameter("social.learning.cusum_increase", 4.0);
+  node.declare_parameter("social.learning.cusum_decrease", -3.0);
+  node.declare_parameter("social.learning.cusum_threshold", 10.0);
+  node.declare_parameter("social.learning.random_seed", 0);
 
   node.declare_parameter("command.linear_velocity_mps", 0.5);
   node.declare_parameter("command.angular_velocity_radps", 0.5);

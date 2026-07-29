@@ -42,8 +42,8 @@ Headers use package-qualified paths, for example:
 #include <semaforr/navigation/PathPlanner.hpp>
 ```
 
-Domain components accept `semaforr::domain::LaserScan`, `PoseArray`, and
-`CrowdState`. ROS callbacks convert incoming messages with
+Domain components accept `semaforr::domain::LaserScan`, `PoseArray`, and the
+unified `CrowdModel` aggregate. ROS callbacks convert incoming messages with
 `semaforr::ros::toDomain`; ROS publishers convert outbound scans with
 `semaforr::ros::toRos`. See `social_navigation.md` for the canonical message,
 freshness policy, producers, and consumers.

@@ -19,6 +19,8 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/LocalizedPersonArray.msg"
   "msg/PedestrianObservation.msg"
   "msg/SocialObservation.msg"
+  "msg/CrowdFieldCell.msg"
+  "msg/CrowdField.msg"
   DEPENDENCIES builtin_interfaces std_msgs geometry_msgs
 )
 

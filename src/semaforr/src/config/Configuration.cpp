@@ -259,6 +259,66 @@ void validateControllerConfiguration(
       source_name, 0,
       "aStarOn requires skeleton or hallwayskel planner construction");
   }
+  const auto& crowd = configuration.crowd_learning;
+  if (configuration.planners.cusum || configuration.planners.discount) {
+    throw errorAt(
+      source_name, 0,
+      "CUSUM and discount are crowd-learning estimators, not planners; "
+      "select social.learning.estimator and enable a density/risk/flow "
+      "planner");
+  }
+  const bool has_crowd_cost_planner =
+    configuration.planners.density ||
+    configuration.planners.risk ||
+    configuration.planners.flow ||
+    configuration.planners.combined;
+  if (has_crowd_cost_planner && !configuration.planners.skeleton) {
+    throw errorAt(
+      source_name, 0,
+      "density, risk, flow, and combined planners require the skeleton "
+      "planner that supplies their navigation graph");
+  }
+  if (has_crowd_cost_planner && !crowd.enabled) {
+    throw errorAt(
+      source_name, 0,
+      "crowd-cost planners require social.learning.enabled");
+  }
+  const bool known_estimator =
+    crowd.estimator == "count_exposure" ||
+    crowd.estimator == "count" ||
+    crowd.estimator == "discounted_count" ||
+    crowd.estimator == "discount" ||
+    crowd.estimator == "cusum" ||
+    crowd.estimator == "bayes_cusum" ||
+    crowd.estimator == "thompson" ||
+    crowd.estimator == "count_thompson";
+  if (crowd.enabled &&
+      (crowd.frame.empty() || !known_estimator ||
+       !std::isfinite(crowd.resolution_m) ||
+       crowd.resolution_m <= 0.0 ||
+       !std::isfinite(crowd.origin_x_m) ||
+       !std::isfinite(crowd.origin_y_m) ||
+       !std::isfinite(crowd.discount_factor) ||
+       crowd.discount_factor <= 0.0 || crowd.discount_factor > 1.0 ||
+       !std::isfinite(crowd.minimum_update_period_s) ||
+       crowd.minimum_update_period_s < 0.0 ||
+       !std::isfinite(crowd.encounter_radius_m) ||
+       crowd.encounter_radius_m <= 0.0 ||
+       !std::isfinite(crowd.minimum_flow_speed_mps) ||
+       crowd.minimum_flow_speed_mps < 0.0 ||
+       !std::isfinite(crowd.confidence_exposures) ||
+       crowd.confidence_exposures <= 0.0 ||
+       !std::isfinite(crowd.cusum_increase) ||
+       crowd.cusum_increase <= 0.0 ||
+       !std::isfinite(crowd.cusum_decrease) ||
+       crowd.cusum_decrease >= 0.0 ||
+       !std::isfinite(crowd.cusum_threshold) ||
+       crowd.cusum_threshold <= 0.0)) {
+    throw errorAt(
+      source_name, 0,
+      "crowd learning configuration contains an unknown estimator or "
+      "an out-of-range value");
+  }
 }
 
 void normalizeLegacyActions(std::vector<double>& actions)

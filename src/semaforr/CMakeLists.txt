@@ -65,6 +65,10 @@ set(SEMAFORR_CORE_DOMAIN_SOURCES
   src/core/FORRAction.cpp
   src/core/FORRGeometry.cpp
   src/core/Position.cpp
+  src/domain/CrowdModel.cpp
+  src/decision/LearnedCrowdAdvisor.cpp
+  src/decision/SocialAdvisorRegistry.cpp
+  src/social/CrowdFieldLearner.cpp
 )
 
 set(SEMAFORR_DECISION_SOURCES
@@ -98,6 +102,7 @@ set(SEMAFORR_PLANNING_SOURCES
 
 set(SEMAFORR_ENGINE_SOURCES
   src/decision/Controller.cpp
+  src/decision/ControllerCrowd.cpp
   src/decision/ControllerMission.cpp
   src/decision/ControllerLearning.cpp
   src/decision/ControllerDecision.cpp
@@ -417,6 +422,14 @@ if(BUILD_TESTING)
   target_link_libraries(
     semaforr_social_navigation_test semaforr_ros_adapters)
   semaforr_apply_project_options(semaforr_social_navigation_test)
+
+  ament_add_gtest(
+    semaforr_crowd_model_test
+    test/unit/crowd_model_test.cpp
+  )
+  target_link_libraries(
+    semaforr_crowd_model_test semaforr_domain)
+  semaforr_apply_project_options(semaforr_crowd_model_test)
 
   ament_add_pytest_test(semaforr_source_contract_test
     test/contracts/test_source_contract.py

@@ -25,8 +25,41 @@ void Controller::updateState(
   const semaforr::domain::CrowdState& crowd){
   cout << "In update state" << endl;
   beliefs->getAgentState()->setCurrentSensor(current, laser_scan);
-  beliefs->getAgentState()->setCrowdState(crowd);
-  updatePlannersModels(crowd);
+  crowdModel.observations() = crowd;
+  if (crowdLearner && crowd.current()) {
+    semaforr::domain::LaserObservation laser;
+    const double angle_min = std::isfinite(laser_scan.angle_min)
+      ? static_cast<double>(laser_scan.angle_min) : 0.0;
+    const double angle_increment =
+      std::isfinite(laser_scan.angle_increment) &&
+        laser_scan.angle_increment > 0.0F
+      ? static_cast<double>(laser_scan.angle_increment)
+      : laserScanRadianIncrement;
+    const double minimum_range =
+      std::isfinite(laser_scan.range_min) && laser_scan.range_min >= 0.0F
+      ? static_cast<double>(laser_scan.range_min) : 0.0;
+    const double maximum_range =
+      std::isfinite(laser_scan.range_max) &&
+        laser_scan.range_max >= minimum_range
+      ? static_cast<double>(laser_scan.range_max) : maxLaserRange;
+    laser.angle_min = semaforr::domain::Angle(angle_min);
+    laser.angle_increment = semaforr::domain::Angle(angle_increment);
+    laser.minimum_range = semaforr::domain::Distance(minimum_range);
+    laser.maximum_range =
+      semaforr::domain::Distance(std::max(maximum_range, minimum_range));
+    laser.ranges_m.reserve(laser_scan.ranges.size());
+    for (const float range : laser_scan.ranges) {
+      laser.ranges_m.push_back(static_cast<double>(range));
+    }
+    const semaforr::domain::Pose2D pose{
+      {current.getX(), current.getY()},
+      semaforr::domain::Angle(current.getTheta())};
+    if (crowdLearner->observe(pose, laser, *crowd.current())) {
+      crowdModel.setLearned(crowdLearner->snapshot());
+    }
+  }
+  beliefs->getAgentState()->setCrowdModel(crowdModel);
+  updatePlannersModels(crowdModel);
   if(firstTaskAssigned == false){
       cout << "Set first task" << endl;
       // if(aStarOn and (!highwaysOn or (highwaysOn and highwayExploration->getHighwaysComplete())) and (!frontiersOn or (frontiersOn and frontierExploration->getFrontiersComplete()))){

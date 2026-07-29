@@ -28,6 +28,8 @@
 #include <semaforr/spatial/FORRPassages.hpp>
 
 #include <semaforr/domain/SensorTypes.hpp>
+#include <semaforr/domain/crowd_model.hpp>
+#include <semaforr/social/crowd_field_learner.hpp>
 
 
 // Public navigation controller facade.
@@ -66,10 +68,14 @@ public:
     return planners;
   }
 
-  void updatePlannersModels(const semaforr::domain::CrowdState& c) {
+  void updatePlannersModels(const semaforr::domain::CrowdModel& c) {
     for (const auto& ownedPlanner : tier2Planners) {
-      ownedPlanner->setCrowdState(c);
+      ownedPlanner->setCrowdModel(c);
     }
+  }
+
+  const semaforr::domain::CrowdModel& getCrowdModel() const noexcept {
+    return crowdModel;
   }
 
   HighwayExplorer *gethighwayExploration() { return highwayExploration.get(); }
@@ -126,6 +132,8 @@ private:
     int height);
   void initialize_planner(
     const semaforr::config::MapDimensions& dimensions);
+  void initialize_crowd_learning(
+    const semaforr::config::Configuration& configuration);
   
   // Knowledge component of robot
   std::unique_ptr<Beliefs> beliefs;
@@ -139,6 +147,8 @@ private:
   PathPlanner *planner = nullptr;
   std::vector<std::unique_ptr<PathPlanner>> tier2Planners;
   std::vector<std::unique_ptr<Tier3Advisor>> tier3Advisors;
+  semaforr::domain::CrowdModel crowdModel;
+  std::unique_ptr<semaforr::social::CrowdFieldLearner> crowdLearner;
   
   double canSeePointEpsilon, laserScanRadianIncrement, robotFootPrint, robotFootPrintBuffer, maxLaserRange, maxForwardActionBuffer, maxForwardActionSweepAngle, highwayDistanceThreshold, highwayTimeThreshold, highwayDecisionThreshold;
   double arrMove[300];
@@ -165,6 +175,7 @@ private:
   int frontierFinished;
   bool skeleton;
   bool hallwayskel;
+  semaforr::config::PlannerConfiguration plannerConfiguration;
 
   std::unique_ptr<semaforr::decision::TierOneDecision> tierOneDecision;
   std::unique_ptr<semaforr::decision::TierTwoDecision> tierTwoDecision;

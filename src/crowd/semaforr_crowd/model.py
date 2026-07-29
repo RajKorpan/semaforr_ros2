@@ -1,204 +1,141 @@
-"""ROS-independent incremental crowd-grid model."""
+"""ROS-independent validation and projection of learned crowd snapshots."""
 
 from dataclasses import dataclass
 import math
 
 
-@dataclass(frozen=True)
-class PersonSample:
-    """One pedestrian state and predicted (x, y, absolute-time) samples."""
+FLOW_ANGLES = tuple(index * math.pi / 4.0 for index in range(8))
 
-    identifier: str
-    x: float
-    y: float
-    velocity_x: float
-    velocity_y: float
+
+@dataclass(frozen=True)
+class CrowdFieldCell:
+    density: float
+    learned_encounter_risk: float
+    directional_flow: tuple
+    visibility_exposures: float
+    pedestrian_hits: float
+    risk_encounters: float
+    risk_experiences: float
     confidence: float
-    predictions: tuple
+
+    def validate(self):
+        values = (
+            self.density,
+            self.learned_encounter_risk,
+            self.visibility_exposures,
+            self.pedestrian_hits,
+            self.risk_encounters,
+            self.risk_experiences,
+            self.confidence,
+            *self.directional_flow,
+        )
+        if len(self.directional_flow) != 8:
+            raise ValueError('crowd flow must contain eight direction bins')
+        if not all(math.isfinite(value) and value >= 0.0 for value in values):
+            raise ValueError('crowd field cells must be finite and nonnegative')
+        if self.confidence > 1.0:
+            raise ValueError('crowd field confidence must be within [0, 1]')
+
+    def flow_vector(self):
+        return (
+            sum(
+                value * math.cos(angle)
+                for value, angle in zip(self.directional_flow, FLOW_ANGLES)
+            ),
+            sum(
+                value * math.sin(angle)
+                for value, angle in zip(self.directional_flow, FLOW_ANGLES)
+            ),
+        )
 
 
 @dataclass(frozen=True)
-class CrowdGridSnapshot:
-    """Immutable grid arrays in row-major order."""
+class CrowdFieldSnapshot:
+    frame_id: str
+    width_m: float
+    height_m: float
+    resolution_m: float
+    origin_x_m: float
+    origin_y_m: float
+    columns: int
+    rows: int
+    estimator: str
+    version: int
+    cells: tuple
 
-    density: tuple
-    risk: tuple
-    flow_x: tuple
-    flow_y: tuple
-    observations: tuple
-
-
-class CrowdGridModel:
-    """Accumulate density, predicted risk, and velocity flow grids."""
-
-    def __init__(
-        self,
-        width_m,
-        height_m,
-        resolution_m,
-        origin_x_m=0.0,
-        origin_y_m=0.0,
-        half_life_s=30.0,
-        prediction_half_life_s=3.0,
-    ):
-        values = (
-            width_m,
-            height_m,
-            resolution_m,
-            half_life_s,
-            prediction_half_life_s,
+    def validate(self):
+        dimensions = (
+            self.width_m,
+            self.height_m,
+            self.resolution_m,
+            self.origin_x_m,
+            self.origin_y_m,
         )
-        if not all(math.isfinite(value) and value > 0.0 for value in values):
-            raise ValueError(
-                'width, height, resolution, and half-life must be positive'
-            )
-        if not all(math.isfinite(value) for value in (
-            origin_x_m,
-            origin_y_m,
-        )):
-            raise ValueError('grid origin must be finite')
-        self.width_m = float(width_m)
-        self.height_m = float(height_m)
-        self.resolution_m = float(resolution_m)
-        self.origin_x_m = float(origin_x_m)
-        self.origin_y_m = float(origin_y_m)
-        self.half_life_s = float(half_life_s)
-        self.prediction_half_life_s = float(prediction_half_life_s)
-        self.columns = int(math.ceil(self.width_m / self.resolution_m))
-        self.rows = int(math.ceil(self.height_m / self.resolution_m))
-        size = self.columns * self.rows
-        self._density = [0.0] * size
-        self._risk = [0.0] * size
-        self._flow_x = [0.0] * size
-        self._flow_y = [0.0] * size
-        self._flow_weight = [0.0] * size
-        self._observations = [0.0] * size
-        self._last_update_s = None
-
-    def _index(self, x, y):
-        column = math.floor((x - self.origin_x_m) / self.resolution_m)
-        row = math.floor((y - self.origin_y_m) / self.resolution_m)
-        if column < 0 or row < 0:
-            return None
-        if column >= self.columns or row >= self.rows:
-            return None
-        return row * self.columns + column
-
-    def _decay(self, observed_at_s):
-        if self._last_update_s is None:
-            self._last_update_s = observed_at_s
-            return
-        elapsed = max(0.0, observed_at_s - self._last_update_s)
-        factor = math.exp(-math.log(2.0) * elapsed / self.half_life_s)
-        for values in (
-            self._density,
-            self._risk,
-            self._flow_x,
-            self._flow_y,
-            self._flow_weight,
+        if not self.frame_id or not self.estimator:
+            raise ValueError('crowd field frame and estimator must be named')
+        if not all(math.isfinite(value) for value in dimensions):
+            raise ValueError('crowd field geometry must be finite')
+        if (
+            self.width_m <= 0.0
+            or self.height_m <= 0.0
+            or self.resolution_m <= 0.0
+            or self.columns <= 0
+            or self.rows <= 0
+            or self.version <= 0
         ):
-            for index, value in enumerate(values):
-                values[index] = value * factor
-        self._last_update_s = observed_at_s
-
-    def _add_gaussian(self, values, x, y, amount):
-        center_column = math.floor(
-            (x - self.origin_x_m) / self.resolution_m
-        )
-        center_row = math.floor(
-            (y - self.origin_y_m) / self.resolution_m
-        )
-        for row_offset in range(-2, 3):
-            for column_offset in range(-2, 3):
-                column = center_column + column_offset
-                row = center_row + row_offset
-                if not 0 <= column < self.columns:
-                    continue
-                if not 0 <= row < self.rows:
-                    continue
-                squared = column_offset ** 2 + row_offset ** 2
-                weight = math.exp(-0.5 * squared)
-                index = row * self.columns + column
-                values[index] += amount * weight
-
-    def observe(self, observed_at_s, people):
-        """Apply one coherent social observation incrementally."""
-        if not math.isfinite(observed_at_s) or observed_at_s < 0.0:
-            raise ValueError('observation time must be finite and non-negative')
-        self._decay(observed_at_s)
-        seen = set()
-        for person in people:
-            if not person.identifier or person.identifier in seen:
-                raise ValueError('pedestrian identifiers must be unique')
-            seen.add(person.identifier)
-            values = (
-                person.x,
-                person.y,
-                person.velocity_x,
-                person.velocity_y,
-                person.confidence,
+            raise ValueError('crowd field geometry and version must be positive')
+        if len(self.cells) != self.columns * self.rows:
+            raise ValueError('crowd field cell count does not match geometry')
+        if (
+            self.columns != math.ceil(self.width_m / self.resolution_m)
+            or self.rows != math.ceil(self.height_m / self.resolution_m)
+        ):
+            raise ValueError(
+                'crowd field rows and columns do not match metric geometry'
             )
-            if not all(math.isfinite(value) for value in values):
-                raise ValueError('pedestrian state must be finite')
-            if not 0.0 <= person.confidence <= 1.0:
-                raise ValueError('pedestrian confidence must be in [0, 1]')
-            index = self._index(person.x, person.y)
-            if index is None:
-                continue
-            confidence = person.confidence
-            self._add_gaussian(
-                self._density,
-                person.x,
-                person.y,
-                confidence,
-            )
-            self._observations[index] += 1.0
-            self._flow_x[index] += confidence * person.velocity_x
-            self._flow_y[index] += confidence * person.velocity_y
-            self._flow_weight[index] += confidence
-            self._add_gaussian(self._risk, person.x, person.y, confidence)
-            previous_prediction_at_s = observed_at_s
-            for prediction in person.predictions:
-                if len(prediction) != 3:
-                    raise ValueError(
-                        'predictions must contain X, Y, and absolute time'
-                    )
-                predicted_x, predicted_y, prediction_at_s = prediction
-                if not all(math.isfinite(value) for value in prediction):
-                    raise ValueError('predictions must be finite')
-                if prediction_at_s <= previous_prediction_at_s:
-                    raise ValueError(
-                        'prediction times must be strictly increasing'
-                    )
-                previous_prediction_at_s = prediction_at_s
-                horizon_s = prediction_at_s - observed_at_s
-                prediction_weight = math.exp(
-                    -math.log(2.0)
-                    * horizon_s
-                    / self.prediction_half_life_s
-                )
-                self._add_gaussian(
-                    self._risk,
-                    predicted_x,
-                    predicted_y,
-                    confidence * prediction_weight,
-                )
+        for cell in self.cells:
+            cell.validate()
 
-    def snapshot(self):
-        """Return normalized flow and the current learned grids."""
-        flow_x = []
-        flow_y = []
-        for index, weight in enumerate(self._flow_weight):
-            if weight > 1.0e-12:
-                flow_x.append(self._flow_x[index] / weight)
-                flow_y.append(self._flow_y[index] / weight)
-            else:
-                flow_x.append(0.0)
-                flow_y.append(0.0)
-        return CrowdGridSnapshot(
-            tuple(self._density),
-            tuple(self._risk),
-            tuple(flow_x),
-            tuple(flow_y),
-            tuple(self._observations),
+    @property
+    def density(self):
+        return tuple(cell.density for cell in self.cells)
+
+    @property
+    def risk(self):
+        return tuple(cell.learned_encounter_risk for cell in self.cells)
+
+    @property
+    def flow(self):
+        return tuple(cell.flow_vector() for cell in self.cells)
+
+    @classmethod
+    def from_message(cls, message):
+        snapshot = cls(
+            frame_id=message.header.frame_id,
+            width_m=float(message.width_m),
+            height_m=float(message.height_m),
+            resolution_m=float(message.resolution_m),
+            origin_x_m=float(message.origin_x_m),
+            origin_y_m=float(message.origin_y_m),
+            columns=int(message.columns),
+            rows=int(message.rows),
+            estimator=message.estimator,
+            version=int(message.version),
+            cells=tuple(
+                CrowdFieldCell(
+                    density=float(cell.density),
+                    learned_encounter_risk=float(
+                        cell.learned_encounter_risk
+                    ),
+                    directional_flow=tuple(cell.directional_flow),
+                    visibility_exposures=float(cell.visibility_exposures),
+                    pedestrian_hits=float(cell.pedestrian_hits),
+                    risk_encounters=float(cell.risk_encounters),
+                    risk_experiences=float(cell.risk_experiences),
+                    confidence=float(cell.confidence),
+                )
+                for cell in message.cells
+            ),
         )
+        snapshot.validate()
+        return snapshot

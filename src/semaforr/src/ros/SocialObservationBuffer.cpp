@@ -94,9 +94,9 @@ SocialObservationBuffer::snapshot(const rclcpp::Time& now) const
           configuration_.minimum_confidence;
       }),
     result.pedestrians.end());
-  if (result.pedestrians.empty()) {
-    return std::nullopt;
-  }
+  // A valid empty observation is retained: it is negative evidence for the
+  // visibility-normalized learned crowd field. Live advisors independently
+  // require at least one sufficiently confident pedestrian.
   return result;
 }
 

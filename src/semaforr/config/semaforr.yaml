@@ -9,6 +9,7 @@ semaforr:
       command: cmd_vel
       navigation_state: navigation_state
       social_observations: social_observations
+      crowd_field: crowd_field
 
     qos:
       sensors:
@@ -33,6 +34,21 @@ semaforr:
     social:
       maximum_age_s: 0.75
       minimum_confidence: 0.25
+      learning:
+        enabled: true
+        estimator: count_exposure
+        resolution_m: 1.0
+        origin_x_m: 0.0
+        origin_y_m: 0.0
+        discount_factor: 0.7
+        minimum_update_period_s: 1.0
+        encounter_radius_m: 1.0
+        minimum_flow_speed_mps: 0.05
+        confidence_exposures: 10.0
+        cusum_increase: 4.0
+        cusum_decrease: -3.0
+        cusum_threshold: 10.0
+        random_seed: 0
 
     command:
       linear_velocity_mps: 0.5
@@ -91,6 +107,9 @@ semaforr:
       behind: true
       dont_go_back: false
 
+    planners:
+      enabled: [skeleton, density, risk, flow]
+
     advisors:
       names:
         - Greedy
@@ -118,7 +137,15 @@ semaforr:
         - InterpersonalRotation
         - CrowdAvoid
         - CrowdAvoidRotation
+        - RiskAvoid
+        - RiskAvoidRotation
+        - FlowAvoid
+        - FlowAvoidRotation
       enabled:
+        - true
+        - true
+        - true
+        - true
         - true
         - true
         - true
@@ -170,6 +197,10 @@ semaforr:
         - 1.0
         - 1.0
         - 1.0
+        - 1.0
+        - 1.0
+        - 1.0
+        - 1.0
       # Four values per advisor, flattened because ROS parameters do not
       # support arrays of mappings.
       parameters:
@@ -181,6 +212,10 @@ semaforr:
          0.0, 0.0, 0.0, 0.0,
          0.05, 0.0, 0.0, 0.0,
          1.25, 0.0, 0.0, 0.0,
+         0.0, 0.0, 0.0, 0.0,
+         0.0, 0.0, 0.0, 0.0,
+         0.0, 0.0, 0.0, 0.0,
+         0.0, 0.0, 0.0, 0.0,
          0.0, 0.0, 0.0, 0.0,
          0.0, 0.0, 0.0, 0.0,
          0.0, 0.0, 0.0, 0.0,

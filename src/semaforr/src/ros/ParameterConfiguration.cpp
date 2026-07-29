@@ -20,7 +20,9 @@ const std::vector<std::string>& defaultAdvisorNames()
     "GoAroundRotation", "RegionLeaverLinear", "RegionLeaverRotation",
     "UnlikelyField", "UnlikelyFieldRotation", "EnterLinear", "EnterRotation",
     "ConveyLinear", "ConveyRotation", "TrailerLinear", "TrailerRotation",
-    "LeastAngle", "LeastAngleRotation"
+    "LeastAngle", "LeastAngleRotation", "Interpersonal",
+    "InterpersonalRotation", "CrowdAvoid", "CrowdAvoidRotation",
+    "RiskAvoid", "RiskAvoidRotation", "FlowAvoid", "FlowAvoidRotation"
   };
   return names;
 }
@@ -31,6 +33,8 @@ const std::vector<double>& defaultAdvisorParameters()
     0, 0, 0, 0,  0, 0, 0, 0,  10, -4, -0.22, 0,
     10, -4, -0.22, 0,  0, 0, 0, 0,  0, 0, 0, 0,
     0.05, 0, 0, 0,  1.25, 0, 0, 0,  0, 0, 0, 0,
+    0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,
+    0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,
     0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,
     0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,
     0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,
@@ -50,8 +54,11 @@ void applyPlanner(
   else if (name == "risk") planners.risk = true;
   else if (name == "flow") planners.flow = true;
   else if (name == "combined") planners.combined = true;
-  else if (name == "cusum") planners.cusum = true;
-  else if (name == "discount") planners.discount = true;
+  else if (name == "cusum" || name == "discount") {
+    throw std::runtime_error(
+      "'" + name + "' is a crowd-learning estimator, not a planner; "
+      "configure social.learning.estimator instead");
+  }
   else if (name == "explore") planners.explore = true;
   else if (name == "spatial") planners.spatial = true;
   else if (name == "hallwayer") planners.hallwayer = true;
@@ -201,6 +208,46 @@ config::Configuration configurationFromParameters(rclcpp::Node& node)
     node.get_parameter("learning.highway_time_threshold_s").as_double();
   controller.highway_decision_threshold =
     node.get_parameter("learning.highway_decision_threshold").as_double();
+
+  controller.crowd_learning.enabled =
+    node.get_parameter("social.learning.enabled").as_bool();
+  controller.crowd_learning.estimator =
+    node.get_parameter("social.learning.estimator").as_string();
+  controller.crowd_learning.frame =
+    node.get_parameter("frames.global").as_string();
+  controller.crowd_learning.resolution_m =
+    node.get_parameter("social.learning.resolution_m").as_double();
+  controller.crowd_learning.origin_x_m =
+    node.get_parameter("social.learning.origin_x_m").as_double();
+  controller.crowd_learning.origin_y_m =
+    node.get_parameter("social.learning.origin_y_m").as_double();
+  controller.crowd_learning.discount_factor =
+    node.get_parameter("social.learning.discount_factor").as_double();
+  controller.crowd_learning.minimum_update_period_s =
+    node.get_parameter(
+      "social.learning.minimum_update_period_s").as_double();
+  controller.crowd_learning.encounter_radius_m =
+    node.get_parameter("social.learning.encounter_radius_m").as_double();
+  controller.crowd_learning.minimum_flow_speed_mps =
+    node.get_parameter(
+      "social.learning.minimum_flow_speed_mps").as_double();
+  controller.crowd_learning.confidence_exposures =
+    node.get_parameter(
+      "social.learning.confidence_exposures").as_double();
+  controller.crowd_learning.cusum_increase =
+    node.get_parameter("social.learning.cusum_increase").as_double();
+  controller.crowd_learning.cusum_decrease =
+    node.get_parameter("social.learning.cusum_decrease").as_double();
+  controller.crowd_learning.cusum_threshold =
+    node.get_parameter("social.learning.cusum_threshold").as_double();
+  const auto crowd_seed =
+    node.get_parameter("social.learning.random_seed").as_int();
+  if (crowd_seed < 0) {
+    throw std::runtime_error(
+      "social.learning.random_seed must be nonnegative");
+  }
+  controller.crowd_learning.random_seed =
+    static_cast<unsigned int>(crowd_seed);
 
   controller.trails_on = node.get_parameter("features.trails").as_bool();
   controller.conveyors_on = node.get_parameter("features.conveyors").as_bool();

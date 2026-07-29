@@ -22,7 +22,7 @@
 #include <algorithm>
 #include <queue>
 #include <semaforr/domain/SensorTypes.hpp>
-#include <semaforr/domain/social.hpp>
+#include <semaforr/domain/crowd_model.hpp>
 
 using namespace std;
 
@@ -39,7 +39,7 @@ private:
   Graph * navGraph = nullptr;
   Graph * originalNavGraph = nullptr;
   Map map;
-  semaforr::domain::CrowdState crowdState;
+  semaforr::domain::CrowdModel crowdModel;
   Node source, target; 
   list<int> path;
   vector< list<int> > paths;
@@ -155,10 +155,16 @@ public:
   }
 
   void setCrowdState(const semaforr::domain::CrowdState& c){
-    crowdState = c;
+    crowdModel.observations() = c;
   }
   const semaforr::domain::CrowdState& getCrowdState() const noexcept {
-    return crowdState;
+    return crowdModel.observations();
+  }
+  void setCrowdModel(const semaforr::domain::CrowdModel& model) {
+    crowdModel = model;
+  }
+  const semaforr::domain::CrowdModel& getCrowdModel() const noexcept {
+    return crowdModel;
   }
 
   void setOriginalNavGraph(Graph * navGraph){

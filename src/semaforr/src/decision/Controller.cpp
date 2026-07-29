@@ -85,6 +85,23 @@ void Controller::initialize_planner(
     }
     tier2Planners.push_back(std::move(hallway_skeleton_planner));
   }
+
+  const std::vector<std::pair<std::string, bool>> crowd_cost_planners{
+    {"density", plannerConfiguration.density},
+    {"risk", plannerConfiguration.risk},
+    {"flow", plannerConfiguration.flow},
+    {"combined", plannerConfiguration.combined}};
+  for (const auto& [name, enabled] : crowd_cost_planners) {
+    if (!enabled) continue;
+    auto navigation_graph = std::make_unique<Graph>(
+      static_cast<int>(granularity * 100.0), length * 100, height * 100);
+    auto cost_planner = std::make_unique<PathPlanner>(
+      std::move(navigation_graph), node, node, name);
+    if (planner == nullptr) {
+      planner = cost_planner.get();
+    }
+    tier2Planners.push_back(std::move(cost_planner));
+  }
   cout << "initialized planners" << endl;
 }
 
@@ -116,6 +133,7 @@ Controller::Controller(
 Controller::Controller(semaforr::config::Configuration configuration) {
   const semaforr::config::ControllerConfiguration& params =
     configuration.controller;
+  initialize_crowd_learning(configuration);
 
   taskDecisionLimit = params.task_decision_limit;
   planLimit = params.plan_limit;
@@ -155,6 +173,7 @@ Controller::Controller(semaforr::config::Configuration configuration) {
   dontgobackOn = params.dont_go_back_on;
   skeleton = params.planners.skeleton;
   hallwayskel = params.planners.hallway_skeleton;
+  plannerConfiguration = params.planners;
 
   const int l = configuration.map_dimensions.length;
   const int h = configuration.map_dimensions.height;

@@ -25,6 +25,7 @@
 #include <set>
 
 #include <semaforr/domain/SensorTypes.hpp>
+#include <semaforr/domain/crowd_model.hpp>
 #include <semaforr/domain/social.hpp>
 
 using namespace std;
@@ -415,20 +416,26 @@ public:
   void setAgentStateParameters(double val1, double val2, double val3, double val4, double val5, double val6, double val7);
   
   void setCrowdState(const semaforr::domain::CrowdState& crowd) {
-    crowdState = crowd;
+    crowdModel.observations() = crowd;
+  }
+  void setCrowdModel(const semaforr::domain::CrowdModel& crowd) {
+    crowdModel = crowd;
   }
   const semaforr::domain::CrowdState& getCrowdState() const noexcept {
-    return crowdState;
+    return crowdModel.observations();
+  }
+  const semaforr::domain::CrowdModel& getCrowdModel() const noexcept {
+    return crowdModel;
   }
   bool hasValidCrowd() const noexcept {
-    return crowdState.current() &&
-      !crowdState.current()->pedestrians.empty();
+    return crowdModel.current() &&
+      !crowdModel.current()->pedestrians.empty();
   }
 
   vector<Position> getCrowdPositions() const;
 
   // Read-only compatibility projections for established diagnostics and
-  // advisors. Both are derived from the single CrowdState input.
+  // advisors. Both are derived from the live portion of CrowdModel.
   semaforr::domain::PoseArray getCrowdPose() const;
   semaforr::domain::PoseArray getCrowdPoseAll() const;
 
@@ -571,8 +578,8 @@ public:
   //Converts current laser range scanner to endpoints
   void transformToEndpoints();
 
-  // The one social-navigation state; no ROS messages or parallel pose inputs.
-  semaforr::domain::CrowdState crowdState;
+  // One authoritative social model: live observations plus learned fields.
+  semaforr::domain::CrowdModel crowdModel;
 
   //Rotate mode tells if the t3 should rotate or move
   bool rotateMode;

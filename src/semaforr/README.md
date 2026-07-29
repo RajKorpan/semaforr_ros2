@@ -21,6 +21,10 @@ SemaFORR is designed to enable robots to navigate complex environments using cog
 - Independently enabled, inspected, rebuilt, and serialized spatial learners
 - Responsive callback/timer ROS 2 node with synchronized sensors and safe-stop
   action execution
+- Unified live-and-learned crowd model with visibility-normalized density,
+  encounter-risk, and directional-flow evidence
+- One canonical social observation input and a separate derived crowd-field
+  diagnostic output
 - Example configuration files for quick setup
 
 ## Usage
@@ -85,3 +89,7 @@ documented in `docs/phase-10-completion.md` and
 
 The event-driven ROS node architecture, parameters, state machine, and
 sensor-loss verification are documented in `docs/phase-11-completion.md`.
+
+The canonical social API, unified `CrowdModel`, learning strategies, planner
+and advisor consumers, stale-data fallback, persistence, and diagnostic
+projection are documented in `docs/social_navigation.md`.

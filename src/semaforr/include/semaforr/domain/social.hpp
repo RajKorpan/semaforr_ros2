@@ -110,8 +110,7 @@ struct CrowdObservation {
     std::chrono::nanoseconds maximum_age,
     double minimum_confidence = 0.0) const noexcept
   {
-    if (frame_id.empty() || data_age < std::chrono::nanoseconds::zero() ||
-        data_age > maximum_age || pedestrians.empty()) {
+    if (!fresh(maximum_age) || pedestrians.empty()) {
       return false;
     }
     return std::any_of(
@@ -120,6 +119,15 @@ struct CrowdObservation {
         return std::isfinite(pedestrian.confidence) &&
           pedestrian.confidence >= minimum_confidence;
       });
+  }
+
+  // A valid empty observation is useful negative evidence for the learned
+  // crowd field even though no live social advisor should participate.
+  bool fresh(std::chrono::nanoseconds maximum_age) const noexcept
+  {
+    return !frame_id.empty() &&
+      data_age >= std::chrono::nanoseconds::zero() &&
+      data_age <= maximum_age;
   }
 };
 

@@ -17,6 +17,31 @@
 #include <sstream>
 
 using namespace std;
+
+namespace {
+
+bool isCrowdCostPlanner(const std::string& name)
+{
+  return name == "density" || name == "risk" ||
+    name == "flow" || name == "combined";
+}
+
+void copyNavigationGraph(const Graph& source, Graph& destination)
+{
+  destination.resetGraph();
+  for (Node* node : source.getNodes()) {
+    destination.addNode(
+      node->getX(), node->getY(), node->getRadius(), node->getID());
+  }
+  for (Edge* edge : source.getEdges()) {
+    destination.addEdge(
+      edge->getFrom(), edge->getTo(), edge->getDistCost(),
+      edge->getEdgePath(true));
+  }
+}
+
+}  // namespace
+
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // Update spatial model after every task
 //
@@ -175,6 +200,12 @@ void Controller::updateSkeletonGraph(AgentState* agentState){
       cout << "Finished updating skeleton planner" << endl;
       skeleton_planner->getGraph()->printGraph();
       cout << "Connected Graph: " << skeleton_planner->getGraph()->isConnected() << endl;
+      for (const auto& ownedPlanner : tier2Planners) {
+        if (isCrowdCostPlanner(ownedPlanner->getName())) {
+          copyNavigationGraph(
+            *skeleton_planner->getGraph(), *ownedPlanner->getGraph());
+        }
+      }
     }
     if(hallwayskel){
       cout << "Finished updating skeleton graph for passage planner" << endl;

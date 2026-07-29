@@ -11,6 +11,7 @@
 #include <semaforr/domain/action.hpp>
 #include <semaforr/domain/mission.hpp>
 #include <semaforr/domain/observation.hpp>
+#include <semaforr/domain/crowd_model.hpp>
 
 namespace semaforr::domain {
 
@@ -126,7 +127,7 @@ struct WorldModel {
   Mission mission;
   NavigationHistory navigation_history;
   RecoveryState recovery;
-  CrowdState crowd;
+  CrowdModel crowd;
   SpatialModel spatial;
 };
 

@@ -3331,6 +3331,12 @@ double Tier3Interpersonal::actionComment(FORRAction action){
       //cout << "metric = " << metric << endl;
     }
   }
+  // Preserve the established current-position score while also consuming the
+  // canonical prediction stream. A unit peak is on the same scale as the
+  // existing near-contact penalty.
+  metric -= beliefs->getAgentState()->getCrowdModel().
+    predictiveCollisionRiskAt(
+      {expectedPosition.getX(), expectedPosition.getY()});
   return metric;
 }
 
@@ -3359,6 +3365,9 @@ double Tier3InterpersonalRotation::actionComment(FORRAction action){
       //cout << "metric = " << metric << endl;
     }
   }
+  metric -= beliefs->getAgentState()->getCrowdModel().
+    predictiveCollisionRiskAt(
+      {expectedPosition.getX(), expectedPosition.getY()});
   return metric;
 }
 

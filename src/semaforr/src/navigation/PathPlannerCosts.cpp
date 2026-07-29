@@ -8,52 +8,19 @@
 
 #define PATH_DEBUG true
 
-namespace {
-
 // The compatibility graph stores planar coordinates in centimetres.
 constexpr double kGraphUnitsPerMeter = 100.0;
-
-double crowdDensity(
-  const semaforr::domain::CrowdState& crowd,
-  double x,
-  double y,
-  bool include_predictions)
-{
-  if (!crowd.current()) {
-    return 0.0;
-  }
-  double cost = 0.0;
-  for (const auto& pedestrian : crowd.current()->pedestrians) {
-    auto accumulate = [&](const semaforr::domain::Point2D& point) {
-      const double dx = x - point.x_m;
-      const double dy = y - point.y_m;
-      cost = std::max(
-        cost,
-        pedestrian.confidence *
-          std::exp(-(dx * dx + dy * dy) / 0.5));
-    };
-    accumulate(pedestrian.position);
-    if (include_predictions) {
-      for (const auto& prediction : pedestrian.predicted_trajectory) {
-        accumulate(prediction.position);
-      }
-    }
-  }
-  return cost;
-}
-
-}  // namespace
 
 double PathPlanner::cellCost(int nodex, int nodey, int buffer){
   const double x = nodex / kGraphUnitsPerMeter;
   const double y = nodey / kGraphUnitsPerMeter;
   const double offset = std::fabs(buffer / kGraphUnitsPerMeter);
   return std::max({
-    crowdDensity(crowdState, x, y, false),
-    crowdDensity(crowdState, x + offset, y, false),
-    crowdDensity(crowdState, x - offset, y, false),
-    crowdDensity(crowdState, x, y + offset, false),
-    crowdDensity(crowdState, x, y - offset, false)});
+    crowdModel.densityAt({x, y}),
+    crowdModel.densityAt({x + offset, y}),
+    crowdModel.densityAt({x - offset, y}),
+    crowdModel.densityAt({x, y + offset}),
+    crowdModel.densityAt({x, y - offset})});
 }
 
 double PathPlanner::riskCost(int nodex, int nodey, int buffer){
@@ -61,15 +28,15 @@ double PathPlanner::riskCost(int nodex, int nodey, int buffer){
   const double y = nodey / kGraphUnitsPerMeter;
   const double offset = std::fabs(buffer / kGraphUnitsPerMeter);
   return std::max({
-    crowdDensity(crowdState, x, y, true),
-    crowdDensity(crowdState, x + offset, y, true),
-    crowdDensity(crowdState, x - offset, y, true),
-    crowdDensity(crowdState, x, y + offset, true),
-    crowdDensity(crowdState, x, y - offset, true)});
+    crowdModel.navigationRiskAt({x, y}),
+    crowdModel.navigationRiskAt({x + offset, y}),
+    crowdModel.navigationRiskAt({x - offset, y}),
+    crowdModel.navigationRiskAt({x, y + offset}),
+    crowdModel.navigationRiskAt({x, y - offset})});
 }
 
 double PathPlanner::computeCrowdFlow(Node s, Node d){
-  if (!crowdState.current()) {
+  if (!crowdModel.learnedAvailable()) {
     return 0.0;
   }
   const double sx = s.getX() / kGraphUnitsPerMeter;
@@ -80,25 +47,12 @@ double PathPlanner::computeCrowdFlow(Node s, Node d){
   if (length <= 1.0e-9) {
     return 0.0;
   }
-  const double edge_x = (dx - sx) / length;
-  const double edge_y = (dy - sy) / length;
   const double midpoint_x = (sx + dx) / 2.0;
   const double midpoint_y = (sy + dy) / 2.0;
-  double cost = 0.0;
-  for (const auto& pedestrian : crowdState.current()->pedestrians) {
-    const double distance = std::hypot(
-      pedestrian.position.x_m - midpoint_x,
-      pedestrian.position.y_m - midpoint_y);
-    if (distance > 3.0) {
-      continue;
-    }
-    const double projection =
-      pedestrian.velocity_mps.x_m * edge_x +
-      pedestrian.velocity_mps.y_m * edge_y;
-    cost += pedestrian.confidence *
-      std::exp(-(distance * distance) / 2.0) * (-projection);
-  }
-  return cost;
+  const semaforr::domain::Angle direction(std::atan2(dy - sy, dx - sx));
+  // Positive alignment is helpful; legacy edge costs penalize opposing flow.
+  return -crowdModel.flowAlignmentAt(
+    {midpoint_x, midpoint_y}, direction);
 }
 
 double PathPlanner::novelCost(int nodex, int nodey){

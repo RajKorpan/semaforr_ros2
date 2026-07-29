@@ -58,8 +58,8 @@ def test_social_domain_boundary_is_ros_independent():
         assert "geometry_msgs" not in source
         assert "social_context_msgs" not in source
         assert "rclcpp" not in source
-    assert "CrowdState crowdState" in agent_state
-    assert "CrowdState crowdState" in planner
+    assert "CrowdModel crowdModel" in agent_state
+    assert "CrowdModel crowdModel" in planner
     assert "data_age" in social
 
 
@@ -101,5 +101,5 @@ def test_social_consumers_and_stale_fallback_are_configured():
     assert advisor.index("return evaluation;") < advisor.index(
         "evaluation.participated = true"
     )
-    assert "crowdState.current()" in planner
+    assert "crowdModel.learnedAvailable()" in planner
     assert "SocialObservationStatus::Stale" in buffer

@@ -30,6 +30,24 @@ struct PlannerConfiguration {
   bool hallway_skeleton = false;
 };
 
+struct CrowdLearningConfiguration {
+  bool enabled = true;
+  std::string estimator = "count_exposure";
+  std::string frame = "map";
+  double resolution_m = 1.0;
+  double origin_x_m = 0.0;
+  double origin_y_m = 0.0;
+  double discount_factor = 0.7;
+  double minimum_update_period_s = 1.0;
+  double encounter_radius_m = 1.0;
+  double minimum_flow_speed_mps = 0.05;
+  double confidence_exposures = 10.0;
+  double cusum_increase = 4.0;
+  double cusum_decrease = -3.0;
+  double cusum_threshold = 10.0;
+  unsigned int random_seed = 0U;
+};
+
 struct ControllerConfiguration {
   int task_decision_limit = 0;
   int plan_limit = 0;
@@ -64,6 +82,7 @@ struct ControllerConfiguration {
   bool dont_go_back_on = false;
 
   PlannerConfiguration planners;
+  CrowdLearningConfiguration crowd_learning;
 };
 
 struct MapDimensions {
