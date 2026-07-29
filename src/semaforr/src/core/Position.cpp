@@ -5,7 +5,7 @@
  *      Author: richardmarcley
  */
 
-#include <semaforr/core/Position.h>
+#include <semaforr/core/Position.hpp>
 #include <stdio.h>
 #include <math.h>
 

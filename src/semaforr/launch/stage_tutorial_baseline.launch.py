@@ -23,13 +23,10 @@ def generate_launch_description():
         name="semaforr",
         output="screen",
         parameters=[
+            str(config_dir / "semaforr.yaml"),
             {
-                "semaforr_path": str(package_share),
-                "target_set": str(tutorial_dir / "target.conf"),
-                "map_config": str(tutorial_dir / "stage_tutorialS.xml"),
-                "map_dimensions": str(tutorial_dir / "dimensions.conf"),
-                "advisors": str(config_dir / "advisors.conf"),
-                "params": str(config_dir / "params.conf"),
+                "map.path": str(tutorial_dir / "stage_tutorialS.xml"),
+                "mission.tasks_path": str(tutorial_dir / "target.conf"),
             }
         ],
     )

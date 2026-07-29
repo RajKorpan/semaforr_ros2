@@ -1,4 +1,4 @@
-#include <semaforr/spatial/FORRHallways.h>
+#include <semaforr/spatial/FORRHallways.hpp>
 
 using namespace std;
 

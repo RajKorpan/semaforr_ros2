@@ -1,6 +1,6 @@
 /* Path smoothing, diagnostics, and validation. */
 
-#include <semaforr/navigation/PathPlanner.h>
+#include <semaforr/navigation/PathPlanner.hpp>
 
 #include <algorithm>
 #include <limits.h>

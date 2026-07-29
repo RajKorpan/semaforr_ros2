@@ -2,7 +2,7 @@
  * Controller decision-pipeline orchestration.
  */
 
-#include <semaforr/decision/Controller.h>
+#include <semaforr/decision/Controller.hpp>
 
 #include <iostream>
 

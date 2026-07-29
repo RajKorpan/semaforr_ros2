@@ -4,7 +4,7 @@
   @{
  */
 
-#include <semaforr/navigation/PathPlanner.h>
+#include <semaforr/navigation/PathPlanner.hpp>
 #include <limits.h>
 #include <algorithm>
 
@@ -1035,4 +1035,5 @@ double PathPlanner::computeNewEdgeCost(Node s, Node d, bool direction, double ol
     cout << "New cost    :" << newEdgeCost << endl;
   }*/
 	//return newEdgeCost;
+  return oldcost;
 }

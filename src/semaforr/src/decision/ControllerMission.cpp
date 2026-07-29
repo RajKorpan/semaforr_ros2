@@ -2,8 +2,9 @@
  * Controller mission lifecycle and top-level action orchestration.
  */
 
-#include <semaforr/decision/Controller.h>
-#include <semaforr/core/FORRGeometry.h>
+#include <semaforr/decision/Controller.hpp>
+#include <semaforr/core/action_adapter.hpp>
+#include <semaforr/core/FORRGeometry.hpp>
 #include <unistd.h>
 
 #include <algorithm>
@@ -210,7 +211,7 @@ bool Controller::isMissionComplete(){
 // Main robot decision making engine, return decisions that would lead the robot to complete its mission
 // Manages switching tasks and stops if the robot is taking too long
 //
-FORRAction Controller::decide() {
+semaforr::decision::DecisionResult Controller::decide() {
   // RCLCPP_DEBUG(this->get_logger(), "Entering decision loop");
   cout << "Entering decision loop" << endl;
   FORRAction decidedAction;
@@ -246,5 +247,34 @@ FORRAction Controller::decide() {
   beliefs->getAgentState()->clearVetoedActions();
   //// RCLCPP_DEBUG(this->get_logger(), "After clearVetoedActions");
   cout << "Exiting decision loop" << endl;
-  return decidedAction;
+  semaforr::decision::DecisionResult result;
+  result.action = semaforr::core::toDomainAction(decidedAction);
+  if (decisionStats.decisionTier == 3.0) {
+    result.source = semaforr::decision::DecisionSource::TierThreeAdvisor;
+  } else if (
+    decisionStats.decisionTier == 1.7 ||
+    decisionStats.decisionTier == 1.8) {
+    result.source = semaforr::decision::DecisionSource::Exploration;
+  } else {
+    result.source = semaforr::decision::DecisionSource::MandatoryRule;
+  }
+  if (!decisionStats.chosenPlanner.empty() &&
+      decisionStats.chosenPlanner.find_first_not_of(' ') !=
+        std::string::npos) {
+    result.planner = decisionStats.chosenPlanner;
+  }
+  result.diagnostics.legacy_tier = decisionStats.decisionTier;
+  result.diagnostics.veto_summary = decisionStats.vetoedActions;
+  result.diagnostics.advisor_summary = decisionStats.advisors;
+  result.diagnostics.advisor_comments = decisionStats.advisorComments;
+  result.diagnostics.advisor_influence = decisionStats.advisorInfluence;
+  result.diagnostics.planning_seconds =
+    decisionStats.planningComputationTime;
+  result.diagnostics.learning_seconds =
+    decisionStats.learningComputationTime;
+  result.diagnostics.graphing_seconds =
+    decisionStats.graphingComputationTime;
+  result.diagnostics.planner_comments = decisionStats.plannerComments;
+  decisionStats = FORRActionStats();
+  return result;
 }

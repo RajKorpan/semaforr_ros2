@@ -3,8 +3,8 @@
  *
  */
 
-#include <semaforr/decision/Controller.h>
-#include <semaforr/core/FORRGeometry.h>
+#include <semaforr/decision/Controller.hpp>
+#include <semaforr/core/FORRGeometry.hpp>
 #include "DecisionTierFactory.h"
 #include <unistd.h>
 
@@ -130,11 +130,14 @@ Controller::Controller(semaforr::config::Configuration configuration) {
   highwayTimeThreshold = params.highway_time_threshold;
   highwayDecisionThreshold = params.highway_decision_threshold;
 
-  moveArrMax = static_cast<int>(params.move_actions.size());
-  rotateArrMax = static_cast<int>(params.rotate_actions.size());
-  std::copy(params.move_actions.begin(), params.move_actions.end(), arrMove);
+  moveArrMax = static_cast<int>(params.move_actions.size()) + 1;
+  rotateArrMax = static_cast<int>(params.rotate_actions.size()) + 1;
+  arrMove[0] = 0.0;
+  arrRotate[0] = 0.0;
   std::copy(
-    params.rotate_actions.begin(), params.rotate_actions.end(), arrRotate);
+    params.move_actions.begin(), params.move_actions.end(), arrMove + 1);
+  std::copy(
+    params.rotate_actions.begin(), params.rotate_actions.end(), arrRotate + 1);
 
   trailsOn = params.trails_on;
   conveyorsOn = params.conveyors_on;

@@ -7,7 +7,7 @@
  */
 
 #include <iostream>
-#include <semaforr/core/FORRGeometry.h>
+#include <semaforr/core/FORRGeometry.hpp>
 
 using std::cout;
 using std::endl;
@@ -218,6 +218,7 @@ CartesianPoint get_perpendicular(CartesianPoint point, Line line){
   else if(line.get_value_a() == 0){
     return CartesianPoint(point.get_x(), line.get_value_c() / line.get_value_b());
   }
+  return point;
 }
 
 // Formula taken from Wikipedia

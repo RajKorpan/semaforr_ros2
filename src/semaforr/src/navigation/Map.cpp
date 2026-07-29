@@ -6,7 +6,8 @@
  */
 
 
-#include <semaforr/navigation/Map.h>
+#include <semaforr/navigation/Map.hpp>
+#include <semaforr/planning/map_parser.hpp>
 #include <iostream>
 using namespace std;
 
@@ -54,38 +55,21 @@ void Map::addWall(double x1, double y1, double x2, double y2){
 
 //read xml file and add walls in cms
 bool Map::readMapFromXML(string filename){
-	const char * c = filename.c_str();
-	TiXmlDocument xml(c);
-	bool valid = xml.LoadFile();
-	TiXmlHandle hDoc(&xml);
-	TiXmlElement* obstacleNode;
-	TiXmlElement* vertexNode;
-	TiXmlHandle hObstacle(0);
-	TiXmlHandle hRoot(0);
-	if ( !valid ) {	// load xml file
-		cout << "Could not load map xml " << filename << ".\n";
-		return false;
-	}
-
-	TiXmlElement* rootNode = xml.RootElement();	
-	if( ! rootNode ) {
-		cout << "Root element does not exist\n.";
-		return false;
-	}
-	hRoot = TiXmlHandle(rootNode);
-
-	obstacleNode = hRoot.FirstChild("ObstacleSet").FirstChild("Obstacle").Element();
-	for( obstacleNode; obstacleNode; obstacleNode=obstacleNode->NextSiblingElement()){
-		hObstacle = TiXmlHandle(obstacleNode);
-		vertexNode = hObstacle.FirstChild("Vertex").Element();
-		double x1 = atof(vertexNode->Attribute("p_x")) * 100;// to convert from m to cms
-		double y1 = atof(vertexNode->Attribute("p_y")) * 100;
-		vertexNode = vertexNode->NextSiblingElement();
-		double x2 = atof(vertexNode->Attribute("p_x")) * 100;
-		double y2 = atof(vertexNode->Attribute("p_y")) * 100;
-		addWall(x1,y1,x2,y2);
-		//cout << "Adding wall ("<< x1 <<"," << y1<<")->("<<x2 <<"," << y2<<")"<<endl;		
-	}
+  try {
+    const auto parsed = semaforr::planning::parseMapXmlFile(filename);
+    for (const auto& wall : parsed.walls) {
+      // Legacy Map stores centimetres internally. Conversion is isolated here.
+      addWall(
+        wall.start.x_m * 100.0,
+        wall.start.y_m * 100.0,
+        wall.end.x_m * 100.0,
+        wall.end.y_m * 100.0);
+    }
+    return true;
+  } catch (const std::exception& error) {
+    cout << error.what() << '\n';
+    return false;
+  }
 }
 
 bool Map::isWithinBorders(double x, double y){

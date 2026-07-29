@@ -41,6 +41,14 @@ def decision_signature(trace):
             for event in decisions]
 
 
+def transition_signature(trace):
+    section = trace["expected"] if "expected" in trace else trace["result"]
+    return [
+        (event["task"], event["first_decision"])
+        for event in section["task_transitions"]
+    ]
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("expected", type=Path)
@@ -59,6 +67,24 @@ def main():
         differences.append("velocity command sequence differs")
     if decision_signature(expected) != decision_signature(actual):
         differences.append("semantic decision sequence differs")
+    if transition_signature(expected) != transition_signature(actual):
+        differences.append("task transition sequence differs")
+    actual_decisions = actual["result"]["decisions"]
+    if any(
+        key not in decision
+        for decision in actual_decisions
+        for key in (
+            "decision_tier",
+            "vetoed_actions",
+            "advisors",
+            "advisor_comments",
+            "chosen_planner",
+            "planner_comments",
+        )
+    ):
+        differences.append("decision diagnostics are incomplete")
+    if not actual["result"].get("input_messages", {}).get("poses"):
+        differences.append("recorded pose input messages are missing")
 
     if differences:
         for difference in differences:

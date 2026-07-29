@@ -2,7 +2,7 @@
  * Controller tier-two planning orchestration.
  */
 
-#include <semaforr/decision/Controller.h>
+#include <semaforr/decision/Controller.hpp>
 
 void Controller::planForCurrentTask(
   Position current,

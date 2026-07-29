@@ -41,6 +41,12 @@ case "${profile}" in
     ;;
 esac
 
+if [[ "${profile}" == "coverage" ]]; then
+  # A renamed translation unit can leave an orphaned counter in an incremental
+  # build. Remove only coverage runtime data before executing this profile.
+  find build-coverage/semaforr -type f -name '*.gcda' -delete
+fi
+
 if [[ "${profile}" == "sanitizer" ]]; then
   ASAN_OPTIONS="detect_leaks=1:halt_on_error=1" \
   UBSAN_OPTIONS="halt_on_error=1:print_stacktrace=1" \
@@ -63,11 +69,11 @@ if [[ "${profile}" == "coverage" ]]; then
       --output-file coverage/semaforr.raw.info
     lcov \
       --extract coverage/semaforr.raw.info \
-      "/workspace/src/semaforr/*" \
+      "*/src/semaforr/*" \
       --output-file coverage/semaforr.project.info
     lcov \
       --remove coverage/semaforr.project.info \
-      "/workspace/src/semaforr/test/*" \
+      "*/src/semaforr/test/*" \
       --output-file coverage/semaforr.info
     genhtml \
       coverage/semaforr.info \

@@ -2,11 +2,11 @@
  * Tier-three decision implementation.
  */
 
-#include <semaforr/decision/DecisionTier.h>
-#include <semaforr/decision/Arbitration.h>
+#include <semaforr/decision/DecisionTier.hpp>
+#include <semaforr/decision/Arbitration.hpp>
 #include "DecisionTierFactory.h"
 
-#include <semaforr/decision/Tier3Advisor.h>
+#include <semaforr/decision/Tier3Advisor.hpp>
 
 #include <cmath>
 #include <iostream>

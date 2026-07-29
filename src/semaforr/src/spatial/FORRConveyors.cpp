@@ -5,7 +5,7 @@ FORRConveyors.h for function and variable descriptions
 Written by Matthew Evanusa, 2014
 ***************/
 
-#include <semaforr/spatial/FORRConveyors.h>
+#include <semaforr/spatial/FORRConveyors.hpp>
 
 
 using namespace std;

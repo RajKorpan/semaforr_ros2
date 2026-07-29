@@ -13,7 +13,7 @@ SemaFORR is designed to enable robots to navigate complex environments using cog
 - ROS-independent domain model with explicit ROS message adapters
 - RAII ownership for controllers, tasks, planners, graphs, and search state
 - Typed, validated configuration with source-and-line diagnostics
-- Controller façade decomposed into focused mission, learning, decision, and
+- Controller facade decomposed into focused mission, learning, decision, and
   planning implementation units
 - Replaceable, value-returning interfaces for all three decision tiers
 - Deterministic tier arbitration with safe empty and non-finite fallbacks
@@ -28,8 +28,10 @@ SemaFORR is designed to enable robots to navigate complex environments using cog
 Make sure your workspace is built:
 
 ```bash
-colcon build
+colcon build --packages-select semaforr
 source install/setup.bash
+colcon test --packages-select semaforr
+colcon test-result --verbose
 ```
 
 ### Run SemaFORR Node
@@ -40,29 +42,37 @@ Launch the tutorial configuration from the installed package:
 ros2 launch semaforr stage_tutorial.launch.py
 ```
 
-### Node
-
-- **semaforr_node**: Main entry point for navigation. Requires 6 parameters for configuration.
-
 ## Configuration
 
-- `target_set`: List of navigation targets
-- `map_config`: XML map configuration
-- `map_dimensions`: Map size and boundaries
-- `advisors`: Advisor configuration file
-- `params`: General parameters for navigation
+`config/semaforr.yaml` is the supported runtime configuration. It defines typed
+action magnitudes, safety limits, mission policy, feature flags, planners,
+advisors, and installed map/task paths as ROS parameters. Configuration parsing
+is ROS-independent after the parameter boundary and completes before the
+controller is constructed. Missing files, unknown names, duplicate settings,
+non-finite or unsorted values, inconsistent array sizes, and malformed map/task
+data fail at startup with an actionable diagnostic.
 
-Example configuration files are provided in the `config/` directory.
-Configuration parsing is ROS-independent and happens before the controller is
-constructed. Missing files, unknown or duplicate settings, invalid values, and
-malformed advisor, task, or dimensions rows fail fast with an actionable error.
+Convert a retained legacy experiment once with:
+
+```bash
+ros2 run semaforr semaforr_convert_legacy_config \
+  --advisors old/advisors.conf \
+  --parameters old/params.conf \
+  --map old/map.xml \
+  --tasks old/target.conf \
+  --dimensions old/dimensions.conf \
+  --output converted.yaml
+```
 
 ## Refactoring baseline
 
 The pre-refactor characterization harness, runtime scenario, sanitizer profile,
 coverage profile, and known-behavior inventory are documented in
-`test/baseline/README.md`.
+`test/fixtures/baseline/README.md`.
 
 The ROS-independent `semaforr::domain` target, message adapters, build profiles,
 installed package layout, and downstream-consumer checks are documented in
 `docs/build-and-package.md`.
+
+The implementation and verification status of Phases 0-9 is recorded in
+`docs/phases-0-9-completion.md`.

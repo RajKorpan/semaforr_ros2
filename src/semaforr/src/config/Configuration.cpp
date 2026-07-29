@@ -1,9 +1,12 @@
-#include <semaforr/config/Configuration.h>
+#include <semaforr/config/Configuration.hpp>
 
+#include <algorithm>
 #include <cmath>
+#include <filesystem>
 #include <fstream>
 #include <limits>
 #include <map>
+#include <regex>
 #include <set>
 #include <sstream>
 #include <stdexcept>
@@ -214,6 +217,81 @@ void validateControllerConfiguration(
       configuration.rotate_actions.size() > 300) {
     throw errorAt(source_name, 0, "action lists may contain at most 300 values");
   }
+
+  const auto validate_actions = [&source_name](
+      const std::vector<double>& actions,
+      const std::string& name) {
+    if (!std::all_of(actions.begin(), actions.end(), [](double value) {
+        return std::isfinite(value) && value > 0.0;
+      })) {
+      throw errorAt(
+        source_name, 0,
+        name + " actions must contain only finite positive values");
+    }
+    if (!std::is_sorted(actions.begin(), actions.end()) ||
+        std::adjacent_find(actions.begin(), actions.end()) != actions.end()) {
+      throw errorAt(
+        source_name, 0, name + " actions must be strictly increasing");
+    }
+  };
+  validate_actions(configuration.move_actions, "move");
+  validate_actions(configuration.rotate_actions, "rotate");
+
+  if (configuration.can_see_point_epsilon < 0.0 ||
+      configuration.laser_scan_radian_increment <= 0.0 ||
+      configuration.robot_footprint <= 0.0 ||
+      configuration.robot_footprint_buffer < 0.0 ||
+      configuration.max_laser_range <= 0.0 ||
+      configuration.max_forward_action_buffer < 0.0 ||
+      configuration.max_forward_action_sweep_angle <= 0.0 ||
+      configuration.max_forward_action_sweep_angle > std::acos(-1.0) ||
+      configuration.highway_distance_threshold < 0.0 ||
+      configuration.highway_time_threshold < 0.0 ||
+      configuration.highway_decision_threshold < 0.0) {
+    throw errorAt(
+      source_name, 0,
+      "safety thresholds must be finite and within their documented ranges");
+  }
+  if (configuration.a_star_on &&
+      !configuration.planners.skeleton &&
+      !configuration.planners.hallway_skeleton) {
+    throw errorAt(
+      source_name, 0,
+      "aStarOn requires skeleton or hallwayskel planner construction");
+  }
+}
+
+void normalizeLegacyActions(std::vector<double>& actions)
+{
+  if (!actions.empty() && actions.front() == 0.0) {
+    actions.erase(actions.begin());
+  }
+}
+
+void validateMapContents(
+    const std::string& map_file,
+    const MapDimensions& dimensions)
+{
+  std::ifstream input(map_file);
+  if (!input.is_open()) {
+    throw std::runtime_error("cannot open map file '" + map_file + "'");
+  }
+  const std::string xml{
+    std::istreambuf_iterator<char>(input),
+    std::istreambuf_iterator<char>()};
+  const std::regex coordinate(
+    R"coordinate(p_([xy])\s*=\s*"([^"]+)")coordinate");
+  for (std::sregex_iterator it(xml.begin(), xml.end(), coordinate), end;
+      it != end; ++it) {
+    const double value = parseDouble((*it)[2].str(), map_file, 0);
+    const double upper =
+      (*it)[1].str() == "x" ? dimensions.length : dimensions.height;
+    if (value < 0.0 || value > upper) {
+      throw std::runtime_error(
+        "map coordinate " + (*it)[1].str() + "=" +
+        (*it)[2].str() + " lies outside configured dimensions");
+    }
+  }
 }
 
 }  // namespace
@@ -298,6 +376,8 @@ ControllerConfiguration parseControllerConfiguration(
     }
   }
 
+  normalizeLegacyActions(configuration.move_actions);
+  normalizeLegacyActions(configuration.rotate_actions);
   validateControllerConfiguration(configuration, source_name);
   return configuration;
 }
@@ -414,12 +494,79 @@ Configuration loadConfiguration(const ConfigurationFiles& files) {
   configuration.tasks =
       parseFile(files.tasks, "task", parseTaskConfigurations);
 
-  std::ifstream map_input(files.map);
-  if (!map_input.is_open()) {
-    throw std::runtime_error("cannot open map file '" + files.map + "'");
-  }
   configuration.map_file = files.map;
+  validateConfiguration(configuration);
   return configuration;
+}
+
+Configuration loadStructuredConfiguration(
+    ControllerConfiguration controller,
+    MapDimensions map_dimensions,
+    std::vector<AdvisorConfiguration> advisors,
+    const std::string& tasks_file,
+    const std::string& map_file) {
+  Configuration configuration;
+  configuration.controller = std::move(controller);
+  configuration.map_dimensions = map_dimensions;
+  configuration.advisors = std::move(advisors);
+  configuration.tasks =
+      parseFile(tasks_file, "task", parseTaskConfigurations);
+  configuration.map_file = map_file;
+  validateConfiguration(configuration);
+  return configuration;
+}
+
+void validateConfiguration(const Configuration& configuration) {
+  validateControllerConfiguration(configuration.controller, "configuration");
+  if (configuration.map_dimensions.length <= 0 ||
+      configuration.map_dimensions.height <= 0 ||
+      !std::isfinite(configuration.map_dimensions.granularity) ||
+      configuration.map_dimensions.granularity <= 0.0) {
+    throw std::runtime_error(
+      "configuration: map dimensions and granularity must be positive");
+  }
+  if (configuration.advisors.empty()) {
+    throw std::runtime_error("configuration: at least one advisor is required");
+  }
+  if (std::none_of(
+      configuration.advisors.begin(),
+      configuration.advisors.end(),
+      [](const AdvisorConfiguration& advisor) { return advisor.active; })) {
+    throw std::runtime_error(
+      "configuration: at least one decision-producing advisor must be active");
+  }
+  std::set<std::string> advisor_names;
+  for (const AdvisorConfiguration& advisor : configuration.advisors) {
+    if (advisor.name.empty()) {
+      throw std::runtime_error("configuration: advisor names must not be empty");
+    }
+    if (!advisor_names.insert(advisor.name).second) {
+      throw std::runtime_error(
+        "configuration: duplicate advisor '" + advisor.name + "'");
+    }
+    if (!std::isfinite(advisor.weight) || advisor.weight < 0.0 ||
+        !std::all_of(
+          advisor.parameters.begin(),
+          advisor.parameters.end(),
+          [](double value) { return std::isfinite(value); })) {
+      throw std::runtime_error(
+        "configuration: advisor '" + advisor.name +
+        "' has an invalid weight or parameter");
+    }
+  }
+  if (configuration.tasks.empty()) {
+    throw std::runtime_error("configuration: at least one task is required");
+  }
+  for (const TaskConfiguration& task : configuration.tasks) {
+    if (!std::isfinite(task.x) || !std::isfinite(task.y) ||
+        task.x < 0.0 || task.y < 0.0 ||
+        task.x > configuration.map_dimensions.length ||
+        task.y > configuration.map_dimensions.height) {
+      throw std::runtime_error(
+        "configuration: task coordinate lies outside configured dimensions");
+    }
+  }
+  validateMapContents(configuration.map_file, configuration.map_dimensions);
 }
 
 }  // namespace config

@@ -8,7 +8,7 @@
  * July 22, 2013 
  */
 
-#include <semaforr/core/FORRAction.h>
+#include <semaforr/core/FORRAction.hpp>
 
 
 // I think we need this copy constructor because adviser's

@@ -31,6 +31,7 @@ class BaselineRecorder(Node):
         self._last_command_signature = None
         self._commands = []
         self._decisions = []
+        self._pose_messages = []
         self._computation_times = []
         self._finished = False
         self._trace_written = False
@@ -126,6 +127,12 @@ class BaselineRecorder(Node):
         pose.pose.orientation.z = math.sin(self._pose[2] / 2.0)
         pose.pose.orientation.w = math.cos(self._pose[2] / 2.0)
         self._pose_publisher.publish(pose)
+        self._pose_messages.append(
+            {
+                "time_s": round(self._elapsed(), 3),
+                "pose": [round(value, 9) for value in self._pose],
+            }
+        )
 
         scan = LaserScan()
         scan.header.stamp = stamp
@@ -165,8 +172,20 @@ class BaselineRecorder(Node):
                 "maximum": max(self._computation_times),
             }
 
+        task_transitions = []
+        previous_task = None
+        for decision in self._decisions:
+            if decision["task"] != previous_task:
+                task_transitions.append(
+                    {
+                        "task": decision["task"],
+                        "first_decision": decision["decision"],
+                    }
+                )
+                previous_task = decision["task"]
+
         trace = {
-            "schema_version": 1,
+            "schema_version": 2,
             "scenario": {
                 "name": "stage_tutorial_open_space",
                 "duration_s": self._duration,
@@ -174,11 +193,30 @@ class BaselineRecorder(Node):
                 "initial_pose": [100.0, 100.0, 0.0],
                 "laser_range_m": 5.0,
                 "laser_sample_count": 1081,
+                "sensor_fixture": {
+                    "pose_topic": "/pose",
+                    "laser_topic": "/scan_raw",
+                    "pose_integration": "fixed-step differential drive",
+                    "laser_angle_min_rad": -math.pi,
+                    "laser_angle_max_rad": math.pi,
+                    "laser_angle_increment_rad": math.pi / 540.0,
+                    "laser_range_min_m": 0.05,
+                    "laser_ranges": {"repeat": 5.0, "count": 1081},
+                },
             },
             "result": {
                 "final_pose": [round(value, 6) for value in self._pose],
+                "input_messages": {
+                    "poses": self._pose_messages,
+                    "laser": {
+                        "published_at_pose_times": True,
+                        "range_m": 5.0,
+                        "sample_count": 1081,
+                    },
+                },
                 "commands": self._commands,
                 "decisions": self._decisions,
+                "task_transitions": task_transitions,
                 "metrics": metrics,
             },
         }

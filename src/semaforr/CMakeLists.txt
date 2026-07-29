@@ -12,7 +12,7 @@ if(SEMAFORR_ENABLE_SANITIZERS AND SEMAFORR_ENABLE_COVERAGE)
 endif()
 
 function(semaforr_apply_project_options target)
-  target_compile_features(${target} PUBLIC cxx_std_14)
+  target_compile_features(${target} PUBLIC cxx_std_20)
 
   if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     target_compile_options(${target} PRIVATE -Wall -Wextra -Wpedantic)
@@ -66,39 +66,85 @@ rosidl_get_typesupport_target(cpp_typesupport_target
 
 # Preserve the legacy translation-unit order while known undefined-behavior
 # findings are addressed. Phase 2 changes paths, not link ordering.
-set(SEMAFORR_DOMAIN_SOURCES
+set(SEMAFORR_CORE_DOMAIN_SOURCES
   src/config/Configuration.cpp
+  src/core/FORRAction.cpp
+  src/core/FORRGeometry.cpp
+  src/core/Position.cpp
+)
+
+set(SEMAFORR_DECISION_SOURCES
   src/decision/AgentState.cpp
   src/decision/Arbitration.cpp
-  src/navigation/astar.cpp
-  src/decision/Controller.cpp
-  src/decision/ControllerMission.cpp
-  src/decision/ControllerLearning.cpp
-  src/decision/ControllerDecision.cpp
-  src/decision/ControllerPlanning.cpp
+  src/decision/MissionManager.cpp
+  src/decision/NavigationEngine.cpp
   src/decision/TierOneDecision.cpp
   src/decision/TierTwoDecision.cpp
   src/decision/TierThreeDecision.cpp
-  src/core/FORRAction.cpp
+  src/decision/Tier1Advisor.cpp
+  src/decision/Tier3Advisor.cpp
+)
+
+set(SEMAFORR_SPATIAL_SOURCES
   src/spatial/FORRBarriers.cpp
   src/spatial/FORRConveyors.cpp
-  src/core/FORRGeometry.cpp
   src/spatial/FORRHallways.cpp
   src/spatial/FORRTrails.cpp
+  src/spatial/SpatialLearningCoordinator.cpp
+)
+
+set(SEMAFORR_PLANNING_SOURCES
+  src/navigation/astar.cpp
   src/navigation/Graph.cpp
   src/navigation/Map.cpp
   src/navigation/PathPlanner.cpp
   src/navigation/PathPlannerCosts.cpp
   src/navigation/PathPlannerQueries.cpp
   src/navigation/PathPlannerSmoothing.cpp
-  src/core/Position.cpp
-  src/decision/Tier1Advisor.cpp
-  src/decision/Tier3Advisor.cpp
-  src/vendor/tinyxml/tinystr.cpp
-  src/vendor/tinyxml/tinyxml.cpp
-  src/vendor/tinyxml/tinyxmlerror.cpp
-  src/vendor/tinyxml/tinyxmlparser.cpp
 )
+
+set(SEMAFORR_ENGINE_SOURCES
+  src/decision/Controller.cpp
+  src/decision/ControllerMission.cpp
+  src/decision/ControllerLearning.cpp
+  src/decision/ControllerDecision.cpp
+  src/decision/ControllerPlanning.cpp
+)
+
+set(SEMAFORR_DOMAIN_SOURCES
+  ${SEMAFORR_CORE_DOMAIN_SOURCES}
+  ${SEMAFORR_DECISION_SOURCES}
+  ${SEMAFORR_SPATIAL_SOURCES}
+  ${SEMAFORR_PLANNING_SOURCES}
+  ${SEMAFORR_ENGINE_SOURCES}
+)
+
+add_library(semaforr_planning SHARED
+  src/navigation/DomainAStar.cpp
+  src/navigation/DomainGraph.cpp
+  src/navigation/MapParser.cpp
+  src/navigation/PlanningCoordinator.cpp
+)
+set_target_properties(semaforr_planning PROPERTIES EXPORT_NAME planning)
+add_library(semaforr::planning ALIAS semaforr_planning)
+target_include_directories(semaforr_planning
+  PUBLIC
+    "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>"
+    "$<INSTALL_INTERFACE:include>"
+)
+semaforr_apply_project_options(semaforr_planning)
+
+add_library(semaforr_advisors SHARED
+  src/decision/DecisionCoordinator.cpp
+)
+set_target_properties(semaforr_advisors PROPERTIES EXPORT_NAME advisors)
+add_library(semaforr::advisors ALIAS semaforr_advisors)
+target_include_directories(semaforr_advisors
+  PUBLIC
+    "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>"
+    "$<INSTALL_INTERFACE:include>"
+)
+semaforr_apply_project_options(semaforr_advisors)
 
 add_library(semaforr_domain SHARED ${SEMAFORR_DOMAIN_SOURCES})
 set_target_properties(semaforr_domain PROPERTIES EXPORT_NAME domain)
@@ -109,6 +155,8 @@ target_include_directories(semaforr_domain
     "$<INSTALL_INTERFACE:include>"
 )
 semaforr_apply_project_options(semaforr_domain)
+target_link_libraries(
+  semaforr_domain PUBLIC semaforr_planning semaforr_advisors)
 
 # Preserve the Phase 1 target name for downstream consumers while directing
 # new code to the explicit ROS-independent domain target.
@@ -117,7 +165,10 @@ set_target_properties(semaforr_core PROPERTIES EXPORT_NAME core)
 add_library(semaforr::core ALIAS semaforr_core)
 target_link_libraries(semaforr_core INTERFACE semaforr_domain)
 
-add_library(semaforr_ros_adapters SHARED src/ros/MessageAdapters.cpp)
+add_library(semaforr_ros_adapters SHARED
+  src/ros/MessageAdapters.cpp
+  src/ros/ParameterConfiguration.cpp
+)
 set_target_properties(
   semaforr_ros_adapters PROPERTIES EXPORT_NAME ros_adapters)
 add_library(semaforr::ros_adapters ALIAS semaforr_ros_adapters)
@@ -128,12 +179,20 @@ target_include_directories(semaforr_ros_adapters
 )
 target_link_libraries(
   semaforr_ros_adapters semaforr_domain "${cpp_typesupport_target}")
-ament_target_dependencies(semaforr_ros_adapters
+  ament_target_dependencies(semaforr_ros_adapters
   geometry_msgs
+  rclcpp
   sensor_msgs
   std_msgs
 )
 semaforr_apply_project_options(semaforr_ros_adapters)
+
+add_library(semaforr_ros INTERFACE)
+set_target_properties(semaforr_ros PROPERTIES EXPORT_NAME ros)
+add_library(semaforr::ros ALIAS semaforr_ros)
+target_link_libraries(
+  semaforr_ros
+  INTERFACE semaforr_ros_adapters semaforr_advisors semaforr_planning)
 
 add_executable(semaforr_node src/ros/semaforr_node.cpp)
 target_link_libraries(
@@ -154,7 +213,11 @@ ament_target_dependencies(semaforr_node
 semaforr_apply_project_options(semaforr_node)
 
 install(
-  TARGETS semaforr_domain semaforr_ros_adapters
+  TARGETS
+    semaforr_domain
+    semaforr_planning
+    semaforr_advisors
+    semaforr_ros_adapters
   EXPORT export_${PROJECT_NAME}
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
@@ -162,7 +225,9 @@ install(
   INCLUDES DESTINATION include
 )
 install(
-  TARGETS semaforr_core
+  TARGETS
+    semaforr_core
+    semaforr_ros
   EXPORT export_${PROJECT_NAME}
 )
 install(
@@ -182,12 +247,18 @@ install(
   DESTINATION lib/${PROJECT_NAME}
   RENAME semaforr_record_baseline
 )
+install(
+  PROGRAMS scripts/convert_legacy_config.py
+  DESTINATION lib/${PROJECT_NAME}
+  RENAME semaforr_convert_legacy_config
+)
 
 if(BUILD_TESTING)
+  find_package(ament_cmake_gtest REQUIRED)
   find_package(ament_cmake_pytest REQUIRED)
 
   add_executable(semaforr_characterization_test
-    test/characterization_smoke.cpp
+    test/unit/characterization_smoke.cpp
     src/core/FORRAction.cpp
     src/core/Position.cpp
   )
@@ -202,7 +273,7 @@ if(BUILD_TESTING)
 
   add_executable(
     semaforr_domain_model_test
-    test/domain_model_smoke.cpp
+    test/unit/domain_model_smoke.cpp
   )
   target_link_libraries(semaforr_domain_model_test semaforr_domain)
   semaforr_apply_project_options(semaforr_domain_model_test)
@@ -213,7 +284,7 @@ if(BUILD_TESTING)
 
   add_executable(
     semaforr_message_adapters_test
-    test/message_adapters_smoke.cpp
+    test/unit/message_adapters_smoke.cpp
   )
   target_link_libraries(
     semaforr_message_adapters_test
@@ -228,7 +299,7 @@ if(BUILD_TESTING)
 
   add_executable(
     semaforr_ownership_model_test
-    test/ownership_model_smoke.cpp
+    test/unit/ownership_model_smoke.cpp
   )
   target_link_libraries(semaforr_ownership_model_test semaforr_domain)
   target_compile_definitions(semaforr_ownership_model_test PRIVATE
@@ -242,7 +313,7 @@ if(BUILD_TESTING)
 
   add_executable(
     semaforr_configuration_test
-    test/configuration_smoke.cpp
+    test/unit/configuration_smoke.cpp
   )
   target_link_libraries(semaforr_configuration_test semaforr_domain)
   target_compile_definitions(semaforr_configuration_test PRIVATE
@@ -256,7 +327,7 @@ if(BUILD_TESTING)
 
   add_executable(
     semaforr_arbitration_test
-    test/arbitration_test.cpp
+    test/unit/arbitration_test.cpp
   )
   target_link_libraries(semaforr_arbitration_test semaforr_domain)
   semaforr_apply_project_options(semaforr_arbitration_test)
@@ -267,7 +338,7 @@ if(BUILD_TESTING)
 
   add_executable(
     semaforr_planning_geometry_test
-    test/planning_geometry_test.cpp
+    test/unit/planning_geometry_test.cpp
   )
   target_link_libraries(semaforr_planning_geometry_test semaforr_domain)
   semaforr_apply_project_options(semaforr_planning_geometry_test)
@@ -276,44 +347,72 @@ if(BUILD_TESTING)
     COMMAND semaforr_planning_geometry_test
   )
 
+  ament_add_gtest(
+    semaforr_domain_types_test
+    test/unit/domain_types_test.cpp
+  )
+  target_link_libraries(semaforr_domain_types_test semaforr_domain)
+  semaforr_apply_project_options(semaforr_domain_types_test)
+
+  ament_add_gtest(
+    semaforr_decision_coordinator_test
+    test/unit/decision_coordinator_test.cpp
+  )
+  target_link_libraries(semaforr_decision_coordinator_test semaforr_domain)
+  semaforr_apply_project_options(semaforr_decision_coordinator_test)
+
+  ament_add_gtest(
+    semaforr_domain_planning_test
+    test/unit/domain_planning_test.cpp
+  )
+  target_link_libraries(semaforr_domain_planning_test semaforr_domain)
+  semaforr_apply_project_options(semaforr_domain_planning_test)
+
+  ament_add_gtest(
+    semaforr_map_parser_test
+    test/unit/map_parser_test.cpp
+  )
+  target_link_libraries(semaforr_map_parser_test semaforr_domain)
+  semaforr_apply_project_options(semaforr_map_parser_test)
+
   ament_add_pytest_test(semaforr_source_contract_test
-    test/test_source_contract.py
+    test/contracts/test_source_contract.py
     ENV "SEMAFORR_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
   )
   ament_add_pytest_test(semaforr_build_contract_test
-    test/test_build_contract.py
+    test/contracts/test_build_contract.py
     ENV "SEMAFORR_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
   )
   ament_add_pytest_test(semaforr_baseline_recorder_contract_test
-    test/test_baseline_recorder_contract.py
+    test/contracts/test_baseline_recorder_contract.py
     ENV "SEMAFORR_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
   )
   ament_add_pytest_test(semaforr_domain_boundary_test
-    test/test_domain_boundary.py
+    test/contracts/test_domain_boundary.py
     ENV "SEMAFORR_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
   )
   ament_add_pytest_test(semaforr_ownership_contract_test
-    test/test_ownership_contract.py
+    test/contracts/test_ownership_contract.py
     ENV "SEMAFORR_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
   )
   ament_add_pytest_test(semaforr_configuration_contract_test
-    test/test_configuration_contract.py
+    test/contracts/test_configuration_contract.py
     ENV "SEMAFORR_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
   )
   ament_add_pytest_test(semaforr_controller_decomposition_test
-    test/test_controller_decomposition.py
+    test/contracts/test_controller_decomposition.py
     ENV "SEMAFORR_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
   )
   ament_add_pytest_test(semaforr_decision_tier_interface_test
-    test/test_decision_tier_interfaces.py
+    test/contracts/test_decision_tier_interfaces.py
     ENV "SEMAFORR_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
   )
   ament_add_pytest_test(semaforr_arbitration_contract_test
-    test/test_arbitration_contract.py
+    test/contracts/test_arbitration_contract.py
     ENV "SEMAFORR_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
   )
   ament_add_pytest_test(semaforr_planning_geometry_contract_test
-    test/test_planning_geometry_contract.py
+    test/contracts/test_planning_geometry_contract.py
     ENV "SEMAFORR_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
   )
 endif()

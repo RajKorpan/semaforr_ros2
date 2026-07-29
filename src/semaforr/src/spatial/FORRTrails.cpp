@@ -1,6 +1,6 @@
 #include <vector>
-#include <semaforr/core/FORRGeometry.h>
-#include <semaforr/spatial/FORRTrails.h>
+#include <semaforr/core/FORRGeometry.hpp>
+#include <semaforr/spatial/FORRTrails.hpp>
 #include <fstream>
 #include <sstream>
 

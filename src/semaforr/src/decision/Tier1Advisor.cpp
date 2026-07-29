@@ -1,5 +1,5 @@
 
-#include <semaforr/decision/Tier1Advisor.h>
+#include <semaforr/decision/Tier1Advisor.hpp>
 
 
 void Tier1Advisor::advisorNotOpposite(){
@@ -13,8 +13,6 @@ void Tier1Advisor::advisorNotOpposite(){
   }
   FORRAction lastAction = actions[size - 1];
   FORRAction lastlastAction = actions[size - 2];
-  FORRAction lastlastlastAction = actions[size - 3];
-  // RCLCPP_DEBUG_STREAM(this->get_logger(), "Controller::advisorNotOpposite > " << lastAction.type << " " << lastAction.parameter << ", " << lastlastAction.type << " " << lastlastAction.parameter << ", " << lastlastlastAction.type << " " << lastlastlastAction.parameter); 
   if(lastlastAction.type == RIGHT_TURN and lastAction.type == PAUSE){
     // RCLCPP_DEBUG(this->get_logger(), "Not opposite active ");
     (beliefs->getAgentState()->getVetoedActions()->insert(FORRAction(LEFT_TURN, lastlastAction.parameter)));

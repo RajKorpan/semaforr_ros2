@@ -1,4 +1,4 @@
-#include <semaforr/spatial/FORRBarriers.h>
+#include <semaforr/spatial/FORRBarriers.hpp>
 
 using namespace std;
 

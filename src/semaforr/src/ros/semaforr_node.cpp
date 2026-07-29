@@ -12,12 +12,16 @@
 #include <stdlib.h>
 #include <cmath>
 #include <memory>
+#include <random>
 #include <sys/time.h>
 
-#include <semaforr/decision/Controller.h>
-#include <semaforr/core/FORRAction.h>
-#include <semaforr/ros/MessageAdapters.h>
-#include <semaforr/ros/Visualizer.h>
+#include <semaforr/decision/Controller.hpp>
+#include <semaforr/core/FORRAction.hpp>
+#include <semaforr/core/action_adapter.hpp>
+#include <semaforr/decision/decision_result.hpp>
+#include <semaforr/ros/MessageAdapters.hpp>
+#include <semaforr/ros/ParameterConfiguration.hpp>
+#include <semaforr/ros/Visualizer.hpp>
 
 #include <rclcpp/rclcpp.hpp>
 #include <geometry_msgs/msg/twist.hpp>
@@ -57,6 +61,7 @@ private:
     bool init_pos_received, init_laser_received;
     // Add noise to pose
     bool add_noise;
+    std::mt19937 noise_generator_{0U};
     // Visualization 
     std::unique_ptr<Visualizer> viz_;
 
@@ -64,32 +69,9 @@ public:
     //! ROS node initialization
     RobotDriver() : Node("semaforr")
     {
-        // Pass in arguments for SemaFORR Controller
-        this->declare_parameter("semaforr_path", rclcpp::PARAMETER_STRING);
-        this->declare_parameter("target_set", rclcpp::PARAMETER_STRING);
-        this->declare_parameter("map_config", rclcpp::PARAMETER_STRING);
-        this->declare_parameter("map_dimensions", rclcpp::PARAMETER_STRING);
-        this->declare_parameter("advisors", rclcpp::PARAMETER_STRING);
-        this->declare_parameter("params", rclcpp::PARAMETER_STRING);
-
-        // Unpack the passed in arguments
-        rclcpp::Parameter semaforr_path_param = this->get_parameter("semaforr_path");
-        rclcpp::Parameter target_set_param = this->get_parameter("target_set");
-        rclcpp::Parameter map_config_param = this->get_parameter("map_config");
-        rclcpp::Parameter map_dimensions_param = this->get_parameter("map_dimensions");
-        rclcpp::Parameter advisors_param = this->get_parameter("advisors");
-        rclcpp::Parameter params_param = this->get_parameter("params");
-
-        std::string semaforr_path = semaforr_path_param.as_string();
-        std::string target_set = target_set_param.as_string();
-        std::string map_config = map_config_param.as_string();
-        std::string map_dimensions = map_dimensions_param.as_string();
-        std::string advisors = advisors_param.as_string();
-        std::string params = params_param.as_string();
-
+        semaforr::ros::declareConfigurationParameters(*this);
         semaforr::config::Configuration configuration =
-            semaforr::config::loadConfiguration({
-                advisors, params, map_config, target_set, map_dimensions});
+            semaforr::ros::configurationFromParameters(*this);
         controller =
             std::make_unique<Controller>(std::move(configuration));
 
@@ -181,9 +163,15 @@ public:
         Position currentPose(x, y, yaw);
         if (add_noise)
         {
-            double new_x = currentPose.getX() + ((float(rand()) / float(RAND_MAX)) * (0.5 - -0.5)) + -0.5;
-            double new_y = currentPose.getY() + ((float(rand()) / float(RAND_MAX)) * (0.5 - -0.5)) + -0.5;
-            double new_theta = currentPose.getTheta() + ((float(rand()) / float(RAND_MAX)) * (0.0872665 - -0.0872665)) + -0.0872665;
+            std::uniform_real_distribution<double> position_noise(-0.5, 0.5);
+            std::uniform_real_distribution<double> angle_noise(
+                -0.0872665, 0.0872665);
+            double new_x =
+                currentPose.getX() + position_noise(noise_generator_);
+            double new_y =
+                currentPose.getY() + position_noise(noise_generator_);
+            double new_theta =
+                currentPose.getTheta() + angle_noise(noise_generator_);
             if (new_theta < -M_PI)
             {
                 new_theta = new_theta + 2 * M_PI;
@@ -230,6 +218,7 @@ public:
         bool action_complete = true;
         bool mission_complete = false;
         FORRAction semaforr_action;
+        semaforr::decision::DecisionResult decision_result;
         double overallTimeSec = 0.0, computationTimeSec = 0.0, actionTimeSec = 0.0, action_start_time = 0.0, action_end_time = 0.0;
         timeval tv, cv, atv;
         double start_time, start_timecv;
@@ -243,7 +232,9 @@ public:
         while (rclcpp::ok())
         {
             // std::cout << "within ok() while loop" << std::endl;
-            while (init_pos_received == false or init_laser_received == false)
+            while (
+                rclcpp::ok() &&
+                (init_pos_received == false or init_laser_received == false))
             {
                 if (init_laser_received == false and init_pos_received == false)
                 {
@@ -275,7 +266,7 @@ public:
                 }
                 else
                 {
-                    viz_->publishLog(semaforr_action, overallTimeSec, computationTimeSec);
+                    viz_->publishLog(decision_result, overallTimeSec, computationTimeSec);
                     controller->gethighwayExploration()->setHighwaysComplete(overallTimeSec);
                     controller->getfrontierExploration()->setFrontiersComplete(overallTimeSec);
                 }
@@ -297,7 +288,7 @@ public:
 					gettimeofday(&cv,NULL);
 					end_timecv = cv.tv_sec + (cv.tv_usec/1000000.0);
 					computationTimeSec = (end_timecv-start_timecv);
-					viz_->publishLog(semaforr_action, overallTimeSec, computationTimeSec);
+					viz_->publishLog(decision_result, overallTimeSec, computationTimeSec);
 					controller->gethighwayExploration()->setHighwaysComplete(overallTimeSec);
 					controller->getfrontierExploration()->setFrontiersComplete(overallTimeSec);
 					break;
@@ -305,7 +296,9 @@ public:
 				else
                 {
 					RCLCPP_INFO(node_ptr->get_logger(), "Mission still in progress, invoke semaforr");
-					semaforr_action = controller->decide();
+					decision_result = controller->decide();
+					semaforr_action =
+						semaforr::core::toLegacyAction(decision_result.action);
 					RCLCPP_INFO_STREAM(node_ptr->get_logger(), "SemaFORRdecision is " << semaforr_action.type << " " << semaforr_action.parameter); 
 					base_cmd = convert_to_vel(semaforr_action);
 					action_complete = false;
@@ -322,6 +315,9 @@ public:
 			//ROS_INFO_STREAM("Published base_cmd : " << overallTimeSec);
 			//wait for some time
 			rate.sleep();
+			if (!rclcpp::ok()) {
+				break;
+			}
 			// Sense input 
 			rclcpp::spin_some(node_ptr);
 			gettimeofday(&atv,NULL);
@@ -422,49 +418,26 @@ public:
 int main(int argc, char **argv) {
     // Initialize the ROS 2 node
     rclcpp::init(argc, argv);
-    auto node = std::make_shared<RobotDriver>();
-    node->initialize_viz();
+    try {
+        auto node = std::make_shared<RobotDriver>();
+        node->initialize_viz();
 
-    RCLCPP_INFO(node->get_logger(), "Starting... semaforr");
-
-    // if (argc != 7) {
-    //     RCLCPP_ERROR(node->get_logger(), "Not enough parameters. Expected 6, got %d", argc);
-    //     return 1;  // Exit if not enough parameters
-    // }
-
-    // std::string path(argv[1]);
-    // std::string target_set(argv[2]);
-    // std::string map_config(argv[3]);
-    // std::string map_dimensions(argv[4]);
-    // std::string advisors(argv[5]);
-    // std::string params(argv[6]);
-
-    // std::string advisor_config = path + advisors;
-    // std::string params_config = path + params;
-
-    // Create the controller
-    // Controller *controller = new Controller(advisor_config, params_config, map_config, target_set, map_dimensions);
-    
-    // testing robot driver init
-    //auto driver_node = std::make_shared<RobotDriver>(RobotDriver(controller));
-    //rclcpp::spin(node);
-
-    // Create the RobotDriver and pass the node to it
-    // cout << "Trying to construct the ROS2 Node" << endl;
-    // RobotDriver driver(controller);
-    // cout << "Succeeded in creating the ROS2 Node" << endl;
-
-    // std::cout << "Trying to init the node" << std::endl;
-    node->initialize(node);
-    // std::cout << "initialize successful" << std::endl;
-    RCLCPP_INFO(node->get_logger(), "Robot Driver Initialized");
-
-    // Run the driver
-    node->run(node);  //pass in node param
-
-    // RCLCPP_INFO(node->get_logger(), "Mission Accomplished!");
-
-    // Shutdown ROS 2
-    rclcpp::shutdown();
-    return 0;
+        RCLCPP_INFO(node->get_logger(), "Starting... semaforr");
+        node->initialize(node);
+        RCLCPP_INFO(node->get_logger(), "Robot Driver Initialized");
+        node->run(node);
+        if (rclcpp::ok()) {
+            rclcpp::shutdown();
+        }
+        return 0;
+    } catch (const std::exception& error) {
+        if (!rclcpp::ok()) {
+            return 0;
+        }
+        std::cerr << "SemaFORR startup failed: " << error.what() << std::endl;
+        if (rclcpp::ok()) {
+            rclcpp::shutdown();
+        }
+        return 1;
+    }
 }

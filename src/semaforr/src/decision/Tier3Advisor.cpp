@@ -7,12 +7,10 @@
  * created by Slavisa Djukic <sdjukic@hunter.cuny.edu>
  */
 
-# include <semaforr/decision/Tier3Advisor.h>
-# include <semaforr/core/FORRAction.h>
+# include <semaforr/decision/Tier3Advisor.hpp>
+# include <semaforr/core/FORRAction.hpp>
 # include <cmath>
 # include <iostream>
-# include <cstdlib>
-# include <time.h>
 # include <utility>
 # include <limits>
 
@@ -2047,18 +2045,12 @@ double Tier3ExplorerEndPoints::actionComment(FORRAction action){
 }
 
 double Tier3BaseLine::actionComment(FORRAction action){
-  //srand (time(NULL));
-  //cout << "Baseline :::::::::::::::::::::::::::::::::::::::::::::::::::::::" << rand()%10 - 5 << endl;
-  // cout << "Baseline" << endl;
-  return rand()%10 - 5;
+  const int stable_bucket =
+    (static_cast<int>(action.type) * 7 + action.parameter * 3) % 10;
+  return static_cast<double>(stable_bucket - 5);
 }
 
 void Tier3BaseLine::set_commenting(){
-  //srand (time(NULL));
-  // if(rand()%2 == 0)
-  //   advisor_commenting = true;
-  // else
-  //   advisor_commenting = false;
   advisor_commenting = true;
 }
 
@@ -2107,17 +2099,12 @@ double Tier3ExplorerEndPointsRotation::actionComment(FORRAction action){
 }
 
 double Tier3BaseLineRotation::actionComment(FORRAction action){
-  //srand (time(NULL));
-  // cout << "BaselineRotation" << endl;
-  return rand()%10 - 5;
+  const int stable_bucket =
+    (static_cast<int>(action.type) * 3 + action.parameter * 7) % 10;
+  return static_cast<double>(stable_bucket - 5);
 }
 
 void Tier3BaseLineRotation::set_commenting(){
-  //srand (time(NULL));
-  // if(rand()%2 == 0)
-  //   advisor_commenting = true;
-  // else
-  //   advisor_commenting = false;
   advisor_commenting = true;
 }
 

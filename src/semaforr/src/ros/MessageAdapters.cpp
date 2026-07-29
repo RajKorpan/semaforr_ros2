@@ -1,4 +1,4 @@
-#include <semaforr/ros/MessageAdapters.h>
+#include <semaforr/ros/MessageAdapters.hpp>
 
 #include <std_msgs/msg/header.hpp>
 

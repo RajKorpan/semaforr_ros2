@@ -4,7 +4,7 @@
 #include <memory>
 #include <vector>
 
-#include <semaforr/decision/DecisionTier.h>
+#include <semaforr/decision/DecisionTier.hpp>
 
 class Beliefs;
 class PathPlanner;

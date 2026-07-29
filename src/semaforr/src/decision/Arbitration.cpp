@@ -1,4 +1,4 @@
-#include <semaforr/decision/Arbitration.h>
+#include <semaforr/decision/Arbitration.hpp>
 
 #include <cmath>
 

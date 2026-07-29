@@ -1,4 +1,4 @@
-#include <semaforr/decision/AgentState.h>
+#include <semaforr/decision/AgentState.hpp>
 #include <iostream>
 
 /*

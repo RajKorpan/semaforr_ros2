@@ -2,12 +2,12 @@
  * Tier-one decision implementation.
  */
 
-#include <semaforr/decision/DecisionTier.h>
+#include <semaforr/decision/DecisionTier.hpp>
 #include "DecisionTierFactory.h"
 
-#include <semaforr/core/FORRGeometry.h>
-#include <semaforr/decision/Beliefs.h>
-#include <semaforr/decision/Tier1Advisor.h>
+#include <semaforr/core/FORRGeometry.hpp>
+#include <semaforr/decision/Beliefs.hpp>
+#include <semaforr/decision/Tier1Advisor.hpp>
 
 #include <algorithm>
 #include <iostream>

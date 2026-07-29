@@ -1,4 +1,4 @@
-#include <semaforr/navigation/Graph.h>
+#include <semaforr/navigation/Graph.hpp>
 
 Graph::Graph(Map * m, int p): map(m) {
 

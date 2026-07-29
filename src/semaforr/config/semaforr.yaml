@@ -1,0 +1,142 @@
+semaforr:
+  ros__parameters:
+    configuration:
+      use_legacy_files: false
+
+    # The launch file resolves these data files from the installed package.
+    map:
+      path: ""
+      length_m: 200
+      height_m: 200
+      granularity_m: 0.3
+
+    mission:
+      tasks_path: ""
+      decision_limit: 20
+      plan_limit: 500
+
+    actions:
+      move_distances_m: [0.1, 0.2, 0.4, 0.8, 1.6, 3.2]
+      rotation_angles_rad: [0.0873, 0.2618, 0.5236, 0.7854, 1.0472, 1.5708]
+
+    safety:
+      visibility_epsilon_m: 0.005
+      laser_angle_increment_rad: 0.005817
+      robot_radius_m: 0.2794
+      obstacle_buffer_m: 0.05
+      max_laser_range_m: 5.0
+      max_forward_buffer_m: 0.1
+      max_forward_sweep_rad: 0.5236
+
+    learning:
+      highway_distance_threshold_m: 5.0
+      highway_time_threshold_s: 60.0
+      highway_decision_threshold: 100.0
+
+    features:
+      trails: true
+      conveyors: true
+      regions: true
+      doors: true
+      hallways: false
+      barriers: false
+      astar: false
+      highways: false
+      frontiers: false
+      out_of_here: true
+      doorway: true
+      find_a_way: false
+      behind: true
+      dont_go_back: false
+
+    advisors:
+      names:
+        - Greedy
+        - GreedyRotation
+        - ElbowRoom
+        - ElbowRoomRotation
+        - BigStep
+        - BigStepRotation
+        - Explorer
+        - ExplorerRotation
+        - GoAroundRotation
+        - RegionLeaverLinear
+        - RegionLeaverRotation
+        - UnlikelyField
+        - UnlikelyFieldRotation
+        - EnterLinear
+        - EnterRotation
+        - ConveyLinear
+        - ConveyRotation
+        - TrailerLinear
+        - TrailerRotation
+        - LeastAngle
+        - LeastAngleRotation
+      enabled:
+        - true
+        - true
+        - true
+        - true
+        - true
+        - true
+        - true
+        - true
+        - true
+        - true
+        - true
+        - true
+        - true
+        - true
+        - true
+        - true
+        - true
+        - true
+        - true
+        - true
+        - true
+      weights:
+        - 1.0
+        - 1.0
+        - 1.0
+        - 1.0
+        - 1.0
+        - 1.0
+        - 1.0
+        - 1.0
+        - 1.0
+        - 1.0
+        - 1.0
+        - 1.0
+        - 1.0
+        - 1.0
+        - 1.0
+        - 1.0
+        - 1.0
+        - 1.0
+        - 1.0
+        - 1.0
+        - 1.0
+      # Four values per advisor, flattened because ROS parameters do not
+      # support arrays of mappings.
+      parameters:
+        [0.0, 0.0, 0.0, 0.0,
+         0.0, 0.0, 0.0, 0.0,
+         10.0, -4.0, -0.22, 0.0,
+         10.0, -4.0, -0.22, 0.0,
+         0.0, 0.0, 0.0, 0.0,
+         0.0, 0.0, 0.0, 0.0,
+         0.05, 0.0, 0.0, 0.0,
+         1.25, 0.0, 0.0, 0.0,
+         0.0, 0.0, 0.0, 0.0,
+         0.0, 0.0, 0.0, 0.0,
+         0.0, 0.0, 0.0, 0.0,
+         0.0, 0.0, 0.0, 0.0,
+         0.0, 0.0, 0.0, 0.0,
+         0.0, 0.0, 0.0, 0.0,
+         0.0, 0.0, 0.0, 0.0,
+         0.0, 0.0, 0.0, 0.0,
+         0.0, 0.0, 0.0, 0.0,
+         0.0, 0.0, 0.0, 0.0,
+         0.0, 0.0, 0.0, 0.0,
+         0.0, 0.0, 0.0, 0.0,
+         0.0, 0.0, 0.0, 0.0]

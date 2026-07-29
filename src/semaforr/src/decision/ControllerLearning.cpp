@@ -2,8 +2,8 @@
  * Controller spatial learning and graph maintenance.
  */
 
-#include <semaforr/decision/Controller.h>
-#include <semaforr/core/FORRGeometry.h>
+#include <semaforr/decision/Controller.hpp>
+#include <semaforr/core/FORRGeometry.hpp>
 #include <unistd.h>
 
 #include <algorithm>

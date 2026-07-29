@@ -2,13 +2,13 @@
  * Tier-two planning implementation.
  */
 
-#include <semaforr/decision/DecisionTier.h>
-#include <semaforr/decision/Arbitration.h>
+#include <semaforr/decision/DecisionTier.hpp>
+#include <semaforr/decision/Arbitration.hpp>
 #include "DecisionTierFactory.h"
 
-#include <semaforr/decision/Beliefs.h>
-#include <semaforr/decision/Tier1Advisor.h>
-#include <semaforr/navigation/PathPlanner.h>
+#include <semaforr/decision/Beliefs.hpp>
+#include <semaforr/decision/Tier1Advisor.hpp>
+#include <semaforr/navigation/PathPlanner.hpp>
 
 #include <algorithm>
 #include <cmath>

@@ -1,6 +1,6 @@
 /* Path queries and closest-node selection. */
 
-#include <semaforr/navigation/PathPlanner.h>
+#include <semaforr/navigation/PathPlanner.hpp>
 
 #include <algorithm>
 #include <limits.h>

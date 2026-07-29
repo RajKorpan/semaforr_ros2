@@ -1,10 +1,12 @@
 # Build and package structure
 
-SemaFORR targets ROS 2 Humble and C++14. The package separates its
+SemaFORR targets ROS 2 Humble and C++20. The package separates its
 ROS-independent navigation model from message transport and the ROS executable:
 
-- `semaforr::domain` is the canonical shared library for navigation logic. Its
-  sources and public model headers contain no ROS includes or message types.
+- `semaforr::domain` is the compatibility library for navigation logic.
+- `semaforr::planning` contains typed graph, A*, map-parser, and planning
+  coordination implementations.
+- `semaforr::advisors` contains deterministic decision coordination.
 - `semaforr::ros_adapters` converts ROS messages to the domain value types at
   the process boundary.
 - `semaforr::core` is a compatibility target that forwards to
@@ -25,16 +27,16 @@ Implementation and public headers are grouped by responsibility:
 | `decision` | Agent state, beliefs, controller, tasks, and advisors |
 | `exploration` | Local, frontier, highway, and circumnavigation strategies |
 | `navigation` | Map, graph, A*, and path-planning infrastructure |
+| `planning` | Typed planner, graph, A*, and validated map interfaces |
 | `spatial` | Regions, trails, conveyors, barriers, doors, and hallways |
 | `ros` | ROS node and visualization adapter |
-| `vendor/tinyxml` | Isolated bundled TinyXML implementation |
 
 Headers use package-qualified paths, for example:
 
 ```cpp
-#include <semaforr/core/FORRAction.h>
-#include <semaforr/domain/SensorTypes.h>
-#include <semaforr/navigation/PathPlanner.h>
+#include <semaforr/core/FORRAction.hpp>
+#include <semaforr/domain/SensorTypes.hpp>
+#include <semaforr/navigation/PathPlanner.hpp>
 ```
 
 Domain components accept `semaforr::domain::LaserScan`, `PoseArray`, and
@@ -44,7 +46,7 @@ Domain components accept `semaforr::domain::LaserScan`, `PoseArray`, and
 
 ## Controller decomposition
 
-`Controller` remains the public façade used by the ROS node and downstream
+`Controller` remains the public facade used by the ROS node and downstream
 consumers. Its implementation is grouped into focused translation units:
 
 | File | Responsibility |
@@ -58,27 +60,22 @@ consumers. Its implementation is grouped into focused translation units:
 | `TierTwoDecision.cpp` | Plan generation, scoring, and selection |
 | `TierThreeDecision.cpp` | Weighted advisor voting |
 
-This keeps existing call sites and decision state intact while making each
-workflow independently discoverable and reducing the original monolithic
-implementation to bounded, responsibility-specific files. A source contract
-checks method placement, file size, and the stable public façade.
+The ROS-independent `NavigationEngine`, `MissionManager`,
+`DecisionCoordinator`, `SpatialLearningCoordinator`, and
+`PlanningCoordinator` are the focused collaborators. The legacy `Controller`
+keeps existing call sites stable as a facade. A source contract checks these
+boundaries and prevents responsibilities from moving back into the facade.
 
 ## Decision-tier interfaces
 
-`DecisionTier.h` defines one interface and one value result for each tier:
+The modern tier boundary distinguishes `MandatoryRule` and `VetoRule`, defines
+one typed `Planner` interface, and gives advisors a stateless span-based scoring
+contract. `DecisionResult` returns the action, source, vetoes, raw and weighted
+advisor contributions, planner name, and explanation as values.
 
-| Interface | Operation | Result |
-| --- | --- | --- |
-| `TierOneDecision` | `decide()` | Whether a decision was made, the action, tier identifier, and veto summary |
-| `TierTwoDecision` | `plan(current, select_next_task)` | Plan-selection status, planner diagnostics, and computation time |
-| `TierThreeDecision` | `decide()` | The selected action and advisor diagnostics |
-
-The default implementations receive their dependencies explicitly during
-controller assembly. They do not access `Controller` internals, and
-`Controller` owns them through their interfaces. Results cross the boundary as
-values instead of writable action or statistics pointers. This leaves the
-public controller API unchanged while allowing a tier implementation to be
-substituted or tested without moving tier logic back into the controller.
+Registries construct planners and advisors by configured name and reject
+unknown or duplicate registrations. The default implementations receive their
+dependencies explicitly and do not access `Controller` internals.
 
 ## Deterministic arbitration
 
@@ -120,19 +117,21 @@ arrays with fewer than five samples now have finite, bounded behavior.
 
 ## Configuration boundary
 
-`semaforr::config::loadConfiguration` reads the five runtime files into one
-ROS-independent `Configuration` value before constructing `Controller`.
-Controller parameters, planner switches, dimensions, advisors, and tasks each
-have explicit types. The original five-path `Controller` constructor remains
-as a compatibility adapter and delegates to the same loader.
+`config/semaforr.yaml` supplies ROS parameters at the process boundary. They
+are converted into one fully initialized, ROS-independent `Configuration`
+value before constructing `Controller`. The original five-path constructor
+remains as a compatibility adapter, and `convert_legacy_config.py` converts
+retained experiments once.
 
-The existing file formats and tutorial values are unchanged. Blank lines,
-whole-line comments, and inline `#` comments are accepted. Validation rejects:
+Validation rejects:
 
 - missing or unreadable files;
 - missing, unknown, or duplicate parameter keys;
 - values that are not finite numbers, integer limits, or `0`/`1` flags;
-- duplicate advisors or advisor rows with states other than `t` and `f`;
+- unknown or duplicate advisors and planners;
+- advisor arrays with inconsistent lengths, invalid weights, or malformed
+  parameter blocks;
+- unsorted, empty, non-positive, or non-finite action arrays;
 - malformed dimensions and task rows; and
 - empty or oversized action lists.
 
@@ -154,8 +153,9 @@ Project code uses values for small, mandatory components and
 - A* owns all virtual search nodes for the duration of the search object.
 
 Raw pointers remain only as non-owning observers where existing algorithms
-expect pointer syntax. Bundled TinyXML retains its upstream memory-management
-implementation.
+expect pointer syntax. Map XML is parsed into validated meter-based domain
+segments without a bundled XML library; the legacy centimeter conversion is
+isolated at its adapter boundary.
 
 The C++ node does not embed Python. Python remains a runtime dependency only for
 the optional baseline recorder installed as `semaforr_record_baseline`.
@@ -191,11 +191,11 @@ The test suite includes behavior characterization, domain-value and
 message-adapter checks, ownership/destruction checks, configuration parser and
 validation checks, source/build boundary contracts, launch-file checks, and a
 fixed-timestep contract for the runtime baseline driver.
-`test/downstream` verifies both the canonical `semaforr::domain` target and the
+`test/integration/downstream` verifies both the canonical `semaforr::domain` target and the
 `semaforr::core` compatibility target from an installed package:
 
 ```bash
-cmake -S src/semaforr/test/downstream -B /tmp/semaforr-downstream
+cmake -S src/semaforr/test/integration/downstream -B /tmp/semaforr-downstream
 cmake --build /tmp/semaforr-downstream
 /tmp/semaforr-downstream/semaforr_downstream_smoke
 /tmp/semaforr-downstream/semaforr_core_compat_smoke
@@ -205,7 +205,7 @@ Run those commands only after sourcing the workspace install.
 
 ## Installed resources
 
-Headers, the domain library, and the ROS adapter library are installed under
-the package prefix. Runtime configuration, launch files, and this documentation
-are installed beneath `share/semaforr`; executables are available through
-`ros2 run`.
+Headers plus the domain, planning, advisors, and ROS-adapter libraries are
+installed under the package prefix. Runtime configuration, launch files, and
+this documentation are installed beneath `share/semaforr`; executables are
+available through `ros2 run`.
