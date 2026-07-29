@@ -1,8 +1,8 @@
-# HuNav Msgs Package
+# HuNav Msgs
 
-A ROS2 package to use Agent messages (specific to HuNavSim)
+A ROS2 package to use Agent messages.
 
-**Tested in ROS2 Humble**
+**Tested in ROS2 foxy**
 
 ## Description
 

@@ -29,6 +29,8 @@ setup(
             'pose_openpose = social_context.pose_estimation.src.camera_2d_pose_detection_node:main_openpose',
             'pose_mediapipe = social_context.pose_estimation.src.camera_2d_pose_detection_node:main_mediapipe',
             'global_human_localizer = social_context.pose_estimation.src.global_human_localizer:main',
+            'sort_tracker = social_context.pose_estimation.src.tracking.sort_node:main',
+            'tracking_evaluator = social_context.pose_estimation.src.tracking.tracking_evaluator:main',
         ],
     },
 )

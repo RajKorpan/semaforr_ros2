@@ -38,6 +38,7 @@ class Camera2DPoseDetectionNode(Node):
 
         self.detector = detector
 
+
         # Parameters
         self.declare_parameter('camera_frame_id', 'rgb_camera_optical_frame')
         self.camera_frame_id = self.get_parameter('camera_frame_id').value
