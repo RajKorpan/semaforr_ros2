@@ -7,6 +7,8 @@ ROS-independent navigation model from message transport and the ROS executable:
 - `semaforr::planning` contains typed graph, A*, map-parser, and planning
   coordination implementations.
 - `semaforr::advisors` contains deterministic decision coordination.
+- `semaforr::spatial` contains the modular spatial-learning lifecycle and
+  focused representation learners.
 - `semaforr::ros_adapters` converts ROS messages to the domain value types at
   the process boundary.
 - `semaforr::core` is a compatibility target that forwards to
@@ -205,7 +207,7 @@ Run those commands only after sourcing the workspace install.
 
 ## Installed resources
 
-Headers plus the domain, planning, advisors, and ROS-adapter libraries are
+Headers plus the domain, planning, advisors, spatial, and ROS-adapter libraries are
 installed under the package prefix. Runtime configuration, launch files, and
 this documentation are installed beneath `share/semaforr`; executables are
 available through `ros2 run`.

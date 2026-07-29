@@ -18,6 +18,7 @@ SemaFORR is designed to enable robots to navigate complex environments using cog
 - Replaceable, value-returning interfaces for all three decision tiers
 - Deterministic tier arbitration with safe empty and non-finite fallbacks
 - Decomposed path planning and robust geometry edge-case handling
+- Independently enabled, inspected, rebuilt, and serialized spatial learners
 - ROS2 node integration
 - Example configuration files for quick setup
 
@@ -76,3 +77,7 @@ installed package layout, and downstream-consumer checks are documented in
 
 The implementation and verification status of Phases 0-9 is recorded in
 `docs/phases-0-9-completion.md`.
+
+Phase 10 and the per-representation observation/update/consumer contracts are
+documented in `docs/phase-10-completion.md` and
+`docs/spatial-learning.md`.

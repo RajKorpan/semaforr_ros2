@@ -117,8 +117,14 @@ struct CrowdState {
 
 struct SpatialModel {
   std::vector<Polygon> obstacle_polygons;
+  std::vector<std::vector<Point2D>> trails;
+  std::vector<Segment2D> conveyor_flows;
   std::vector<Circle> learned_regions;
   std::vector<Segment2D> doorways;
+  std::vector<Segment2D> hallways;
+  std::vector<Segment2D> barriers;
+  std::vector<Point2D> skeleton_nodes;
+  std::vector<std::pair<std::size_t, std::size_t>> skeleton_edges;
 };
 
 struct WorldModel {

@@ -225,7 +225,7 @@ public:
         double end_time, end_timecv;
         gettimeofday(&tv, NULL);
         start_time = tv.tv_sec + (tv.tv_usec / 1000000.0);
-        bool firstMessageReceived;
+        bool firstMessageReceived = false;
 
         std::cout << "run declarations completed" << std::endl;
 

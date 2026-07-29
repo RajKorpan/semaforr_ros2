@@ -90,7 +90,6 @@ set(SEMAFORR_SPATIAL_SOURCES
   src/spatial/FORRConveyors.cpp
   src/spatial/FORRHallways.cpp
   src/spatial/FORRTrails.cpp
-  src/spatial/SpatialLearningCoordinator.cpp
 )
 
 set(SEMAFORR_PLANNING_SOURCES
@@ -146,6 +145,26 @@ target_include_directories(semaforr_advisors
 )
 semaforr_apply_project_options(semaforr_advisors)
 
+add_library(semaforr_spatial SHARED
+  src/spatial/BarrierLearner.cpp
+  src/spatial/ConveyorLearner.cpp
+  src/spatial/DoorExitLearner.cpp
+  src/spatial/HallwayLearner.cpp
+  src/spatial/PassageSkeletonLearner.cpp
+  src/spatial/RegionLearner.cpp
+  src/spatial/SpatialLearner.cpp
+  src/spatial/SpatialLearningCoordinator.cpp
+  src/spatial/TrailLearner.cpp
+)
+set_target_properties(semaforr_spatial PROPERTIES EXPORT_NAME spatial)
+add_library(semaforr::spatial ALIAS semaforr_spatial)
+target_include_directories(semaforr_spatial
+  PUBLIC
+    "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>"
+    "$<INSTALL_INTERFACE:include>"
+)
+semaforr_apply_project_options(semaforr_spatial)
+
 add_library(semaforr_domain SHARED ${SEMAFORR_DOMAIN_SOURCES})
 set_target_properties(semaforr_domain PROPERTIES EXPORT_NAME domain)
 add_library(semaforr::domain ALIAS semaforr_domain)
@@ -156,7 +175,8 @@ target_include_directories(semaforr_domain
 )
 semaforr_apply_project_options(semaforr_domain)
 target_link_libraries(
-  semaforr_domain PUBLIC semaforr_planning semaforr_advisors)
+  semaforr_domain
+  PUBLIC semaforr_planning semaforr_advisors semaforr_spatial)
 
 # Preserve the Phase 1 target name for downstream consumers while directing
 # new code to the explicit ROS-independent domain target.
@@ -217,6 +237,7 @@ install(
     semaforr_domain
     semaforr_planning
     semaforr_advisors
+    semaforr_spatial
     semaforr_ros_adapters
   EXPORT export_${PROJECT_NAME}
   ARCHIVE DESTINATION lib
@@ -375,6 +396,14 @@ if(BUILD_TESTING)
   target_link_libraries(semaforr_map_parser_test semaforr_domain)
   semaforr_apply_project_options(semaforr_map_parser_test)
 
+  ament_add_gtest(
+    semaforr_spatial_learning_test
+    test/unit/spatial_learning_test.cpp
+  )
+  target_link_libraries(
+    semaforr_spatial_learning_test semaforr_domain)
+  semaforr_apply_project_options(semaforr_spatial_learning_test)
+
   ament_add_pytest_test(semaforr_source_contract_test
     test/contracts/test_source_contract.py
     ENV "SEMAFORR_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
@@ -413,6 +442,10 @@ if(BUILD_TESTING)
   )
   ament_add_pytest_test(semaforr_planning_geometry_contract_test
     test/contracts/test_planning_geometry_contract.py
+    ENV "SEMAFORR_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
+  )
+  ament_add_pytest_test(semaforr_spatial_learning_contract_test
+    test/contracts/test_spatial_learning_contract.py
     ENV "SEMAFORR_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
   )
 endif()

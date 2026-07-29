@@ -47,15 +47,28 @@ DecisionResult NavigationEngine::decide(
   world_.crowd.current = observation.crowd;
   world_.crowd.history.push_back(observation.crowd);
 
-  if (mission_.prepareDecision() == MissionStep::Complete) {
+  const MissionStep mission_step = mission_.prepareDecision();
+  if (mission_step == MissionStep::Complete) {
     return {};
   }
-  learning_.process(world_);
   const auto available = candidates();
   DecisionResult result =
     decisions_.decide(DecisionContext{world_}, available);
   world_.navigation_history.record({
     observation.pose, observation.laser, result.action});
+  const std::optional<domain::TaskId> active_task =
+    world_.mission.active()
+    ? std::optional<domain::TaskId>(world_.mission.active()->id)
+    : std::nullopt;
+  learning_.observe({
+    world_.navigation_history.entries().size(),
+    observation,
+    result.action,
+    active_task,
+    mission_step == MissionStep::ActivatedTask ||
+      mission_step == MissionStep::SkippedTask,
+    false});
+  learning_.applyTo(world_.spatial);
   mission_.recordDecision();
   (void)planning_;
   return result;

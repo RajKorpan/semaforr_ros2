@@ -81,7 +81,7 @@ def test_domain_and_compatibility_libraries_are_exported():
     assert "add_library(semaforr::core ALIAS semaforr_core)" in cmake
     assert "set_target_properties(semaforr_core PROPERTIES EXPORT_NAME core)" in cmake
     assert "target_link_libraries(semaforr_core INTERFACE semaforr_domain)" in cmake
-    for component in ("planning", "advisors"):
+    for component in ("planning", "advisors", "spatial"):
         assert f"add_library(semaforr_{component} SHARED" in cmake
         assert f"add_library(semaforr::{component} ALIAS semaforr_{component})" in cmake
         assert (
