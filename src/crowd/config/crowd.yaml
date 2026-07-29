@@ -1,0 +1,17 @@
+semaforr_crowd:
+  ros__parameters:
+    social_topic: social_observations
+    density_topic: crowd_density
+    risk_topic: crowd_risk
+    flow_topic: crowd_flow
+    frame: map
+    width_m: 200.0
+    height_m: 200.0
+    resolution_m: 1.0
+    origin_x_m: 0.0
+    origin_y_m: 0.0
+    half_life_s: 30.0
+    prediction_half_life_s: 3.0
+    maximum_age_s: 0.75
+    minimum_confidence: 0.25
+    occupancy_scale: 10.0

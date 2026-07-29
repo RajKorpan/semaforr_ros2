@@ -1,0 +1,8 @@
+<?xml version="1.0"?>
+
+<Project 
+	scene="bugtrap/bugtrapS.xml" 
+	behavior="bugtrap/bugtrapB.xml"
+	model="orca"
+	dumpPath="images/test"
+/>

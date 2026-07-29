@@ -1,0 +1,8 @@
+<?xml version="1.0"?>
+
+<Project 
+	scene="amnh-1/amnh-1S.xml" 
+	behavior="amnh-1/amnh-1B.xml"
+	model="orca"
+	dumpPath="images/test"
+/>

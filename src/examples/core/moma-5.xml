@@ -1,0 +1,8 @@
+<?xml version="1.0"?>
+
+<Project 
+	scene="moma-5/moma-5S.xml" 
+	behavior="moma-5/moma-5B.xml"
+	model="orca"
+	dumpPath="images/test"
+/>

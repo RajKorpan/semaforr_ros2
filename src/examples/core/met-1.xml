@@ -1,0 +1,8 @@
+<?xml version="1.0"?>
+
+<Project 
+	scene="met-1/met-1S.xml" 
+	behavior="met-1/met-1B.xml"
+	model="orca"
+	dumpPath="images/test"
+/>

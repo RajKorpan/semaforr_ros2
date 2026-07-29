@@ -1,0 +1,8 @@
+<?xml version="1.0"?>
+
+<Project 
+	scene="mcgovern-6/mcgovern-6S.xml" 
+	behavior="mcgovern-6/mcgovern-6B.xml"
+	model="orca"
+	dumpPath="images/test"
+/>
