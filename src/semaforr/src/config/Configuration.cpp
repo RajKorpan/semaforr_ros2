@@ -636,15 +636,27 @@ void validateConfiguration(const Configuration& configuration) {
       throw std::runtime_error("configuration: advisor '" + advisor.name +
                                "' has an invalid weight or parameter");
     }
-    if (advisor.active &&
-        ((advisor.name == "prefer_regions" &&
-          !configuration.navigation.regions_on) ||
-         (advisor.name == "prefer_highways" &&
-          !configuration.navigation.highways_on) ||
-         (advisor.name == "prefer_doors" &&
-          !configuration.navigation.doors_on) ||
-         (advisor.name == "follow_trails" &&
-          !configuration.navigation.trails_on)))
+    const bool missing_spatial_representation =
+        (advisor.name == "prefer_regions" || advisor.name == "exit" ||
+         advisor.name == "access" || advisor.name == "stay")
+            ? !configuration.navigation.regions_on
+        : (advisor.name == "prefer_highways" ||
+           advisor.name == "crossroads")
+            ? !configuration.navigation.highways_on
+        : (advisor.name == "prefer_doors" || advisor.name == "enter")
+            ? !configuration.navigation.doors_on
+        : (advisor.name == "follow_trails" || advisor.name == "trailer")
+            ? !configuration.navigation.trails_on
+        : advisor.name == "convey"
+            ? !configuration.navigation.conveyors_on
+        : advisor.name == "unlikely"
+            ? !configuration.navigation.barriers_on
+        : advisor.name == "follow"
+            ? !configuration.navigation.hallways_on
+        : advisor.name == "spatial_learner"
+            ? !configuration.navigation.inclusion_grid_on
+            : false;
+    if (advisor.active && missing_spatial_representation)
       throw std::runtime_error("configuration: advisor '" + advisor.name +
                                "' requires its spatial representation");
     const bool social_advisor =

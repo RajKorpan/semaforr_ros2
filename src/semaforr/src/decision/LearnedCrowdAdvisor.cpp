@@ -53,6 +53,7 @@ AdvisorEvaluation LearnedCrowdAdvisor::evaluate(
     const DecisionContext& context,
     std::span<const domain::Action> candidates) const {
   AdvisorEvaluation evaluation;
+  evaluation.model_revision_used = context.world.crowd.learned().version;
   evaluation.weight = configuration_.weight;
   evaluation.explanation = "shared visibility-normalized learned crowd field";
   const bool live_people = context.world.crowd.current() &&

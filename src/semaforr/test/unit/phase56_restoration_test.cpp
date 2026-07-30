@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 #include <algorithm>
+#include <semaforr/decision/advisor_catalog_registry.hpp>
 #include <semaforr/decision/restored_tiers.hpp>
 #include <semaforr/planning/reactive_planner.hpp>
 
@@ -25,6 +26,52 @@ semaforr::domain::LaserObservation laser() {
 }
 
 }  // namespace
+
+TEST(TierThreeCatalog, RestoresEveryDissertationAdvisorWithMetadata) {
+  const semaforr::domain::ActionSpace actions({0.25, 0.5}, {0.2, 0.5});
+  const std::vector<std::string> names{
+      "big_step",       "elbow_room", "novelty",     "go_around",
+      "greedy",         "curiosity",  "enfilade",    "visual_scan",
+      "convey",         "enter",      "exit",        "trailer",
+      "unlikely",       "access",     "crossroads",  "follow",
+      "least_angle",    "spatial_learner", "stay",   "social_navigation",
+      "crowd_avoid",    "risk_avoid", "flow_follow"};
+  std::vector<semaforr::config::AdvisorConfiguration> configured;
+  for (const auto& name : names)
+    configured.push_back({name, name, true, 1.0, {}});
+
+  semaforr::decision::AdvisorRegistry registry;
+  semaforr::decision::registerAdvisorCatalog(registry, actions, configured);
+  for (const auto& name : names) {
+    const auto advisor = registry.create(name);
+    ASSERT_NE(advisor, nullptr) << name;
+    EXPECT_EQ(advisor->name(), name);
+    const auto metadata = advisor->metadata();
+    EXPECT_FALSE(metadata.scored_action_types.empty()) << name;
+    EXPECT_FALSE(metadata.rationale.empty()) << name;
+  }
+}
+
+TEST(TierThreeCatalog, SpatialAdvisorReportsSourceRevision) {
+  const semaforr::domain::ActionSpace actions({0.25}, {0.2});
+  std::vector<semaforr::config::AdvisorConfiguration> configured{
+      {"crossroads", "crossroads", true, 1.0, {}}};
+  semaforr::decision::AdvisorRegistry registry;
+  semaforr::decision::registerAdvisorCatalog(registry, actions, configured);
+  const auto advisor = registry.create("crossroads");
+  auto world = worldWithTarget();
+  world.spatial.revision = 17U;
+  const std::vector<semaforr::domain::Action> candidates{
+      semaforr::domain::Action::pause(),
+      {semaforr::domain::ActionType::Forward, 1U},
+      {semaforr::domain::ActionType::TurnLeft, 1U},
+      {semaforr::domain::ActionType::TurnRight, 1U}};
+  const auto evaluation = advisor->evaluate({world}, candidates);
+  EXPECT_EQ(evaluation.model_revision_used, 17U);
+  const auto dependencies = advisor->dependencies();
+  EXPECT_NE(std::find(dependencies.begin(), dependencies.end(), "highways"),
+            dependencies.end());
+}
 
 TEST(ReactivePlanners, ThruBehindAndOutHaveExplicitDependencies) {
   const semaforr::domain::ActionSpace actions({0.25}, {0.2, 1.0});

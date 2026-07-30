@@ -144,7 +144,8 @@ DecisionResult DecisionCoordinator::decide(const DecisionContext& context,
       scored.insert(score.action);
       result.contributions.push_back(
           {std::string(advisor->name()), score.action, score.raw_score,
-           evaluation.weight, weighted, evaluation.explanation});
+           evaluation.weight, weighted, evaluation.explanation,
+           evaluation.model_revision_used});
     }
   }
   std::sort(result.contributions.begin(), result.contributions.end(),

@@ -30,6 +30,16 @@ class LearnedCrowdAdvisor final : public Advisor {
   std::string_view name() const noexcept override {
     return configuration_.advisor_name;
   }
+  std::vector<std::string_view> dependencies() const override {
+    return {"learned_crowd_field"};
+  }
+  AdvisorMetadata metadata() const override {
+    return {dependencies(),
+            {domain::ActionType::Pause, domain::ActionType::Forward,
+             domain::ActionType::TurnLeft, domain::ActionType::TurnRight},
+            false, ScoreNormalization::None,
+            "learned crowd density, risk, or flow preference"};
+  }
 
   AdvisorEvaluation evaluate(
       const DecisionContext& context,

@@ -56,6 +56,7 @@ struct AdvisorContribution {
   double weight{1.0};
   double weighted_score{0.0};
   std::string explanation;
+  std::size_t model_revision_used{0U};
 
   bool operator==(const AdvisorContribution&) const = default;
 };

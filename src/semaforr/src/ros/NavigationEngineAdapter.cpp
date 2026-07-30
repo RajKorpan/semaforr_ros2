@@ -3,14 +3,12 @@
 #include <cmath>
 #include <cstdint>
 #include <memory>
-#include <semaforr/decision/learned_crowd_advisor.hpp>
+#include <semaforr/decision/advisor_catalog_registry.hpp>
 #include <semaforr/decision/hard_safety_filter.hpp>
 #include <semaforr/decision/mission_manager.hpp>
-#include <semaforr/decision/navigation_advisor.hpp>
 #include <semaforr/decision/navigation_engine.hpp>
 #include <semaforr/decision/obstacle_veto_rule.hpp>
 #include <semaforr/decision/restored_tiers.hpp>
-#include <semaforr/decision/social_navigation_advisor.hpp>
 #include <semaforr/planning/domain_planner.hpp>
 #include <semaforr/planning/hierarchical_plan.hpp>
 #include <semaforr/ros/navigation_engine_adapter.hpp>
@@ -56,39 +54,6 @@ social::CrowdFieldLearnerConfiguration crowdConfiguration(
   result.cusum_threshold = source.cusum_threshold;
   result.random_seed = source.random_seed;
   return result;
-}
-
-decision::ActionSelection selectionFor(const std::string& name) {
-  if (name == "clearance_rotation") {
-    return decision::ActionSelection::Rotation;
-  }
-  if (name == "goal_progress_linear") {
-    return decision::ActionSelection::Linear;
-  }
-  return decision::ActionSelection::All;
-}
-
-decision::NavigationAdvisorObjective objectiveFor(const std::string& name) {
-  if (name == "exploration") {
-    return decision::NavigationAdvisorObjective::Exploration;
-  }
-  if (name == "clearance" || name == "clearance_rotation") {
-    return decision::NavigationAdvisorObjective::Clearance;
-  }
-  return decision::NavigationAdvisorObjective::GoalProgress;
-}
-
-decision::SpatialAdvisorObjective spatialObjectiveFor(
-    const std::string& name) {
-  if (name == "prefer_regions")
-    return decision::SpatialAdvisorObjective::PreferRegions;
-  if (name == "prefer_highways")
-    return decision::SpatialAdvisorObjective::PreferHighways;
-  if (name == "prefer_doors")
-    return decision::SpatialAdvisorObjective::PreferDoors;
-  if (name == "follow_trails")
-    return decision::SpatialAdvisorObjective::FollowTrails;
-  return decision::SpatialAdvisorObjective::AvoidRevisit;
 }
 
 void addPlanner(planning::PlanningCoordinator& coordinator,
@@ -243,10 +208,13 @@ class NavigationEngineAdapter::Impl {
   void configureDecisions() {
     decision::TierOneRegistry tier_one_registry;
     decision::AdvisorRegistry tier_three_registry;
+    decision::AdvisorRegistry unused_restored_advisors;
     decision::registerRestoredTierFactories(
-        tier_one_registry, tier_three_registry, action_space_,
+        tier_one_registry, unused_restored_advisors, action_space_,
         configuration_.navigation.robot_footprint,
         configuration_.navigation.robot_footprint_buffer);
+    decision::registerAdvisorCatalog(tier_three_registry, action_space_,
+                                     configuration_.advisors);
     if (configuration_.experiment.tiers.tier_one) {
       for (const auto& rule :
            configuration_.experiment.tiers.tier_one_rules) {
@@ -267,64 +235,8 @@ class NavigationEngineAdapter::Impl {
     }
     if (!configuration_.experiment.tiers.tier_three) return;
     for (const auto& advisor : configuration_.advisors) {
-      if (!advisor.active) {
-        continue;
-      }
-      const bool social_advisor =
-          advisor.name == "social_navigation" ||
-          advisor.name == "crowd_avoid" || advisor.name == "risk_avoid" ||
-          advisor.name == "flow_follow";
-      if (social_advisor &&
-          (!configuration_.experiment.social.enabled ||
-           !configuration_.experiment.social.advisors))
-        continue;
-      if (advisor.name == "social_navigation") {
-        decision::SocialAdvisorConfiguration social_configuration;
-        social_configuration.move_distances_m =
-            action_space_.move_distances_m();
-        social_configuration.rotation_angles_rad =
-            action_space_.rotation_angles_rad();
-        social_configuration.weight = advisor.weight;
-        social_configuration.advisor_name = advisor.name;
-        decisions_.addAdvisor(
-            std::make_unique<decision::SocialNavigationAdvisor>(
-                std::move(social_configuration)));
-        continue;
-      }
-      if (advisor.name == "crowd_avoid" || advisor.name == "risk_avoid" ||
-          advisor.name == "flow_follow") {
-        decision::LearnedCrowdAdvisorConfiguration learned;
-        learned.move_distances_m = action_space_.move_distances_m();
-        learned.rotation_angles_rad = action_space_.rotation_angles_rad();
-        learned.weight = advisor.weight;
-        learned.advisor_name = advisor.name;
-        if (advisor.name == "risk_avoid") {
-          learned.objective =
-              decision::LearnedCrowdObjective::AvoidEncounterRisk;
-        } else if (advisor.name == "flow_follow") {
-          learned.objective =
-              decision::LearnedCrowdObjective::PreferFollowingFlow;
-        } else {
-          learned.objective = decision::LearnedCrowdObjective::AvoidDensity;
-        }
-        decisions_.addAdvisor(std::make_unique<decision::LearnedCrowdAdvisor>(
-            std::move(learned)));
-        continue;
-      }
-      if (advisor.name == "avoid_revisit" ||
-          advisor.name == "prefer_regions" ||
-          advisor.name == "prefer_highways" ||
-          advisor.name == "prefer_doors" ||
-          advisor.name == "follow_trails") {
-        decisions_.addAdvisor(std::make_unique<decision::SpatialAdvisor>(
-            advisor.name, spatialObjectiveFor(advisor.name), action_space_,
-            advisor.weight));
-        continue;
-      }
-      decisions_.addAdvisor(std::make_unique<decision::NavigationAdvisor>(
-          decision::NavigationAdvisorConfiguration{
-              advisor.name, objectiveFor(advisor.name),
-              selectionFor(advisor.name), action_space_, advisor.weight}));
+      if (advisor.active)
+        decisions_.addAdvisor(tier_three_registry.create(advisor.name));
     }
   }
 

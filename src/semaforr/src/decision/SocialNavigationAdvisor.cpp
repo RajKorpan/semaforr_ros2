@@ -99,6 +99,8 @@ AdvisorEvaluation SocialNavigationAdvisor::evaluate(
     const DecisionContext& context,
     std::span<const domain::Action> candidates) const {
   AdvisorEvaluation evaluation;
+  evaluation.model_revision_used =
+      static_cast<std::size_t>(context.world.crowd.history().size());
   evaluation.weight = configuration_.weight;
   evaluation.explanation =
       "predicted interpersonal distance, crossing, following, and flow risk";

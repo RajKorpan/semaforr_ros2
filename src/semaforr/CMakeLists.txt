@@ -108,7 +108,9 @@ semaforr_apply_project_options(semaforr_planning)
 semaforr_apply_strict_warnings(semaforr_planning)
 
 add_library(semaforr_advisors SHARED
+  src/decision/AdvisorCatalogRegistry.cpp
   src/decision/DecisionCoordinator.cpp
+  src/decision/DissertationAdvisor.cpp
   src/decision/Enforcer.cpp
   src/decision/HardSafetyFilter.cpp
   src/decision/LearnedCrowdAdvisor.cpp

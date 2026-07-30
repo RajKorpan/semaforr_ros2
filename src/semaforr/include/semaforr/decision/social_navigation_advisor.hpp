@@ -28,6 +28,16 @@ class SocialNavigationAdvisor final : public Advisor {
   std::string_view name() const noexcept override {
     return configuration_.advisor_name;
   }
+  std::vector<std::string_view> dependencies() const override {
+    return {"live_crowd_observations"};
+  }
+  AdvisorMetadata metadata() const override {
+    return {dependencies(),
+            {domain::ActionType::Pause, domain::ActionType::Forward,
+             domain::ActionType::TurnLeft, domain::ActionType::TurnRight},
+            false, ScoreNormalization::None,
+            "predictive personal-space and collision preference"};
+  }
 
   AdvisorEvaluation evaluate(
       const DecisionContext& context,
