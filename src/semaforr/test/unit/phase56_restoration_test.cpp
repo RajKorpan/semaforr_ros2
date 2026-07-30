@@ -116,8 +116,16 @@ TEST(RestoredTierOne, VictoryForwardAndNotOppositeAreTyped) {
   auto world = worldWithTarget({0.1, 0.0});
   semaforr::decision::VictoryRule victory(semaforr::domain::Distance(0.2));
   EXPECT_TRUE(victory.evaluate({world}));
-  semaforr::decision::ForwardRule forward(actions);
-  EXPECT_TRUE(forward.evaluate({world}));
+  auto visible = worldWithTarget();
+  visible.robot.laser = laser();
+  semaforr::decision::VictoryRule direct(
+      semaforr::domain::Distance(0.2), actions);
+  ASSERT_TRUE(direct.evaluate({visible}));
+  EXPECT_EQ(direct.evaluate({visible})->action.type(),
+            semaforr::domain::ActionType::Forward);
+  semaforr::decision::ForwardRule forward(
+      semaforr::domain::ActionSpace({0.25}, {2.0}));
+  EXPECT_FALSE(forward.evaluate({visible}).empty());
   world.navigation_history.record(
       {world.robot.pose, laser(),
        semaforr::domain::Action(semaforr::domain::ActionType::TurnLeft, 1U)});
@@ -134,8 +142,16 @@ TEST(RestoredRegistries, DeclareAndConstructTierDependencies) {
   semaforr::decision::AdvisorRegistry tier_three;
   semaforr::decision::registerRestoredTierFactories(tier_one, tier_three,
                                                      actions);
-  EXPECT_EQ(tier_one.createMandatory("Victory")->name(), "Victory");
-  EXPECT_EQ(tier_one.createVeto("NotOpposite")->name(), "NotOpposite");
+  EXPECT_EQ(tier_one.createMandatory("victory")->name(), "Victory");
+  EXPECT_EQ(tier_one.createVeto("avoid_obstacles")->name(), "AvoidObstacles");
+  EXPECT_EQ(tier_one.createVeto("not_opposite")->name(), "NotOpposite");
+  EXPECT_EQ(tier_one.createOperationalizer("enforcer")->name(), "enforcer");
+  EXPECT_EQ(tier_one.createReactive("thru")->name(), "Thru");
+  EXPECT_EQ(tier_one.createReactive("behind")->name(), "Behind");
+  EXPECT_EQ(tier_one.createReactive("out")->name(), "Out");
+  EXPECT_EQ(tier_one.createReactive("low_level_exploration")->name(), "LLE");
+  EXPECT_EQ(tier_one.createVeto("forward")->name(), "Forward");
+  EXPECT_EQ(tier_one.createVeto("precedent")->name(), "Precedent");
   const auto highway = tier_three.create("prefer_highways");
   ASSERT_EQ(highway->dependencies().size(), 1U);
   EXPECT_EQ(highway->dependencies().front(), "highways");

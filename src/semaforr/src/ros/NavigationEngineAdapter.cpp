@@ -129,21 +129,38 @@ class NavigationEngineAdapter::Impl {
       crowd_learning_ = std::make_unique<social::CrowdFieldLearner>(
           crowdConfiguration(configuration_));
     }
-    std::vector<std::string> enabled_reactive;
+    decision::TierOneRegistry tier_one_registry;
+    decision::AdvisorRegistry unused_advisors;
+    decision::registerRestoredTierFactories(
+        tier_one_registry, unused_advisors, action_space_,
+        configuration_.navigation.robot_footprint,
+        configuration_.navigation.robot_footprint_buffer);
+    std::vector<std::unique_ptr<planning::ReactivePlanner>> enabled_reactive;
     for (const auto& planner :
          configuration_.experiment.tiers.reactive_planners) {
       if (!configuration_.experiment.tiers.tier_one) break;
       if (std::find(configuration_.experiment.tiers.tier_one_rules.begin(),
                     configuration_.experiment.tiers.tier_one_rules.end(),
                     planner) !=
-          configuration_.experiment.tiers.tier_one_rules.end())
-        enabled_reactive.push_back(planner);
+              configuration_.experiment.tiers.tier_one_rules.end() &&
+          tier_one_registry.kind(planner) !=
+              decision::TierOneRegistry::Kind::ReplanningTrigger)
+        enabled_reactive.push_back(tier_one_registry.createReactive(planner));
     }
     const auto has_tier_one_rule = [this](const std::string& name) {
       const auto& rules = configuration_.experiment.tiers.tier_one_rules;
       return configuration_.experiment.tiers.tier_one &&
              std::find(rules.begin(), rules.end(), name) != rules.end();
     };
+    auto lle_component =
+        configuration_.experiment.reactive_exploration_enabled &&
+                has_tier_one_rule("low_level_exploration")
+            ? tier_one_registry.createReactive("low_level_exploration")
+            : nullptr;
+    auto enforcer_component =
+        has_tier_one_rule("enforcer")
+            ? tier_one_registry.createOperationalizer("enforcer")
+            : nullptr;
     engine_ = std::make_unique<decision::NavigationEngine>(
         world_, action_space_, decisions_, mission_, planning_, learning_,
         crowd_learning_.get(), domain::Distance(0.5),
@@ -151,7 +168,7 @@ class NavigationEngineAdapter::Impl {
         &phases_,
         config::configurationFingerprint(configuration_),
         config::componentManifest(configuration_),
-        enabled_reactive,
+        std::move(enabled_reactive),
         configuration_.experiment.reactive_exploration_enabled &&
             has_tier_one_rule("low_level_exploration"),
         has_tier_one_rule("enforcer"),
@@ -170,7 +187,8 @@ class NavigationEngineAdapter::Impl {
                 .minimum_bundle_beams,
             std::chrono::duration<double>(
                 configuration_.experiment.initial_exploration.time_limit_s),
-            configuration_.experiment.initial_exploration.decision_budget});
+            configuration_.experiment.initial_exploration.decision_budget},
+        std::move(lle_component), std::move(enforcer_component));
   }
 
   void configureLearning() {
@@ -226,24 +244,25 @@ class NavigationEngineAdapter::Impl {
     decision::TierOneRegistry tier_one_registry;
     decision::AdvisorRegistry tier_three_registry;
     decision::registerRestoredTierFactories(
-        tier_one_registry, tier_three_registry, action_space_);
+        tier_one_registry, tier_three_registry, action_space_,
+        configuration_.navigation.robot_footprint,
+        configuration_.navigation.robot_footprint_buffer);
     if (configuration_.experiment.tiers.tier_one) {
       for (const auto& rule :
            configuration_.experiment.tiers.tier_one_rules) {
-        if (rule == "victory")
-          decisions_.addMandatoryRule(
-              tier_one_registry.createMandatory("Victory"));
-        else if (rule == "forward")
-          decisions_.addMandatoryRule(
-              tier_one_registry.createMandatory("Forward"));
-        else if (rule == "not_opposite")
-          decisions_.addVetoRule(
-              tier_one_registry.createVeto("NotOpposite"));
-        else if (rule == "avoid_obstacles")
-          decisions_.addVetoRule(std::make_unique<decision::ObstacleVetoRule>(
-              action_space_.move_distances_m(),
-              configuration_.navigation.robot_footprint,
-              configuration_.navigation.robot_footprint_buffer));
+        switch (tier_one_registry.kind(rule)) {
+          case decision::TierOneRegistry::Kind::Mandatory:
+            decisions_.addMandatoryRule(
+                tier_one_registry.createMandatory(rule));
+            break;
+          case decision::TierOneRegistry::Kind::Veto:
+            decisions_.addVetoRule(tier_one_registry.createVeto(rule));
+            break;
+          case decision::TierOneRegistry::Kind::PlanOperationalizer:
+          case decision::TierOneRegistry::Kind::ReactivePlanner:
+          case decision::TierOneRegistry::Kind::ReplanningTrigger:
+            break;
+        }
       }
     }
     if (!configuration_.experiment.tiers.tier_three) return;

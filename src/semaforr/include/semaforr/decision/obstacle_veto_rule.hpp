@@ -10,6 +10,12 @@ class ObstacleVetoRule final : public VetoRule {
  public:
   ObstacleVetoRule(std::vector<double> move_distances_m, double robot_radius_m,
                    double obstacle_buffer_m);
+  std::string_view name() const noexcept override {
+    return "AvoidObstacles";
+  }
+  std::vector<std::string_view> dependencies() const override {
+    return {"laser", "robot_footprint"};
+  }
 
   std::vector<Veto> evaluate(const DecisionContext& context) const override;
 

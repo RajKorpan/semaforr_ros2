@@ -80,7 +80,6 @@ set(SEMAFORR_DOMAIN_SOURCES
 )
 
 set(SEMAFORR_NAVIGATION_SOURCES
-  src/decision/Enforcer.cpp
   src/decision/MissionManager.cpp
   src/decision/NavigationEngine.cpp
   src/decision/NavigationPhase.cpp
@@ -110,6 +109,7 @@ semaforr_apply_strict_warnings(semaforr_planning)
 
 add_library(semaforr_advisors SHARED
   src/decision/DecisionCoordinator.cpp
+  src/decision/Enforcer.cpp
   src/decision/HardSafetyFilter.cpp
   src/decision/LearnedCrowdAdvisor.cpp
   src/decision/NavigationAdvisor.cpp
@@ -164,7 +164,7 @@ semaforr_apply_project_options(semaforr_domain)
 semaforr_apply_strict_warnings(semaforr_domain)
 
 target_link_libraries(semaforr_planning PUBLIC semaforr_domain)
-target_link_libraries(semaforr_advisors PUBLIC semaforr_domain)
+target_link_libraries(semaforr_advisors PUBLIC semaforr_domain semaforr_planning)
 target_link_libraries(semaforr_spatial PUBLIC semaforr_domain)
 
 add_library(semaforr_navigation SHARED ${SEMAFORR_NAVIGATION_SOURCES})

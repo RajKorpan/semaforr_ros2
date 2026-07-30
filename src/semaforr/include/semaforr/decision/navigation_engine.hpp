@@ -2,6 +2,7 @@
 #define SEMAFORR_DECISION_NAVIGATION_ENGINE_HPP
 
 #include <cstdint>
+#include <memory>
 #include <optional>
 #include <semaforr/decision/decision_coordinator.hpp>
 #include <semaforr/decision/enforcer.hpp>
@@ -33,12 +34,16 @@ class NavigationEngine {
                    navigation::NavigationPhaseCoordinator* phases = nullptr,
                    std::string configuration_fingerprint = {},
                    std::vector<std::string> component_manifest = {},
-                   std::vector<std::string> reactive_planners =
-                       {"thru", "behind", "out"},
+                   std::vector<std::unique_ptr<planning::ReactivePlanner>>
+                       reactive_planners = {},
                    bool low_level_exploration_enabled = true,
                    bool enforcer_enabled = true,
                    exploration::HighLevelExplorationConfiguration
-                       hle_configuration = {});
+                       hle_configuration = {},
+                   std::unique_ptr<planning::ReactivePlanner>
+                       low_level_explorer = nullptr,
+                   std::unique_ptr<PlanOperationalizer>
+                       plan_operationalizer = nullptr);
 
   void observe(const domain::RobotObservation& observation);
   DecisionResult decide();
@@ -64,9 +69,9 @@ class NavigationEngine {
   std::string configuration_fingerprint_;
   std::vector<std::string> component_manifest_;
   exploration::ExplorationCoordinator exploration_;
-  Enforcer enforcer_;
+  std::unique_ptr<PlanOperationalizer> enforcer_;
   planning::ReactivePlannerCoordinator reactive_;
-  planning::LowLevelExplorer lle_;
+  std::unique_ptr<planning::ReactivePlanner> lle_;
   bool low_level_exploration_enabled_;
   bool enforcer_enabled_;
   domain::Distance goal_tolerance_;

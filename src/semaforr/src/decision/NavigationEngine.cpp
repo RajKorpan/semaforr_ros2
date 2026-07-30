@@ -17,10 +17,12 @@ NavigationEngine::NavigationEngine(
     navigation::NavigationPhaseCoordinator* phases,
     std::string configuration_fingerprint,
     std::vector<std::string> component_manifest,
-    std::vector<std::string> reactive_planners,
+    std::vector<std::unique_ptr<planning::ReactivePlanner>> reactive_planners,
     bool low_level_exploration_enabled,
     bool enforcer_enabled,
-    exploration::HighLevelExplorationConfiguration hle_configuration)
+    exploration::HighLevelExplorationConfiguration hle_configuration,
+    std::unique_ptr<planning::ReactivePlanner> low_level_explorer,
+    std::unique_ptr<PlanOperationalizer> plan_operationalizer)
     : world_(world),
       action_space_(action_space),
       decisions_(decisions),
@@ -33,7 +35,13 @@ NavigationEngine::NavigationEngine(
       configuration_fingerprint_(std::move(configuration_fingerprint)),
       component_manifest_(std::move(component_manifest)),
       exploration_(std::move(hle_configuration)),
-      reactive_(reactive_planners),
+      enforcer_(plan_operationalizer
+                    ? std::move(plan_operationalizer)
+                    : std::make_unique<Enforcer>()),
+      reactive_(std::move(reactive_planners)),
+      lle_(low_level_explorer
+               ? std::move(low_level_explorer)
+               : std::make_unique<planning::LowLevelExplorer>()),
       low_level_exploration_enabled_(low_level_exploration_enabled),
       enforcer_enabled_(enforcer_enabled),
       goal_tolerance_(goal_tolerance) {
@@ -117,7 +125,7 @@ std::optional<std::string> NavigationEngine::preparePlan(MissionStep step) {
     return std::nullopt;
   }
   mission_.installPlan(enforcer_enabled_ && selected->result.hierarchical
-                           ? enforcer_.operationalize(
+                           ? enforcer_->operationalize(
                                  *selected->result.hierarchical)
                            : selected->result.path);
   mission_.advanceWaypoint(world_.robot.pose, goal_tolerance_);
@@ -220,7 +228,7 @@ DecisionResult NavigationEngine::decide() {
   }
   const planning::ReactiveResult lle =
       low_level_exploration_enabled_
-          ? lle_.evaluate({world_, action_space_})
+          ? lle_->evaluate({world_, action_space_})
           : planning::ReactiveResult{};
   if (lle.status == planning::ReactiveStatus::RequestReplan &&
       world_.mission.active()) {

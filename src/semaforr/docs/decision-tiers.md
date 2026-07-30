@@ -5,17 +5,24 @@ an action vetoed by Tier 1 cannot re-enter Tier 3 aggregation.
 
 ## Tier 1: mandatory rules and vetoes
 
+Every configured Tier-1 name is resolved by `TierOneRegistry`; the adapter
+contains no name-specific construction branches. The validated dissertation
+order is `victory`, `avoid_obstacles`, `not_opposite`, `enforcer`, `thru`,
+`behind`, `out`, `low_level_exploration`, `forward`, `precedent`.
+
 Mandatory rules return an optional decision. They are evaluated in configured
-order and the first applicable result wins. The retained rule chain includes
-`Victory`, `Enforcer`, `Doorway`, `BehindYou`, and `FindAWay`.
+order and the first applicable result wins. `Victory` either stops within goal
+tolerance or directly turns/moves toward a visible unobstructed target.
 
 Veto rules return zero or more action/reason pairs. `AvoidObstacles` removes
-unsafe motions and `DontGoBack` can suppress recent reversals. Vetoes are
+unsafe motions, `NotOpposite` suppresses immediate orientation reversal, and
+`Forward` prevents orientation regression along the installed plan. Vetoes are
 accumulated before Tier 3 runs and are copied into the decision record.
 
-The modern contracts are `MandatoryRule::evaluate(DecisionContext)` and
-`VetoRule::evaluate(DecisionContext)`. They are deliberately separate because
-forcing a move and declaring a move illegal are different operations.
+The separate Tier-1 contracts are `MandatoryRule`, `VetoRule`,
+`PlanOperationalizer`, `ReactivePlanner`, and `ReplanningTrigger`. `Enforcer`
+implements plan operationalization. `Thru`, `Behind`, `Out`, and LLE implement
+interruptible reactive control; LLE also implements the replanning trigger.
 
 ## Tier 2: planning
 

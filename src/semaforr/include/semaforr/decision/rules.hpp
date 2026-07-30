@@ -4,6 +4,7 @@
 #include <optional>
 #include <semaforr/decision/context.hpp>
 #include <semaforr/decision/decision_result.hpp>
+#include <semaforr/planning/hierarchical_plan.hpp>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -31,6 +32,27 @@ class VetoRule {
   virtual std::string_view name() const noexcept { return "veto_rule"; }
   virtual std::vector<std::string_view> dependencies() const { return {}; }
   virtual std::vector<Veto> evaluate(const DecisionContext& context) const = 0;
+};
+
+class PlanOperationalizer {
+ public:
+  virtual ~PlanOperationalizer() = default;
+  virtual std::string_view name() const noexcept = 0;
+  virtual std::vector<domain::Point2D> operationalize(
+      const planning::HierarchicalPlan&) const = 0;
+};
+
+struct ReplanningRequest {
+  bool requested = false;
+  std::string reason;
+};
+
+class ReplanningTrigger {
+ public:
+  virtual ~ReplanningTrigger() = default;
+  virtual std::string_view name() const noexcept = 0;
+  virtual ReplanningRequest evaluateReplan(
+      const DecisionContext&) const = 0;
 };
 
 }  // namespace semaforr::decision

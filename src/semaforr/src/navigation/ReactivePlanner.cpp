@@ -137,21 +137,41 @@ ReactivePlanUpdate Behind::update(
 
 TriggerEvaluation Out::evaluateTrigger(
     const decision::DecisionContext& context) const {
-  return {context.world.recovery.confined, "robot is confined"};
+  bool outside_known_space = false;
+  const auto& grid = context.world.spatial.known_grid;
+  if (!grid.cells.empty() && grid.columns > 0U && grid.rows > 0U &&
+      grid.resolution_m > 0.0) {
+    const int column = static_cast<int>(std::floor(
+        (context.world.robot.pose.position.x_m - grid.origin.x_m) /
+        grid.resolution_m));
+    const int row = static_cast<int>(std::floor(
+        (context.world.robot.pose.position.y_m - grid.origin.y_m) /
+        grid.resolution_m));
+    outside_known_space =
+        row < 0 || column < 0 ||
+        static_cast<std::size_t>(row) >= grid.rows ||
+        static_cast<std::size_t>(column) >= grid.columns ||
+        grid.cells[static_cast<std::size_t>(row) * grid.columns +
+                   static_cast<std::size_t>(column)] == 0U;
+  }
+  return {context.world.recovery.confined || outside_known_space,
+          outside_known_space ? "robot left known-grid support"
+                              : "robot is confined"};
 }
 
 ReactivePlanUpdate Out::update(
     const decision::DecisionContext& context) {
-  if (!context.action_space || !context.world.recovery.confined) return {};
-  const auto& grid = context.world.spatial.inclusion_grid;
+  if (!context.action_space || !evaluateTrigger(context).triggered) return {};
+  const auto& grid = context.world.spatial.known_grid;
   if (grid.cells.empty())
     return {ReactiveStatus::Action,
             domain::Action(domain::ActionType::TurnLeft, 1U), {},
             ReactiveCompletionReason::None, std::nullopt,
             "survey while leaving confinement"};
-  const auto least = std::min_element(grid.cells.begin(), grid.cells.end());
+  const auto strongest =
+      std::max_element(grid.cells.begin(), grid.cells.end());
   const std::size_t index =
-      static_cast<std::size_t>(least - grid.cells.begin());
+      static_cast<std::size_t>(strongest - grid.cells.begin());
   const std::size_t robot_column =
       grid.columns == 0U ? 0U : grid.columns / 2U;
   const std::size_t target_column =
@@ -160,31 +180,21 @@ ReactivePlanUpdate Out::update(
     return {ReactiveStatus::Action,
             domain::Action(domain::ActionType::Forward, 1U), {},
             ReactiveCompletionReason::None, std::nullopt,
-            "move toward least-included space"};
+            "move toward strongest known-grid support"};
   return {ReactiveStatus::Action,
           domain::Action(target_column < robot_column
                              ? domain::ActionType::TurnRight
                              : domain::ActionType::TurnLeft,
                          1U),
           {}, ReactiveCompletionReason::None, std::nullopt,
-          "turn toward least-included space"};
+          "turn toward strongest known-grid support"};
 }
 
-ReactivePlannerCoordinator::ReactivePlannerCoordinator()
-    : ReactivePlannerCoordinator({"behind", "out", "thru"}) {}
+ReactivePlannerCoordinator::ReactivePlannerCoordinator() = default;
 
 ReactivePlannerCoordinator::ReactivePlannerCoordinator(
-    const std::vector<std::string>& enabled_planners) {
-  for (const auto& name : enabled_planners) {
-    if (name == "thru")
-      add(std::make_unique<Thru>());
-    else if (name == "behind")
-      add(std::make_unique<Behind>());
-    else if (name == "out")
-      add(std::make_unique<Out>());
-    else if (name != "low_level_exploration")
-      throw std::invalid_argument("unknown reactive planner '" + name + "'");
-  }
+    std::vector<std::unique_ptr<ReactivePlanner>> planners) {
+  for (auto& planner : planners) add(std::move(planner));
 }
 
 void ReactivePlannerCoordinator::add(
@@ -248,6 +258,12 @@ TriggerEvaluation LowLevelExplorer::evaluateTrigger(
   return {(only_direct_guidance && lacks_connectivity) || stalled,
           stalled ? "target navigation has stalled"
                   : "target-directed planning lacks learned connectivity"};
+}
+
+decision::ReplanningRequest LowLevelExplorer::evaluateReplan(
+    const decision::DecisionContext& context) const {
+  const auto trigger = evaluateTrigger(context);
+  return {trigger.triggered, trigger.rationale};
 }
 
 void LowLevelExplorer::assembleCandidates(const domain::WorldModel& world) {

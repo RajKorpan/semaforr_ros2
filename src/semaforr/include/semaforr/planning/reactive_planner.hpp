@@ -6,6 +6,7 @@
 #include <optional>
 #include <queue>
 #include <semaforr/decision/context.hpp>
+#include <semaforr/decision/rules.hpp>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -92,7 +93,7 @@ class Out final : public ReactivePlanner {
  public:
   std::string_view name() const noexcept override { return "Out"; }
   std::vector<std::string_view> dependencies() const override {
-    return {"recovery_state", "inclusion_grid"};
+    return {"recovery_state", "known_grid"};
   }
   TriggerEvaluation evaluateTrigger(
       const decision::DecisionContext&) const override;
@@ -104,7 +105,7 @@ class ReactivePlannerCoordinator {
  public:
   ReactivePlannerCoordinator();
   explicit ReactivePlannerCoordinator(
-      const std::vector<std::string>& enabled_planners);
+      std::vector<std::unique_ptr<ReactivePlanner>> planners);
   void add(std::unique_ptr<ReactivePlanner> planner);
   ReactiveResult evaluate(const ReactiveRequest& request);
   void cancelAll(InterruptionReason);
@@ -125,7 +126,8 @@ struct LLECandidate {
   double target_relevance = 0.0;
 };
 
-class LowLevelExplorer final : public ReactivePlanner {
+class LowLevelExplorer final : public ReactivePlanner,
+                               public decision::ReplanningTrigger {
  public:
   explicit LowLevelExplorer(std::size_t history_window = 4U,
                             double progress_threshold_m = 0.1,
@@ -136,6 +138,8 @@ class LowLevelExplorer final : public ReactivePlanner {
             "unfinished_hle_candidates"};
   }
   TriggerEvaluation evaluateTrigger(
+      const decision::DecisionContext&) const override;
+  decision::ReplanningRequest evaluateReplan(
       const decision::DecisionContext&) const override;
   ReactivePlanUpdate update(const decision::DecisionContext&) override;
   void cancel(InterruptionReason) override;

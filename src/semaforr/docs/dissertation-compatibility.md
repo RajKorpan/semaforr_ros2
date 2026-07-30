@@ -38,12 +38,12 @@ not sufficient.
 | Doors/hallways | corresponding learners | Spatial-index optimization deferred | `semaforr::spatial` | representation switches | regions/travel | snapshots | target/on demand | planners/advisors | rebuild tests |
 | Circumstances | none | Entire component missing | `semaforr::spatial` | `features.circumstances` | context/outcome | statistics | completed action | Precedent | future acceptance test |
 | Hard safety | `HardSafetyFilter` | Freshness/kinematic checks remain at command layer | `semaforr::decision` | non-disableable | observation/actions | safe candidates | every command | all tiers | unsafe action absent |
-| Victory | `VictoryRule` | Visibility-specific direct motion incomplete | `semaforr::decision` | Tier-1 rule | active target | action | ordered Tier 1 | engine | deterministic rule test |
+| Victory | `VictoryRule` | None | `semaforr::decision` | Tier-1 rule | active target, pose, laser | stop, turn, or direct forward action | ordered Tier 1 | engine | reached, visible-clear, and occluded tests |
 | NotOpposite | `NotOppositeRule` | None | `semaforr::decision` | Tier-1 rule | orientation history | veto | ordered Tier 1 | arbitration | reversal veto test |
 | Enforcer | `Enforcer` | Per-step repair diagnostics incomplete | `semaforr::decision` | Tier-1 rule | hierarchical plan | waypoints | plan installation | engine | operationalization test |
-| Thru/Behind/Out | reactive planners | Stateful cancellation API incomplete | `semaforr::planning` | individual switches | waypoint/FOV/grids | temporary action | interrupt | engine | trigger tests |
-| Forward | `ForwardRule` | Full regression proof incomplete | `semaforr::decision` | Tier-1 rule | plan progress | action | ordered Tier 1 | engine | forward test |
-| Precedent | none | Entire component missing | `semaforr::decision` | Tier-1 rule | circumstances | vetoes | ordered last | arbitration | future statistical test |
+| Thru/Behind/Out | registered `ReactivePlanner` implementations | None for interface/registration scope | `semaforr::planning` | individual switches | waypoint, FOV, known grid | temporary action or cancellation | interrupt | engine | trigger and injection tests |
+| Forward | `ForwardRule` veto | None for orientation-regression contract | `semaforr::decision` | Tier-1 rule | plan waypoint, pose, action space | regression vetoes | ordered Tier 1 | arbitration | backward-orientation veto test |
+| Precedent | registered conservative `PrecedentRule` | Statistical circumstance thresholds remain intentionally inactive pending acceptance data | `semaforr::decision` | Tier-1 rule | circumstances | vetoes when statistically supported | ordered last | arbitration | registry test; future statistical acceptance test |
 | Tier-3 catalog | partial named factories | Several dissertation advisors missing | `semaforr::decision` | individual advisors | declared dependencies | normalized scores | Tier 3 | arbitration | registry/dependency tests |
 
 ## Ordering and safety invariants
