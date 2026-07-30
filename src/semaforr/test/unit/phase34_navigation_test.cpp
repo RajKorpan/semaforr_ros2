@@ -1,7 +1,9 @@
 #include <gtest/gtest.h>
 #include <memory>
 #include <semaforr/decision/enforcer.hpp>
+#include <semaforr/exploration/exploration_coordinator.hpp>
 #include <semaforr/exploration/highway_explorer.hpp>
+#include <semaforr/exploration/high_level_explorer.hpp>
 #include <semaforr/planning/domain_planner.hpp>
 #include <semaforr/planning/hierarchical_plan.hpp>
 #include <semaforr/planning/planning_coordinator.hpp>
@@ -34,6 +36,61 @@ TEST(HighwayExplore, PassageSelectionAndStateTransitionsAreDeterministic) {
   EXPECT_EQ(one.state, two.state);
   ASSERT_EQ(one.candidates.size(), 2U);
   EXPECT_EQ(one.action.type(), semaforr::domain::ActionType::TurnRight);
+}
+
+TEST(HighLevelExplore, OwnsDeterministicCandidateLifecycleAndSparsePassageGrid) {
+  semaforr::exploration::HighLevelExplorationConfiguration configuration;
+  configuration.candidate_completion_distance =
+      semaforr::domain::Distance(0.1);
+  semaforr::exploration::HighLevelExplorer explorer(configuration);
+  const semaforr::domain::ActionSpace actions({0.1, 0.2}, {0.25, 0.5});
+  auto view = observation(0.0);
+
+  EXPECT_EQ(explorer.update({view, actions, {}}).state,
+            semaforr::exploration::HleState::DiscoverCandidate);
+  const auto selected = explorer.update({view, actions, {}});
+  ASSERT_EQ(selected.state,
+            semaforr::exploration::HleState::ReturnToCandidateStart);
+  ASSERT_TRUE(selected.candidate_id);
+  ASSERT_FALSE(selected.discovered.empty());
+  EXPECT_EQ(*selected.candidate_id, selected.discovered.front().id);
+  EXPECT_EQ(*selected.candidate_id, 1U);
+
+  const auto pursuing = explorer.update({view, actions, {}});
+  EXPECT_EQ(pursuing.state,
+            semaforr::exploration::HleState::PursueCandidate);
+  EXPECT_EQ(pursuing.event,
+            semaforr::exploration::CandidateLifecycleEvent::PursuitStarted);
+  view.pose.position.x_m = 0.2;
+  const auto completed = explorer.update({view, actions, {}});
+  EXPECT_EQ(completed.event,
+            semaforr::exploration::CandidateLifecycleEvent::Completed);
+  EXPECT_GT(completed.passage_grid_revision, 0U);
+  EXPECT_FALSE(explorer.passageGrid().cells.empty());
+}
+
+TEST(HighLevelExplore, ReportsBudgetCompletionAndFinalizesExactlyOnce) {
+  semaforr::exploration::HighLevelExplorationConfiguration configuration;
+  configuration.decision_budget = 1U;
+  semaforr::exploration::HighLevelExplorer explorer(configuration);
+  const semaforr::domain::ActionSpace actions({0.1}, {0.25});
+  const auto view = observation(0.0);
+  static_cast<void>(explorer.update({view, actions, {}}));
+  const auto finalizing = explorer.update({view, actions, {}});
+  EXPECT_EQ(finalizing.state,
+            semaforr::exploration::HleState::FinalizeModel);
+  EXPECT_EQ(finalizing.completion_reason,
+            semaforr::exploration::ExplorationCompletionReason::
+                DecisionBudgetExceeded);
+  EXPECT_EQ(explorer.update({view, actions, {}}).state,
+            semaforr::exploration::HleState::Complete);
+
+  semaforr::exploration::ExplorationCoordinator coordinator(configuration);
+  std::size_t finalizations = 0U;
+  coordinator.setModelFinalizer([&finalizations] { ++finalizations; });
+  coordinator.finish();
+  coordinator.finish();
+  EXPECT_EQ(finalizations, 1U);
 }
 
 TEST(HighwayLearning, BuildsVersionedGraphIncrementally) {

@@ -154,7 +154,23 @@ class NavigationEngineAdapter::Impl {
         enabled_reactive,
         configuration_.experiment.reactive_exploration_enabled &&
             has_tier_one_rule("low_level_exploration"),
-        has_tier_one_rule("enforcer"));
+        has_tier_one_rule("enforcer"),
+        exploration::HighLevelExplorationConfiguration{
+            domain::Distance(configuration_.experiment.initial_exploration
+                                 .minimum_clearance_m),
+            domain::Angle(configuration_.experiment.initial_exploration
+                              .heading_tolerance_rad),
+            domain::Distance(configuration_.experiment.initial_exploration
+                                 .candidate_completion_distance_m),
+            domain::Distance(configuration_.experiment.initial_exploration
+                                 .cue_similarity_radius_m),
+            domain::Distance(configuration_.experiment.initial_exploration
+                                 .passage_grid_resolution_m),
+            configuration_.experiment.initial_exploration
+                .minimum_bundle_beams,
+            std::chrono::duration<double>(
+                configuration_.experiment.initial_exploration.time_limit_s),
+            configuration_.experiment.initial_exploration.decision_budget});
   }
 
   void configureLearning() {

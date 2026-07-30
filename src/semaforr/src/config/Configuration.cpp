@@ -357,6 +357,25 @@ std::string configurationFingerprint(const Configuration& configuration) {
             << configuration.experiment.initial_exploration.observation_budget
             << '|' << configuration.experiment.initial_exploration.strategy
             << '|' << configuration.experiment.initial_exploration.time_limit_s
+            << '|'
+            << configuration.experiment.initial_exploration.decision_budget
+            << '|'
+            << configuration.experiment.initial_exploration.minimum_clearance_m
+            << '|'
+            << configuration.experiment.initial_exploration
+                   .heading_tolerance_rad
+            << '|'
+            << configuration.experiment.initial_exploration
+                   .candidate_completion_distance_m
+            << '|'
+            << configuration.experiment.initial_exploration
+                   .cue_similarity_radius_m
+            << '|'
+            << configuration.experiment.initial_exploration
+                   .passage_grid_resolution_m
+            << '|'
+            << configuration.experiment.initial_exploration
+                   .minimum_bundle_beams
             << '|' << configuration.experiment.reactive_exploration_enabled
             << '|' << configuration.experiment.opportunistic_exploration << '|'
             << configuration.experiment.social.enabled << '|'
@@ -475,11 +494,18 @@ void validateConfiguration(const Configuration& configuration) {
       (experiment.initial_exploration.strategy != "hle" ||
        !std::isfinite(experiment.initial_exploration.time_limit_s) ||
        experiment.initial_exploration.time_limit_s <= 0.0 ||
-       experiment.initial_exploration.decision_budget == 0U)) {
+       experiment.initial_exploration.decision_budget == 0U ||
+       !(experiment.initial_exploration.minimum_clearance_m > 0.0) ||
+       !(experiment.initial_exploration.heading_tolerance_rad > 0.0) ||
+       !(experiment.initial_exploration.candidate_completion_distance_m >
+         0.0) ||
+       !(experiment.initial_exploration.cue_similarity_radius_m > 0.0) ||
+       !(experiment.initial_exploration.passage_grid_resolution_m > 0.0) ||
+       experiment.initial_exploration.minimum_bundle_beams == 0U)) {
     throw std::runtime_error(
-        "configuration: HLE requires strategy 'hle' and positive time, "
-        "and decision budgets; observation_budget may be zero when the "
-        "time limit is authoritative");
+        "configuration: HLE requires strategy 'hle' and positive typed "
+        "clearance, heading, candidate, grid, bundle, time, and decision "
+        "parameters; observation_budget may be zero");
   }
   if (!experiment.target_navigation.enabled && !configuration.tasks.empty())
     throw std::runtime_error(

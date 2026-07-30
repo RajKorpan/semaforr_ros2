@@ -24,6 +24,12 @@ semaforr:
         time_limit_s: 1200.0
         decision_budget: 10000
         observation_budget: 0
+        minimum_clearance_m: 0.8
+        heading_tolerance_rad: 0.2
+        candidate_completion_distance_m: 0.1
+        cue_similarity_radius_m: 0.5
+        passage_grid_resolution_m: 0.5
+        minimum_bundle_beams: 1
       target_navigation:
         enabled: true
 

@@ -18,7 +18,8 @@ NavigationEngine::NavigationEngine(
     std::vector<std::string> component_manifest,
     std::vector<std::string> reactive_planners,
     bool low_level_exploration_enabled,
-    bool enforcer_enabled)
+    bool enforcer_enabled,
+    exploration::HighLevelExplorationConfiguration hle_configuration)
     : world_(world),
       action_space_(action_space),
       decisions_(decisions),
@@ -30,10 +31,16 @@ NavigationEngine::NavigationEngine(
       phases_(phases ? phases : &owned_phases_),
       configuration_fingerprint_(std::move(configuration_fingerprint)),
       component_manifest_(std::move(component_manifest)),
+      exploration_(std::move(hle_configuration)),
       reactive_(reactive_planners),
       low_level_exploration_enabled_(low_level_exploration_enabled),
       enforcer_enabled_(enforcer_enabled),
-      goal_tolerance_(goal_tolerance) {}
+      goal_tolerance_(goal_tolerance) {
+  exploration_.setModelFinalizer([this] {
+    learning_.finalizeInitialExploration();
+    learning_.applyTo(world_.spatial);
+  });
+}
 
 std::vector<domain::Action> NavigationEngine::candidates() const {
   std::vector<domain::Action> actions;
@@ -124,8 +131,6 @@ DecisionResult NavigationEngine::decide() {
   if (dispatch.phase == navigation::NavigationPhase::InitialExploration &&
       phases_->explorationTimeLimitReached()) {
     exploration_.finish();
-    learning_.finalizeInitialExploration();
-    learning_.applyTo(world_.spatial);
     phases_->completeInitialExploration();
     auto completed = phases_->takeEvents();
     pending_phase_events_.insert(pending_phase_events_.end(),
@@ -182,8 +187,6 @@ DecisionResult NavigationEngine::decide() {
     learning_.applyTo(world_.spatial);
     if (phases_->explorationBudgetReached()) {
       exploration_.finish();
-      learning_.finalizeInitialExploration();
-      learning_.applyTo(world_.spatial);
       phases_->completeInitialExploration();
       auto completed = phases_->takeEvents();
       result.phase_events.insert(result.phase_events.end(), completed.begin(),

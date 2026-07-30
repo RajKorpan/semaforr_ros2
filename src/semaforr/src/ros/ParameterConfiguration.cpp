@@ -61,6 +61,16 @@ void declareConfigurationParameters(rclcpp::Node& node) {
                          std::string{"hle"});
   node.declare_parameter("phases.initial_exploration.time_limit_s", 1200.0);
   node.declare_parameter("phases.initial_exploration.decision_budget", 10000);
+  node.declare_parameter("phases.initial_exploration.minimum_clearance_m", 0.8);
+  node.declare_parameter("phases.initial_exploration.heading_tolerance_rad",
+                         0.2);
+  node.declare_parameter(
+      "phases.initial_exploration.candidate_completion_distance_m", 0.1);
+  node.declare_parameter("phases.initial_exploration.cue_similarity_radius_m",
+                         0.5);
+  node.declare_parameter(
+      "phases.initial_exploration.passage_grid_resolution_m", 0.5);
+  node.declare_parameter("phases.initial_exploration.minimum_bundle_beams", 1);
   node.declare_parameter("phases.target_navigation.enabled", true);
   node.declare_parameter("exploration.reactive.enabled", true);
   node.declare_parameter("exploration.reactive.strategy", std::string{"lle"});
@@ -284,6 +294,32 @@ config::Configuration configurationFromParameters(rclcpp::Node& node) {
         "phases.initial_exploration.decision_budget must be nonnegative");
   configuration.experiment.initial_exploration.decision_budget =
       static_cast<std::size_t>(decision_budget);
+  auto& hle = configuration.experiment.initial_exploration;
+  hle.minimum_clearance_m =
+      node.get_parameter("phases.initial_exploration.minimum_clearance_m")
+          .as_double();
+  hle.heading_tolerance_rad =
+      node.get_parameter("phases.initial_exploration.heading_tolerance_rad")
+          .as_double();
+  hle.candidate_completion_distance_m =
+      node.get_parameter(
+              "phases.initial_exploration.candidate_completion_distance_m")
+          .as_double();
+  hle.cue_similarity_radius_m =
+      node.get_parameter("phases.initial_exploration.cue_similarity_radius_m")
+          .as_double();
+  hle.passage_grid_resolution_m =
+      node.get_parameter(
+              "phases.initial_exploration.passage_grid_resolution_m")
+          .as_double();
+  const auto minimum_bundle_beams =
+      node.get_parameter("phases.initial_exploration.minimum_bundle_beams")
+          .as_int();
+  if (minimum_bundle_beams <= 0)
+    throw std::runtime_error(
+        "phases.initial_exploration.minimum_bundle_beams must be positive");
+  hle.minimum_bundle_beams =
+      static_cast<std::size_t>(minimum_bundle_beams);
   configuration.experiment.target_navigation.enabled =
       node.get_parameter("phases.target_navigation.enabled").as_bool();
   configuration.experiment.reactive_exploration_enabled =

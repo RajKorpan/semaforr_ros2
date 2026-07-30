@@ -271,10 +271,12 @@ TEST(ExplorationCoordinator, EmitsCandidateLifecycleEvents) {
   observation.laser.maximum_range = domain::Distance(5.0);
   observation.laser.ranges_m = {2.0, 2.0, 2.0};
 
+  static_cast<void>(coordinator.decide(observation, actions));
   const auto selected = coordinator.decide(observation, actions);
   EXPECT_NE(std::find(selected.events.begin(), selected.events.end(),
                       "candidate_selected"),
             selected.events.end());
+  static_cast<void>(coordinator.decide(observation, actions));
   observation.pose.position.x_m = 0.2;
   const auto completed = coordinator.decide(observation, actions);
   EXPECT_NE(std::find(completed.events.begin(), completed.events.end(),

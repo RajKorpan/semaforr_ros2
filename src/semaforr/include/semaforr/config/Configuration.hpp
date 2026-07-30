@@ -45,6 +45,12 @@ struct InitialExplorationConfiguration {
   std::string strategy = "hle";
   double time_limit_s = 1200.0;
   std::size_t decision_budget = 10000U;
+  double minimum_clearance_m = 0.8;
+  double heading_tolerance_rad = 0.2;
+  double candidate_completion_distance_m = 0.1;
+  double cue_similarity_radius_m = 0.5;
+  double passage_grid_resolution_m = 0.5;
+  std::size_t minimum_bundle_beams = 1U;
 };
 
 struct TargetNavigationConfiguration {

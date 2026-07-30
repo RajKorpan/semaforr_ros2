@@ -50,6 +50,13 @@ HLE is controlled only by `phases.initial_exploration.*`. LLE is controlled by
 `low_level_exploration` reactive-planner registration. Exploration-oriented
 Tier-3 advisors remain independent entries in `advisors.*`.
 
+HLE policy thresholds are typed parameters rather than embedded constants:
+`minimum_clearance_m`, `heading_tolerance_rad`,
+`candidate_completion_distance_m`, `cue_similarity_radius_m`,
+`passage_grid_resolution_m`, and `minimum_bundle_beams`. Termination uses
+`time_limit_s` and `decision_budget`; `observation_budget` remains the outer
+phase-coordinator safeguard.
+
 `social.enabled: false` disables social observation subscription, learning,
 advisors, and crowd planners. The subordinate
 `social.observations.enabled`, `social.learning.enabled`,

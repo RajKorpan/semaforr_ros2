@@ -36,7 +36,9 @@ class NavigationEngine {
                    std::vector<std::string> reactive_planners =
                        {"thru", "behind", "out"},
                    bool low_level_exploration_enabled = true,
-                   bool enforcer_enabled = true);
+                   bool enforcer_enabled = true,
+                   exploration::HighLevelExplorationConfiguration
+                       hle_configuration = {});
 
   void observe(const domain::RobotObservation& observation);
   DecisionResult decide();
