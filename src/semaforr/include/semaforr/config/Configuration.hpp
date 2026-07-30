@@ -34,6 +34,10 @@ struct TierConfiguration {
                                               "low_level_exploration"};
 };
 
+struct SafetyEnvelopeConfiguration {
+  bool enabled = true;
+};
+
 struct InitialExplorationConfiguration {
   bool enabled = false;
   std::size_t observation_budget = 0U;
@@ -63,17 +67,19 @@ struct ExperimentConfiguration {
   bool reactive_exploration_enabled = true;
   std::string reactive_exploration_strategy = "lle";
   SocialConfiguration social;
+  SafetyEnvelopeConfiguration safety_envelope;
   // Backward-compatible mirrors populated by parameter loading.
   bool opportunistic_exploration = false;
   bool social_enabled = true;
 };
 
 struct PlannerConfiguration {
-  bool distance = false;
+  bool distance = true;
   bool density = false;
   bool risk = false;
   bool flow = false;
   bool skeleton = false;
+  bool highway = false;
 };
 
 struct CrowdLearningConfiguration {
@@ -116,8 +122,9 @@ struct NavigationConfiguration {
   bool a_star_on = false;
   bool known_grid_on = true;
   bool inclusion_grid_on = true;
-  bool highways_on = true;
+  bool highways_on = false;
   bool circumstances_on = false;
+  std::string loaded_highway_model;
 
   PlannerConfiguration planners;
   CrowdLearningConfiguration crowd_learning;

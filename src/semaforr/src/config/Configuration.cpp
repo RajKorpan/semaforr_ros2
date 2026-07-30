@@ -275,6 +275,13 @@ void applyAblationProfile(Configuration& configuration) {
       break;
     case AblationProfile::NoOpportunisticExploration:
       experiment.opportunistic_exploration = false;
+      for (auto& advisor : configuration.advisors) {
+        if (advisor.name == "exploration" || advisor.name == "novelty" ||
+            advisor.name == "curiosity" ||
+            advisor.name == "spatial_learner" ||
+            advisor.name == "enfilade" || advisor.name == "visual_scan")
+          advisor.active = false;
+      }
       break;
     case AblationProfile::NoSpatialModel:
       configuration.navigation.trails_on = false;
@@ -289,7 +296,12 @@ void applyAblationProfile(Configuration& configuration) {
       configuration.navigation.highways_on = false;
       configuration.navigation.circumstances_on = false;
       experiment.reactive_exploration_enabled = false;
-      configuration.navigation.planners = {};
+      configuration.navigation.planners.distance = false;
+      configuration.navigation.planners.density = false;
+      configuration.navigation.planners.risk = false;
+      configuration.navigation.planners.flow = false;
+      configuration.navigation.planners.skeleton = false;
+      configuration.navigation.planners.highway = false;
       break;
     case AblationProfile::NoSocial:
       experiment.social_enabled = false;
@@ -314,18 +326,45 @@ void applyAblationProfile(Configuration& configuration) {
     case AblationProfile::Custom:
       break;
   }
+  if (!experiment.social.enabled || !experiment.social_enabled) {
+    experiment.social_enabled = false;
+    experiment.social.enabled = false;
+    experiment.social.observations = false;
+    experiment.social.learning = false;
+    experiment.social.advisors = false;
+    experiment.social.planners = false;
+    configuration.navigation.crowd_learning.enabled = false;
+    configuration.navigation.planners.density = false;
+    configuration.navigation.planners.risk = false;
+    configuration.navigation.planners.flow = false;
+    for (auto& advisor : configuration.advisors) {
+      if (advisor.name == "social_navigation" ||
+          advisor.name == "crowd_avoid" || advisor.name == "risk_avoid" ||
+          advisor.name == "flow_follow")
+        advisor.active = false;
+    }
+  }
 }
 
 std::string configurationFingerprint(const Configuration& configuration) {
   std::ostringstream canonical;
   canonical << std::setprecision(17) << toString(configuration.experiment.profile)
+            << '|' << configuration.experiment.random_seed
             << '|' << configuration.experiment.tiers.tier_one << '|'
             << configuration.experiment.tiers.tier_two << '|'
             << configuration.experiment.tiers.tier_three << '|'
             << configuration.experiment.initial_exploration.enabled << '|'
             << configuration.experiment.initial_exploration.observation_budget
+            << '|' << configuration.experiment.initial_exploration.strategy
+            << '|' << configuration.experiment.initial_exploration.time_limit_s
+            << '|' << configuration.experiment.reactive_exploration_enabled
             << '|' << configuration.experiment.opportunistic_exploration << '|'
-            << configuration.experiment.social_enabled << '|'
+            << configuration.experiment.social.enabled << '|'
+            << configuration.experiment.social.observations << '|'
+            << configuration.experiment.social.learning << '|'
+            << configuration.experiment.social.advisors << '|'
+            << configuration.experiment.social.planners << '|'
+            << configuration.experiment.safety_envelope.enabled << '|'
             << configuration.map_file << '|' << configuration.map_dimensions.length
             << '|' << configuration.map_dimensions.height << '|'
             << configuration.map_dimensions.granularity;
@@ -333,6 +372,10 @@ std::string configurationFingerprint(const Configuration& configuration) {
     canonical << "|m:" << value;
   for (const double value : configuration.navigation.rotate_actions)
     canonical << "|r:" << value;
+  for (const auto& rule : configuration.experiment.tiers.tier_one_rules)
+    canonical << "|t1:" << rule;
+  for (const auto& planner : configuration.experiment.tiers.reactive_planners)
+    canonical << "|rx:" << planner;
   canonical << '|' << configuration.navigation.trails_on << '|'
             << configuration.navigation.conveyors_on << '|'
             << configuration.navigation.regions_on << '|'
@@ -340,6 +383,16 @@ std::string configurationFingerprint(const Configuration& configuration) {
             << configuration.navigation.hallways_on << '|'
             << configuration.navigation.barriers_on << '|'
             << configuration.navigation.a_star_on << '|'
+            << configuration.navigation.known_grid_on << '|'
+            << configuration.navigation.inclusion_grid_on << '|'
+            << configuration.navigation.highways_on << '|'
+            << configuration.navigation.circumstances_on << '|'
+            << configuration.navigation.planners.distance << '|'
+            << configuration.navigation.planners.skeleton << '|'
+            << configuration.navigation.planners.highway << '|'
+            << configuration.navigation.planners.density << '|'
+            << configuration.navigation.planners.risk << '|'
+            << configuration.navigation.planners.flow << '|'
             << configuration.navigation.crowd_learning.enabled;
   for (const auto& advisor : configuration.advisors)
     canonical << "|a:" << advisor.name << ':' << advisor.active << ':'
@@ -362,6 +415,13 @@ std::vector<std::string> componentManifest(
   if (experiment.tiers.tier_one) result.push_back("tier:tier_one");
   if (experiment.tiers.tier_two) result.push_back("tier:tier_two");
   if (experiment.tiers.tier_three) result.push_back("tier:tier_three");
+  for (const auto& rule : experiment.tiers.tier_one_rules)
+    if (experiment.tiers.tier_one) result.push_back("tier1:" + rule);
+  for (const auto& planner : experiment.tiers.reactive_planners)
+    if (experiment.tiers.tier_one)
+      result.push_back("reactive:" + planner);
+  if (experiment.reactive_exploration_enabled)
+    result.push_back("exploration:lle");
   const auto add_feature = [&result](bool enabled, std::string name) {
     if (enabled) result.push_back("spatial:" + std::move(name));
   };
@@ -371,6 +431,19 @@ std::vector<std::string> componentManifest(
   add_feature(configuration.navigation.doors_on, "doors");
   add_feature(configuration.navigation.hallways_on, "hallways");
   add_feature(configuration.navigation.barriers_on, "barriers");
+  add_feature(configuration.navigation.known_grid_on, "known_grid");
+  add_feature(configuration.navigation.inclusion_grid_on, "inclusion_grid");
+  add_feature(configuration.navigation.highways_on, "highways");
+  add_feature(configuration.navigation.circumstances_on, "circumstances");
+  const auto add_planner = [&result](bool enabled, std::string name) {
+    if (enabled) result.push_back("planner:" + std::move(name));
+  };
+  add_planner(configuration.navigation.planners.distance, "distance");
+  add_planner(configuration.navigation.planners.skeleton, "skeleton");
+  add_planner(configuration.navigation.planners.highway, "highway");
+  add_planner(configuration.navigation.planners.density, "density");
+  add_planner(configuration.navigation.planners.risk, "risk");
+  add_planner(configuration.navigation.planners.flow, "flow");
   for (const auto& advisor : configuration.advisors)
     if (advisor.active) result.push_back("advisor:" + advisor.name);
   std::sort(result.begin(), result.end());
@@ -437,12 +510,52 @@ void validateConfiguration(const Configuration& configuration) {
     first_rule = false;
     previous = position;
   }
-  if (experiment.reactive_exploration_enabled &&
-      (!configuration.navigation.inclusion_grid_on ||
-       !experiment.tiers.tier_two))
+  const std::set<std::string> registered_reactive{
+      "thru", "behind", "out", "low_level_exploration"};
+  std::set<std::string> configured_reactive;
+  for (const auto& planner : experiment.tiers.reactive_planners) {
+    if (!registered_reactive.contains(planner))
+      throw std::runtime_error(
+          "configuration: unknown reactive planner '" + planner + "'");
+    if (!configured_reactive.insert(planner).second)
+      throw std::runtime_error(
+          "configuration: duplicate reactive planner '" + planner + "'");
+  }
+  if (!experiment.tiers.tier_one &&
+      !experiment.safety_envelope.enabled)
     throw std::runtime_error(
-        "configuration: LLE requires the inclusion grid and Tier 2 "
-        "replanning");
+        "configuration: Tier 1 may be disabled only while "
+        "safety.command_envelope.enabled is true");
+  if (experiment.reactive_exploration_enabled &&
+      (!experiment.tiers.tier_one ||
+       !configuration.navigation.inclusion_grid_on ||
+       !experiment.tiers.tier_two ||
+       !configured_reactive.contains("low_level_exploration") ||
+       !configured_rules.contains("low_level_exploration") ||
+       !(configuration.navigation.planners.distance ||
+         configuration.navigation.planners.skeleton ||
+         configuration.navigation.planners.highway ||
+         configuration.navigation.planners.density ||
+         configuration.navigation.planners.risk ||
+         configuration.navigation.planners.flow)))
+    throw std::runtime_error(
+        "configuration: LLE requires Tier 1, the inclusion grid, Tier 2 replanning, "
+        "'low_level_exploration' in reactive planners, and at least one "
+        "enabled global replanning strategy");
+  if (experiment.reactive_exploration_enabled &&
+      experiment.reactive_exploration_strategy != "lle")
+    throw std::runtime_error(
+        "configuration: reactive exploration strategy must be 'lle'");
+  if (configuration.navigation.planners.highway &&
+      !configuration.navigation.highways_on)
+    throw std::runtime_error(
+        "configuration: HighwayPlan requires the highway graph");
+  if (configuration.navigation.highways_on &&
+      !experiment.initial_exploration.enabled &&
+      configuration.navigation.loaded_highway_model.empty())
+    throw std::runtime_error(
+        "configuration: the highway graph requires HLE output or "
+        "features.loaded_highway_model");
   if (!configuration.experiment.tiers.tier_one &&
       !configuration.experiment.tiers.tier_two &&
       !configuration.experiment.tiers.tier_three) {
@@ -505,7 +618,28 @@ void validateConfiguration(const Configuration& configuration) {
           !configuration.navigation.trails_on)))
       throw std::runtime_error("configuration: advisor '" + advisor.name +
                                "' requires its spatial representation");
+    const bool social_advisor =
+        advisor.name == "social_navigation" || advisor.name == "crowd_avoid" ||
+        advisor.name == "risk_avoid" || advisor.name == "flow_follow";
+    if (advisor.active && social_advisor &&
+        (!experiment.social.enabled || !experiment.social.advisors))
+      throw std::runtime_error(
+          "configuration: social advisor '" + advisor.name +
+          "' requires social.enabled and social.advisors.enabled");
   }
+  const bool crowd_planner = configuration.navigation.planners.density ||
+                             configuration.navigation.planners.risk ||
+                             configuration.navigation.planners.flow;
+  if (crowd_planner &&
+      (!experiment.social.enabled || !experiment.social.planners))
+    throw std::runtime_error(
+        "configuration: crowd planners require social.enabled and "
+        "social.planners.enabled");
+  if (configuration.navigation.crowd_learning.enabled &&
+      (!experiment.social.enabled || !experiment.social.learning))
+    throw std::runtime_error(
+        "configuration: crowd learning requires social.enabled and "
+        "social.learning.enabled");
 
   if (configuration.tasks.empty()) {
     throw std::runtime_error("configuration: at least one task is required");

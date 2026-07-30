@@ -49,6 +49,7 @@ struct RuntimeConfiguration {
   QosConfiguration command_qos{1U, "reliable", "volatile"};
   SensorSynchronizerConfiguration sensors;
   SocialObservationConfiguration social;
+  bool social_observations_enabled{true};
   CommandExecutorConfiguration commands;
   double control_rate_hz{30.0};
   double transform_timeout_s{0.05};
@@ -178,6 +179,9 @@ RuntimeConfiguration readRuntimeConfiguration(rclcpp::Node& node) {
   configuration.sensors.scan_frame = requireNonEmpty(
       node.get_parameter("frames.scan").as_string(), "frames.scan");
   configuration.social.frame = configuration.sensors.pose_frame;
+  configuration.social_observations_enabled =
+      node.get_parameter("social.enabled").as_bool() &&
+      node.get_parameter("social.observations.enabled").as_bool();
   configuration.social.maximum_age_s =
       node.get_parameter("social.maximum_age_s").as_double();
   configuration.social.minimum_confidence =
@@ -368,11 +372,15 @@ class SemaFORRNode::Impl {
         [this](sensor_msgs::msg::LaserScan::ConstSharedPtr message) {
           onScan(*message);
         });
-    social_subscription_ =
-        node_.create_subscription<social_context_msgs::msg::SocialObservation>(
-            runtime_.social_topic, sensor_qos,
-            [this](social_context_msgs::msg::SocialObservation::ConstSharedPtr
-                       message) { onSocialObservation(*message); });
+    if (runtime_.social_observations_enabled) {
+      social_subscription_ =
+          node_.create_subscription<
+              social_context_msgs::msg::SocialObservation>(
+              runtime_.social_topic, sensor_qos,
+              [this](
+                  social_context_msgs::msg::SocialObservation::ConstSharedPtr
+                      message) { onSocialObservation(*message); });
+    }
     timer_ = rclcpp::create_timer(
         node_shared, node_.get_clock(),
         rclcpp::Duration::from_seconds(1.0 / runtime_.control_rate_hz),

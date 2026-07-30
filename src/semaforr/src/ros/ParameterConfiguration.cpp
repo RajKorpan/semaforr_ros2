@@ -36,6 +36,8 @@ void applyPlanner(config::PlannerConfiguration& planners,
     planners.flow = true;
   else if (name == "skeleton")
     planners.skeleton = true;
+  else if (name == "highway")
+    planners.highway = true;
   else
     throw std::runtime_error("unknown planner name '" + name + "'");
 }
@@ -44,6 +46,7 @@ void applyPlanner(config::PlannerConfiguration& planners,
 
 void declareConfigurationParameters(rclcpp::Node& node) {
   node.declare_parameter("experiment.profile", std::string{"custom"});
+  node.declare_parameter("experiment.mode", std::string{"custom"});
   node.declare_parameter("experiment.random_seed", 0);
   node.declare_parameter("tiers.tier1.enabled", true);
   node.declare_parameter("tiers.tier2.enabled", true);
@@ -63,6 +66,10 @@ void declareConfigurationParameters(rclcpp::Node& node) {
   node.declare_parameter("exploration.reactive.strategy", std::string{"lle"});
   node.declare_parameter("exploration.opportunistic.enabled", false);
   node.declare_parameter("social.enabled", true);
+  node.declare_parameter("social.observations.enabled", true);
+  node.declare_parameter("social.advisors.enabled", true);
+  node.declare_parameter("social.planners.enabled", true);
+  node.declare_parameter("safety.command_envelope.enabled", true);
   node.declare_parameter("map.path", std::string{});
   node.declare_parameter("mission.tasks_path", std::string{});
   node.declare_parameter("map.length_m", 200);
@@ -84,11 +91,16 @@ void declareConfigurationParameters(rclcpp::Node& node) {
   node.declare_parameter("safety.max_forward_buffer_m", 0.1);
   node.declare_parameter("safety.max_forward_sweep_rad", 0.5236);
   for (const std::string feature : {"trails", "conveyors", "regions", "doors",
-                                    "hallways", "barriers", "astar"}) {
+                                    "hallways", "barriers", "astar",
+                                    "known_grid", "inclusion_grid", "highways",
+                                    "circumstances"}) {
     const bool default_value = feature == "trails" || feature == "conveyors" ||
-                               feature == "regions" || feature == "doors";
+                               feature == "regions" || feature == "doors" ||
+                               feature == "known_grid" ||
+                               feature == "inclusion_grid";
     node.declare_parameter("features." + feature, default_value);
   }
+  node.declare_parameter("features.loaded_highway_model", std::string{});
 
   node.declare_parameter("planners.enabled", std::vector<std::string>{});
   node.declare_parameter("advisors.names", defaultAdvisorNames());
@@ -173,6 +185,15 @@ config::Configuration configurationFromParameters(rclcpp::Node& node) {
   navigation.hallways_on = node.get_parameter("features.hallways").as_bool();
   navigation.barriers_on = node.get_parameter("features.barriers").as_bool();
   navigation.a_star_on = node.get_parameter("features.astar").as_bool();
+  navigation.known_grid_on =
+      node.get_parameter("features.known_grid").as_bool();
+  navigation.inclusion_grid_on =
+      node.get_parameter("features.inclusion_grid").as_bool();
+  navigation.highways_on = node.get_parameter("features.highways").as_bool();
+  navigation.circumstances_on =
+      node.get_parameter("features.circumstances").as_bool();
+  navigation.loaded_highway_model =
+      node.get_parameter("features.loaded_highway_model").as_string();
   const auto enabled_planners =
       node.get_parameter("planners.enabled").as_string_array();
   for (const std::string& planner : enabled_planners) {
@@ -215,8 +236,15 @@ config::Configuration configurationFromParameters(rclcpp::Node& node) {
   auto configuration = config::loadStructuredConfiguration(
       std::move(navigation), dimensions, std::move(advisors), tasks_file,
       map_file);
+  const auto mode = node.get_parameter("experiment.mode").as_string();
+  const auto legacy_profile =
+      node.get_parameter("experiment.profile").as_string();
+  if (mode != "custom" && legacy_profile != "custom" &&
+      mode != legacy_profile)
+    throw std::runtime_error(
+        "experiment.mode and deprecated experiment.profile conflict");
   configuration.experiment.profile = config::ablationProfileFromString(
-      node.get_parameter("experiment.profile").as_string());
+      mode != "custom" ? mode : legacy_profile);
   configuration.experiment.tiers.tier_one =
       node.get_parameter("tiers.tier1.enabled").as_bool();
   configuration.experiment.tiers.tier_two =
@@ -265,6 +293,25 @@ config::Configuration configurationFromParameters(rclcpp::Node& node) {
       node.get_parameter("exploration.opportunistic.enabled").as_bool();
   configuration.experiment.social_enabled =
       node.get_parameter("social.enabled").as_bool();
+  configuration.experiment.social.enabled =
+      configuration.experiment.social_enabled;
+  configuration.experiment.social.observations =
+      node.get_parameter("social.observations.enabled").as_bool();
+  configuration.experiment.social.learning =
+      node.get_parameter("social.learning.enabled").as_bool();
+  configuration.experiment.social.advisors =
+      node.get_parameter("social.advisors.enabled").as_bool();
+  configuration.experiment.social.planners =
+      node.get_parameter("social.planners.enabled").as_bool();
+  configuration.experiment.safety_envelope.enabled =
+      node.get_parameter("safety.command_envelope.enabled").as_bool();
+  if (!configuration.experiment.social.enabled) {
+    configuration.experiment.social.observations = false;
+    configuration.experiment.social.learning = false;
+    configuration.experiment.social.advisors = false;
+    configuration.experiment.social.planners = false;
+    configuration.navigation.crowd_learning.enabled = false;
+  }
   config::applyAblationProfile(configuration);
   config::validateConfiguration(configuration);
   return configuration;

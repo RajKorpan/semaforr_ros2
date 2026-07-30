@@ -11,6 +11,11 @@ durations are seconds.
 
 | Group | Purpose |
 |---|---|
+| `experiment.mode`, `experiment.random_seed` | Named ablation expansion and the reproducible decision seed. `experiment.profile` is a deprecated alias for `mode`. |
+| `phases.*` | Independent initial-exploration and target-navigation lifecycle controls. |
+| `tiers.tier1.rules` | Ordered, individually enabled cognitive Tier-1 rules. |
+| `tiers.tier1.reactive_planners` | Individually enabled `thru`, `behind`, `out`, and `low_level_exploration` planners. |
+| `tiers.tier{1,2,3}.enabled` | Cognitive-tier ablation switches; these do not bypass command execution validation. |
 | `topics.*` | Relative pose, scan, command, state, decision, social, and crowd-field topic names. |
 | `qos.sensors.*`, `qos.command.*` | Queue depth, `reliable`/`best_effort`, and `volatile`/`transient_local`. |
 | `frames.global`, `frames.scan` | Navigation and laser frame contract. |
@@ -30,6 +35,32 @@ durations are seconds.
 | `planners.enabled` | Registered planner names; see `planner-catalog.md`. |
 | `advisors.*` | Parallel names/enabled/weights arrays and four parameters per advisor. |
 | `social.*` | Live-data age/confidence gates and crowd-field learner settings. |
+
+## Named ablation modes
+
+`experiment.mode` accepts `full`, `tier1_only`, `tier1_tier3`,
+`tier3_only`, `tier1_tier2_tier3`, `no_initial_exploration`,
+`no_opportunistic_exploration`, `no_spatial_model`, `no_social`, or `custom`.
+Modes expand into the same tier, phase, planner, advisor, social, and
+representation fields used by `custom`; they do not select alternate runtime
+code paths.
+
+HLE is controlled only by `phases.initial_exploration.*`. LLE is controlled by
+`exploration.reactive.*` together with the
+`low_level_exploration` reactive-planner registration. Exploration-oriented
+Tier-3 advisors remain independent entries in `advisors.*`.
+
+`social.enabled: false` disables social observation subscription, learning,
+advisors, and crowd planners. The subordinate
+`social.observations.enabled`, `social.learning.enabled`,
+`social.advisors.enabled`, and `social.planners.enabled` switches support
+narrower ablations when the master switch is enabled.
+
+Spatial representations are individually controlled by `features.trails`,
+`conveyors`, `regions`, `doors`, `hallways`, `barriers`, `known_grid`,
+`inclusion_grid`, `highways`, and `circumstances`. Global planners are
+individually selected in `planners.enabled`, including `distance`, `skeleton`,
+`highway`, `density`, `risk`, and `flow`.
 
 ## Social-learning parameters
 
@@ -51,6 +82,13 @@ Startup fails with a parameter name and actionable reason when:
 - advisor arrays have inconsistent sizes, a name is unknown, or no active
   decision-producing advisor remains;
 - an enabled planner is unknown or lacks its required supporting model;
+- HighwayPlan is enabled without the highway graph, or highway learning has
+  neither HLE output nor a configured loaded model;
+- LLE lacks the inclusion grid, Tier 2, its reactive registration, or any
+  global replanning strategy;
+- Tier 1 is disabled while `safety.command_envelope.enabled` is false;
+- a spatial or social advisor lacks its declared representation or social
+  subsystem;
 - crowd-cost planning is enabled without the skeleton and crowd learner;
 - QoS policy, frame name, topic name, or estimator is invalid;
 - map dimensions or granularity are inconsistent with the parsed map.

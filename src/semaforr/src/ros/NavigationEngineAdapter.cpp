@@ -108,7 +108,7 @@ class NavigationEngineAdapter::Impl {
         world_(makeWorld(configuration_)),
         decisions_({1.0e-9, decision::UnscoredActionPolicy::Exclude, 0.0,
                     domain::Action::pause(),
-                    configuration_.navigation.crowd_learning.random_seed}),
+                    configuration_.experiment.random_seed}),
         mission_(world_.mission),
         learning_(spatial::SpatialLearningCoordinator::defaults()),
         hard_safety_(action_space_.move_distances_m(),
@@ -124,11 +124,33 @@ class NavigationEngineAdapter::Impl {
       crowd_learning_ = std::make_unique<social::CrowdFieldLearner>(
           crowdConfiguration(configuration_));
     }
+    std::vector<std::string> enabled_reactive;
+    for (const auto& planner :
+         configuration_.experiment.tiers.reactive_planners) {
+      if (!configuration_.experiment.tiers.tier_one) break;
+      if (std::find(configuration_.experiment.tiers.tier_one_rules.begin(),
+                    configuration_.experiment.tiers.tier_one_rules.end(),
+                    planner) !=
+          configuration_.experiment.tiers.tier_one_rules.end())
+        enabled_reactive.push_back(planner);
+    }
+    const auto has_tier_one_rule = [this](const std::string& name) {
+      const auto& rules = configuration_.experiment.tiers.tier_one_rules;
+      return configuration_.experiment.tiers.tier_one &&
+             std::find(rules.begin(), rules.end(), name) != rules.end();
+    };
     engine_ = std::make_unique<decision::NavigationEngine>(
         world_, action_space_, decisions_, mission_, planning_, learning_,
-        crowd_learning_.get(), domain::Distance(0.5), &hard_safety_, &phases_,
+        crowd_learning_.get(), domain::Distance(0.5),
+        configuration_.experiment.safety_envelope.enabled ? &hard_safety_
+                                                          : nullptr,
+        &phases_,
         config::configurationFingerprint(configuration_),
-        config::componentManifest(configuration_));
+        config::componentManifest(configuration_),
+        enabled_reactive,
+        configuration_.experiment.reactive_exploration_enabled &&
+            has_tier_one_rule("low_level_exploration"),
+        has_tier_one_rule("enforcer"));
   }
 
   void configureLearning() {
@@ -147,25 +169,23 @@ class NavigationEngineAdapter::Impl {
                          features.barriers_on);
     learning_.setEnabled(spatial::SpatialRepresentation::PassagesAndSkeleton,
                          features.a_star_on || features.planners.skeleton);
-    const bool grids_enabled =
-        configuration_.experiment.profile !=
-        config::AblationProfile::NoSpatialModel;
     learning_.setEnabled(spatial::SpatialRepresentation::KnownGrid,
-                         grids_enabled);
+                         features.known_grid_on);
     learning_.setEnabled(spatial::SpatialRepresentation::InclusionGrid,
-                         grids_enabled);
+                         features.inclusion_grid_on);
     learning_.setEnabled(spatial::SpatialRepresentation::Highways,
-                         grids_enabled &&
-                             configuration_.experiment.initial_exploration
-                                 .enabled);
+                         features.highways_on);
   }
 
   void configurePlanning() {
     if (!configuration_.experiment.tiers.tier_two) return;
-    addPlanner(planning_, "distance", planning::PlannerObjective::Distance);
     const auto& planners = configuration_.navigation.planners;
+    if (planners.distance)
+      addPlanner(planning_, "distance", planning::PlannerObjective::Distance);
     if (planners.skeleton) {
       planning_.registerPlanner(std::make_unique<planning::SkeletonPlan>());
+    }
+    if (planners.highway) {
       planning_.registerPlanner(std::make_unique<planning::HighwayPlan>());
     }
     if (planners.density) {
@@ -186,17 +206,37 @@ class NavigationEngineAdapter::Impl {
     decision::registerRestoredTierFactories(
         tier_one_registry, tier_three_registry, action_space_);
     if (configuration_.experiment.tiers.tier_one) {
-      decisions_.addMandatoryRule(
-          tier_one_registry.createMandatory("Victory"));
-      decisions_.addMandatoryRule(
-          tier_one_registry.createMandatory("Forward"));
-      decisions_.addVetoRule(tier_one_registry.createVeto("NotOpposite"));
+      for (const auto& rule :
+           configuration_.experiment.tiers.tier_one_rules) {
+        if (rule == "victory")
+          decisions_.addMandatoryRule(
+              tier_one_registry.createMandatory("Victory"));
+        else if (rule == "forward")
+          decisions_.addMandatoryRule(
+              tier_one_registry.createMandatory("Forward"));
+        else if (rule == "not_opposite")
+          decisions_.addVetoRule(
+              tier_one_registry.createVeto("NotOpposite"));
+        else if (rule == "avoid_obstacles")
+          decisions_.addVetoRule(std::make_unique<decision::ObstacleVetoRule>(
+              action_space_.move_distances_m(),
+              configuration_.navigation.robot_footprint,
+              configuration_.navigation.robot_footprint_buffer));
+      }
     }
     if (!configuration_.experiment.tiers.tier_three) return;
     for (const auto& advisor : configuration_.advisors) {
       if (!advisor.active) {
         continue;
       }
+      const bool social_advisor =
+          advisor.name == "social_navigation" ||
+          advisor.name == "crowd_avoid" || advisor.name == "risk_avoid" ||
+          advisor.name == "flow_follow";
+      if (social_advisor &&
+          (!configuration_.experiment.social.enabled ||
+           !configuration_.experiment.social.advisors))
+        continue;
       if (advisor.name == "social_navigation") {
         decision::SocialAdvisorConfiguration social_configuration;
         social_configuration.move_distances_m =

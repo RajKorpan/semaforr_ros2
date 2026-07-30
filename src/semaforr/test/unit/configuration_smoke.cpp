@@ -49,6 +49,15 @@ int main() {
   semaforr::config::validateConfiguration(valid);
   assert(semaforr::config::configurationFingerprint(valid).size() == 16U);
   assert(!semaforr::config::componentManifest(valid).empty());
+  for (const std::string profile :
+       {"full", "tier1_only", "tier1_tier3", "tier3_only",
+        "tier1_tier2_tier3", "no_initial_exploration",
+        "no_opportunistic_exploration", "no_spatial_model", "no_social",
+        "custom"}) {
+    assert(semaforr::config::toString(
+               semaforr::config::ablationProfileFromString(profile)) ==
+           profile);
+  }
   {
     auto profiled = valid;
     profiled.experiment.profile =
@@ -74,6 +83,61 @@ int main() {
       source_dir + "/config/example/mission.conf", valid.map_file);
   assert(loaded.tasks.size() == 3U);
 
+  {
+    auto invalid = valid;
+    invalid.experiment.tiers.tier_one = false;
+    invalid.experiment.safety_envelope.enabled = false;
+    assertThrowsContaining(
+        [&invalid]() { semaforr::config::validateConfiguration(invalid); },
+        "Tier 1 may be disabled");
+  }
+  {
+    auto invalid = valid;
+    invalid.experiment.tiers.reactive_planners.push_back("mystery");
+    assertThrowsContaining(
+        [&invalid]() { semaforr::config::validateConfiguration(invalid); },
+        "unknown reactive planner");
+  }
+  {
+    auto invalid = valid;
+    invalid.experiment.reactive_exploration_enabled = true;
+    invalid.navigation.planners = {};
+    invalid.navigation.planners.distance = false;
+    assertThrowsContaining(
+        [&invalid]() { semaforr::config::validateConfiguration(invalid); },
+        "global replanning strategy");
+  }
+  {
+    auto invalid = valid;
+    invalid.navigation.planners.highway = true;
+    invalid.navigation.highways_on = false;
+    assertThrowsContaining(
+        [&invalid]() { semaforr::config::validateConfiguration(invalid); },
+        "HighwayPlan requires");
+  }
+  {
+    auto invalid = valid;
+    invalid.navigation.highways_on = true;
+    assertThrowsContaining(
+        [&invalid]() { semaforr::config::validateConfiguration(invalid); },
+        "requires HLE output");
+  }
+  {
+    auto invalid = valid;
+    invalid.experiment.social.enabled = false;
+    invalid.navigation.crowd_learning.enabled = false;
+    invalid.advisors.push_back(
+        {"social_navigation", "social", true, 1.0, {}});
+    assertThrowsContaining(
+        [&invalid]() { semaforr::config::validateConfiguration(invalid); },
+        "requires social.enabled");
+  }
+  {
+    auto changed = valid;
+    changed.experiment.tiers.tier_one_rules.pop_back();
+    assert(semaforr::config::configurationFingerprint(changed) !=
+           semaforr::config::configurationFingerprint(valid));
+  }
   {
     auto invalid = valid;
     invalid.experiment.initial_exploration.enabled = true;

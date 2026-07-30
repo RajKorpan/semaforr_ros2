@@ -32,7 +32,11 @@ class NavigationEngine {
                    HardSafetyFilter* hard_safety = nullptr,
                    navigation::NavigationPhaseCoordinator* phases = nullptr,
                    std::string configuration_fingerprint = {},
-                   std::vector<std::string> component_manifest = {});
+                   std::vector<std::string> component_manifest = {},
+                   std::vector<std::string> reactive_planners =
+                       {"thru", "behind", "out"},
+                   bool low_level_exploration_enabled = true,
+                   bool enforcer_enabled = true);
 
   void observe(const domain::RobotObservation& observation);
   DecisionResult decide();
@@ -60,6 +64,8 @@ class NavigationEngine {
   Enforcer enforcer_;
   planning::ReactivePlannerCoordinator reactive_;
   planning::LowLevelExplorer lle_;
+  bool low_level_exploration_enabled_;
+  bool enforcer_enabled_;
   domain::Distance goal_tolerance_;
   std::optional<domain::RobotObservation> observation_;
   std::vector<std::string> pending_phase_events_;

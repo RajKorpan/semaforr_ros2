@@ -62,6 +62,8 @@ class Out final : public ReactivePlanner {
 class ReactivePlannerCoordinator {
  public:
   ReactivePlannerCoordinator();
+  explicit ReactivePlannerCoordinator(
+      const std::vector<std::string>& enabled_planners);
   void add(std::unique_ptr<ReactivePlanner> planner);
   ReactiveResult evaluate(const ReactiveRequest& request) const;
 

@@ -15,7 +15,10 @@ NavigationEngine::NavigationEngine(
     HardSafetyFilter* hard_safety,
     navigation::NavigationPhaseCoordinator* phases,
     std::string configuration_fingerprint,
-    std::vector<std::string> component_manifest)
+    std::vector<std::string> component_manifest,
+    std::vector<std::string> reactive_planners,
+    bool low_level_exploration_enabled,
+    bool enforcer_enabled)
     : world_(world),
       action_space_(action_space),
       decisions_(decisions),
@@ -27,6 +30,9 @@ NavigationEngine::NavigationEngine(
       phases_(phases ? phases : &owned_phases_),
       configuration_fingerprint_(std::move(configuration_fingerprint)),
       component_manifest_(std::move(component_manifest)),
+      reactive_(reactive_planners),
+      low_level_exploration_enabled_(low_level_exploration_enabled),
+      enforcer_enabled_(enforcer_enabled),
       goal_tolerance_(goal_tolerance) {}
 
 std::vector<domain::Action> NavigationEngine::candidates() const {
@@ -101,7 +107,7 @@ std::optional<std::string> NavigationEngine::preparePlan(MissionStep step) {
     mission_.installPlan({world_.mission.active()->target});
     return std::nullopt;
   }
-  mission_.installPlan(selected->result.hierarchical
+  mission_.installPlan(enforcer_enabled_ && selected->result.hierarchical
                            ? enforcer_.operationalize(
                                  *selected->result.hierarchical)
                            : selected->result.path);
@@ -167,7 +173,9 @@ DecisionResult NavigationEngine::decide() {
     return result;
   }
   const planning::ReactiveResult lle =
-      lle_.evaluate({world_, action_space_});
+      low_level_exploration_enabled_
+          ? lle_.evaluate({world_, action_space_})
+          : planning::ReactiveResult{};
   if (lle.status == planning::ReactiveStatus::RequestReplan &&
       world_.mission.active()) {
     mission_.clearPlan();

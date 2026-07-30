@@ -80,10 +80,21 @@ ReactiveResult Out::evaluate(const ReactiveRequest& request) const {
           std::string(name()), "turn toward least-included space"};
 }
 
-ReactivePlannerCoordinator::ReactivePlannerCoordinator() {
-  add(std::make_unique<Behind>());
-  add(std::make_unique<Out>());
-  add(std::make_unique<Thru>());
+ReactivePlannerCoordinator::ReactivePlannerCoordinator()
+    : ReactivePlannerCoordinator({"behind", "out", "thru"}) {}
+
+ReactivePlannerCoordinator::ReactivePlannerCoordinator(
+    const std::vector<std::string>& enabled_planners) {
+  for (const auto& name : enabled_planners) {
+    if (name == "thru")
+      add(std::make_unique<Thru>());
+    else if (name == "behind")
+      add(std::make_unique<Behind>());
+    else if (name == "out")
+      add(std::make_unique<Out>());
+    else if (name != "low_level_exploration")
+      throw std::invalid_argument("unknown reactive planner '" + name + "'");
+  }
 }
 
 void ReactivePlannerCoordinator::add(

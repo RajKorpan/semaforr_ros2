@@ -1,6 +1,8 @@
 semaforr:
   ros__parameters:
     experiment:
+      mode: custom
+      # Deprecated alias retained for launch-file compatibility.
       profile: custom
       random_seed: 0
 
@@ -34,6 +36,12 @@ semaforr:
 
     social:
       enabled: true
+      observations:
+        enabled: true
+      advisors:
+        enabled: true
+      planners:
+        enabled: true
       maximum_age_s: 0.75
       minimum_confidence: 0.25
       learning:
@@ -107,6 +115,8 @@ semaforr:
       rotation_angles_rad: [0.0873, 0.2618, 0.5236, 0.7854, 1.0472, 1.5708]
 
     safety:
+      command_envelope:
+        enabled: true
       visibility_epsilon_m: 0.005
       laser_angle_increment_rad: 0.005817
       robot_radius_m: 0.2794
@@ -123,8 +133,13 @@ semaforr:
       hallways: false
       barriers: false
       astar: false
+      known_grid: true
+      inclusion_grid: true
+      highways: false
+      circumstances: false
+      loaded_highway_model: ""
     planners:
-      enabled: [skeleton, density, risk, flow]
+      enabled: [distance, skeleton, density, risk, flow]
 
     advisors:
       names:
