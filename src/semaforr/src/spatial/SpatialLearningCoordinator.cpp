@@ -167,6 +167,25 @@ void SpatialLearningCoordinator::rebuildAll() {
   }
 }
 
+void SpatialLearningCoordinator::finalizeInitialExploration() {
+  for (Entry& entry : learners_) {
+    if (entry.enabled &&
+        (entry.learner->contract().schedule ==
+             UpdateSchedule::EndOfInitialExploration ||
+         entry.learner->representation() == SpatialRepresentation::Regions ||
+         entry.learner->representation() ==
+             SpatialRepresentation::PassagesAndSkeleton))
+      entry.learner->rebuild();
+  }
+}
+
+void SpatialLearningCoordinator::finalizeTarget() {
+  for (Entry& entry : learners_)
+    if (entry.enabled &&
+        entry.learner->contract().schedule == UpdateSchedule::EndOfTarget)
+      entry.learner->rebuild();
+}
+
 std::optional<SpatialModelUpdate> SpatialLearningCoordinator::snapshot(
     SpatialRepresentation representation) const {
   const Entry& entry = require(representation);

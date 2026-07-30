@@ -35,6 +35,8 @@ class SpatialLearningCoordinator {
   void rebuild(SpatialRepresentation representation);
   void rebuildStale();
   void rebuildAll();
+  void finalizeInitialExploration();
+  void finalizeTarget();
 
   std::optional<SpatialModelUpdate> snapshot(
       SpatialRepresentation representation) const;

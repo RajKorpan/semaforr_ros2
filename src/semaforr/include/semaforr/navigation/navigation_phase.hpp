@@ -2,7 +2,11 @@
 #define SEMAFORR_NAVIGATION_NAVIGATION_PHASE_HPP
 
 #include <cstddef>
+#include <semaforr/domain/observation.hpp>
+#include <semaforr/domain/world_model.hpp>
+#include <string>
 #include <string_view>
+#include <vector>
 
 namespace semaforr::navigation {
 
@@ -13,6 +17,17 @@ enum class NavigationPhase {
 };
 
 std::string_view toString(NavigationPhase phase) noexcept;
+
+struct PhaseUpdate {
+  NavigationPhase phase = NavigationPhase::TargetNavigation;
+  std::vector<std::string> events;
+};
+
+struct PhaseDecision {
+  NavigationPhase phase = NavigationPhase::TargetNavigation;
+  bool owns_decision = false;
+  bool mission_activation_allowed = true;
+};
 
 struct PhaseConfiguration {
   bool initial_exploration_enabled = false;
@@ -35,6 +50,10 @@ class NavigationPhaseCoordinator {
                configuration_.initial_exploration_observation_budget;
   }
   void observe();
+  PhaseUpdate observe(const domain::RobotObservation& observation,
+                      domain::WorldModel& world);
+  PhaseDecision next(const domain::WorldModel& world) const noexcept;
+  std::vector<std::string> takeEvents();
   void completeInitialExploration();
   void completeMission();
 
@@ -42,6 +61,7 @@ class NavigationPhaseCoordinator {
   PhaseConfiguration configuration_;
   NavigationPhase phase_;
   std::size_t exploration_observations_ = 0U;
+  std::vector<std::string> events_;
 };
 
 }  // namespace semaforr::navigation

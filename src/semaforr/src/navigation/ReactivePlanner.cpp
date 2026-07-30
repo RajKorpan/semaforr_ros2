@@ -116,9 +116,21 @@ LowLevelExplorer::LowLevelExplorer(std::size_t history_window,
 ReactiveResult LowLevelExplorer::evaluate(
     const ReactiveRequest& request) const {
   const auto& history = request.world.navigation_history.entries();
-  if (!request.world.mission.active() ||
-      request.world.mission.decisions_for_active() < history_window_)
+  if (!request.world.mission.active())
     return {};
+  const bool only_direct_guidance =
+      request.world.mission.active()->plan.size() <= 1U;
+  const bool lacks_connectivity =
+      request.world.spatial.skeleton_nodes.empty() &&
+      request.world.spatial.highways.nodes.empty();
+  if (only_direct_guidance && lacks_connectivity &&
+      (!last_missing_knowledge_revision_ ||
+       *last_missing_knowledge_revision_ != request.world.spatial.revision)) {
+    last_missing_knowledge_revision_ = request.world.spatial.revision;
+    return {ReactiveStatus::RequestReplan, std::nullopt, "LLE",
+            "target-directed planning lacks learned connectivity"};
+  }
+  if (request.world.mission.decisions_for_active() < history_window_) return {};
   if (history.size() < history_window_) return {};
   const auto first = history.end() -
                      static_cast<std::ptrdiff_t>(history_window_);

@@ -185,3 +185,22 @@ TEST(NavigationPhaseCoordinator, DelaysMissionUntilExplorationBudgetCompletes) {
   phases.completeMission();
   EXPECT_EQ(phases.phase(), NavigationPhase::MissionComplete);
 }
+
+TEST(NavigationPhaseCoordinator, EmitsExplicitLifecycleEvents) {
+  using namespace semaforr::navigation;
+  semaforr::domain::WorldModel world;
+  semaforr::domain::RobotObservation observation;
+  observation.laser.minimum_range = semaforr::domain::Distance(0.0);
+  observation.laser.maximum_range = semaforr::domain::Distance(1.0);
+  NavigationPhaseCoordinator phases({true, 1U});
+  const auto update = phases.observe(observation, world);
+  ASSERT_EQ(update.events.size(), 1U);
+  EXPECT_EQ(update.events.front(), "initial_exploration_started");
+  EXPECT_TRUE(phases.next(world).owns_decision);
+  phases.completeInitialExploration();
+  const auto events = phases.takeEvents();
+  ASSERT_EQ(events.size(), 2U);
+  EXPECT_EQ(events[0], "initial_model_finalized");
+  EXPECT_EQ(events[1], "target_navigation_started");
+  EXPECT_TRUE(phases.next(world).mission_activation_allowed);
+}

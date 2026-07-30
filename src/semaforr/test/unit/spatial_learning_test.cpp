@@ -242,3 +242,24 @@ TEST(SpatialLearning, NavigationEngineObservesCompletePostDecisionEpisodes) {
   EXPECT_EQ(capture->captured->active_task, domain::TaskId{1U});
   EXPECT_EQ(world.navigation_history.entries().size(), 1U);
 }
+
+TEST(SpatialLearning, InitialExplorationFinalizationPublishesGraphModels) {
+  auto coordinator =
+      semaforr::spatial::SpatialLearningCoordinator::defaults();
+  for (std::size_t sequence = 1U; sequence <= 3U; ++sequence) {
+    auto input = episode(sequence, static_cast<double>(sequence));
+    input.initial_exploration = true;
+    coordinator.observe(input);
+  }
+  coordinator.finalizeInitialExploration();
+  const auto highway =
+      coordinator.snapshot(
+          semaforr::spatial::SpatialRepresentation::Highways);
+  const auto skeleton =
+      coordinator.snapshot(
+          semaforr::spatial::SpatialRepresentation::PassagesAndSkeleton);
+  ASSERT_TRUE(highway);
+  ASSERT_TRUE(skeleton);
+  EXPECT_GT(highway->revision, 0U);
+  EXPECT_GT(skeleton->revision, 0U);
+}

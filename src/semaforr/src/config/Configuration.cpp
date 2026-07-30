@@ -248,16 +248,27 @@ void applyAblationProfile(Configuration& configuration) {
   switch (experiment.profile) {
     case AblationProfile::Full:
     case AblationProfile::TierOneTierTwoTierThree:
-      experiment.tiers = {true, true, true};
+      experiment.tiers.tier_one = true;
+      experiment.tiers.tier_two = true;
+      experiment.tiers.tier_three = true;
       break;
     case AblationProfile::TierOneOnly:
-      experiment.tiers = {true, false, false};
+      experiment.tiers.tier_one = true;
+      experiment.tiers.tier_two = false;
+      experiment.tiers.tier_three = false;
+      experiment.reactive_exploration_enabled = false;
       break;
     case AblationProfile::TierOneTierThree:
-      experiment.tiers = {true, false, true};
+      experiment.tiers.tier_one = true;
+      experiment.tiers.tier_two = false;
+      experiment.tiers.tier_three = true;
+      experiment.reactive_exploration_enabled = false;
       break;
     case AblationProfile::TierThreeOnly:
-      experiment.tiers = {false, false, true};
+      experiment.tiers.tier_one = false;
+      experiment.tiers.tier_two = false;
+      experiment.tiers.tier_three = true;
+      experiment.reactive_exploration_enabled = false;
       break;
     case AblationProfile::NoInitialExploration:
       experiment.initial_exploration = {};
@@ -273,10 +284,21 @@ void applyAblationProfile(Configuration& configuration) {
       configuration.navigation.hallways_on = false;
       configuration.navigation.barriers_on = false;
       configuration.navigation.a_star_on = false;
+      configuration.navigation.known_grid_on = false;
+      configuration.navigation.inclusion_grid_on = false;
+      configuration.navigation.highways_on = false;
+      configuration.navigation.circumstances_on = false;
+      experiment.reactive_exploration_enabled = false;
       configuration.navigation.planners = {};
       break;
     case AblationProfile::NoSocial:
       experiment.social_enabled = false;
+      experiment.social = {};
+      experiment.social.enabled = false;
+      experiment.social.observations = false;
+      experiment.social.learning = false;
+      experiment.social.advisors = false;
+      experiment.social.planners = false;
       configuration.navigation.crowd_learning.enabled = false;
       configuration.navigation.planners.density = false;
       configuration.navigation.planners.risk = false;
@@ -372,12 +394,55 @@ Configuration loadStructuredConfiguration(
 
 void validateConfiguration(const Configuration& configuration) {
   validateNavigation(configuration.navigation);
+  const auto& experiment = configuration.experiment;
   if (configuration.experiment.initial_exploration.enabled &&
       configuration.experiment.initial_exploration.observation_budget == 0U) {
     throw std::runtime_error(
         "configuration: enabled initial exploration requires a positive "
         "observation budget");
   }
+  if (experiment.initial_exploration.enabled &&
+      (experiment.initial_exploration.strategy != "hle" ||
+       !std::isfinite(experiment.initial_exploration.time_limit_s) ||
+       experiment.initial_exploration.time_limit_s <= 0.0 ||
+       experiment.initial_exploration.decision_budget == 0U)) {
+    throw std::runtime_error(
+        "configuration: HLE requires strategy 'hle' and positive time, "
+        "observation, and decision budgets");
+  }
+  if (!experiment.target_navigation.enabled && !configuration.tasks.empty())
+    throw std::runtime_error(
+        "configuration: target navigation cannot be disabled when mission "
+        "tasks are configured");
+  const std::vector<std::string> tier_one_order{
+      "victory", "avoid_obstacles", "not_opposite", "enforcer", "thru",
+      "behind", "out", "low_level_exploration", "forward", "precedent"};
+  std::size_t previous = 0U;
+  bool first_rule = true;
+  std::set<std::string> configured_rules;
+  for (const auto& rule : experiment.tiers.tier_one_rules) {
+    const auto found =
+        std::find(tier_one_order.begin(), tier_one_order.end(), rule);
+    if (found == tier_one_order.end())
+      throw std::runtime_error("configuration: unknown Tier-1 rule '" + rule +
+                               "'");
+    if (!configured_rules.insert(rule).second)
+      throw std::runtime_error("configuration: duplicate Tier-1 rule '" +
+                               rule + "'");
+    const std::size_t position =
+        static_cast<std::size_t>(found - tier_one_order.begin());
+    if (!first_rule && position <= previous)
+      throw std::runtime_error(
+          "configuration: Tier-1 rules must preserve dissertation order");
+    first_rule = false;
+    previous = position;
+  }
+  if (experiment.reactive_exploration_enabled &&
+      (!configuration.navigation.inclusion_grid_on ||
+       !experiment.tiers.tier_two))
+    throw std::runtime_error(
+        "configuration: LLE requires the inclusion grid and Tier 2 "
+        "replanning");
   if (!configuration.experiment.tiers.tier_one &&
       !configuration.experiment.tiers.tier_two &&
       !configuration.experiment.tiers.tier_three) {
@@ -407,7 +472,12 @@ void validateConfiguration(const Configuration& configuration) {
   const std::set<std::string> registered_advisors{
       "goal_progress",      "goal_progress_linear", "clearance",
       "clearance_rotation", "exploration",          "social_navigation",
-      "crowd_avoid",        "risk_avoid",           "flow_follow"};
+      "crowd_avoid", "risk_avoid", "flow_follow", "avoid_revisit",
+      "prefer_regions", "prefer_highways", "prefer_doors", "follow_trails",
+      "big_step", "elbow_room", "novelty", "go_around", "greedy",
+      "curiosity", "enfilade", "visual_scan", "convey", "enter", "exit",
+      "trailer", "unlikely", "access", "crossroads", "follow",
+      "least_angle", "spatial_learner", "stay"};
   std::set<std::string> names;
   for (const AdvisorConfiguration& advisor : configuration.advisors) {
     if (!names.insert(advisor.name).second) {
@@ -424,6 +494,17 @@ void validateConfiguration(const Configuration& configuration) {
       throw std::runtime_error("configuration: advisor '" + advisor.name +
                                "' has an invalid weight or parameter");
     }
+    if (advisor.active &&
+        ((advisor.name == "prefer_regions" &&
+          !configuration.navigation.regions_on) ||
+         (advisor.name == "prefer_highways" &&
+          !configuration.navigation.highways_on) ||
+         (advisor.name == "prefer_doors" &&
+          !configuration.navigation.doors_on) ||
+         (advisor.name == "follow_trails" &&
+          !configuration.navigation.trails_on)))
+      throw std::runtime_error("configuration: advisor '" + advisor.name +
+                               "' requires its spatial representation");
   }
 
   if (configuration.tasks.empty()) {

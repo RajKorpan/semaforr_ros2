@@ -121,6 +121,7 @@ semaforr_msgs::msg::DecisionRecord toMessage(
   result.navigation_phase = toMessage(source.navigation_phase);
   result.configuration_fingerprint = source.configuration_fingerprint;
   result.component_manifest = source.component_manifest;
+  result.phase_events = source.phase_events;
   result.robot_pose.x = source.robot_pose.position.x_m;
   result.robot_pose.y = source.robot_pose.position.y_m;
   result.robot_pose.theta = source.robot_pose.heading.radians();

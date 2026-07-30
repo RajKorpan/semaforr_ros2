@@ -49,7 +49,10 @@ std::vector<domain::Action> NavigationEngine::candidates() const {
 void NavigationEngine::observe(const domain::RobotObservation& observation) {
   observation.laser.validate();
   observation_ = observation;
-  phases_->observe();
+  auto phase_update = phases_->observe(observation, world_);
+  pending_phase_events_.insert(pending_phase_events_.end(),
+                               phase_update.events.begin(),
+                               phase_update.events.end());
   if (world_.recovery.confined &&
       !world_.navigation_history.entries().empty() &&
       domain::distance(
@@ -70,12 +73,17 @@ void NavigationEngine::observe(const domain::RobotObservation& observation) {
     world_.crowd.clearCurrent();
   }
 
+  const bool had_active_task = world_.mission.active().has_value();
   if (world_.mission.active() &&
       domain::goalReached(observation.pose, world_.mission.active()->target,
                           goal_tolerance_)) {
     mission_.completeActiveTask();
   } else {
     mission_.advanceWaypoint(observation.pose, goal_tolerance_);
+  }
+  if (had_active_task && !world_.mission.active()) {
+    learning_.finalizeTarget();
+    learning_.applyTo(world_.spatial);
   }
 }
 
@@ -114,6 +122,7 @@ DecisionResult NavigationEngine::decide() {
     result.navigation_phase = phases_->phase();
     result.configuration_fingerprint = configuration_fingerprint_;
     result.component_manifest = component_manifest_;
+    result.phase_events.swap(pending_phase_events_);
     result.action = exploration.action;
     if (hard_safety_) {
       const std::array<domain::Action, 1U> exploration_candidate{
@@ -128,6 +137,8 @@ DecisionResult NavigationEngine::decide() {
     result.tier = DecisionTier::Exploration;
     result.selected_policy =
         "hle:" + std::string(exploration::toString(exploration.state));
+    if (!exploration.candidates.empty())
+      result.phase_events.push_back("candidate_selected");
     world_.navigation_history.record(
         {observation_->pose, observation_->laser, result.action});
     learning_.observe({world_.navigation_history.entries().size(),
@@ -136,7 +147,12 @@ DecisionResult NavigationEngine::decide() {
     learning_.applyTo(world_.spatial);
     if (phases_->explorationBudgetReached()) {
       explorer_.finish();
+      learning_.finalizeInitialExploration();
+      learning_.applyTo(world_.spatial);
       phases_->completeInitialExploration();
+      auto completed = phases_->takeEvents();
+      result.phase_events.insert(result.phase_events.end(), completed.begin(),
+                                 completed.end());
     }
     return result;
   }
@@ -147,6 +163,7 @@ DecisionResult NavigationEngine::decide() {
     result.navigation_phase = phases_->phase();
     result.configuration_fingerprint = configuration_fingerprint_;
     result.component_manifest = component_manifest_;
+    result.phase_events.swap(pending_phase_events_);
     return result;
   }
   const planning::ReactiveResult lle =
@@ -188,6 +205,7 @@ DecisionResult NavigationEngine::decide() {
   result.navigation_phase = phases_->phase();
   result.configuration_fingerprint = configuration_fingerprint_;
   result.component_manifest = component_manifest_;
+  result.phase_events.swap(pending_phase_events_);
   result.candidates = available;
   result.planner = selected_planner;
   if (world_.mission.active()) {

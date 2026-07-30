@@ -78,6 +78,7 @@ class LowLevelExplorer {
  private:
   std::size_t history_window_;
   double progress_threshold_m_;
+  mutable std::optional<std::size_t> last_missing_knowledge_revision_;
 };
 
 }  // namespace semaforr::planning

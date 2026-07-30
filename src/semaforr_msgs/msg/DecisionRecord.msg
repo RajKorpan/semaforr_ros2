@@ -31,6 +31,7 @@ geometry_msgs/Pose2D robot_pose
 uint8 navigation_phase
 string configuration_fingerprint
 string[] component_manifest
+string[] phase_events
 bool has_task
 semaforr_msgs/TaskDiagnostic task
 semaforr_msgs/DecisionAction[] candidates

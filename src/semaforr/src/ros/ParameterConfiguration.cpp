@@ -44,11 +44,23 @@ void applyPlanner(config::PlannerConfiguration& planners,
 
 void declareConfigurationParameters(rclcpp::Node& node) {
   node.declare_parameter("experiment.profile", std::string{"custom"});
+  node.declare_parameter("experiment.random_seed", 0);
   node.declare_parameter("tiers.tier1.enabled", true);
   node.declare_parameter("tiers.tier2.enabled", true);
   node.declare_parameter("tiers.tier3.enabled", true);
+  node.declare_parameter("tiers.tier1.rules",
+                         config::TierConfiguration{}.tier_one_rules);
+  node.declare_parameter("tiers.tier1.reactive_planners",
+                         config::TierConfiguration{}.reactive_planners);
   node.declare_parameter("phases.initial_exploration.enabled", false);
   node.declare_parameter("phases.initial_exploration.observation_budget", 0);
+  node.declare_parameter("phases.initial_exploration.strategy",
+                         std::string{"hle"});
+  node.declare_parameter("phases.initial_exploration.time_limit_s", 1200.0);
+  node.declare_parameter("phases.initial_exploration.decision_budget", 10000);
+  node.declare_parameter("phases.target_navigation.enabled", true);
+  node.declare_parameter("exploration.reactive.enabled", true);
+  node.declare_parameter("exploration.reactive.strategy", std::string{"lle"});
   node.declare_parameter("exploration.opportunistic.enabled", false);
   node.declare_parameter("social.enabled", true);
   node.declare_parameter("map.path", std::string{});
@@ -205,10 +217,22 @@ config::Configuration configurationFromParameters(rclcpp::Node& node) {
       map_file);
   configuration.experiment.profile = config::ablationProfileFromString(
       node.get_parameter("experiment.profile").as_string());
-  configuration.experiment.tiers = {
-      node.get_parameter("tiers.tier1.enabled").as_bool(),
-      node.get_parameter("tiers.tier2.enabled").as_bool(),
-      node.get_parameter("tiers.tier3.enabled").as_bool()};
+  configuration.experiment.tiers.tier_one =
+      node.get_parameter("tiers.tier1.enabled").as_bool();
+  configuration.experiment.tiers.tier_two =
+      node.get_parameter("tiers.tier2.enabled").as_bool();
+  configuration.experiment.tiers.tier_three =
+      node.get_parameter("tiers.tier3.enabled").as_bool();
+  configuration.experiment.tiers.tier_one_rules =
+      node.get_parameter("tiers.tier1.rules").as_string_array();
+  configuration.experiment.tiers.reactive_planners =
+      node.get_parameter("tiers.tier1.reactive_planners").as_string_array();
+  const auto experiment_seed =
+      node.get_parameter("experiment.random_seed").as_int();
+  if (experiment_seed < 0)
+    throw std::runtime_error("experiment.random_seed must be nonnegative");
+  configuration.experiment.random_seed =
+      static_cast<unsigned int>(experiment_seed);
   configuration.experiment.initial_exploration.enabled =
       node.get_parameter("phases.initial_exploration.enabled").as_bool();
   const auto observation_budget =
@@ -220,6 +244,23 @@ config::Configuration configurationFromParameters(rclcpp::Node& node) {
   }
   configuration.experiment.initial_exploration.observation_budget =
       static_cast<std::size_t>(observation_budget);
+  configuration.experiment.initial_exploration.strategy =
+      node.get_parameter("phases.initial_exploration.strategy").as_string();
+  configuration.experiment.initial_exploration.time_limit_s =
+      node.get_parameter("phases.initial_exploration.time_limit_s").as_double();
+  const auto decision_budget =
+      node.get_parameter("phases.initial_exploration.decision_budget").as_int();
+  if (decision_budget < 0)
+    throw std::runtime_error(
+        "phases.initial_exploration.decision_budget must be nonnegative");
+  configuration.experiment.initial_exploration.decision_budget =
+      static_cast<std::size_t>(decision_budget);
+  configuration.experiment.target_navigation.enabled =
+      node.get_parameter("phases.target_navigation.enabled").as_bool();
+  configuration.experiment.reactive_exploration_enabled =
+      node.get_parameter("exploration.reactive.enabled").as_bool();
+  configuration.experiment.reactive_exploration_strategy =
+      node.get_parameter("exploration.reactive.strategy").as_string();
   configuration.experiment.opportunistic_exploration =
       node.get_parameter("exploration.opportunistic.enabled").as_bool();
   configuration.experiment.social_enabled =

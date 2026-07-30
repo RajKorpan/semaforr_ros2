@@ -2,10 +2,14 @@ semaforr:
   ros__parameters:
     experiment:
       profile: custom
+      random_seed: 0
 
     tiers:
       tier1:
         enabled: true
+        rules: [victory, avoid_obstacles, not_opposite, enforcer, thru,
+                behind, out, low_level_exploration, forward, precedent]
+        reactive_planners: [thru, behind, out, low_level_exploration]
       tier2:
         enabled: true
       tier3:
@@ -13,11 +17,18 @@ semaforr:
 
     phases:
       initial_exploration:
-        # Phase framework only; HLE action generation is restored separately.
         enabled: false
+        strategy: hle
+        time_limit_s: 1200.0
+        decision_budget: 10000
         observation_budget: 0
+      target_navigation:
+        enabled: true
 
     exploration:
+      reactive:
+        enabled: true
+        strategy: lle
       opportunistic:
         enabled: false
 

@@ -26,6 +26,9 @@ NavigationPhaseCoordinator::NavigationPhaseCoordinator(
     throw std::invalid_argument(
         "initial exploration requires a positive observation budget");
   }
+  events_.push_back(configuration_.initial_exploration_enabled
+                        ? "initial_exploration_started"
+                        : "target_navigation_started");
 }
 
 void NavigationPhaseCoordinator::observe() {
@@ -34,12 +37,33 @@ void NavigationPhaseCoordinator::observe() {
 }
 
 void NavigationPhaseCoordinator::completeInitialExploration() {
-  if (phase_ == NavigationPhase::InitialExploration)
+  if (phase_ == NavigationPhase::InitialExploration) {
+    events_.push_back("initial_model_finalized");
     phase_ = NavigationPhase::TargetNavigation;
+    events_.push_back("target_navigation_started");
+  }
 }
 
 void NavigationPhaseCoordinator::completeMission() {
   phase_ = NavigationPhase::MissionComplete;
+}
+
+PhaseUpdate NavigationPhaseCoordinator::observe(
+    const domain::RobotObservation&, domain::WorldModel&) {
+  observe();
+  return {phase_, takeEvents()};
+}
+
+PhaseDecision NavigationPhaseCoordinator::next(
+    const domain::WorldModel&) const noexcept {
+  return {phase_, phase_ == NavigationPhase::InitialExploration,
+          missionActivationAllowed()};
+}
+
+std::vector<std::string> NavigationPhaseCoordinator::takeEvents() {
+  std::vector<std::string> result;
+  result.swap(events_);
+  return result;
 }
 
 }  // namespace semaforr::navigation

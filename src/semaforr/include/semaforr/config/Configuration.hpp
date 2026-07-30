@@ -27,17 +27,43 @@ struct TierConfiguration {
   bool tier_one = true;
   bool tier_two = true;
   bool tier_three = true;
+  std::vector<std::string> tier_one_rules{
+      "victory", "avoid_obstacles", "not_opposite", "enforcer", "thru",
+      "behind", "out", "low_level_exploration", "forward", "precedent"};
+  std::vector<std::string> reactive_planners{"thru", "behind", "out",
+                                              "low_level_exploration"};
 };
 
 struct InitialExplorationConfiguration {
   bool enabled = false;
   std::size_t observation_budget = 0U;
+  std::string strategy = "hle";
+  double time_limit_s = 1200.0;
+  std::size_t decision_budget = 10000U;
+};
+
+struct TargetNavigationConfiguration {
+  bool enabled = true;
+};
+
+struct SocialConfiguration {
+  bool enabled = true;
+  bool observations = true;
+  bool learning = true;
+  bool advisors = true;
+  bool planners = true;
 };
 
 struct ExperimentConfiguration {
   AblationProfile profile = AblationProfile::Custom;
+  unsigned int random_seed = 0U;
   TierConfiguration tiers;
   InitialExplorationConfiguration initial_exploration;
+  TargetNavigationConfiguration target_navigation;
+  bool reactive_exploration_enabled = true;
+  std::string reactive_exploration_strategy = "lle";
+  SocialConfiguration social;
+  // Backward-compatible mirrors populated by parameter loading.
   bool opportunistic_exploration = false;
   bool social_enabled = true;
 };
@@ -88,6 +114,10 @@ struct NavigationConfiguration {
   bool hallways_on = false;
   bool barriers_on = false;
   bool a_star_on = false;
+  bool known_grid_on = true;
+  bool inclusion_grid_on = true;
+  bool highways_on = true;
+  bool circumstances_on = false;
 
   PlannerConfiguration planners;
   CrowdLearningConfiguration crowd_learning;

@@ -62,6 +62,7 @@ class NavigationEngine {
   planning::LowLevelExplorer lle_;
   domain::Distance goal_tolerance_;
   std::optional<domain::RobotObservation> observation_;
+  std::vector<std::string> pending_phase_events_;
   std::uint64_t decision_sequence_{0U};
 };
 

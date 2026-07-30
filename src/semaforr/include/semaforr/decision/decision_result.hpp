@@ -76,6 +76,7 @@ struct DecisionResult {
       navigation::NavigationPhase::TargetNavigation};
   std::string configuration_fingerprint;
   std::vector<std::string> component_manifest;
+  std::vector<std::string> phase_events;
   std::optional<TaskDiagnostic> task;
   std::vector<domain::Action> candidates;
   domain::Action action{domain::Action::pause()};
