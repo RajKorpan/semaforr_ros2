@@ -41,6 +41,8 @@ void clearRepresentation(domain::SpatialModel& model,
     case SpatialRepresentation::Highways:
       model.highways = {};
       break;
+    case SpatialRepresentation::Circumstances:
+      break;
   }
 }
 
@@ -68,6 +70,7 @@ SpatialLearningCoordinator SpatialLearningCoordinator::defaults(
   coordinator.addLearner(std::make_unique<KnownGridLearner>());
   coordinator.addLearner(std::make_unique<InclusionGridLearner>());
   coordinator.addLearner(std::make_unique<HighwayLearner>());
+  coordinator.addLearner(std::make_unique<CircumstanceLearner>());
   return coordinator;
 }
 
@@ -282,16 +285,30 @@ void SpatialLearningCoordinator::applyTo(domain::SpatialModel& model) const {
               model.skeleton_edges.emplace_back(edge.from, edge.to);
             }
           } else if constexpr (std::is_same_v<Payload, KnownGridModel>) {
+            auto cells = payload.observations;
+            if (cells.empty()) {
+              cells.assign(payload.geometry.columns * payload.geometry.rows,
+                           0U);
+              for (const auto& cell : payload.sparse_observations)
+                if (cell.index < cells.size()) cells[cell.index] = cell.value;
+            }
             model.known_grid = {
                 payload.geometry.columns, payload.geometry.rows,
                 payload.geometry.resolution_m, payload.geometry.origin,
-                payload.observations, update.revision};
+                std::move(cells), update.revision};
           } else if constexpr (std::is_same_v<Payload,
                                                InclusionGridModel>) {
+            auto cells = payload.included;
+            if (cells.empty()) {
+              cells.assign(payload.geometry.columns * payload.geometry.rows,
+                           0U);
+              for (const auto& cell : payload.sparse_included)
+                if (cell.index < cells.size()) cells[cell.index] = cell.value;
+            }
             model.inclusion_grid = {
                 payload.geometry.columns, payload.geometry.rows,
                 payload.geometry.resolution_m, payload.geometry.origin,
-                payload.included, update.revision};
+                std::move(cells), update.revision};
           } else if constexpr (std::is_same_v<Payload, HighwayModel>) {
             model.highways.nodes = payload.nodes;
             model.highways.edges.clear();

@@ -43,13 +43,18 @@ TEST(HighwayLearning, BuildsVersionedGraphIncrementally) {
                      semaforr::domain::Action::pause(), std::nullopt, false,
                      false, true});
   }
+  EXPECT_EQ(learner.snapshot().revision, 0U);
+  learner.rebuild();
   const auto update = learner.snapshot();
   ASSERT_TRUE(update.usable());
-  EXPECT_EQ(update.revision, 3U);
+  EXPECT_EQ(update.revision, 1U);
   const auto& model =
       std::get<semaforr::spatial::HighwayModel>(update.payload);
   EXPECT_EQ(model.nodes.size(), 3U);
   EXPECT_EQ(model.edges.size(), 2U);
+  EXPECT_FALSE(model.grid_labels.empty());
+  EXPECT_FALSE(model.touched_rows.empty());
+  EXPECT_FALSE(model.touched_columns.empty());
 }
 
 TEST(HierarchicalPlans, HighwayPlanProducesTypedOperationalSteps) {

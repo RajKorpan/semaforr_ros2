@@ -170,7 +170,12 @@ TEST(CommandExecutor, EnforcesActionVelocityAndAccelerationBounds) {
 
   auto invalid = configuration;
   invalid.linear_velocity_mps = 0.6;
-  EXPECT_THROW(CommandExecutor(invalid), std::invalid_argument);
+  EXPECT_THROW(
+      {
+        const CommandExecutor rejected(invalid);
+        static_cast<void>(rejected);
+      },
+      std::invalid_argument);
 }
 
 TEST(CommandExecutor, SensorTimeoutCancellationPublishesAZeroCommand) {

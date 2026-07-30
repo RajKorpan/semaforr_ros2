@@ -179,6 +179,8 @@ class NavigationEngineAdapter::Impl {
                          features.inclusion_grid_on);
     learning_.setEnabled(spatial::SpatialRepresentation::Highways,
                          features.highways_on);
+    learning_.setEnabled(spatial::SpatialRepresentation::Circumstances,
+                         features.circumstances_on);
   }
 
   void configurePlanning() {

@@ -31,9 +31,22 @@ std::optional<std::size_t> indexOf(const GridGeometry& grid,
          static_cast<std::size_t>(column);
 }
 
-void increment(std::vector<std::uint32_t>& cells, std::size_t index) {
-  if (cells[index] != std::numeric_limits<std::uint32_t>::max())
-    ++cells[index];
+void increment(std::unordered_map<std::size_t, std::uint32_t>& cells,
+               std::size_t index) {
+  auto& value = cells[index];
+  if (value != std::numeric_limits<std::uint32_t>::max()) ++value;
+}
+
+std::vector<SparseGridCell> sparseSnapshot(
+    const std::unordered_map<std::size_t, std::uint32_t>& cells) {
+  std::vector<SparseGridCell> result;
+  result.reserve(cells.size());
+  for (const auto& [index, value] : cells) result.push_back({index, value});
+  std::sort(result.begin(), result.end(),
+            [](const auto& first, const auto& second) {
+              return first.index < second.index;
+            });
+  return result;
 }
 
 }  // namespace
@@ -47,8 +60,7 @@ KnownGridLearner::KnownGridLearner(std::size_t columns, std::size_t rows,
           {true, true, false, false, "integrate every coherent laser view",
            {"Out", "low-level exploration"},
            UpdateSchedule::EveryObservation}),
-      geometry_(geometry(columns, rows, resolution_m, origin)),
-      observations_(columns * rows, 0U) {}
+      geometry_(geometry(columns, rows, resolution_m, origin)) {}
 
 void KnownGridLearner::onObserve(const NavigationEpisode& episode) {
   const auto& pose = episode.observation.pose;
@@ -73,12 +85,14 @@ void KnownGridLearner::onObserve(const NavigationEpisode& episode) {
         increment(observations_, *index);
     }
   }
-  publish(KnownGridModel{geometry_, observations_}, ModelStatus::Fresh,
+  publish(KnownGridModel{geometry_, {}, sparseSnapshot(observations_)},
+          ModelStatus::Fresh,
           "coherent laser view integrated incrementally");
 }
 
 void KnownGridLearner::onRebuild() {
-  publish(KnownGridModel{geometry_, observations_}, ModelStatus::Fresh,
+  publish(KnownGridModel{geometry_, {}, sparseSnapshot(observations_)},
+          ModelStatus::Fresh,
           "known grid snapshot refreshed");
 }
 
@@ -92,19 +106,20 @@ InclusionGridLearner::InclusionGridLearner(
            "mark cells represented by accepted navigation episodes",
            {"low-level exploration", "coverage diagnostics"},
            UpdateSchedule::EveryObservation}),
-      geometry_(geometry(columns, rows, resolution_m, origin)),
-      included_(columns * rows, 0U) {}
+      geometry_(geometry(columns, rows, resolution_m, origin)) {}
 
 void InclusionGridLearner::onObserve(const NavigationEpisode& episode) {
   if (const auto index =
           indexOf(geometry_, episode.observation.pose.position))
     included_[*index] = 1U;
-  publish(InclusionGridModel{geometry_, included_}, ModelStatus::Fresh,
+  publish(InclusionGridModel{geometry_, {}, sparseSnapshot(included_)},
+          ModelStatus::Fresh,
           "visited decision cell included incrementally");
 }
 
 void InclusionGridLearner::onRebuild() {
-  publish(InclusionGridModel{geometry_, included_}, ModelStatus::Fresh,
+  publish(InclusionGridModel{geometry_, {}, sparseSnapshot(included_)},
+          ModelStatus::Fresh,
           "inclusion grid snapshot refreshed");
 }
 

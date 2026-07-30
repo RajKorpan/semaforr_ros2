@@ -113,6 +113,13 @@ void payload(std::ostream& output, const SpatialPayload& value) {
                   stream << "{\"from\":" << edge.from << ",\"to\":" << edge.to
                          << '}';
                 });
+          output << ",\"component_by_node\":";
+          array(output, model.component_by_node,
+                [](std::ostream& stream, auto component) {
+                  stream << component;
+                });
+          output << ",\"connectivity_revision\":"
+                 << model.connectivity_revision;
           output << '}';
         } else if constexpr (std::is_same_v<Model, KnownGridModel>) {
           output << "{\"geometry\":{\"columns\":" << model.geometry.columns
@@ -123,6 +130,12 @@ void payload(std::ostream& output, const SpatialPayload& value) {
           output << "},\"observations\":";
           array(output, model.observations,
                 [](std::ostream& stream, auto cell) { stream << cell; });
+          output << ",\"sparse_observations\":";
+          array(output, model.sparse_observations,
+                [](std::ostream& stream, const auto& cell) {
+                  stream << "{\"index\":" << cell.index
+                         << ",\"value\":" << cell.value << '}';
+                });
           output << '}';
         } else if constexpr (std::is_same_v<Model, InclusionGridModel>) {
           output << "{\"geometry\":{\"columns\":" << model.geometry.columns
@@ -133,6 +146,12 @@ void payload(std::ostream& output, const SpatialPayload& value) {
           output << "},\"included\":";
           array(output, model.included,
                 [](std::ostream& stream, auto cell) { stream << cell; });
+          output << ",\"sparse_included\":";
+          array(output, model.sparse_included,
+                [](std::ostream& stream, const auto& cell) {
+                  stream << "{\"index\":" << cell.index
+                         << ",\"value\":" << cell.value << '}';
+                });
           output << '}';
         } else if constexpr (std::is_same_v<Model, HighwayModel>) {
           output << "{\"nodes\":";
@@ -146,6 +165,29 @@ void payload(std::ostream& output, const SpatialPayload& value) {
                 [](std::ostream& stream, const auto& intersection) {
                   stream << "{\"node\":" << intersection.node
                          << ",\"degree\":" << intersection.degree << '}';
+                });
+          output << ",\"grid_labels\":";
+          array(output, model.grid_labels,
+                [](std::ostream& stream, const auto& label) {
+                  stream << "{\"row\":" << label.row
+                         << ",\"column\":" << label.column
+                         << ",\"label\":" << label.label << '}';
+                });
+          output << ",\"touched_rows\":";
+          array(output, model.touched_rows,
+                [](std::ostream& stream, auto value) { stream << value; });
+          output << ",\"touched_columns\":";
+          array(output, model.touched_columns,
+                [](std::ostream& stream, auto value) { stream << value; });
+          output << '}';
+        } else if constexpr (std::is_same_v<Model, CircumstanceModel>) {
+          output << "{\"actions\":";
+          array(output, model.actions,
+                [](std::ostream& stream, const auto& item) {
+                  stream << "{\"type\":"
+                         << static_cast<int>(item.action.type())
+                         << ",\"magnitude\":" << item.action.magnitude_index()
+                         << ",\"occurrences\":" << item.occurrences << '}';
                 });
           output << '}';
         }
@@ -177,6 +219,8 @@ std::string_view toString(SpatialRepresentation representation) noexcept {
       return "inclusion_grid";
     case SpatialRepresentation::Highways:
       return "highways";
+    case SpatialRepresentation::Circumstances:
+      return "circumstances";
   }
   return "unknown";
 }
@@ -303,7 +347,14 @@ void SpatialLearnerBase::publish(SpatialPayload payload_value,
     throw std::invalid_argument(
         "published spatial model must be fresh or explicitly incomplete");
   }
-  ++update_.revision;
+  std::ostringstream encoded;
+  payload(encoded, payload_value);
+  const std::string signature = encoded.str();
+  const bool changed = update_.revision == 0U ||
+                       signature != published_payload_signature_ ||
+                       status != update_.status;
+  if (changed) ++update_.revision;
+  published_payload_signature_ = signature;
   update_.payload = std::move(payload_value);
   update_.status = status;
   update_.diagnostic = std::move(diagnostic);

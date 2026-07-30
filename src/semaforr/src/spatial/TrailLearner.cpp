@@ -12,7 +12,8 @@ TrailLearner::TrailLearner(double minimum_sample_distance_m)
            false,
            true,
            "append after each accepted pose; start a trace at task boundaries",
-           {"TrailerLinear", "TrailerRotation", "trail path planner"}}),
+           {"TrailerLinear", "TrailerRotation", "trail path planner"},
+           UpdateSchedule::AfterCompletedAction}),
       minimum_sample_distance_m_(minimum_sample_distance_m) {
   if (!std::isfinite(minimum_sample_distance_m_) ||
       minimum_sample_distance_m_ <= 0.0) {
@@ -22,6 +23,7 @@ TrailLearner::TrailLearner(double minimum_sample_distance_m)
 }
 
 void TrailLearner::onObserve(const NavigationEpisode& episode) {
+  if (!episode.action_completed) return;
   if (model_.trails.empty() || episode.task_started) {
     model_.trails.emplace_back();
   }

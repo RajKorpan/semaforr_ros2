@@ -16,7 +16,8 @@ DoorExitLearner::DoorExitLearner(double minimum_range_jump_m,
            false,
            false,
            "infer scan discontinuities when rebuild is requested",
-           {"EnterLinear", "EnterRotation", "region and skeleton planners"}}),
+           {"EnterLinear", "EnterRotation", "region and skeleton planners"},
+           UpdateSchedule::EndOfTarget}),
       minimum_range_jump_m_(minimum_range_jump_m),
       maximum_opening_width_m_(maximum_opening_width_m) {
   if (!std::isfinite(minimum_range_jump_m_) || minimum_range_jump_m_ <= 0.0 ||

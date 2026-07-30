@@ -7,6 +7,7 @@
 #include <semaforr/domain/action.hpp>
 #include <semaforr/domain/mission.hpp>
 #include <semaforr/domain/observation.hpp>
+#include <semaforr/spatial/representations/models.hpp>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -25,7 +26,8 @@ enum class SpatialRepresentation {
   PassagesAndSkeleton,
   KnownGrid,
   InclusionGrid,
-  Highways
+  Highways,
+  Circumstances
 };
 
 enum class UpdateMode { Incremental, RebuildOnDemand };
@@ -57,80 +59,14 @@ struct NavigationEpisode {
   bool task_started = false;
   bool task_finished = false;
   bool initial_exploration = false;
-};
-
-struct TrailModel {
-  std::vector<std::vector<domain::Point2D>> trails;
-};
-
-struct ConveyorFlow {
-  domain::Segment2D axis;
-  std::size_t traversals = 1U;
-};
-
-struct ConveyorModel {
-  std::vector<ConveyorFlow> flows;
-};
-
-struct RegionModel {
-  std::vector<domain::Circle> regions;
-};
-
-struct DoorExitModel {
-  std::vector<domain::Segment2D> openings;
-};
-
-struct HallwayModel {
-  std::vector<domain::Segment2D> centerlines;
-};
-
-struct BarrierModel {
-  std::vector<domain::Segment2D> barriers;
-};
-
-struct SkeletonEdge {
-  std::size_t from = 0U;
-  std::size_t to = 0U;
-};
-
-struct PassageSkeletonModel {
-  std::vector<domain::Point2D> nodes;
-  std::vector<SkeletonEdge> edges;
-};
-
-struct GridGeometry {
-  std::size_t columns = 0U;
-  std::size_t rows = 0U;
-  double resolution_m = 1.0;
-  domain::Point2D origin;
-};
-
-struct KnownGridModel {
-  GridGeometry geometry;
-  std::vector<std::uint32_t> observations;
-};
-
-struct InclusionGridModel {
-  GridGeometry geometry;
-  std::vector<std::uint32_t> included;
-};
-
-struct HighwayIntersection {
-  std::size_t node = 0U;
-  std::size_t degree = 0U;
-};
-
-struct HighwayModel {
-  std::vector<domain::Point2D> nodes;
-  std::vector<SkeletonEdge> edges;
-  std::vector<HighwayIntersection> intersections;
+  bool action_completed = true;
 };
 
 using SpatialPayload = std::variant<std::monostate, TrailModel, ConveyorModel,
                                     RegionModel, DoorExitModel, HallwayModel,
                                     BarrierModel, PassageSkeletonModel,
                                     KnownGridModel, InclusionGridModel,
-                                    HighwayModel>;
+                                    HighwayModel, CircumstanceModel>;
 
 struct SpatialModelUpdate {
   SpatialRepresentation representation = SpatialRepresentation::Trails;

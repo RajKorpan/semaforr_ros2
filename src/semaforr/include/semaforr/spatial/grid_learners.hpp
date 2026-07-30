@@ -2,6 +2,7 @@
 #define SEMAFORR_SPATIAL_GRID_LEARNERS_HPP
 
 #include <semaforr/spatial/spatial_learner_base.hpp>
+#include <unordered_map>
 
 namespace semaforr::spatial {
 
@@ -15,7 +16,7 @@ class KnownGridLearner final : public SpatialLearnerBase {
   void onObserve(const NavigationEpisode& episode) override;
   void onRebuild() override;
   GridGeometry geometry_;
-  std::vector<std::uint32_t> observations_;
+  std::unordered_map<std::size_t, std::uint32_t> observations_;
 };
 
 class InclusionGridLearner final : public SpatialLearnerBase {
@@ -28,7 +29,7 @@ class InclusionGridLearner final : public SpatialLearnerBase {
   void onObserve(const NavigationEpisode& episode) override;
   void onRebuild() override;
   GridGeometry geometry_;
-  std::vector<std::uint32_t> included_;
+  std::unordered_map<std::size_t, std::uint32_t> included_;
 };
 
 }  // namespace semaforr::spatial

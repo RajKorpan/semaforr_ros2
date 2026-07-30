@@ -3,6 +3,7 @@
 
 #include <semaforr/spatial/barrier_learner.hpp>
 #include <semaforr/spatial/conveyor_learner.hpp>
+#include <semaforr/spatial/circumstance_learner.hpp>
 #include <semaforr/spatial/door_exit_learner.hpp>
 #include <semaforr/spatial/hallway_learner.hpp>
 #include <semaforr/spatial/grid_learners.hpp>

@@ -4,6 +4,9 @@
 #include <numbers>
 #include <semaforr/decision/navigation_engine.hpp>
 #include <semaforr/spatial/spatial_learning_coordinator.hpp>
+#include <semaforr/spatial/learners/circumstance_learner.hpp>
+#include <semaforr/spatial/representations/highway_model.hpp>
+#include <semaforr/spatial/representations/known_grid.hpp>
 #include <string>
 #include <variant>
 #include <vector>
@@ -70,10 +73,10 @@ TEST(SpatialLearning, DefaultModulesDeclareLifecycleAndConsumers) {
   using namespace semaforr::spatial;
   auto coordinator = SpatialLearningCoordinator::defaults(100U);
 
-  EXPECT_EQ(coordinator.learnerCount(), 10U);
-  EXPECT_EQ(coordinator.enabledCount(), 10U);
+  EXPECT_EQ(coordinator.learnerCount(), 11U);
+  EXPECT_EQ(coordinator.enabledCount(), 11U);
   const auto inspection = coordinator.inspect();
-  ASSERT_EQ(inspection.size(), 10U);
+  ASSERT_EQ(inspection.size(), 11U);
   for (const LearnerInspection& learner : inspection) {
     EXPECT_FALSE(learner.name.empty());
     EXPECT_FALSE(learner.contract.update_trigger.empty());
@@ -201,9 +204,47 @@ TEST(SpatialLearning, EveryRepresentationRebuildsAndSerializesIndependently) {
       coordinator.snapshot(SpatialRepresentation::KnownGrid)->payload));
   EXPECT_TRUE(std::holds_alternative<InclusionGridModel>(
       coordinator.snapshot(SpatialRepresentation::InclusionGrid)->payload));
+  EXPECT_TRUE(std::holds_alternative<CircumstanceModel>(
+      coordinator.snapshot(SpatialRepresentation::Circumstances)->payload));
   const std::string all = coordinator.serializeAll();
   EXPECT_NE(all.find("\"schema\":\"semaforr.spatial.v1\""),
             std::string::npos);
+}
+
+TEST(SpatialLearning, PublishesImmutableRevisionedSparseSnapshots) {
+  using namespace semaforr::spatial;
+  auto coordinator = SpatialLearningCoordinator::defaults(100U);
+  coordinator.observe(episode(1U, 0.0, true));
+  const auto first =
+      coordinator.snapshot(SpatialRepresentation::KnownGrid);
+  ASSERT_TRUE(first);
+  ASSERT_TRUE(std::holds_alternative<KnownGridModel>(first->payload));
+  const auto& grid = std::get<KnownGridModel>(first->payload);
+  EXPECT_TRUE(grid.observations.empty());
+  EXPECT_FALSE(grid.sparse_observations.empty());
+
+  coordinator.rebuild(SpatialRepresentation::KnownGrid);
+  const auto rebuilt =
+      coordinator.snapshot(SpatialRepresentation::KnownGrid);
+  ASSERT_TRUE(rebuilt);
+  EXPECT_EQ(rebuilt->revision, first->revision);
+  EXPECT_EQ(std::get<KnownGridModel>(rebuilt->payload).sparse_observations.size(),
+            grid.sparse_observations.size());
+}
+
+TEST(SpatialLearning, SkeletonCachesStableConnectedComponents) {
+  using namespace semaforr::spatial;
+  auto coordinator = SpatialLearningCoordinator::defaults(100U);
+  coordinator.observe(episode(1U, 0.0, true));
+  coordinator.observe(episode(2U, 0.6));
+  const auto snapshot =
+      coordinator.snapshot(SpatialRepresentation::PassagesAndSkeleton);
+  ASSERT_TRUE(snapshot);
+  const auto& skeleton =
+      std::get<PassageSkeletonModel>(snapshot->payload);
+  ASSERT_EQ(skeleton.component_by_node.size(), skeleton.nodes.size());
+  EXPECT_EQ(skeleton.component_by_node[0], skeleton.component_by_node[1]);
+  EXPECT_GT(skeleton.connectivity_revision, 0U);
 }
 
 TEST(SpatialLearning, EpisodeOrderingIsValidatedPerLearner) {

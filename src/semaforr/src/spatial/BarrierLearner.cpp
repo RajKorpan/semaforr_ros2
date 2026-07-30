@@ -14,7 +14,8 @@ BarrierLearner::BarrierLearner(double maximum_segment_length_m)
            false,
            false,
            "append local obstacle segments after each laser observation",
-           {"AvoidObstacles", "UnlikelyField", "collision-aware planners"}}),
+           {"AvoidObstacles", "UnlikelyField", "collision-aware planners"},
+           UpdateSchedule::EveryObservation}),
       maximum_segment_length_m_(maximum_segment_length_m) {
   if (!std::isfinite(maximum_segment_length_m_) ||
       maximum_segment_length_m_ <= 0.0) {

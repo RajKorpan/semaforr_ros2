@@ -39,6 +39,7 @@ class SpatialLearnerBase : public SpatialLearner {
  private:
   ObservationContract contract_;
   SpatialModelUpdate update_;
+  std::string published_payload_signature_;
   std::vector<NavigationEpisode> episodes_;
 };
 

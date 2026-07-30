@@ -130,6 +130,7 @@ semaforr_apply_strict_warnings(semaforr_advisors)
 add_library(semaforr_spatial SHARED
   src/spatial/BarrierLearner.cpp
   src/spatial/ConveyorLearner.cpp
+  src/spatial/CircumstanceLearner.cpp
   src/spatial/DoorExitLearner.cpp
   src/spatial/HallwayLearner.cpp
   src/spatial/GridLearners.cpp

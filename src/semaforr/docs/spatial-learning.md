@@ -1,6 +1,8 @@
 # Modular spatial learning
 
-Phase 10 exposes every learned spatial representation through the same
+Spatial representations are split into immutable value snapshots under
+`spatial/representations/` and mutable builders under `spatial/learners/`.
+`SpatialLearningCoordinator` exposes every representation through the same
 ROS-independent lifecycle:
 
 ```cpp
@@ -14,21 +16,31 @@ public:
 ```
 
 A `NavigationEpisode` contains the validated robot observation, selected
-action, active task, monotonically increasing sequence number, and task
-boundary flags. `NavigationEngine` submits it after decision arbitration, so
-action-dependent learners never see a partially constructed cycle.
+action, active task, monotonically increasing sequence number, task boundary
+flags, and an `action_completed` outcome. Motion-dependent learners ignore
+episodes that do not represent completed actions.
+
+Every representation declares one `UpdateSchedule`: `EveryObservation`,
+`AfterCompletedAction`, `EndOfTarget`, `EndOfInitialExploration`, or
+`OnDemand`. Learners retain mutable construction state and publish copied
+snapshots only when their payload or status changes; unchanged publication
+does not advance the model revision.
 
 ## Components
 
 | Learner | Observations consumed | Update timing | Incremental | Consumers |
 |---|---|---|---|---|
-| `TrailLearner` | Pose and task boundaries | Appends each pose beyond the configured spacing; starts a trace for a new task | Yes | `TrailerLinear`, `TrailerRotation`, trail planner |
-| `ConveyorLearner` | Pose and selected action | Adds or reinforces a directed segment after a completed forward traversal | Yes | `ConveyLinear`, `ConveyRotation`, conveyor-cost planners |
-| `RegionLearner` | Complete pose/scan episodes; clustering currently uses pose samples | Clusters accumulated observations on rebuild | No | region-leaver advisors, skeleton planner |
-| `DoorExitLearner` | Pose and laser ranges | Infers bounded scan discontinuities on rebuild | No | enter advisors, region and skeleton planners |
-| `HallwayLearner` | Pose and nonempty laser scan | Extracts sufficiently long scan-supported traversed centerlines on rebuild | No | hallway advisors, `hallwayskel`, `skeletonhall` |
+| `TrailLearner` | Pose and task boundaries | After completed action; incrementally appends spaced poses | Yes | `TrailerLinear`, `TrailerRotation`, trail planner |
+| `ConveyorLearner` | Pose and selected action | After completed action; adds or reinforces a directed segment | Yes | `ConveyLinear`, `ConveyRotation`, conveyor-cost planners |
+| `RegionLearner` | Complete pose/scan episodes | Every observation; nearby overlap candidates come from a spatial hash | Yes | region-leaver advisors, skeleton planner |
+| `DoorExitLearner` | Pose and laser ranges | End of target | No | enter advisors, region and skeleton planners |
+| `HallwayLearner` | Pose and nonempty laser scan | End of target; orientation and midpoint bins avoid all-pairs comparison | No | hallway advisors, `hallwayskel`, `skeletonhall` |
 | `BarrierLearner` | Pose and laser ranges | Adds deduplicated adjacent obstacle-return segments after every scan | Yes | `AvoidObstacles`, `UnlikelyField`, collision-aware planners |
-| `PassageSkeletonLearner` | Pose, scan, and task boundaries | Simplifies task traces into spaced nodes and edges on rebuild | No | skeleton, hallway-skeleton, and passage planners |
+| `PassageSkeletonLearner` | Pose, scan, and task boundaries | After completed action; stable node IDs and cached connected components | Yes | skeleton, hallway-skeleton, and passage planners |
+| `HighwayLearner` | HLE pose and detected passages | Builds graph and touched grid rows/columns incrementally; publishes at end of initial exploration | Yes | `HighwayPlan`, `Enforcer` |
+| `KnownGridLearner` | Pose and laser visibility | Every observation into sparse construction cells | Yes | `Out`, grid planners |
+| `InclusionGridLearner` | Pose and laser visibility | Every observation into sparse construction cells | Yes | LLE, exploration |
+| `CircumstanceLearner` | Completed selected actions | End of target | No | `Precedent` |
 
 Every learner declares this information at runtime through
 `ObservationContract`. `SpatialLearningCoordinator::inspect()` returns the
@@ -51,14 +63,20 @@ incomplete update never clears the last usable representation, so advisors and
 planners can continue with the last fresh model. Consumers can inspect the
 coordinator when they need to distinguish current from retained data.
 
-Incremental learners publish after each observation. Rebuild-based learners
-are rebuilt explicitly with `rebuild(kind)`, collectively with `rebuildStale()`
-or `rebuildAll()`, and automatically at the coordinator's configured episode
-interval.
+The known and inclusion grids use sparse cells while learning and emit sorted
+sparse snapshots. Legacy consumers are densified only when the coordinator
+projects a snapshot into `domain::SpatialModel`. Highway labels rasterize only
+new path segments and record the affected rows and columns. Skeleton connected
+components are recomputed only after a graph mutation.
+
+Learners are rebuilt explicitly with `rebuild(kind)`, collectively with
+`rebuildStale()` or `rebuildAll()`, and at lifecycle boundaries matching their
+declared schedule.
 
 ## Independent control and serialization
 
-The default coordinator registers one uniquely owned instance of every module:
+The default coordinator registers one uniquely owned instance of all eleven
+modules:
 
 ```cpp
 auto learning = SpatialLearningCoordinator::defaults(10);

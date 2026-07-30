@@ -14,7 +14,8 @@ ConveyorLearner::ConveyorLearner(double minimum_traversal_distance_m)
            true,
            false,
            "accumulate a traversal when the next observation completes it",
-           {"ConveyLinear", "ConveyRotation", "conveyor-cost planners"}}),
+           {"ConveyLinear", "ConveyRotation", "conveyor-cost planners"},
+           UpdateSchedule::AfterCompletedAction}),
       minimum_traversal_distance_m_(minimum_traversal_distance_m) {
   if (!std::isfinite(minimum_traversal_distance_m_) ||
       minimum_traversal_distance_m_ <= 0.0) {
@@ -24,6 +25,7 @@ ConveyorLearner::ConveyorLearner(double minimum_traversal_distance_m)
 }
 
 void ConveyorLearner::onObserve(const NavigationEpisode& episode) {
+  if (!episode.action_completed) return;
   const domain::Point2D current = episode.observation.pose.position;
   // The displacement ending at this observation was caused by the action
   // selected in the preceding episode, not by the action selected now.
