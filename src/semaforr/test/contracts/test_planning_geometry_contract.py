@@ -1,76 +1,47 @@
 import os
 from pathlib import Path
-import re
 
 
 SOURCE_DIR = Path(
     os.environ.get("SEMAFORR_SOURCE_DIR", Path(__file__).resolve().parents[2])
 )
-NAVIGATION_DIR = SOURCE_DIR / "src" / "navigation"
 
 
-def test_path_planner_implementation_is_grouped_by_responsibility():
-    expected = {
-        "PathPlanner.cpp": (
-            "calcPath",
-            "calcOrigPath",
-            "updateNavGraph",
-            "computeNewEdgeCost",
-        ),
-        "PathPlannerCosts.cpp": (
-            "cellCost",
-            "calcPathCost",
-            "estimateCost",
-        ),
-        "PathPlannerQueries.cpp": (
-            "getRemainingPathLength",
-            "getClosestNode",
-            "getClosestNodes",
-        ),
-        "PathPlannerSmoothing.cpp": (
-            "smoothPath",
-            "allWaypointsValid",
-        ),
-    }
-    sources = {
-        filename: (NAVIGATION_DIR / filename).read_text(encoding="utf-8")
-        for filename in expected
-    }
-    for filename, methods in expected.items():
-        for method in methods:
-            definition = re.compile(rf"\bPathPlanner::{method}\s*\(")
-            assert definition.search(sources[filename])
-            for other_filename, source in sources.items():
-                if other_filename != filename:
-                    assert not definition.search(source)
-
-    assert all(len(source.splitlines()) < 1100 for source in sources.values())
+def read(relative):
+    return (SOURCE_DIR / relative).read_text(encoding="utf-8")
 
 
-def test_geometry_uses_value_semantics_and_no_error_macro():
-    header = (
-        SOURCE_DIR / "include" / "semaforr" / "core" / "FORRGeometry.hpp"
-    ).read_text(encoding="utf-8")
+def test_geometry_uses_typed_metric_values_and_one_angle_normalizer():
+    geometry = read("include/semaforr/domain/geometry.hpp")
+    assert "class Distance" in geometry
+    assert "class Angle" in geometry
+    assert "struct Point2D" in geometry
+    assert "struct Segment2D" in geometry
+    assert "struct Circle" in geometry
+    assert "class Polygon" in geometry
+    assert "static double normalize" in geometry
+    assert "* 100" not in geometry
 
-    assert "constexpr double kGeometryTolerance" in header
-    assert "#define ERROR" not in header
-    assert "operator=(const CartesianPoint& other) = default" in header
-    assert "operator=(const Line& other) = default" in header
-    assert "bool is_degenerate() const" in header
+
+def test_graph_storage_is_separate_from_astar_search_state():
+    graph = read("include/semaforr/planning/graph.hpp")
+    astar = read("src/navigation/DomainAStar.cpp")
+    assert "struct GraphEdge" in graph
+    assert "mutable" not in graph
+    assert "std::priority_queue" in astar
+    assert "PathResult" in astar
 
 
-def test_planner_state_and_empty_trails_have_safe_defaults():
-    header = (
-        SOURCE_DIR / "include" / "semaforr" / "navigation" / "PathPlanner.hpp"
-    ).read_text(encoding="utf-8")
+def test_typed_planner_uses_domain_crowd_and_spatial_models():
+    planner = read("include/semaforr/planning/planner.hpp")
+    implementation = read("src/navigation/DomainPlanner.cpp")
+    assert "const domain::SpatialModel*" in planner
+    assert "const domain::CrowdModel*" in planner
+    assert "PlannerObjective" in read("include/semaforr/planning/domain_planner.hpp")
+    assert "socialPenalty" in implementation
+    assert "PathPlanner" not in implementation
 
-    for initialization in (
-        "double pathCost = 0.0",
-        "double origPathCost = 0.0",
-        "FORRConveyors* conveyors = nullptr",
-        "bool objectiveSet = false",
-        "bool pathCalculated = false",
-    ):
-        assert initialization in header
 
-    assert "if (trl[i].empty())" in header
+def test_legacy_geometry_and_planner_are_removed():
+    assert not (SOURCE_DIR / "include/semaforr/core/FORRGeometry.hpp").exists()
+    assert not (SOURCE_DIR / "include/semaforr/navigation/PathPlanner.hpp").exists()

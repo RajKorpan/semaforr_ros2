@@ -2,13 +2,11 @@
 #define SEMAFORR_ROS_SOCIAL_OBSERVATION_BUFFER_HPP
 
 #include <optional>
+#include <rclcpp/time.hpp>
+#include <semaforr/domain/social.hpp>
+#include <social_context_msgs/msg/social_observation.hpp>
 #include <string>
 #include <string_view>
-
-#include <rclcpp/time.hpp>
-#include <social_context_msgs/msg/social_observation.hpp>
-
-#include <semaforr/domain/social.hpp>
 
 namespace semaforr::ros {
 
@@ -28,19 +26,18 @@ enum class SocialObservationStatus {
 };
 
 class SocialObservationBuffer {
-public:
+ public:
   explicit SocialObservationBuffer(
-    SocialObservationConfiguration configuration);
+      SocialObservationConfiguration configuration);
 
-  bool accept(
-    const social_context_msgs::msg::SocialObservation& message,
-    const rclcpp::Time& received_at);
+  bool accept(const social_context_msgs::msg::SocialObservation& message,
+              const rclcpp::Time& received_at);
   SocialObservationStatus status(const rclcpp::Time& now) const;
   std::optional<domain::CrowdObservation> snapshot(
-    const rclcpp::Time& now) const;
+      const rclcpp::Time& now) const;
   void clear() noexcept;
 
-private:
+ private:
   SocialObservationConfiguration configuration_;
   std::optional<domain::CrowdObservation> observation_;
   std::optional<rclcpp::Time> received_at_;

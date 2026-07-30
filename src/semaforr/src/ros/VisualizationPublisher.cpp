@@ -1,32 +1,27 @@
-#include <semaforr/ros/visualization_publisher.hpp>
-
+#include <cmath>
 #include <cstdint>
+#include <geometry_msgs/msg/point_stamped.hpp>
+#include <geometry_msgs/msg/pose_stamped.hpp>
+#include <nav_msgs/msg/path.hpp>
 #include <optional>
-#include <string>
-#include <utility>
-
 #include <rclcpp/rclcpp.hpp>
+#include <semaforr/ros/visualization_publisher.hpp>
 #include <semaforr_msgs/msg/decision_record.hpp>
 #include <social_context_msgs/msg/crowd_field.hpp>
-
-#include <semaforr/decision/Controller.hpp>
-#include <semaforr/ros/Visualizer.hpp>
+#include <string>
+#include <utility>
 
 namespace semaforr::ros {
 namespace {
 
-builtin_interfaces::msg::Time toRosTime(std::int64_t nanoseconds)
-{
+builtin_interfaces::msg::Time toRosTime(std::int64_t nanoseconds) {
   builtin_interfaces::msg::Time result;
   result.sec = static_cast<std::int32_t>(nanoseconds / 1'000'000'000LL);
-  result.nanosec = static_cast<std::uint32_t>(
-    nanoseconds % 1'000'000'000LL);
+  result.nanosec = static_cast<std::uint32_t>(nanoseconds % 1'000'000'000LL);
   return result;
 }
 
-semaforr_msgs::msg::DecisionAction toMessage(
-  const domain::Action& source)
-{
+semaforr_msgs::msg::DecisionAction toMessage(const domain::Action& source) {
   semaforr_msgs::msg::DecisionAction result;
   switch (source.type()) {
     case domain::ActionType::Forward:
@@ -42,13 +37,11 @@ semaforr_msgs::msg::DecisionAction toMessage(
       result.type = semaforr_msgs::msg::DecisionAction::PAUSE;
       break;
   }
-  result.magnitude_index =
-    static_cast<std::uint32_t>(source.magnitude_index());
+  result.magnitude_index = static_cast<std::uint32_t>(source.magnitude_index());
   return result;
 }
 
-std::uint8_t toMessage(decision::DecisionTier tier)
-{
+std::uint8_t toMessage(decision::DecisionTier tier) {
   switch (tier) {
     case decision::DecisionTier::TierOne:
       return semaforr_msgs::msg::DecisionRecord::TIER_ONE;
@@ -66,8 +59,7 @@ std::uint8_t toMessage(decision::DecisionTier tier)
   return semaforr_msgs::msg::DecisionRecord::SAFE_STOP;
 }
 
-std::uint8_t toMessage(decision::DecisionSource source)
-{
+std::uint8_t toMessage(decision::DecisionSource source) {
   switch (source) {
     case decision::DecisionSource::MandatoryRule:
       return semaforr_msgs::msg::DecisionRecord::SOURCE_MANDATORY_RULE;
@@ -85,8 +77,7 @@ std::uint8_t toMessage(decision::DecisionSource source)
   return semaforr_msgs::msg::DecisionRecord::SOURCE_SAFE_STOP;
 }
 
-std::uint8_t toMessage(decision::ActionOutcome outcome)
-{
+std::uint8_t toMessage(decision::ActionOutcome outcome) {
   switch (outcome) {
     case decision::ActionOutcome::Pending:
       return semaforr_msgs::msg::DecisionRecord::OUTCOME_PENDING;
@@ -109,10 +100,8 @@ std::uint8_t toMessage(decision::ActionOutcome outcome)
 }
 
 semaforr_msgs::msg::DecisionRecord toMessage(
-  const decision::DecisionResult& source,
-  const rclcpp::Time& stamp,
-  const std::string& frame_id)
-{
+    const decision::DecisionResult& source, const rclcpp::Time& stamp,
+    const std::string& frame_id) {
   semaforr_msgs::msg::DecisionRecord result;
   result.header.stamp = stamp;
   result.header.frame_id = frame_id;
@@ -173,85 +162,79 @@ semaforr_msgs::msg::DecisionRecord toMessage(
 }  // namespace
 
 class VisualizationPublisher::Impl {
-public:
-  Impl(rclcpp::Node& node, Controller& controller)
-    : node_(node),
-      controller_(controller),
-      frame_id_(node.get_parameter("frames.global").as_string()),
-      visualizer_(node, controller),
-      crowd_field_publisher_(
-        node.create_publisher<social_context_msgs::msg::CrowdField>(
-          node.get_parameter("topics.crowd_field").as_string(),
-          rclcpp::QoS(1).transient_local().reliable())),
-      decision_publisher_(
-        node.create_publisher<semaforr_msgs::msg::DecisionRecord>(
-          node.get_parameter("topics.decision_records").as_string(),
-          rclcpp::QoS(10).reliable()))
-  {
-  }
+ public:
+  Impl(rclcpp::Node& node, const domain::WorldModel& world)
+      : node_(node),
+        world_(world),
+        frame_id_(node.get_parameter("frames.global").as_string()),
+        crowd_field_publisher_(
+            node.create_publisher<social_context_msgs::msg::CrowdField>(
+                node.get_parameter("topics.crowd_field").as_string(),
+                rclcpp::QoS(1).transient_local().reliable())),
+        decision_publisher_(
+            node.create_publisher<semaforr_msgs::msg::DecisionRecord>(
+                node.get_parameter("topics.decision_records").as_string(),
+                rclcpp::QoS(10).reliable())),
+        target_publisher_(
+            node.create_publisher<geometry_msgs::msg::PointStamped>(
+                "target_point", rclcpp::QoS(1).transient_local().reliable())),
+        waypoint_publisher_(
+            node.create_publisher<geometry_msgs::msg::PointStamped>(
+                "waypoint", rclcpp::QoS(1).transient_local().reliable())),
+        plan_publisher_(node.create_publisher<nav_msgs::msg::Path>(
+            "plan", rclcpp::QoS(1).transient_local().reliable())),
+        pose_publisher_(node.create_publisher<geometry_msgs::msg::PoseStamped>(
+            "decision_pose", rclcpp::QoS(10).reliable())) {}
 
-  void publishDecision(const decision::DecisionResult& result)
-  {
-    decision_publisher_->publish(
-      toMessage(result, node_.now(), frame_id_));
+  void publishDecision(const decision::DecisionResult& result) {
+    decision_publisher_->publish(toMessage(result, node_.now(), frame_id_));
     if (result.task &&
-        (!last_task_index_ ||
-         *last_task_index_ != result.task->task_index)) {
-      RCLCPP_INFO(
-        node_.get_logger(),
-        "Task %lu active: target=(%.3f, %.3f)",
-        static_cast<unsigned long>(result.task->task_index),
-        result.task->target.x_m,
-        result.task->target.y_m);
+        (!last_task_index_ || *last_task_index_ != result.task->task_index)) {
+      RCLCPP_INFO(node_.get_logger(), "Task %lu active: target=(%.3f, %.3f)",
+                  static_cast<unsigned long>(result.task->task_index),
+                  result.task->target.x_m, result.task->target.y_m);
       last_task_index_ = result.task->task_index;
     }
     if (result.selected_policy == "get_out" ||
         result.selected_policy == "find_a_way") {
-      RCLCPP_WARN(
-        node_.get_logger(),
-        "Recovery decision %lu selected policy=%s",
-        static_cast<unsigned long>(result.sequence),
-        result.selected_policy.c_str());
+      RCLCPP_WARN(node_.get_logger(),
+                  "Recovery decision %lu selected policy=%s",
+                  static_cast<unsigned long>(result.sequence),
+                  result.selected_policy.c_str());
     }
     for (const auto& contribution : result.contributions) {
-      RCLCPP_DEBUG(
-        node_.get_logger(),
-        "decision=%lu advisor=%s action=%u:%zu raw=%.6f weight=%.6f weighted=%.6f",
-        static_cast<unsigned long>(result.sequence),
-        contribution.advisor.c_str(),
-        static_cast<unsigned>(contribution.action.type()),
-        contribution.action.magnitude_index(),
-        contribution.raw_score,
-        contribution.weight,
-        contribution.weighted_score);
+      RCLCPP_DEBUG(node_.get_logger(),
+                   "decision=%lu advisor=%s action=%u:%zu raw=%.6f weight=%.6f "
+                   "weighted=%.6f",
+                   static_cast<unsigned long>(result.sequence),
+                   contribution.advisor.c_str(),
+                   static_cast<unsigned>(contribution.action.type()),
+                   contribution.action.magnitude_index(),
+                   contribution.raw_score, contribution.weight,
+                   contribution.weighted_score);
     }
     const std::string planner = result.planner.value_or("none");
-    RCLCPP_INFO(
-      node_.get_logger(),
-      "Decision %lu: tier=%s policy=%s planner=%s action=%u:%zu "
-      "latency=%.6fs outcome=%s duration=%.3fs",
-      static_cast<unsigned long>(result.sequence),
-      std::string(decision::toString(result.tier)).c_str(),
-      result.selected_policy.c_str(),
-      planner.c_str(),
-      static_cast<unsigned>(result.action.type()),
-      result.action.magnitude_index(),
-      result.decision_latency_s,
-      std::string(decision::toString(result.action_outcome)).c_str(),
-      result.action_duration_s);
+    RCLCPP_INFO(node_.get_logger(),
+                "Decision %lu: tier=%s policy=%s planner=%s action=%u:%zu "
+                "latency=%.6fs outcome=%s duration=%.3fs",
+                static_cast<unsigned long>(result.sequence),
+                std::string(decision::toString(result.tier)).c_str(),
+                result.selected_policy.c_str(), planner.c_str(),
+                static_cast<unsigned>(result.action.type()),
+                result.action.magnitude_index(), result.decision_latency_s,
+                std::string(decision::toString(result.action_outcome)).c_str(),
+                result.action_duration_s);
     if (result.action_outcome != decision::ActionOutcome::Completed) {
       RCLCPP_WARN(
-        node_.get_logger(),
-        "Decision %lu action ended with %s: %s",
-        static_cast<unsigned long>(result.sequence),
-        std::string(decision::toString(result.action_outcome)).c_str(),
-        result.outcome_detail.c_str());
+          node_.get_logger(), "Decision %lu action ended with %s: %s",
+          static_cast<unsigned long>(result.sequence),
+          std::string(decision::toString(result.action_outcome)).c_str(),
+          result.outcome_detail.c_str());
     }
   }
 
-  void publishCrowdField()
-  {
-    const auto& snapshot = controller_.getCrowdModel().learned();
+  void publishCrowdField() {
+    const auto& snapshot = world_.crowd.learned();
     if (!snapshot.available() || snapshot.version == last_crowd_version_) {
       return;
     }
@@ -263,8 +246,7 @@ public:
     message.resolution_m = snapshot.geometry.resolution_m;
     message.origin_x_m = snapshot.geometry.origin_x_m;
     message.origin_y_m = snapshot.geometry.origin_y_m;
-    message.columns =
-      static_cast<std::uint32_t>(snapshot.geometry.columns());
+    message.columns = static_cast<std::uint32_t>(snapshot.geometry.columns());
     message.rows = static_cast<std::uint32_t>(snapshot.geometry.rows());
     message.estimator = snapshot.estimator;
     message.version = snapshot.version;
@@ -286,40 +268,82 @@ public:
     last_crowd_version_ = snapshot.version;
   }
 
+  void publishSnapshot() {
+    const rclcpp::Time stamp = node_.now();
+    geometry_msgs::msg::PoseStamped pose;
+    pose.header.stamp = stamp;
+    pose.header.frame_id = frame_id_;
+    pose.pose.position.x = world_.robot.pose.position.x_m;
+    pose.pose.position.y = world_.robot.pose.position.y_m;
+    const double half_heading = world_.robot.pose.heading.radians() * 0.5;
+    pose.pose.orientation.z = std::sin(half_heading);
+    pose.pose.orientation.w = std::cos(half_heading);
+    pose_publisher_->publish(pose);
+
+    if (world_.mission.active()) {
+      geometry_msgs::msg::PointStamped target;
+      target.header = pose.header;
+      target.point.x = world_.mission.active()->target.x_m;
+      target.point.y = world_.mission.active()->target.y_m;
+      target_publisher_->publish(target);
+
+      if (const auto waypoint = world_.mission.active()->waypoint()) {
+        geometry_msgs::msg::PointStamped message;
+        message.header = pose.header;
+        message.point.x = waypoint->x_m;
+        message.point.y = waypoint->y_m;
+        waypoint_publisher_->publish(message);
+      }
+
+      nav_msgs::msg::Path path;
+      path.header = pose.header;
+      for (std::size_t index = world_.mission.active()->waypoint_index;
+           index < world_.mission.active()->plan.size(); ++index) {
+        geometry_msgs::msg::PoseStamped waypoint_pose;
+        waypoint_pose.header = path.header;
+        waypoint_pose.pose.position.x =
+            world_.mission.active()->plan[index].x_m;
+        waypoint_pose.pose.position.y =
+            world_.mission.active()->plan[index].y_m;
+        waypoint_pose.pose.orientation.w = 1.0;
+        path.poses.push_back(std::move(waypoint_pose));
+      }
+      plan_publisher_->publish(path);
+    }
+    publishCrowdField();
+  }
+
   rclcpp::Node& node_;
-  Controller& controller_;
+  const domain::WorldModel& world_;
   std::string frame_id_;
-  Visualizer visualizer_;
   rclcpp::Publisher<social_context_msgs::msg::CrowdField>::SharedPtr
-    crowd_field_publisher_;
+      crowd_field_publisher_;
   rclcpp::Publisher<semaforr_msgs::msg::DecisionRecord>::SharedPtr
-    decision_publisher_;
+      decision_publisher_;
+  rclcpp::Publisher<geometry_msgs::msg::PointStamped>::SharedPtr
+      target_publisher_;
+  rclcpp::Publisher<geometry_msgs::msg::PointStamped>::SharedPtr
+      waypoint_publisher_;
+  rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr plan_publisher_;
+  rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr pose_publisher_;
   std::uint64_t last_crowd_version_{0U};
   std::optional<std::uint64_t> last_task_index_;
 };
 
-VisualizationPublisher::VisualizationPublisher(
-  rclcpp::Node& node,
-  Controller& controller)
-  : impl_(std::make_unique<Impl>(node, controller))
-{
-}
+VisualizationPublisher::VisualizationPublisher(rclcpp::Node& node,
+                                               const domain::WorldModel& world)
+    : impl_(std::make_unique<Impl>(node, world)) {}
 
 VisualizationPublisher::~VisualizationPublisher() = default;
 VisualizationPublisher::VisualizationPublisher(
-  VisualizationPublisher&&) noexcept = default;
+    VisualizationPublisher&&) noexcept = default;
 VisualizationPublisher& VisualizationPublisher::operator=(
-  VisualizationPublisher&&) noexcept = default;
+    VisualizationPublisher&&) noexcept = default;
 
-void VisualizationPublisher::publishSnapshot()
-{
-  impl_->visualizer_.publish();
-  impl_->publishCrowdField();
-}
+void VisualizationPublisher::publishSnapshot() { impl_->publishSnapshot(); }
 
 void VisualizationPublisher::publishDecision(
-  const decision::DecisionResult& result)
-{
+    const decision::DecisionResult& result) {
   impl_->publishDecision(result);
 }
 

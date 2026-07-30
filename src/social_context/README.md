@@ -35,10 +35,12 @@ ros2 run social_context social_context_hunav
 
 ## Node
 
-- **social_context_hunav**:  WIP - WILL BE CHANGED
-	- Subscribes to: `/human_states` topic from HuNavSim (Agents message)  
-	- Runs: Deep learning prediction function  
-	- Publishes: Predicted pose (PoseStamped message)
+- **social_context_hunav**
+  - Subscribes to `/human_states` (`hunav_msgs/msg/Agents`).
+  - Publishes the canonical
+    `social_context_msgs/msg/SocialObservation`.
+  - Uses the top-level `hunav_msgs` interface package; no private message copy
+    is bundled in this package.
 
 ## Virtual Environment & Dependencies
 

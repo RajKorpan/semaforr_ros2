@@ -25,7 +25,7 @@ def test_ros2_package_installs_a_validated_default_configuration():
     assert 'crowd_field' in config.read_text(encoding='utf-8')
 
 
-def test_ros1_learner_variants_are_explicitly_quarantined():
+def test_ros1_learner_variants_are_removed_from_the_active_tree():
     legacy_variants = (
         'crowd_bayes_cusum',
         'crowd_behavior',
@@ -35,7 +35,7 @@ def test_ros1_learner_variants_are_explicitly_quarantined():
         'crowd_learner',
     )
     assert all(
-        (PACKAGE_ROOT / variant / 'COLCON_IGNORE').is_file()
+        not any(path.is_file() for path in (PACKAGE_ROOT / variant).rglob('*'))
         for variant in legacy_variants
     )
 

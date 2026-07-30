@@ -5,20 +5,15 @@
 #include <memory>
 #include <optional>
 #include <random>
-#include <span>
-#include <vector>
-
 #include <semaforr/decision/advisor.hpp>
 #include <semaforr/decision/decision_result.hpp>
 #include <semaforr/decision/rules.hpp>
+#include <span>
+#include <vector>
 
 namespace semaforr::decision {
 
-enum class UnscoredActionPolicy {
-  Exclude,
-  Zero,
-  Baseline
-};
+enum class UnscoredActionPolicy { Exclude, Zero, Baseline };
 
 struct ArbitrationConfiguration {
   double tie_tolerance{1.0e-9};
@@ -29,18 +24,17 @@ struct ArbitrationConfiguration {
 };
 
 class DecisionCoordinator {
-public:
+ public:
   explicit DecisionCoordinator(ArbitrationConfiguration configuration = {});
 
   void addMandatoryRule(std::unique_ptr<MandatoryRule> rule);
   void addVetoRule(std::unique_ptr<VetoRule> rule);
   void addAdvisor(std::unique_ptr<Advisor> advisor);
 
-  DecisionResult decide(
-    const DecisionContext& context,
-    std::span<const domain::Action> candidates);
+  DecisionResult decide(const DecisionContext& context,
+                        std::span<const domain::Action> candidates);
 
-private:
+ private:
   ArbitrationConfiguration configuration_;
   std::mt19937 random_;
   std::vector<std::unique_ptr<MandatoryRule>> mandatory_rules_;

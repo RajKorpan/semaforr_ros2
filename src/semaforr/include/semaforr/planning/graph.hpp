@@ -2,10 +2,9 @@
 #define SEMAFORR_PLANNING_GRAPH_HPP
 
 #include <cstddef>
+#include <semaforr/domain/geometry.hpp>
 #include <stdexcept>
 #include <vector>
-
-#include <semaforr/domain/geometry.hpp>
 
 namespace semaforr::planning {
 
@@ -16,8 +15,7 @@ struct CostComponents {
   double crowd_penalty{0.0};
   double risk_penalty{0.0};
 
-  double total() const noexcept
-  {
+  double total() const noexcept {
     return distance_m + crowd_penalty + risk_penalty;
   }
 };
@@ -28,22 +26,16 @@ struct GraphEdge {
 };
 
 class Graph {
-public:
+ public:
   VertexId addVertex(domain::Point2D position);
-  void addDirectedEdge(
-    VertexId source,
-    VertexId target,
-    CostComponents cost);
-  void addUndirectedEdge(
-    VertexId first,
-    VertexId second,
-    CostComponents cost);
+  void addDirectedEdge(VertexId source, VertexId target, CostComponents cost);
+  void addUndirectedEdge(VertexId first, VertexId second, CostComponents cost);
 
   const domain::Point2D& position(VertexId vertex) const;
   const std::vector<GraphEdge>& edges(VertexId vertex) const;
   std::size_t size() const noexcept { return positions_.size(); }
 
-private:
+ private:
   void validateVertex(VertexId vertex) const;
   static void validateCost(const CostComponents& cost);
 

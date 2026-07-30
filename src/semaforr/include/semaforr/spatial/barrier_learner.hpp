@@ -6,10 +6,10 @@
 namespace semaforr::spatial {
 
 class BarrierLearner final : public SpatialLearnerBase {
-public:
+ public:
   explicit BarrierLearner(double maximum_segment_length_m = 0.5);
 
-private:
+ private:
   void onObserve(const NavigationEpisode& episode) override;
   void onRebuild() override;
 

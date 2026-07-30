@@ -6,10 +6,10 @@
 namespace semaforr::spatial {
 
 class PassageSkeletonLearner final : public SpatialLearnerBase {
-public:
+ public:
   explicit PassageSkeletonLearner(double minimum_node_spacing_m = 0.5);
 
-private:
+ private:
   void onObserve(const NavigationEpisode& episode) override;
   void onRebuild() override;
 

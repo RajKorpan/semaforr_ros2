@@ -7,88 +7,38 @@ SOURCE_DIR = Path(
     os.environ.get("SEMAFORR_SOURCE_DIR", Path(__file__).resolve().parents[2])
 )
 
-DOMAIN_HEADER_AREAS = (
-    "config",
-    "core",
-    "domain",
-    "decision",
-    "exploration",
-    "navigation",
-    "spatial",
-    "vendor",
-)
-DOMAIN_SOURCE_AREAS = (
-    "config",
-    "core",
-    "decision",
-    "navigation",
-    "spatial",
-    "vendor",
-)
-ROS_TOKENS = (
-    "rclcpp::",
-    "geometry_msgs::",
-    "sensor_msgs::",
-    "nav_msgs::",
-    "visualization_msgs::",
-    "std_msgs::",
-    "tf2::",
-    "semaforr::msg::",
-)
-ROS_INCLUDE_PATTERN = re.compile(
-    r"#\s*include\s*[<\"]"
-    r"(?:rclcpp|geometry_msgs|sensor_msgs|nav_msgs|visualization_msgs|"
-    r"std_msgs|tf2|semaforr/msg)"
+ROS_PATTERN = re.compile(
+    r"(#\s*include\s*[<\"](?:rclcpp|geometry_msgs|sensor_msgs|nav_msgs|"
+    r"visualization_msgs|std_msgs|tf2|semaforr_msgs|social_context_msgs)|"
+    r"\b(?:rclcpp|geometry_msgs|sensor_msgs|nav_msgs|visualization_msgs|"
+    r"std_msgs|tf2|semaforr_msgs|social_context_msgs)::)"
 )
 
 
-def without_comments(source):
-    source = re.sub(r"/\*.*?\*/", "", source, flags=re.DOTALL)
-    return "\n".join(line.split("//", 1)[0] for line in source.splitlines())
-
-
-def domain_files():
-    include_root = SOURCE_DIR / "include" / "semaforr"
-    source_root = SOURCE_DIR / "src"
-    for area in DOMAIN_HEADER_AREAS:
-        yield from (include_root / area).rglob("*.hpp")
-    for area in DOMAIN_SOURCE_AREAS:
-        yield from (source_root / area).rglob("*.cpp")
-
-
-def test_domain_code_has_no_ros_dependencies():
+def test_non_ros_components_have_no_ros_dependencies():
     violations = []
-    for path in domain_files():
-        source = without_comments(path.read_text(encoding="utf-8"))
-        if ROS_INCLUDE_PATTERN.search(source):
-            violations.append(f"{path}: ROS include")
-        for token in ROS_TOKENS:
-            if token in source:
-                violations.append(f"{path}: {token}")
+    roots = [
+        SOURCE_DIR / "include" / "semaforr" / area
+        for area in ("config", "domain", "decision", "planning", "social", "spatial")
+    ] + [
+        SOURCE_DIR / "src" / area
+        for area in ("config", "domain", "decision", "navigation", "social", "spatial")
+    ]
+    for root in roots:
+        for path in root.rglob("*"):
+            if path.suffix not in {".hpp", ".cpp"}:
+                continue
+            if ROS_PATTERN.search(path.read_text(encoding="utf-8")):
+                violations.append(path.relative_to(SOURCE_DIR).as_posix())
+    assert not violations
 
-    assert not violations, "\n".join(violations)
 
-
-def test_domain_target_has_no_ros_linkage():
-    cmake = (SOURCE_DIR / "CMakeLists.txt").read_text(encoding="utf-8")
-    target = re.search(
-        r"add_library\(semaforr_domain SHARED.*?"
-        r"add_library\(semaforr_core INTERFACE\)",
-        cmake,
-        re.DOTALL,
+def test_ros_messages_are_converted_only_in_ros_adapter_layer():
+    non_ros = "\n".join(
+        path.read_text(encoding="utf-8")
+        for root in (SOURCE_DIR / "include", SOURCE_DIR / "src")
+        for path in root.rglob("*")
+        if path.suffix in {".hpp", ".cpp"} and "/ros/" not in path.as_posix()
     )
-
-    assert target is not None
-    target_definition = target.group(0)
-    assert "ament_target_dependencies(semaforr_domain" not in target_definition
-    assert "cpp_typesupport_target" not in target_definition
-    for dependency in (
-        "geometry_msgs",
-        "nav_msgs",
-        "rclcpp",
-        "sensor_msgs",
-        "std_msgs",
-        "tf2",
-        "visualization_msgs",
-    ):
-        assert dependency not in target_definition
+    assert "social_context_msgs::msg::SocialObservation" not in non_ros
+    assert "sensor_msgs::msg::LaserScan" not in non_ros

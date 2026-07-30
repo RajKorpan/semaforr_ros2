@@ -71,87 +71,23 @@ find_package(tf2_geometry_msgs REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(visualization_msgs REQUIRED)
 
-# Preserve the legacy translation-unit order while known undefined-behavior
-# findings are addressed. Phase 2 changes paths, not link ordering.
-set(SEMAFORR_CORE_DOMAIN_SOURCES
+set(SEMAFORR_DOMAIN_SOURCES
   src/config/Configuration.cpp
-  src/core/FORRAction.cpp
-  src/core/FORRGeometry.cpp
-  src/core/Position.cpp
   src/domain/CrowdModel.cpp
   src/domain/MotionModel.cpp
   src/decision/DecisionResult.cpp
-  src/decision/LearnedCrowdAdvisor.cpp
-  src/decision/SocialAdvisorRegistry.cpp
   src/social/CrowdFieldLearner.cpp
 )
 
-set(SEMAFORR_DECISION_SOURCES
-  src/decision/AgentState.cpp
-  src/decision/Arbitration.cpp
+set(SEMAFORR_NAVIGATION_SOURCES
   src/decision/MissionManager.cpp
   src/decision/NavigationEngine.cpp
-  src/decision/ObstacleVetoRule.cpp
-  src/decision/TierOneDecision.cpp
-  src/decision/TierTwoDecision.cpp
-  src/decision/TierThreeDecision.cpp
-  src/decision/Tier1Advisor.cpp
-  src/decision/Tier3Advisor.cpp
-)
-
-set(SEMAFORR_SPATIAL_SOURCES
-  src/spatial/FORRBarriers.cpp
-  src/spatial/FORRConveyors.cpp
-  src/spatial/FORRHallways.cpp
-  src/spatial/FORRTrails.cpp
-)
-
-set(SEMAFORR_PLANNING_SOURCES
-  src/navigation/astar.cpp
-  src/navigation/Graph.cpp
-  src/navigation/Map.cpp
-  src/navigation/PathPlanner.cpp
-  src/navigation/PathPlannerCosts.cpp
-  src/navigation/PathPlannerQueries.cpp
-  src/navigation/PathPlannerSmoothing.cpp
-)
-
-set(SEMAFORR_ENGINE_SOURCES
-  src/decision/Controller.cpp
-  src/decision/ControllerCrowd.cpp
-  src/decision/ControllerMission.cpp
-  src/decision/ControllerLearning.cpp
-  src/decision/ControllerDecision.cpp
-  src/decision/ControllerPlanning.cpp
-)
-
-if(SEMAFORR_STRICT_MODERN_CODE)
-  if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
-    set_source_files_properties(
-      src/domain/MotionModel.cpp
-      src/decision/ObstacleVetoRule.cpp
-      PROPERTIES COMPILE_OPTIONS "-Werror"
-    )
-  elseif(MSVC)
-    set_source_files_properties(
-      src/domain/MotionModel.cpp
-      src/decision/ObstacleVetoRule.cpp
-      PROPERTIES COMPILE_OPTIONS "/WX"
-    )
-  endif()
-endif()
-
-set(SEMAFORR_DOMAIN_SOURCES
-  ${SEMAFORR_CORE_DOMAIN_SOURCES}
-  ${SEMAFORR_DECISION_SOURCES}
-  ${SEMAFORR_SPATIAL_SOURCES}
-  ${SEMAFORR_PLANNING_SOURCES}
-  ${SEMAFORR_ENGINE_SOURCES}
 )
 
 add_library(semaforr_planning SHARED
   src/navigation/DomainAStar.cpp
   src/navigation/DomainGraph.cpp
+  src/navigation/DomainPlanner.cpp
   src/navigation/MapParser.cpp
   src/navigation/PlanningCoordinator.cpp
 )
@@ -167,6 +103,10 @@ semaforr_apply_strict_warnings(semaforr_planning)
 
 add_library(semaforr_advisors SHARED
   src/decision/DecisionCoordinator.cpp
+  src/decision/LearnedCrowdAdvisor.cpp
+  src/decision/NavigationAdvisor.cpp
+  src/decision/ObstacleVetoRule.cpp
+  src/decision/SocialAdvisorRegistry.cpp
   src/decision/SocialNavigationAdvisor.cpp
 )
 set_target_properties(semaforr_advisors PROPERTIES EXPORT_NAME advisors)
@@ -209,22 +149,36 @@ target_include_directories(semaforr_domain
     "$<INSTALL_INTERFACE:include>"
 )
 semaforr_apply_project_options(semaforr_domain)
-target_link_libraries(
-  semaforr_domain
-  PUBLIC semaforr_planning semaforr_advisors semaforr_spatial)
+semaforr_apply_strict_warnings(semaforr_domain)
 
-# Preserve the Phase 1 target name for downstream consumers while directing
-# new code to the explicit ROS-independent domain target.
-add_library(semaforr_core INTERFACE)
-set_target_properties(semaforr_core PROPERTIES EXPORT_NAME core)
-add_library(semaforr::core ALIAS semaforr_core)
-target_link_libraries(semaforr_core INTERFACE semaforr_domain)
+target_link_libraries(semaforr_planning PUBLIC semaforr_domain)
+target_link_libraries(semaforr_advisors PUBLIC semaforr_domain)
+target_link_libraries(semaforr_spatial PUBLIC semaforr_domain)
+
+add_library(semaforr_navigation SHARED ${SEMAFORR_NAVIGATION_SOURCES})
+set_target_properties(semaforr_navigation PROPERTIES EXPORT_NAME navigation)
+add_library(semaforr::navigation ALIAS semaforr_navigation)
+target_include_directories(semaforr_navigation
+  PUBLIC
+    "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>"
+    "$<INSTALL_INTERFACE:include>"
+)
+target_link_libraries(
+  semaforr_navigation
+  PUBLIC
+    semaforr_domain
+    semaforr_planning
+    semaforr_advisors
+    semaforr_spatial
+)
+semaforr_apply_project_options(semaforr_navigation)
+semaforr_apply_strict_warnings(semaforr_navigation)
 
 add_library(semaforr_ros_adapters SHARED
   src/ros/CommandExecutor.cpp
-    src/ros/MessageAdapters.cpp
-    src/ros/NavigationEngineAdapter.cpp
-    src/ros/ParameterConfiguration.cpp
+  src/ros/MessageAdapters.cpp
+  src/ros/NavigationEngineAdapter.cpp
+  src/ros/ParameterConfiguration.cpp
   src/ros/SemaFORRNode.cpp
   src/ros/SensorSynchronizer.cpp
   src/ros/SocialObservationBuffer.cpp
@@ -238,7 +192,7 @@ target_include_directories(semaforr_ros_adapters
     "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>"
     "$<INSTALL_INTERFACE:include>"
 )
-target_link_libraries(semaforr_ros_adapters semaforr_domain)
+target_link_libraries(semaforr_ros_adapters semaforr_navigation)
 ament_target_dependencies(semaforr_ros_adapters
   geometry_msgs
   nav_msgs
@@ -253,24 +207,19 @@ ament_target_dependencies(semaforr_ros_adapters
   visualization_msgs
 )
 semaforr_apply_project_options(semaforr_ros_adapters)
-
-add_library(semaforr_ros INTERFACE)
-set_target_properties(semaforr_ros PROPERTIES EXPORT_NAME ros)
-add_library(semaforr::ros ALIAS semaforr_ros)
-target_link_libraries(
-  semaforr_ros
-  INTERFACE semaforr_ros_adapters semaforr_advisors semaforr_planning)
+semaforr_apply_strict_warnings(semaforr_ros_adapters)
 
 add_executable(semaforr_node src/ros/semaforr_node.cpp)
 target_link_libraries(
   semaforr_node
-  semaforr_domain
+  semaforr_navigation
   semaforr_ros_adapters
 )
 ament_target_dependencies(semaforr_node
   rclcpp
 )
 semaforr_apply_project_options(semaforr_node)
+semaforr_apply_strict_warnings(semaforr_node)
 
 install(
   TARGETS
@@ -278,18 +227,13 @@ install(
     semaforr_planning
     semaforr_advisors
     semaforr_spatial
+    semaforr_navigation
     semaforr_ros_adapters
   EXPORT export_${PROJECT_NAME}
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin
   INCLUDES DESTINATION include
-)
-install(
-  TARGETS
-    semaforr_core
-    semaforr_ros
-  EXPORT export_${PROJECT_NAME}
 )
 install(
   TARGETS semaforr_node
@@ -325,59 +269,6 @@ if(BUILD_TESTING)
   find_package(ament_cmake_gtest REQUIRED)
   find_package(ament_cmake_pytest REQUIRED)
 
-  add_executable(semaforr_characterization_test
-    test/unit/characterization_smoke.cpp
-    src/core/FORRAction.cpp
-    src/core/Position.cpp
-  )
-  target_include_directories(semaforr_characterization_test PRIVATE
-    ${PROJECT_SOURCE_DIR}/include
-  )
-  semaforr_apply_project_options(semaforr_characterization_test)
-  add_test(
-    NAME semaforr_characterization_test
-    COMMAND semaforr_characterization_test
-  )
-
-  add_executable(
-    semaforr_domain_model_test
-    test/unit/domain_model_smoke.cpp
-  )
-  target_link_libraries(semaforr_domain_model_test semaforr_domain)
-  semaforr_apply_project_options(semaforr_domain_model_test)
-  add_test(
-    NAME semaforr_domain_model_test
-    COMMAND semaforr_domain_model_test
-  )
-
-  add_executable(
-    semaforr_message_adapters_test
-    test/unit/message_adapters_smoke.cpp
-  )
-  target_link_libraries(
-    semaforr_message_adapters_test
-    semaforr_ros_adapters
-  )
-  semaforr_apply_project_options(semaforr_message_adapters_test)
-  add_test(
-    NAME semaforr_message_adapters_test
-    COMMAND semaforr_message_adapters_test
-  )
-
-  add_executable(
-    semaforr_ownership_model_test
-    test/unit/ownership_model_smoke.cpp
-  )
-  target_link_libraries(semaforr_ownership_model_test semaforr_domain)
-  target_compile_definitions(semaforr_ownership_model_test PRIVATE
-    "SEMAFORR_TEST_SOURCE_DIR=\"${PROJECT_SOURCE_DIR}\""
-  )
-  semaforr_apply_project_options(semaforr_ownership_model_test)
-  add_test(
-    NAME semaforr_ownership_model_test
-    COMMAND semaforr_ownership_model_test
-  )
-
   add_executable(
     semaforr_configuration_test
     test/unit/configuration_smoke.cpp
@@ -392,28 +283,6 @@ if(BUILD_TESTING)
     COMMAND semaforr_configuration_test
   )
 
-  add_executable(
-    semaforr_arbitration_test
-    test/unit/arbitration_test.cpp
-  )
-  target_link_libraries(semaforr_arbitration_test semaforr_domain)
-  semaforr_apply_project_options(semaforr_arbitration_test)
-  add_test(
-    NAME semaforr_arbitration_test
-    COMMAND semaforr_arbitration_test
-  )
-
-  add_executable(
-    semaforr_planning_geometry_test
-    test/unit/planning_geometry_test.cpp
-  )
-  target_link_libraries(semaforr_planning_geometry_test semaforr_domain)
-  semaforr_apply_project_options(semaforr_planning_geometry_test)
-  add_test(
-    NAME semaforr_planning_geometry_test
-    COMMAND semaforr_planning_geometry_test
-  )
-
   ament_add_gtest(
     semaforr_domain_types_test
     test/unit/domain_types_test.cpp
@@ -425,7 +294,7 @@ if(BUILD_TESTING)
     semaforr_decision_coordinator_test
     test/unit/decision_coordinator_test.cpp
   )
-  target_link_libraries(semaforr_decision_coordinator_test semaforr_domain)
+  target_link_libraries(semaforr_decision_coordinator_test semaforr_advisors)
   semaforr_apply_project_options(semaforr_decision_coordinator_test)
 
   ament_add_gtest(
@@ -439,14 +308,14 @@ if(BUILD_TESTING)
     semaforr_domain_planning_test
     test/unit/domain_planning_test.cpp
   )
-  target_link_libraries(semaforr_domain_planning_test semaforr_domain)
+  target_link_libraries(semaforr_domain_planning_test semaforr_planning)
   semaforr_apply_project_options(semaforr_domain_planning_test)
 
   ament_add_gtest(
     semaforr_map_parser_test
     test/unit/map_parser_test.cpp
   )
-  target_link_libraries(semaforr_map_parser_test semaforr_domain)
+  target_link_libraries(semaforr_map_parser_test semaforr_planning)
   semaforr_apply_project_options(semaforr_map_parser_test)
 
   ament_add_gtest(
@@ -454,7 +323,7 @@ if(BUILD_TESTING)
     test/unit/spatial_learning_test.cpp
   )
   target_link_libraries(
-    semaforr_spatial_learning_test semaforr_domain)
+    semaforr_spatial_learning_test semaforr_navigation)
   semaforr_apply_project_options(semaforr_spatial_learning_test)
 
   ament_add_gtest(
@@ -478,7 +347,7 @@ if(BUILD_TESTING)
     test/unit/crowd_model_test.cpp
   )
   target_link_libraries(
-    semaforr_crowd_model_test semaforr_domain)
+    semaforr_crowd_model_test semaforr_advisors semaforr_planning)
   semaforr_apply_project_options(semaforr_crowd_model_test)
 
   ament_add_gtest(
@@ -486,7 +355,7 @@ if(BUILD_TESTING)
     test/unit/navigation_behavior_test.cpp
   )
   target_link_libraries(
-    semaforr_navigation_behavior_test semaforr_domain)
+    semaforr_navigation_behavior_test semaforr_advisors)
   semaforr_apply_project_options(semaforr_navigation_behavior_test)
 
   ament_add_gtest(
@@ -494,7 +363,7 @@ if(BUILD_TESTING)
     test/unit/component_strategy_test.cpp
   )
   target_link_libraries(
-    semaforr_component_strategy_test semaforr_domain)
+    semaforr_component_strategy_test semaforr_navigation)
   semaforr_apply_project_options(semaforr_component_strategy_test)
 
   ament_add_gtest(
@@ -502,7 +371,7 @@ if(BUILD_TESTING)
     test/integration/navigation_scenario_test.cpp
   )
   target_link_libraries(
-    semaforr_navigation_scenario_test semaforr_domain)
+    semaforr_navigation_scenario_test semaforr_navigation)
   semaforr_apply_project_options(semaforr_navigation_scenario_test)
 
   ament_add_pytest_test(semaforr_source_contract_test

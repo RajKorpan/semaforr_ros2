@@ -11,11 +11,11 @@ progress.
 | --- | --- |
 | `SemaFORRNode` | Declares and validates runtime parameters, owns ROS entities, transforms poses, and advances the node state machine |
 | `SensorSynchronizer` | Validates pose/scan frames and values and exposes only fresh, time-coherent observations |
-| `NavigationEngineAdapter` | Isolates the established `Controller` facade and maps selected actions to configured distance/angle targets |
+| `NavigationEngineAdapter` | Owns the ROS-independent engine composition and maps selected actions to configured distance/angle targets |
 | `CommandExecutor` | Executes one discrete action without blocking and returns typed completion or failure status |
 | `VisualizationPublisher` | Translates decision/model snapshots into the established ROS visualization topics |
 
-`NavigationEngineAdapter` is a compatibility boundary. The ROS-independent
+`NavigationEngineAdapter` is a composition boundary. The ROS-independent
 `semaforr::decision::NavigationEngine` remains the target architecture; no ROS
 message type enters that decision interface.
 

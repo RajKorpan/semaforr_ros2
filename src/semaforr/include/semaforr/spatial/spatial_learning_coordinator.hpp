@@ -4,11 +4,10 @@
 #include <cstddef>
 #include <memory>
 #include <optional>
-#include <string>
-#include <vector>
-
 #include <semaforr/domain/world_model.hpp>
 #include <semaforr/spatial/spatial_learner.hpp>
+#include <string>
+#include <vector>
 
 namespace semaforr::spatial {
 
@@ -21,16 +20,14 @@ struct LearnerInspection {
 };
 
 class SpatialLearningCoordinator {
-public:
+ public:
   explicit SpatialLearningCoordinator(
-    std::size_t automatic_rebuild_interval = 10U);
+      std::size_t automatic_rebuild_interval = 10U);
 
   static SpatialLearningCoordinator defaults(
-    std::size_t automatic_rebuild_interval = 10U);
+      std::size_t automatic_rebuild_interval = 10U);
 
-  void addLearner(
-    std::unique_ptr<SpatialLearner> learner,
-    bool enabled = true);
+  void addLearner(std::unique_ptr<SpatialLearner> learner, bool enabled = true);
   void setEnabled(SpatialRepresentation representation, bool enabled);
   bool enabled(SpatialRepresentation representation) const;
 
@@ -40,7 +37,7 @@ public:
   void rebuildAll();
 
   std::optional<SpatialModelUpdate> snapshot(
-    SpatialRepresentation representation) const;
+      SpatialRepresentation representation) const;
   std::vector<SpatialModelUpdate> snapshots() const;
   std::vector<LearnerInspection> inspect() const;
   std::string serialize(SpatialRepresentation representation) const;
@@ -49,7 +46,7 @@ public:
   std::size_t learnerCount() const noexcept { return learners_.size(); }
   std::size_t enabledCount() const noexcept;
 
-private:
+ private:
   struct Entry {
     std::unique_ptr<SpatialLearner> learner;
     bool enabled = true;

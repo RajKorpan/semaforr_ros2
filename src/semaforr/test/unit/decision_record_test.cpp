@@ -9,8 +9,7 @@ using semaforr::decision::DecisionResult;
 using semaforr::decision::DecisionSource;
 using semaforr::decision::DecisionTier;
 
-TEST(DecisionRecord, UsesNamedTierAndOutcomeValues)
-{
+TEST(DecisionRecord, UsesNamedTierAndOutcomeValues) {
   DecisionResult result;
   result.sequence = 42U;
   result.source = DecisionSource::TierThreeAdvisor;
@@ -19,14 +18,11 @@ TEST(DecisionRecord, UsesNamedTierAndOutcomeValues)
   result.action_outcome = ActionOutcome::Completed;
 
   EXPECT_EQ(semaforr::decision::toString(result.tier), "tier_three");
-  EXPECT_EQ(
-    semaforr::decision::toString(result.source), "tier_three_advisor");
-  EXPECT_EQ(
-    semaforr::decision::toString(result.action_outcome), "completed");
+  EXPECT_EQ(semaforr::decision::toString(result.source), "tier_three_advisor");
+  EXPECT_EQ(semaforr::decision::toString(result.action_outcome), "completed");
 }
 
-TEST(DecisionRecord, DefaultsToAnExplainableSafeStop)
-{
+TEST(DecisionRecord, DefaultsToAnExplainableSafeStop) {
   const DecisionResult result;
   EXPECT_EQ(result.source, DecisionSource::SafeStop);
   EXPECT_EQ(result.tier, DecisionTier::SafeStop);

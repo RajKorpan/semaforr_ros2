@@ -2,16 +2,13 @@
 #define SEMAFORR_ROS_SENSOR_SYNCHRONIZER_HPP
 
 #include <cstddef>
+#include <geometry_msgs/msg/pose_stamped.hpp>
 #include <optional>
+#include <rclcpp/time.hpp>
+#include <semaforr/domain/observation.hpp>
+#include <sensor_msgs/msg/laser_scan.hpp>
 #include <string>
 #include <string_view>
-
-#include <geometry_msgs/msg/pose_stamped.hpp>
-#include <rclcpp/time.hpp>
-#include <sensor_msgs/msg/laser_scan.hpp>
-
-#include <semaforr/core/Position.hpp>
-#include <semaforr/domain/SensorTypes.hpp>
 
 namespace semaforr::ros {
 
@@ -37,43 +34,39 @@ enum class SensorStatus {
 };
 
 struct SynchronizedSensors {
-  Position pose{0.0, 0.0, 0.0};
-  domain::LaserScan scan;
+  domain::Pose2D pose;
+  domain::LaserObservation scan;
   rclcpp::Time pose_stamp;
   rclcpp::Time scan_stamp;
   std::size_t generation{0U};
 };
 
 class SensorSynchronizer {
-public:
+ public:
   explicit SensorSynchronizer(SensorSynchronizerConfiguration configuration);
 
-  bool acceptPose(
-    const geometry_msgs::msg::PoseStamped& message,
-    const rclcpp::Time& received_at);
-  bool acceptScan(
-    const sensor_msgs::msg::LaserScan& message,
-    const rclcpp::Time& received_at);
+  bool acceptPose(const geometry_msgs::msg::PoseStamped& message,
+                  const rclcpp::Time& received_at);
+  bool acceptScan(const sensor_msgs::msg::LaserScan& message,
+                  const rclcpp::Time& received_at);
 
   SensorStatus status(const rclcpp::Time& now) const;
-  std::optional<SynchronizedSensors> snapshot(
-    const rclcpp::Time& now) const;
+  std::optional<SynchronizedSensors> snapshot(const rclcpp::Time& now) const;
   void clear() noexcept;
 
-  const SensorSynchronizerConfiguration& configuration() const noexcept
-  {
+  const SensorSynchronizerConfiguration& configuration() const noexcept {
     return configuration_;
   }
 
-private:
+ private:
   struct PoseSample {
-    Position pose{0.0, 0.0, 0.0};
+    domain::Pose2D pose;
     rclcpp::Time stamp;
     rclcpp::Time received_at;
   };
 
   struct ScanSample {
-    domain::LaserScan scan;
+    domain::LaserObservation scan;
     rclcpp::Time stamp;
     rclcpp::Time received_at;
   };

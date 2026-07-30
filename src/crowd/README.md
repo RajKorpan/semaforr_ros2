@@ -23,5 +23,5 @@ Run the diagnostic consumers alongside a running SemaFORR node with:
 ros2 launch semaforr_crowd social_diagnostics.launch.py
 ```
 
-The nested ROS 1 sources remain migration references and are not discovered by
-colcon.
+The superseded ROS 1 packages have been removed. Their history remains
+available in Git; active source contains only the ROS 2 diagnostic adapter.

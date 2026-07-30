@@ -11,7 +11,6 @@ durations are seconds.
 
 | Group | Purpose |
 |---|---|
-| `configuration.use_legacy_files` | Compatibility switch. Keep `false` for YAML deployments. |
 | `topics.*` | Relative pose, scan, command, state, decision, social, and crowd-field topic names. |
 | `qos.sensors.*`, `qos.command.*` | Queue depth, `reliable`/`best_effort`, and `volatile`/`transient_local`. |
 | `frames.global`, `frames.scan` | Navigation and laser frame contract. |
@@ -22,12 +21,11 @@ durations are seconds.
 | `map.path` | XML map path; launch files should resolve it from package share. |
 | `map.length_m`, `map.height_m`, `map.granularity_m` | Validated map extent and discretization. |
 | `mission.tasks_path` | Mission target file path resolved by launch. |
-| `mission.decision_limit`, `mission.plan_limit` | Per-task decision and planning limits. |
+| `mission.decision_limit` | Maximum decisions before the active task is skipped. |
 | `actions.move_distances_m` | Sorted, positive, finite forward magnitudes. |
 | `actions.rotation_angles_rad` | Sorted, positive, finite turn magnitudes. |
 | `safety.*` | Robot footprint, laser range, obstacle buffer, and sweep limits. |
 | `command.*` | Execution velocities, tolerances, timeout policy, and odometry-reset thresholds. |
-| `learning.*` | Legacy highway learning thresholds. |
 | `features.*` | Independent spatial and recovery feature switches. |
 | `planners.enabled` | Registered planner names; see `planner-catalog.md`. |
 | `advisors.*` | Parallel names/enabled/weights arrays and four parameters per advisor. |

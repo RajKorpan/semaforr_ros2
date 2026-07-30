@@ -1,7 +1,7 @@
-#include <semaforr/core/FORRAction.hpp>
+#include <semaforr/domain/action.hpp>
 
-int main()
-{
-  const FORRAction action(FORWARD, 1);
-  return action.type == FORWARD ? 0 : 1;
+int main() {
+  const semaforr::domain::Action action(semaforr::domain::ActionType::Forward,
+                                        1U);
+  return action.type() == semaforr::domain::ActionType::Forward ? 0 : 1;
 }

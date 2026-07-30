@@ -1,8 +1,5 @@
 semaforr:
   ros__parameters:
-    configuration:
-      use_legacy_files: false
-
     topics:
       pose: pose
       scan: scan_raw
@@ -72,8 +69,6 @@ semaforr:
     mission:
       tasks_path: ""
       decision_limit: 20
-      plan_limit: 500
-
     actions:
       move_distances_m: [0.1, 0.2, 0.4, 0.8, 1.6, 3.2]
       rotation_angles_rad: [0.0873, 0.2618, 0.5236, 0.7854, 1.0472, 1.5708]
@@ -87,11 +82,6 @@ semaforr:
       max_forward_buffer_m: 0.1
       max_forward_sweep_rad: 0.5236
 
-    learning:
-      highway_distance_threshold_m: 5.0
-      highway_time_threshold_s: 60.0
-      highway_decision_threshold: 100.0
-
     features:
       trails: true
       conveyors: true
@@ -100,132 +90,20 @@ semaforr:
       hallways: false
       barriers: false
       astar: false
-      highways: false
-      frontiers: false
-      out_of_here: true
-      doorway: true
-      find_a_way: false
-      behind: true
-      dont_go_back: false
-
     planners:
       enabled: [skeleton, density, risk, flow]
 
     advisors:
       names:
-        - Greedy
-        - GreedyRotation
-        - ElbowRoom
-        - ElbowRoomRotation
-        - BigStep
-        - BigStepRotation
-        - Explorer
-        - ExplorerRotation
-        - GoAroundRotation
-        - RegionLeaverLinear
-        - RegionLeaverRotation
-        - UnlikelyField
-        - UnlikelyFieldRotation
-        - EnterLinear
-        - EnterRotation
-        - ConveyLinear
-        - ConveyRotation
-        - TrailerLinear
-        - TrailerRotation
-        - LeastAngle
-        - LeastAngleRotation
-        - Interpersonal
-        - InterpersonalRotation
-        - CrowdAvoid
-        - CrowdAvoidRotation
-        - RiskAvoid
-        - RiskAvoidRotation
-        - FlowAvoid
-        - FlowAvoidRotation
-      enabled:
-        - true
-        - true
-        - true
-        - true
-        - true
-        - true
-        - true
-        - true
-        - true
-        - true
-        - true
-        - true
-        - true
-        - true
-        - true
-        - true
-        - true
-        - true
-        - true
-        - true
-        - true
-        - true
-        - true
-        - true
-        - true
-        - true
-        - true
-        - true
-        - true
-      weights:
-        - 1.0
-        - 1.0
-        - 1.0
-        - 1.0
-        - 1.0
-        - 1.0
-        - 1.0
-        - 1.0
-        - 1.0
-        - 1.0
-        - 1.0
-        - 1.0
-        - 1.0
-        - 1.0
-        - 1.0
-        - 1.0
-        - 1.0
-        - 1.0
-        - 1.0
-        - 1.0
-        - 1.0
-        - 1.0
-        - 1.0
-        - 1.0
-        - 1.0
-        - 1.0
-        - 1.0
-        - 1.0
-        - 1.0
-      # Four values per advisor, flattened because ROS parameters do not
-      # support arrays of mappings.
+        [goal_progress, goal_progress_linear, clearance,
+         clearance_rotation, exploration, social_navigation,
+         crowd_avoid, risk_avoid, flow_follow]
+      enabled: [true, true, true, true, true, true, true, true, true]
+      weights: [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
+      # Four reserved values per advisor. ROS parameters do not support
+      # arrays of mappings, so this remains a validated flat array.
       parameters:
         [0.0, 0.0, 0.0, 0.0,
-         0.0, 0.0, 0.0, 0.0,
-         10.0, -4.0, -0.22, 0.0,
-         10.0, -4.0, -0.22, 0.0,
-         0.0, 0.0, 0.0, 0.0,
-         0.0, 0.0, 0.0, 0.0,
-         0.05, 0.0, 0.0, 0.0,
-         1.25, 0.0, 0.0, 0.0,
-         0.0, 0.0, 0.0, 0.0,
-         0.0, 0.0, 0.0, 0.0,
-         0.0, 0.0, 0.0, 0.0,
-         0.0, 0.0, 0.0, 0.0,
-         0.0, 0.0, 0.0, 0.0,
-         0.0, 0.0, 0.0, 0.0,
-         0.0, 0.0, 0.0, 0.0,
-         0.0, 0.0, 0.0, 0.0,
-         0.0, 0.0, 0.0, 0.0,
-         0.0, 0.0, 0.0, 0.0,
-         0.0, 0.0, 0.0, 0.0,
-         0.0, 0.0, 0.0, 0.0,
-         0.0, 0.0, 0.0, 0.0,
          0.0, 0.0, 0.0, 0.0,
          0.0, 0.0, 0.0, 0.0,
          0.0, 0.0, 0.0, 0.0,

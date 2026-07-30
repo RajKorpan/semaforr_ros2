@@ -1,62 +1,31 @@
 # Advisor catalog
 
-Advisor names are case-sensitive. Configuration fails when a name is unknown
-or when no enabled advisor can produce a decision. Linear advisors score
-forward actions; `Rotation` variants score turns.
+Advisor names are case-sensitive and registered centrally. Configuration fails
+at startup for an unknown name or when no enabled advisor remains.
 
-## Default advisor set
-
-| Family | Configured names | Evidence and intent |
+| Name | Candidates | Evidence and intent |
 |---|---|---|
-| Goal seeking | `Greedy`, `GreedyRotation`, `LeastAngle`, `LeastAngleRotation` | Target and waypoint bearing; rewards direct progress |
-| Clearance | `ElbowRoom`, `ElbowRoomRotation`, `BigStep`, `BigStepRotation`, `GoAroundRotation` | Laser clearance and legal action magnitude |
-| Exploration | `Explorer`, `ExplorerRotation`, `UnlikelyField`, `UnlikelyFieldRotation` | Navigation history and under-visited space |
-| Regions | `RegionLeaverLinear`, `RegionLeaverRotation`, `EnterLinear`, `EnterRotation` | Fresh or retained region/exit model |
-| Trails and conveyors | `TrailerLinear`, `TrailerRotation`, `ConveyLinear`, `ConveyRotation` | Learned trails and directional traversals |
-| Live interpersonal space | `Interpersonal`, `InterpersonalRotation` | Current valid pedestrians and predicted trajectories |
-| Learned density | `CrowdAvoid`, `CrowdAvoidRotation` | Unified crowd-field density |
-| Learned encounter risk | `RiskAvoid`, `RiskAvoidRotation` | Unified crowd-field encounter evidence |
-| Learned flow | `FlowAvoid`, `FlowAvoidRotation` | Directional crowd flow; penalizes opposing movement |
+| `goal_progress` | All actions | Rewards reduction in waypoint or target distance |
+| `goal_progress_linear` | Forward actions | Linear-only goal progress |
+| `clearance` | All actions | Rewards predicted laser clearance |
+| `clearance_rotation` | Turns | Rotation-only clearance |
+| `exploration` | All actions | Rewards distance from recent navigation history |
+| `social_navigation` | All actions | Live pedestrian position, velocity, prediction, covariance, and confidence |
+| `crowd_avoid` | All actions | Learned crowd-field density |
+| `risk_avoid` | All actions | Learned encounter and predictive collision risk |
+| `flow_follow` | All actions | Alignment with learned directional pedestrian flow |
 
-The four social families participate only when their required data is valid.
-Live predictions older than `social.maximum_age_s`, below
-`social.minimum_confidence`, or in an untransformable frame are ignored.
-Learned crowd costs remain available when a valid crowd-field snapshot exists.
-
-## Retained compatibility families
-
-The factory also retains legacy experiment names for exits, doors, spatial
-learning, wall following, visibility, and social behaviors:
-
-- `ExitLinear`, `ExitRotation`, `ExitFieldLinear`, `ExitFieldRotation`,
-  `ExitClosest`, `ExitClosestRotation`
-- `EnterExit`, `EnterExitRotation`, `EnterDoorLinear`, `EnterDoorRotation`,
-  `ExitDoorLinear`, `ExitDoorRotation`, `AccessLinear`, `AccessRotation`
-- `LearnSpatialModel`, `LearnSpatialModelRotation`, `Curiosity`,
-  `CuriosityRotation`
-- `Enfilade`, `EnfiladeRotation`, `Thigmotaxis`, `ThigmotaxisRotation`,
-  `VisualScanRotation`
-- `BaseLine`, `BaseLineRotation`, `ExplorerEndPoints`,
-  `ExplorerEndPointsRotation`, `Unlikely`, `UnlikelyRotation`
-- `Front`, `FrontRotation`, `Rear`, `RearRotation`, `Side`, `SideRotation`,
-  `Visible`, `VisibleRotation`
-- `FindTheCrowd`, `FindTheCrowdRotation`, `FindTheRisk`,
-  `FindTheRiskRotation`, `FindTheFlow`, `FindTheFlowRotation`, `Follow`,
-  `FollowRotation`, `Crossroads`, `CrossroadsRotation`, `Stay`,
-  `StayRotation`
-
-Some historical class declarations are intentionally not registered. The
-factory is the source of truth; commented-out legacy names are not supported.
-
-## Weights and parameters
+The live social advisor participates only when data passes the configured age,
+frame, covariance, and confidence gates. Learned advisors participate only
+when their crowd-field sample exists and is fresh. Geometric navigation
+continues when social evidence is unavailable.
 
 `advisors.names`, `advisors.enabled`, and `advisors.weights` must have equal
-length. `advisors.parameters` contains four finite values per advisor because
-ROS 2 parameters cannot represent an array of mappings. Raw score, configured
-weight, and final weighted contribution appear separately in each
-`DecisionRecord`, which makes tuning observable.
+length. `advisors.parameters` contains four finite reserved values per advisor
+because ROS 2 parameters cannot represent an array of mappings. Raw score,
+weight, and weighted contribution are published separately in each structured
+decision record.
 
-For a minimal non-social robot, keep goal-seeking and clearance advisors and
-disable the social families. For social navigation, retain both geometric
-safety rules and the relevant live/learned social advisors; social scores do
-not replace obstacle vetoes.
+The offline legacy converter collapses historical advisor families into these
+registered contracts. Runtime code contains no ROS1 advisor factory or alias
+fallback.

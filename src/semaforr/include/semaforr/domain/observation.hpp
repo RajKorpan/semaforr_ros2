@@ -4,11 +4,10 @@
 #include <chrono>
 #include <cmath>
 #include <optional>
-#include <stdexcept>
-#include <vector>
-
 #include <semaforr/domain/geometry.hpp>
 #include <semaforr/domain/social.hpp>
+#include <stdexcept>
+#include <vector>
 
 namespace semaforr::domain {
 
@@ -19,21 +18,19 @@ struct LaserObservation {
   Distance maximum_range = Distance::zero();
   std::vector<double> ranges_m;
 
-  void validate() const
-  {
+  void validate() const {
     if (maximum_range.meters() < minimum_range.meters()) {
       throw std::invalid_argument(
-        "laser maximum range must not be below minimum range");
+          "laser maximum range must not be below minimum range");
     }
     for (const double range : ranges_m) {
       // Positive infinity is the conventional LaserScan representation for
       // a beam with no return inside range_max.
       if (std::isnan(range) || range < minimum_range.meters() ||
-          (std::isfinite(range) &&
-            range > maximum_range.meters())) {
+          (std::isfinite(range) && range > maximum_range.meters())) {
         throw std::invalid_argument(
-          "laser ranges must be within configured bounds or positive "
-          "infinity for no return");
+            "laser ranges must be within configured bounds or positive "
+            "infinity for no return");
       }
     }
   }
@@ -43,8 +40,7 @@ struct VelocityCommand {
   double linear_mps = 0.0;
   double angular_radps = 0.0;
 
-  bool finite() const noexcept
-  {
+  bool finite() const noexcept {
     return std::isfinite(linear_mps) && std::isfinite(angular_radps);
   }
 

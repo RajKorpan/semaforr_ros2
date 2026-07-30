@@ -6,12 +6,11 @@
 namespace semaforr::spatial {
 
 class DoorExitLearner final : public SpatialLearnerBase {
-public:
-  DoorExitLearner(
-    double minimum_range_jump_m = 0.75,
-    double maximum_opening_width_m = 2.5);
+ public:
+  DoorExitLearner(double minimum_range_jump_m = 0.75,
+                  double maximum_opening_width_m = 2.5);
 
-private:
+ private:
   void onObserve(const NavigationEpisode& episode) override;
   void onRebuild() override;
 

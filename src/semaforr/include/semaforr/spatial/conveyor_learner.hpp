@@ -2,16 +2,15 @@
 #define SEMAFORR_SPATIAL_CONVEYOR_LEARNER_HPP
 
 #include <optional>
-
 #include <semaforr/spatial/spatial_learner_base.hpp>
 
 namespace semaforr::spatial {
 
 class ConveyorLearner final : public SpatialLearnerBase {
-public:
+ public:
   explicit ConveyorLearner(double minimum_traversal_distance_m = 0.05);
 
-private:
+ private:
   void onObserve(const NavigationEpisode& episode) override;
   void onRebuild() override;
 

@@ -75,12 +75,9 @@ provides a validated, ROS-independent persistence format.
 
 All consumers receive the same `CrowdModel`:
 
-- stateless social arbitration (`SocialNavigationAdvisor`);
-- legacy interpersonal and crowd-avoidance advisors, which participate only
-  while `AgentState::hasValidCrowd()` is true; and
-- learned density, risk, and flow advisors; and
-- density, risk, flow, and combined path planners through
-  `PathPlanner::setCrowdModel`.
+- live stateless arbitration (`SocialNavigationAdvisor`);
+- learned density, encounter-risk, and flow advisors; and
+- typed density, risk, and flow `DomainPlanner` instances.
 
 Live interpersonal calculations use current positions and predicted
 trajectories. Learned advisors and planner costs sample the identical grid
@@ -91,9 +88,8 @@ predictions disappear it falls back to learned evidence. Missing learned
 evidence produces a neutral density/flow score or cost. Missing or stale live
 data disables only live advisors and the transient part of composite risk.
 
-`AgentState` and `PathPlanner` contain no ROS message types. Their compatibility
-`setCrowdState` and pose views are projections for retained legacy callers, not
-parallel state or ROS inputs.
+No advisor or planner contains a ROS message type or maintains a parallel crowd
+grid. ROS conversion occurs once in the adapter layer.
 
 ## Derived output and diagnostics
 

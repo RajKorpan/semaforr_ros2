@@ -1,9 +1,4 @@
-# Phase 14 gates apply to the refactored code below. Extend this list whenever
-# new production code is added or one of these components is modified.
-include/semaforr/domain/motion_model.hpp
-include/semaforr/decision/obstacle_veto_rule.hpp
-src/domain/MotionModel.cpp
-src/decision/ObstacleVetoRule.cpp
-src/decision/DecisionCoordinator.cpp
-src/decision/MissionManager.cpp
-src/navigation/PlanningCoordinator.cpp
+# All production C++ is part of the source-quality gate. Directory entries
+# expand recursively to .hpp and .cpp files.
+include/semaforr
+src

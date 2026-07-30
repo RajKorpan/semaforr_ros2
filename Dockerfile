@@ -17,8 +17,7 @@ WORKDIR /workspace
 COPY src ./src
 COPY docker ./docker
 
-# COLCON_IGNORE files keep the retained ROS 1 crowd implementations out of
-# discovery. rosdep installs the ROS 2 package dependencies from the manifests.
+# rosdep installs the ROS 2 package dependencies from the manifests.
 RUN rosdep update \
     && apt-get update \
     && rosdep install --from-paths src --ignore-src --rosdistro humble -r -y \

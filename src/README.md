@@ -1,10 +1,20 @@
 
 # Social-SemaFORR Packages
 
-This folder contains all packages for Social-SemaFORR:
+This folder contains the ROS 2 Social-SemaFORR workspace:
 
-- `semaforr`
-- `semaforr_bridge`
-- `social_context`
+- `semaforr`: ROS-independent navigation core plus the ROS node.
+- `semaforr_msgs`: structured navigation diagnostics.
+- `social_context_msgs`: the canonical social observation and learned crowd
+  field contracts.
+- `social_context`: social observation and trajectory prediction producers.
+- `semaforr_bridge`: adapters from supported upstream tracking messages.
+- `crowd` (`semaforr_crowd`): learned-field visualization only.
+- `why` and `why_plan`: typed action and plan explanations based on
+  `semaforr_msgs/msg/DecisionRecord`.
+- `hunav_msgs`: HuNavSim interfaces.
+- `examples`: reproducible workspace examples.
 
-See each package's README for details and usage instructions.
+All packages are ROS 2 packages. Superseded ROS 1 implementations and private
+message copies have been removed; Git history remains the migration archive.
+See each package README for its runtime contract.

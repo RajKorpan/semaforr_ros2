@@ -4,11 +4,10 @@
 #include <cstdint>
 #include <optional>
 #include <random>
-#include <string_view>
-#include <vector>
-
 #include <semaforr/domain/crowd_model.hpp>
 #include <semaforr/domain/observation.hpp>
+#include <string_view>
+#include <vector>
 
 namespace semaforr::social {
 
@@ -20,8 +19,7 @@ enum class CrowdEstimatorStrategy {
 };
 
 std::string_view toString(CrowdEstimatorStrategy strategy) noexcept;
-CrowdEstimatorStrategy crowdEstimatorStrategyFromString(
-  std::string_view value);
+CrowdEstimatorStrategy crowdEstimatorStrategyFromString(std::string_view value);
 
 struct CrowdFieldLearnerConfiguration {
   domain::GridGeometry geometry;
@@ -40,23 +38,21 @@ struct CrowdFieldLearnerConfiguration {
 };
 
 class CrowdFieldLearner {
-public:
+ public:
   explicit CrowdFieldLearner(CrowdFieldLearnerConfiguration configuration);
 
-  bool observe(
-    const domain::Pose2D& robot_pose,
-    const domain::LaserObservation& laser,
-    const domain::CrowdObservation& crowd);
+  bool observe(const domain::Pose2D& robot_pose,
+               const domain::LaserObservation& laser,
+               const domain::CrowdObservation& crowd);
 
-  const domain::CrowdFieldSnapshot& snapshot() const noexcept
-  {
+  const domain::CrowdFieldSnapshot& snapshot() const noexcept {
     return snapshot_;
   }
 
   void restore(domain::CrowdFieldSnapshot snapshot);
   void reset();
 
-private:
+ private:
   struct CusumState {
     double log_likelihood{0.0};
     double minimum_log_likelihood{0.0};
@@ -67,11 +63,10 @@ private:
     void reset() noexcept;
   };
 
-  std::vector<bool> visibleCells(
-    const domain::Pose2D& robot_pose,
-    const domain::LaserObservation& laser) const;
+  std::vector<bool> visibleCells(const domain::Pose2D& robot_pose,
+                                 const domain::LaserObservation& laser) const;
   std::optional<std::size_t> directionBin(
-    const domain::Point2D& velocity) const noexcept;
+      const domain::Point2D& velocity) const noexcept;
   void rebuild(domain::SocialTimestamp generated_at);
   void resetCell(std::size_t index);
 

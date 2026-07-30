@@ -1,6 +1,9 @@
 # Phase 0-9 completion audit
 
-Validated in the repository's ROS 2 Humble container on 2026-07-29.
+This records the phase audit performed in the ROS 2 Humble container on
+2026-07-29. The final convergence pass subsequently removed the compatibility
+implementation; current commands and results are recorded in
+`phase-14-testing.md`.
 
 ## Verification snapshot
 
@@ -37,9 +40,8 @@ metadata. Inherited-source provenance is explicitly recorded in
 alone. Python is used only for installed launch/test/conversion utilities;
 it is not embedded in the C++ package.
 
-The custom message remains in this package. Moving it to a separate interface
-package was optional and would be a repository-level compatibility break, so
-the supported ROSIDL target is retained here.
+Custom diagnostics now live in the separate `semaforr_msgs` interface package,
+so the C++ navigation package no longer owns ROSIDL generation.
 
 ### Phase 2: directory organization
 
@@ -49,9 +51,8 @@ are split into `unit`, `integration`, `contracts`, and `fixtures`, and private
 factory code remains private. Vendored TinyXML was removed; map parsing now has
 a validated domain parser.
 
-Large inherited headers still exist behind the compatibility boundary. New
-domain and coordination interfaces are small, focused files; removing all
-legacy algorithms would change behavior outside the scope of the refactor.
+The inherited monolithic headers and ROS1 implementation were removed in the
+final convergence pass. Public headers now describe only the focused system.
 
 ### Phase 3: ROS-independent domain model
 
@@ -70,8 +71,8 @@ for the returned decision in the modern decision cycle. Sanitizer unit and
 runtime profiles report no leak, invalid access, or undefined behavior.
 
 ROS-managed nodes and publishers continue to use `std::shared_ptr`, as required
-by ROS ownership conventions. Some legacy algorithms expose non-owning raw
-pointers internally; ownership contract tests prevent new owning `new` paths.
+by ROS ownership conventions. Non-ROS polymorphic ownership uses
+`std::unique_ptr`; production source contracts reject owning `new`/`delete`.
 
 ### Phase 5: configuration
 
@@ -86,10 +87,8 @@ have a one-time converter.
 Complete. `NavigationEngine`, `MissionManager`, `DecisionCoordinator`,
 `SpatialLearningCoordinator`, and `PlanningCoordinator` have focused
 interfaces. A value `DecisionResult` carries its source, vetoes, advisor
-contributions, planner, and explanation. The former mutable decision-statistics
-pointer side channel was removed from the ROS publication path. The inherited
-`Controller` remains a compatibility facade split across responsibility-based
-translation units.
+contributions, planner, and explanation. The former `Controller` and mutable
+decision-statistics side channel were removed.
 
 ### Phase 7: decision tier interfaces
 
@@ -113,13 +112,12 @@ tolerances, distances, intersections, and coordinate assumptions. Domain graph
 storage is separate from immutable A* search state; costs are named and paths
 have typed status. Tests cover repeated searches, identical endpoints,
 disconnected graphs, invalid vertices, and malformed maps. The validated map
-parser is separate from navigation semantics and adapts to legacy centimeters
-only at the compatibility boundary.
+parser is separate from navigation semantics and keeps units explicit.
 
 ## Commands
 
 ```bash
-docker compose run --rm ros2 bash -lc \
+docker compose run --rm semaforr bash -lc \
   'source /opt/ros/humble/setup.bash &&
    colcon build --packages-select semaforr &&
    colcon test --packages-select semaforr &&

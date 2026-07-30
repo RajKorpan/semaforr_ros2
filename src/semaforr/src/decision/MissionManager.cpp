@@ -2,8 +2,7 @@
 
 namespace semaforr::decision {
 
-MissionStep MissionManager::prepareDecision()
-{
+MissionStep MissionManager::prepareDecision() {
   if (!mission_.active()) {
     if (!mission_.activate_next()) {
       return MissionStep::Complete;
@@ -20,24 +19,21 @@ MissionStep MissionManager::prepareDecision()
   return MissionStep::Ready;
 }
 
-void MissionManager::recordDecision()
-{
-  mission_.record_decision();
+void MissionManager::recordDecision() { mission_.record_decision(); }
+
+bool MissionManager::completeActiveTask() { return mission_.complete_active(); }
+
+bool MissionManager::skipActiveTask() { return mission_.skip_active(); }
+
+void MissionManager::installPlan(std::vector<domain::Point2D> plan) {
+  mission_.install_active_plan(std::move(plan));
 }
 
-bool MissionManager::completeActiveTask()
-{
-  return mission_.complete_active();
+bool MissionManager::advanceWaypoint(const domain::Pose2D& pose,
+                                     domain::Distance tolerance) {
+  return mission_.advance_waypoint(pose, tolerance);
 }
 
-bool MissionManager::skipActiveTask()
-{
-  return mission_.skip_active();
-}
-
-bool MissionManager::complete() const noexcept
-{
-  return mission_.finished();
-}
+bool MissionManager::complete() const noexcept { return mission_.finished(); }
 
 }  // namespace semaforr::decision

@@ -2,13 +2,11 @@
 #define SEMAFORR_ROS_COMMAND_EXECUTOR_HPP
 
 #include <optional>
-#include <string_view>
-
 #include <rclcpp/time.hpp>
-
 #include <semaforr/domain/action.hpp>
 #include <semaforr/domain/geometry.hpp>
 #include <semaforr/domain/observation.hpp>
+#include <string_view>
 
 namespace semaforr::ros {
 
@@ -48,26 +46,23 @@ struct ActionExecutionUpdate {
 };
 
 class CommandExecutor {
-public:
+ public:
   explicit CommandExecutor(CommandExecutorConfiguration configuration);
 
-  ActionExecutionUpdate start(
-    const ActionExecutionRequest& request,
-    const domain::Pose2D& pose,
-    const rclcpp::Time& now);
-  ActionExecutionUpdate update(
-    const domain::Pose2D& pose,
-    const rclcpp::Time& now);
+  ActionExecutionUpdate start(const ActionExecutionRequest& request,
+                              const domain::Pose2D& pose,
+                              const rclcpp::Time& now);
+  ActionExecutionUpdate update(const domain::Pose2D& pose,
+                               const rclcpp::Time& now);
   ActionExecutionUpdate cancel() noexcept;
 
   ActionExecutionStatus status() const noexcept { return status_; }
-  bool executing() const noexcept
-  {
+  bool executing() const noexcept {
     return status_ == ActionExecutionStatus::Executing;
   }
   const domain::VelocityCommand& command() const noexcept { return command_; }
 
-private:
+ private:
   ActionExecutionUpdate terminal(ActionExecutionStatus status) noexcept;
   double timeoutSeconds() const noexcept;
   double target() const noexcept;

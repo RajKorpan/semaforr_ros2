@@ -1,11 +1,9 @@
 #include <gtest/gtest.h>
 
+#include <semaforr/planning/map_parser.hpp>
 #include <sstream>
 
-#include <semaforr/planning/map_parser.hpp>
-
-TEST(MapParser, ParsesValidatedMeterBasedSegments)
-{
+TEST(MapParser, ParsesValidatedMeterBasedSegments) {
   std::istringstream input(R"xml(
     <Experiment>
       <ObstacleSet>
@@ -21,14 +19,12 @@ TEST(MapParser, ParsesValidatedMeterBasedSegments)
   EXPECT_DOUBLE_EQ(map.walls.front().end.y_m, 4.0);
 }
 
-TEST(MapParser, RejectsMalformedVerticesPrecisely)
-{
+TEST(MapParser, RejectsMalformedVerticesPrecisely) {
   std::istringstream input(R"xml(
     <ObstacleSet><Obstacle>
       <Vertex p_x="one" p_y="2"/>
       <Vertex p_x="3" p_y="4"/>
     </Obstacle></ObstacleSet>)xml");
-  EXPECT_THROW(
-    semaforr::planning::parseMapXml(input, "bad map"),
-    std::runtime_error);
+  EXPECT_THROW(semaforr::planning::parseMapXml(input, "bad map"),
+               std::runtime_error);
 }

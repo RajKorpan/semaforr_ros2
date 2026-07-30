@@ -1,26 +1,21 @@
 #ifndef SEMAFORR_PLANNING_PLANNER_HPP
 #define SEMAFORR_PLANNING_PLANNER_HPP
 
+#include <semaforr/domain/geometry.hpp>
+#include <semaforr/domain/world_model.hpp>
 #include <string>
 #include <string_view>
 #include <vector>
 
-#include <semaforr/domain/geometry.hpp>
-#include <semaforr/domain/world_model.hpp>
-
 namespace semaforr::planning {
 
-enum class PlanStatus {
-  Success,
-  NoPath,
-  InvalidRequest,
-  PlannerUnavailable
-};
+enum class PlanStatus { Success, NoPath, InvalidRequest, PlannerUnavailable };
 
 struct PlanningRequest {
   domain::Pose2D start;
   domain::Point2D goal;
   const domain::SpatialModel* spatial_model{nullptr};
+  const domain::CrowdModel* crowd_model{nullptr};
 };
 
 struct PlanResult {
@@ -33,7 +28,7 @@ struct PlanResult {
 };
 
 class Planner {
-public:
+ public:
   virtual ~Planner() = default;
   virtual PlanResult plan(const PlanningRequest& request) = 0;
   virtual std::string_view name() const noexcept = 0;

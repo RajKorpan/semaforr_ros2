@@ -42,16 +42,18 @@ before replacing the approved semantic baseline.
 ## Compare a later run
 
 ```bash
-python3 src/semaforr/scripts/verify_baseline.py \
+python3 src/semaforr/scripts/compare_decision_traces.py \
   src/semaforr/test/fixtures/baseline/stage_tutorial.expected.json \
-  baseline-results/stage_tutorial.actual.json
+  baseline-results/stage_tutorial.actual.json \
+  src/semaforr/test/fixtures/regression/stage_tutorial.classifications.json
 ```
 
 Timestamps, detailed advisor comments, measured computation times, and the
-final floating-point pose are not compared. The scenario metadata, velocity
-transition sequence, and semantic decision sequence must match. The complete
-actual trace retains these volatile details for inspection and performance
-comparison.
+final floating-point pose are not compared. Action, tier, and planner changes
+must either match exactly or have a reviewed intentional-improvement
+classification with a rationale. Unclassified changes and regressions fail the
+command. The complete actual trace retains volatile details for inspection and
+performance comparison.
 
 ## Profiles
 

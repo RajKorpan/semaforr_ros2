@@ -9,8 +9,11 @@ from pathlib import Path
 FORBIDDEN = {
     re.compile(r"\bstd::(?:cout|cerr|clog)\b"): "direct console output",
     re.compile(r"\busing namespace\b"): "namespace import in production code",
-    re.compile(r"(?<![\w:])new\s+"): "raw new expression",
-    re.compile(r"(?<![\w:])delete\s+"): "raw delete expression",
+    re.compile(
+        r"(?<![\w:])new\s+[A-Za-z_:][A-Za-z0-9_:<>]*\s*(?:\(|\[)"
+    ): "raw new expression",
+    re.compile(r"(?<![\w:])delete\s+[A-Za-z_][A-Za-z0-9_]*\s*;"):
+        "raw delete expression",
 }
 
 
@@ -19,7 +22,15 @@ def manifest_paths(source: Path, manifest: Path) -> list[Path]:
     for line in manifest.read_text(encoding="utf-8").splitlines():
         item = line.strip()
         if item and not item.startswith("#"):
-            paths.append(source / item)
+            candidate = source / item
+            if candidate.is_dir():
+                paths.extend(
+                    path
+                    for path in candidate.rglob("*")
+                    if path.suffix in {".hpp", ".cpp"}
+                )
+            else:
+                paths.append(candidate)
     return paths
 
 

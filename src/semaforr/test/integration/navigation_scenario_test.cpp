@@ -3,15 +3,14 @@
 #include <chrono>
 #include <memory>
 #include <numbers>
-#include <span>
-#include <string>
-#include <string_view>
-#include <vector>
-
 #include <semaforr/decision/decision_coordinator.hpp>
 #include <semaforr/decision/mission_manager.hpp>
 #include <semaforr/decision/obstacle_veto_rule.hpp>
 #include <semaforr/decision/social_navigation_advisor.hpp>
+#include <span>
+#include <string>
+#include <string_view>
+#include <vector>
 
 namespace {
 
@@ -19,15 +18,14 @@ using semaforr::domain::Action;
 using semaforr::domain::ActionType;
 
 class ProgressAdvisor final : public semaforr::decision::Advisor {
-public:
+ public:
   explicit ProgressAdvisor(double weight = 1.0) : weight_(weight) {}
 
   std::string_view name() const noexcept override { return "progress"; }
 
   semaforr::decision::AdvisorEvaluation evaluate(
-    const semaforr::decision::DecisionContext&,
-    std::span<const Action> candidates) const override
-  {
+      const semaforr::decision::DecisionContext&,
+      std::span<const Action> candidates) const override {
     semaforr::decision::AdvisorEvaluation result;
     result.participated = true;
     result.weight = weight_;
@@ -45,186 +43,160 @@ public:
     return result;
   }
 
-private:
+ private:
   double weight_;
 };
 
-semaforr::domain::LaserObservation laser(
-  double left,
-  double ahead,
-  double right)
-{
-  return {
-    semaforr::domain::Angle(-std::numbers::pi / 2.0),
-    semaforr::domain::Angle(std::numbers::pi / 2.0),
-    semaforr::domain::Distance(0.05),
-    semaforr::domain::Distance(10.0),
-    {left, ahead, right}};
+semaforr::domain::LaserObservation laser(double left, double ahead,
+                                         double right) {
+  return {semaforr::domain::Angle(-std::numbers::pi / 2.0),
+          semaforr::domain::Angle(std::numbers::pi / 2.0),
+          semaforr::domain::Distance(0.05),
+          semaforr::domain::Distance(10.0),
+          {left, ahead, right}};
 }
 
-semaforr::decision::DecisionCoordinator corridorCoordinator()
-{
+semaforr::decision::DecisionCoordinator corridorCoordinator() {
   semaforr::decision::ArbitrationConfiguration configuration;
   configuration.random_seed = 19U;
   configuration.fallback = Action::pause();
   semaforr::decision::DecisionCoordinator coordinator(configuration);
   coordinator.addVetoRule(
-    std::make_unique<semaforr::decision::ObstacleVetoRule>(
-      std::vector<double>{0.2, 0.5}, 0.2, 0.05));
+      std::make_unique<semaforr::decision::ObstacleVetoRule>(
+          std::vector<double>{0.2, 0.5}, 0.2, 0.05));
   coordinator.addAdvisor(std::make_unique<ProgressAdvisor>());
   return coordinator;
 }
 
-semaforr::domain::CrowdObservation crossingCrowd(std::size_t count)
-{
+semaforr::domain::CrowdObservation crossingCrowd(std::size_t count) {
   semaforr::domain::CrowdObservation crowd;
   crowd.frame_id = "map";
   crowd.observed_at = std::chrono::seconds(10);
   crowd.data_age = std::chrono::milliseconds(50);
   for (std::size_t index = 0U; index < count; ++index) {
     const double offset = static_cast<double>(index) * 0.15;
-    crowd.pedestrians.push_back({
-      "crossing-" + std::to_string(index),
-      {0.5 + offset, -0.5},
-      {0.0, 1.0},
-      {{{0.5 + offset, 0.0}, std::chrono::seconds(11)}},
-      1.0,
-      {0.04, 0.0, 0.0, 0.04}});
+    crowd.pedestrians.push_back(
+        {"crossing-" + std::to_string(index),
+         {0.5 + offset, -0.5},
+         {0.0, 1.0},
+         {{{0.5 + offset, 0.0}, std::chrono::seconds(11)}},
+         1.0,
+         {0.04, 0.0, 0.0, 0.04}});
   }
   crowd.validate();
   return crowd;
 }
 
-semaforr::decision::SocialNavigationAdvisor socialAdvisor(double weight)
-{
-  return semaforr::decision::SocialNavigationAdvisor({
-    {0.2, 0.5},
-    {0.5},
-    std::chrono::milliseconds(750),
-    0.25,
-    2.0,
-    1.2,
-    0.65,
-    weight});
+semaforr::decision::SocialNavigationAdvisor socialAdvisor(double weight) {
+  return semaforr::decision::SocialNavigationAdvisor(
+      {{0.2, 0.5},
+       {0.5},
+       std::chrono::milliseconds(750),
+       0.25,
+       2.0,
+       1.2,
+       0.65,
+       weight});
 }
 
-TEST(ScenarioReplay, EmptyCorridorSelectsForward)
-{
+TEST(ScenarioReplay, EmptyCorridorSelectsForward) {
   semaforr::domain::WorldModel world;
   world.robot.laser = laser(5.0, 5.0, 5.0);
   auto coordinator = corridorCoordinator();
-  const std::vector<Action> actions{
-    Action::pause(),
-    Action(ActionType::Forward, 2U),
-    Action(ActionType::TurnLeft, 1U)};
-  EXPECT_EQ(
-    coordinator.decide({world}, actions).action,
-    Action(ActionType::Forward, 2U));
+  const std::vector<Action> actions{Action::pause(),
+                                    Action(ActionType::Forward, 2U),
+                                    Action(ActionType::TurnLeft, 1U)};
+  EXPECT_EQ(coordinator.decide({world}, actions).action,
+            Action(ActionType::Forward, 2U));
 }
 
-TEST(ScenarioReplay, DoorwayRemainsTraversable)
-{
+TEST(ScenarioReplay, DoorwayRemainsTraversable) {
   semaforr::domain::WorldModel world;
   world.robot.laser = laser(0.7, 3.0, 0.7);
   world.spatial.doorways.push_back({{1.5, -0.5}, {1.5, 0.5}});
   auto coordinator = corridorCoordinator();
-  const std::vector<Action> actions{
-    Action(ActionType::Forward, 2U),
-    Action(ActionType::TurnLeft, 1U)};
-  EXPECT_EQ(
-    coordinator.decide({world}, actions).action,
-    Action(ActionType::Forward, 2U));
+  const std::vector<Action> actions{Action(ActionType::Forward, 2U),
+                                    Action(ActionType::TurnLeft, 1U)};
+  EXPECT_EQ(coordinator.decide({world}, actions).action,
+            Action(ActionType::Forward, 2U));
 }
 
-TEST(ScenarioReplay, ObstacleAheadVetoesForwardMotion)
-{
+TEST(ScenarioReplay, ObstacleAheadVetoesForwardMotion) {
   semaforr::domain::WorldModel world;
   world.robot.laser = laser(5.0, 0.4, 5.0);
   auto coordinator = corridorCoordinator();
-  const std::vector<Action> actions{
-    Action(ActionType::Forward, 1U),
-    Action(ActionType::Forward, 2U),
-    Action(ActionType::TurnLeft, 1U)};
+  const std::vector<Action> actions{Action(ActionType::Forward, 1U),
+                                    Action(ActionType::Forward, 2U),
+                                    Action(ActionType::TurnLeft, 1U)};
   const auto result = coordinator.decide({world}, actions);
   EXPECT_EQ(result.action, Action(ActionType::TurnLeft, 1U));
   EXPECT_EQ(result.vetoes.size(), 2U);
 }
 
-TEST(ScenarioReplay, DeadEndWithNoSurvivorStopsSafely)
-{
+TEST(ScenarioReplay, DeadEndWithNoSurvivorStopsSafely) {
   semaforr::domain::WorldModel world;
   world.robot.laser = laser(0.3, 0.3, 0.3);
   auto coordinator = corridorCoordinator();
-  const std::vector<Action> actions{
-    Action(ActionType::Forward, 1U),
-    Action(ActionType::Forward, 2U)};
+  const std::vector<Action> actions{Action(ActionType::Forward, 1U),
+                                    Action(ActionType::Forward, 2U)};
   const auto result = coordinator.decide({world}, actions);
   EXPECT_EQ(result.action, Action::pause());
   EXPECT_EQ(result.source, semaforr::decision::DecisionSource::SafeStop);
 }
 
-TEST(ScenarioReplay, MultipleTargetsAdvanceInOrder)
-{
-  semaforr::domain::Mission mission(
-    {{10U, {1.0, 0.0}}, {20U, {2.0, 0.0}}}, 3U);
+TEST(ScenarioReplay, MultipleTargetsAdvanceInOrder) {
+  semaforr::domain::Mission mission({{10U, {1.0, 0.0}}, {20U, {2.0, 0.0}}}, 3U);
   semaforr::decision::MissionManager manager(mission);
-  EXPECT_EQ(
-    manager.prepareDecision(),
-    semaforr::decision::MissionStep::ActivatedTask);
+  EXPECT_EQ(manager.prepareDecision(),
+            semaforr::decision::MissionStep::ActivatedTask);
   ASSERT_TRUE(mission.active());
   EXPECT_EQ(mission.active()->id, 10U);
   EXPECT_TRUE(manager.completeActiveTask());
-  EXPECT_EQ(
-    manager.prepareDecision(),
-    semaforr::decision::MissionStep::ActivatedTask);
+  EXPECT_EQ(manager.prepareDecision(),
+            semaforr::decision::MissionStep::ActivatedTask);
   ASSERT_TRUE(mission.active());
   EXPECT_EQ(mission.active()->id, 20U);
 }
 
-TEST(ScenarioReplay, StuckRobotSkipsAtTheDecisionLimit)
-{
-  semaforr::domain::Mission mission(
-    {{1U, {10.0, 0.0}}, {2U, {20.0, 0.0}}}, 2U);
+TEST(ScenarioReplay, StuckRobotSkipsAtTheDecisionLimit) {
+  semaforr::domain::Mission mission({{1U, {10.0, 0.0}}, {2U, {20.0, 0.0}}}, 2U);
   semaforr::decision::MissionManager manager(mission);
   manager.prepareDecision();
   manager.recordDecision();
   manager.recordDecision();
-  EXPECT_EQ(
-    manager.prepareDecision(),
-    semaforr::decision::MissionStep::SkippedTask);
+  EXPECT_EQ(manager.prepareDecision(),
+            semaforr::decision::MissionStep::SkippedTask);
   ASSERT_TRUE(mission.active());
   EXPECT_EQ(mission.active()->id, 2U);
   ASSERT_EQ(mission.skipped().size(), 1U);
   EXPECT_EQ(mission.skipped()[0].id, 1U);
 }
 
-TEST(ScenarioReplay, PedestrianCrossingCanChangeTheSelectedAction)
-{
+TEST(ScenarioReplay, PedestrianCrossingCanChangeTheSelectedAction) {
   semaforr::domain::WorldModel world;
   world.robot.pose = {{0.0, 0.0}, semaforr::domain::Angle::zero()};
   world.crowd.update(crossingCrowd(1U));
   semaforr::decision::DecisionCoordinator coordinator;
   coordinator.addAdvisor(std::make_unique<ProgressAdvisor>());
   coordinator.addAdvisor(
-    std::make_unique<semaforr::decision::SocialNavigationAdvisor>(
-      socialAdvisor(5.0)));
-  const std::vector<Action> actions{
-    Action::pause(), Action(ActionType::Forward, 2U)};
+      std::make_unique<semaforr::decision::SocialNavigationAdvisor>(
+          socialAdvisor(5.0)));
+  const std::vector<Action> actions{Action::pause(),
+                                    Action(ActionType::Forward, 2U)};
   EXPECT_EQ(coordinator.decide({world}, actions).action, Action::pause());
 }
 
-TEST(ScenarioReplay, DenseCrowdProducesSocialContributions)
-{
+TEST(ScenarioReplay, DenseCrowdProducesSocialContributions) {
   semaforr::domain::WorldModel world;
   world.robot.pose = {{0.0, 0.0}, semaforr::domain::Angle::zero()};
   world.crowd.update(crossingCrowd(5U));
   semaforr::decision::DecisionCoordinator coordinator;
   coordinator.addAdvisor(std::make_unique<ProgressAdvisor>());
   coordinator.addAdvisor(
-    std::make_unique<semaforr::decision::SocialNavigationAdvisor>(
-      socialAdvisor(6.0)));
-  const std::vector<Action> actions{
-    Action::pause(), Action(ActionType::Forward, 2U)};
+      std::make_unique<semaforr::decision::SocialNavigationAdvisor>(
+          socialAdvisor(6.0)));
+  const std::vector<Action> actions{Action::pause(),
+                                    Action(ActionType::Forward, 2U)};
   const auto result = coordinator.decide({world}, actions);
   EXPECT_EQ(result.action, Action::pause());
   EXPECT_GE(result.contributions.size(), 4U);

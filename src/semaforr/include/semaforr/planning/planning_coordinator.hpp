@@ -3,10 +3,9 @@
 
 #include <memory>
 #include <optional>
+#include <semaforr/planning/planner.hpp>
 #include <string>
 #include <vector>
-
-#include <semaforr/planning/planner.hpp>
 
 namespace semaforr::planning {
 
@@ -16,12 +15,12 @@ struct SelectedPlan {
 };
 
 class PlanningCoordinator {
-public:
+ public:
   void registerPlanner(std::unique_ptr<Planner> planner);
   std::optional<SelectedPlan> selectPlan(const PlanningRequest& request);
   std::size_t plannerCount() const noexcept { return planners_.size(); }
 
-private:
+ private:
   std::vector<std::unique_ptr<Planner>> planners_;
 };
 

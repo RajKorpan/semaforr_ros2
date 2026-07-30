@@ -7,11 +7,10 @@
 #include <cstdint>
 #include <iosfwd>
 #include <optional>
-#include <string>
-#include <vector>
-
 #include <semaforr/domain/geometry.hpp>
 #include <semaforr/domain/social.hpp>
+#include <string>
+#include <vector>
 
 namespace semaforr::domain {
 
@@ -82,10 +81,9 @@ struct CrowdFieldSnapshot {
   void validate() const;
   bool available() const noexcept;
   std::optional<CrowdFieldSample> sample(
-    Point2D point,
-    SocialTimestamp now = {},
-    std::chrono::nanoseconds maximum_age =
-      std::chrono::nanoseconds::zero()) const noexcept;
+      Point2D point, SocialTimestamp now = {},
+      std::chrono::nanoseconds maximum_age =
+          std::chrono::nanoseconds::zero()) const noexcept;
 
   void save(std::ostream& output) const;
   static CrowdFieldSnapshot load(std::istream& input);
@@ -100,36 +98,30 @@ enum class CrowdModelStatus {
 };
 
 class CrowdModel {
-public:
-  void update(CrowdObservation observation, std::size_t history_limit = 100U)
-  {
+ public:
+  void update(CrowdObservation observation, std::size_t history_limit = 100U) {
     observations_.update(std::move(observation), history_limit);
   }
 
-  void replaceCurrent(CrowdObservation observation)
-  {
+  void replaceCurrent(CrowdObservation observation) {
     observations_.replaceCurrent(std::move(observation));
   }
 
   void clearCurrent() noexcept { observations_.clearCurrent(); }
 
-  const std::optional<CrowdObservation>& current() const noexcept
-  {
+  const std::optional<CrowdObservation>& current() const noexcept {
     return observations_.current();
   }
 
-  const std::vector<CrowdObservation>& history() const noexcept
-  {
+  const std::vector<CrowdObservation>& history() const noexcept {
     return observations_.history();
   }
 
   const CrowdState& observations() const noexcept { return observations_; }
   CrowdState& observations() noexcept { return observations_; }
 
-  bool hasValidData(
-    std::chrono::nanoseconds maximum_age,
-    double minimum_confidence = 0.0) const noexcept
-  {
+  bool hasValidData(std::chrono::nanoseconds maximum_age,
+                    double minimum_confidence = 0.0) const noexcept {
     return observations_.hasValidData(maximum_age, minimum_confidence);
   }
 
@@ -139,10 +131,9 @@ public:
   CrowdModelStatus status() const noexcept;
 
   std::optional<CrowdFieldSample> learnedAt(
-    Point2D point,
-    SocialTimestamp now = {},
-    std::chrono::nanoseconds maximum_age =
-      std::chrono::nanoseconds::zero()) const noexcept;
+      Point2D point, SocialTimestamp now = {},
+      std::chrono::nanoseconds maximum_age =
+          std::chrono::nanoseconds::zero()) const noexcept;
 
   double densityAt(Point2D point) const noexcept;
   double learnedEncounterRiskAt(Point2D point) const noexcept;
@@ -151,13 +142,11 @@ public:
   double flowObservationAt(Point2D point) const noexcept;
   double flowAlignmentAt(Point2D point, Angle travel_direction) const noexcept;
   double predictiveCollisionRiskAt(
-    Point2D point,
-    double gaussian_variance_m2 = 0.25) const noexcept;
-  double navigationRiskAt(
-    Point2D point,
-    double gaussian_variance_m2 = 0.25) const noexcept;
+      Point2D point, double gaussian_variance_m2 = 0.25) const noexcept;
+  double navigationRiskAt(Point2D point,
+                          double gaussian_variance_m2 = 0.25) const noexcept;
 
-private:
+ private:
   CrowdState observations_;
   CrowdFieldSnapshot learned_;
 };

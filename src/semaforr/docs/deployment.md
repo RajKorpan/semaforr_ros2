@@ -7,7 +7,7 @@ source /opt/ros/humble/setup.bash
 rosdep install --from-paths src --ignore-src -r -y
 colcon build
 source install/setup.bash
-colcon test --packages-select semaforr
+colcon test
 colcon test-result --verbose
 ros2 launch semaforr example_simulation.launch.py
 ```
@@ -60,7 +60,8 @@ The larger retained scenario collection is installed by the
 
 ## CI
 
-`.github/workflows/ros2-humble.yml` builds in ROS 2 Humble, runs the source
-quality gate, separates unit/contract and integration CTest invocations, checks
-all colcon results, and builds the deployment image. Local commands above are
-the same commands used by CI.
+`.github/workflows/ros2-humble.yml` builds every ROS 2 package in Humble, runs
+source-quality, formatting, static-analysis, unit, contract, integration,
+sanitizer, and modified-code coverage gates, checks all colcon results, and
+builds the deployment image. Local commands above are the same commands used
+by CI.

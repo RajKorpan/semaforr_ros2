@@ -45,43 +45,48 @@ colcon test-result --verbose
 Sanitizer verification:
 
 ```sh
-colcon build --packages-select semaforr \
-  --cmake-args -DSEMAFORR_ENABLE_SANITIZERS=ON
-colcon test --packages-select semaforr
+scripts/run_phase0.sh sanitizer
 ```
 
 Coverage verification after a coverage-instrumented test run:
 
 ```sh
-python3 scripts/check_coverage.py coverage/semaforr.filtered.info
+scripts/run_phase0.sh coverage
 ```
 
 The coverage gate applies an 80% line threshold to the files listed in
 `config/coverage_thresholds.json`. The source-quality manifest is checked during
 `colcon test`; `.clang-format` and `.clang-tidy` define the formatting and
 static-analysis policy. Modern component targets and Phase 14 production files
-compile with warnings promoted to errors. Legacy headers remain tracked by the
-warning baseline until their extraction is complete.
+compile with warnings promoted to errors.
 
 ## Verified result
 
 Verified in ROS 2 Humble on 2026-07-29:
 
-- Normal profile: 158 tests, 0 errors, 0 failures, 0 skipped.
-- ASan/UBSan/LeakSanitizer profile: 158 tests, 0 errors, 0 failures, 0 skipped.
+- Normal profile: 29 CTest targets containing 131 test cases, 0 errors,
+  0 failures, 0 skipped.
+- Fresh-image whole workspace: 10 packages and 193 test cases, 0 errors,
+  0 failures, 4 intentional skips.
+- ASan/UBSan/LeakSanitizer profile: 29 CTest targets containing 131 test
+  cases, 0 errors, 0 failures, 0 skipped.
 - Regression trace: 11 exact matches and no classified or unclassified
   differences.
+- Overall instrumented production line coverage: 57.5%; the enforced
+  modified-core threshold is 80%.
 - Modified-code line coverage:
-  - `DecisionCoordinator.cpp`: 92.4%
-  - `MissionManager.cpp`: 80.0%
+  - `Configuration.cpp`: 94.6%
+  - `DecisionCoordinator.cpp`: 92.2%
+  - `MissionManager.cpp`: 85.0%
+  - `NavigationAdvisor.cpp`: 95.8%
+  - `NavigationEngine.cpp`: 81.8%
   - `ObstacleVetoRule.cpp`: 86.1%
-  - `MotionModel.cpp`: 95.0%
+  - `MotionModel.cpp`: 94.7%
+  - `DomainPlanner.cpp`: 86.5%
   - `PlanningCoordinator.cpp`: 100.0%
 
-The refactored component libraries pass their warning-as-error build. The
-whole-package build still emits warnings from inherited legacy headers,
-principally `PathPlanner.hpp`; those warnings remain recorded in
-`test/fixtures/baseline/build_warnings.md` and prevent claiming the
-whole-repository zero-warning goal. The Humble image used for verification did
-not contain `clang-format` or `clang-tidy`, so their checked-in policies were
-not executed; the manifest-based static source gate did pass.
+Every production library now uses the warning-as-error profile. The warnings
+in `test/fixtures/baseline/build_warnings.md` describe the removed ROS1
+baseline and remain only as characterization evidence. Formatting, static
+analysis, sanitizer, coverage, and replay commands are enforced by the CI
+profiles documented above.

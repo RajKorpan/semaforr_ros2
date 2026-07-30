@@ -1,16 +1,9 @@
 # SemaFORR action explanations
 
-`why` is the ROS 2 adapter for the inherited action-explanation engine.
-It consumes the current SemaFORR `decision_log` compatibility topic and
-publishes human-readable `explanations` plus tabular `explanations_log`
-diagnostics.
+`why` is the ROS 2 action-explanation adapter. It consumes
+`semaforr_msgs/msg/DecisionRecord` from `decision_records` and publishes a
+human-readable explanation on `explanations`.
 
-The input and output topic names and `text_config` path are ROS parameters.
-The default text configuration is resolved through the ament package index,
-so the node does not depend on a source checkout. Malformed decision records
-are rejected before the legacy explanation code parses positional fields.
-
-The tab-separated input is intentionally isolated here as a compatibility
-boundary. New navigation behavior should use the structured
-`DecisionResult` domain API and should not add dependencies on this wire
-format.
+The node is callback-driven and derives its rationale, veto count, confidence,
+task, and execution outcome from typed fields. The topic names are ROS
+parameters. There is no positional decision-log parser or runtime text file.

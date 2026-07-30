@@ -31,7 +31,7 @@ The sanitizer, coverage, and regression commands are in
 - Reject invalid configuration at startup. Do not add silent defaults after
   validation.
 - Add components through registries and tests, not dispatch edits in the ROS
-  node or the legacy `Controller` facade.
+  node.
 
 ## Tests required with changes
 

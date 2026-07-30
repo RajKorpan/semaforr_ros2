@@ -13,6 +13,7 @@
 - [Contributor guide](contributing.md)
 - [Legacy configuration migration](legacy-configuration-migration.md)
 - [Testing strategy and quality gates](phase-14-testing.md)
+- [Final convergence audit](final-convergence.md)
 
 Phase completion reports are retained as implementation history. The documents
 above are the maintained operational and design contracts.

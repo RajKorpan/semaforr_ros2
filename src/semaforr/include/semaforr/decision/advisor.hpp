@@ -1,12 +1,11 @@
 #ifndef SEMAFORR_DECISION_ADVISOR_HPP
 #define SEMAFORR_DECISION_ADVISOR_HPP
 
+#include <semaforr/decision/context.hpp>
 #include <span>
 #include <string>
 #include <string_view>
 #include <vector>
-
-#include <semaforr/decision/context.hpp>
 
 namespace semaforr::decision {
 
@@ -23,12 +22,12 @@ struct AdvisorEvaluation {
 };
 
 class Advisor {
-public:
+ public:
   virtual ~Advisor() = default;
   virtual std::string_view name() const noexcept = 0;
   virtual AdvisorEvaluation evaluate(
-    const DecisionContext& context,
-    std::span<const domain::Action> candidates) const = 0;
+      const DecisionContext& context,
+      std::span<const domain::Action> candidates) const = 0;
 };
 
 }  // namespace semaforr::decision

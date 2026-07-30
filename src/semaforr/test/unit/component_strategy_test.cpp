@@ -3,14 +3,13 @@
 #include <limits>
 #include <memory>
 #include <optional>
+#include <semaforr/decision/decision_coordinator.hpp>
+#include <semaforr/decision/mission_manager.hpp>
+#include <semaforr/planning/planning_coordinator.hpp>
 #include <string>
 #include <string_view>
 #include <utility>
 #include <vector>
-
-#include <semaforr/decision/decision_coordinator.hpp>
-#include <semaforr/decision/mission_manager.hpp>
-#include <semaforr/planning/planning_coordinator.hpp>
 
 namespace {
 
@@ -24,126 +23,101 @@ using semaforr::domain::Action;
 using semaforr::domain::ActionType;
 
 class FixedRule final : public MandatoryRule {
-public:
+ public:
   explicit FixedRule(std::optional<Decision> decision)
-    : decision_(std::move(decision))
-  {
-  }
+      : decision_(std::move(decision)) {}
 
-  std::optional<Decision> evaluate(const DecisionContext&) const override
-  {
+  std::optional<Decision> evaluate(const DecisionContext&) const override {
     return decision_;
   }
 
-private:
+ private:
   std::optional<Decision> decision_;
 };
 
 class FixedAdvisor final : public Advisor {
-public:
+ public:
   FixedAdvisor(std::string name, std::vector<ActionScore> scores, double weight)
-    : name_(std::move(name)), scores_(std::move(scores)), weight_(weight)
-  {
-  }
+      : name_(std::move(name)), scores_(std::move(scores)), weight_(weight) {}
 
   std::string_view name() const noexcept override { return name_; }
 
-  AdvisorEvaluation evaluate(
-    const DecisionContext&,
-    std::span<const Action>) const override
-  {
+  AdvisorEvaluation evaluate(const DecisionContext&,
+                             std::span<const Action>) const override {
     return {true, scores_, weight_, "component fixture"};
   }
 
-private:
+ private:
   std::string name_;
   std::vector<ActionScore> scores_;
   double weight_;
 };
 
 class FixedPlanner final : public semaforr::planning::Planner {
-public:
-  FixedPlanner(
-    std::string name,
-    semaforr::planning::PlanStatus status,
-    double cost)
-    : name_(std::move(name)), status_(status), cost_(cost)
-  {
-  }
+ public:
+  FixedPlanner(std::string name, semaforr::planning::PlanStatus status,
+               double cost)
+      : name_(std::move(name)), status_(status), cost_(cost) {}
 
   semaforr::planning::PlanResult plan(
-    const semaforr::planning::PlanningRequest&) override
-  {
+      const semaforr::planning::PlanningRequest&) override {
     return {status_, {{0.0, 0.0}, {1.0, 1.0}}, cost_, "fixture"};
   }
 
   std::string_view name() const noexcept override { return name_; }
 
-private:
+ private:
   std::string name_;
   semaforr::planning::PlanStatus status_;
   double cost_;
 };
 
-TEST(MissionManager, ActivatesCompletesSkipsAndFinishesTasks)
-{
-  semaforr::domain::Mission mission(
-    {
-      {1U, {1.0, 0.0}},
-      {2U, {2.0, 0.0}}
-    },
-    2U);
+TEST(MissionManager, ActivatesCompletesSkipsAndFinishesTasks) {
+  semaforr::domain::Mission mission({{1U, {1.0, 0.0}}, {2U, {2.0, 0.0}}}, 2U);
   semaforr::decision::MissionManager manager(mission);
 
-  EXPECT_EQ(
-    manager.prepareDecision(),
-    semaforr::decision::MissionStep::ActivatedTask);
+  EXPECT_EQ(manager.prepareDecision(),
+            semaforr::decision::MissionStep::ActivatedTask);
   manager.recordDecision();
   EXPECT_TRUE(manager.completeActiveTask());
-  EXPECT_EQ(
-    manager.prepareDecision(),
-    semaforr::decision::MissionStep::ActivatedTask);
+  EXPECT_EQ(manager.prepareDecision(),
+            semaforr::decision::MissionStep::ActivatedTask);
   manager.recordDecision();
   manager.recordDecision();
-  EXPECT_EQ(
-    manager.prepareDecision(),
-    semaforr::decision::MissionStep::Complete);
+  EXPECT_EQ(manager.prepareDecision(),
+            semaforr::decision::MissionStep::Complete);
   EXPECT_EQ(mission.completed().size(), 1U);
   EXPECT_EQ(mission.skipped().size(), 1U);
   EXPECT_TRUE(manager.complete());
 }
 
-TEST(TierOneRuleChain, FirstMandatoryDecisionWins)
-{
+TEST(TierOneRuleChain, FirstMandatoryDecisionWins) {
   semaforr::domain::WorldModel world;
   semaforr::decision::DecisionCoordinator coordinator;
   coordinator.addMandatoryRule(std::make_unique<FixedRule>(std::nullopt));
   coordinator.addMandatoryRule(std::make_unique<FixedRule>(
-    Decision{
-      Action(ActionType::TurnLeft, 1U), "victory", "first decision"}));
+      Decision{Action(ActionType::TurnLeft, 1U), "victory", "first decision"}));
   coordinator.addMandatoryRule(std::make_unique<FixedRule>(
-    Decision{
-      Action(ActionType::TurnRight, 1U), "enforcer", "must not run"}));
+      Decision{Action(ActionType::TurnRight, 1U), "enforcer", "must not run"}));
 
-  const std::vector<Action> candidates{
-    Action(ActionType::Forward, 1U),
-    Action(ActionType::TurnLeft, 1U)};
+  const std::vector<Action> candidates{Action(ActionType::Forward, 1U),
+                                       Action(ActionType::TurnLeft, 1U)};
   const auto result = coordinator.decide(DecisionContext{world}, candidates);
   EXPECT_EQ(result.action, Action(ActionType::TurnLeft, 1U));
   EXPECT_EQ(result.source, semaforr::decision::DecisionSource::MandatoryRule);
   EXPECT_EQ(result.tier, semaforr::decision::DecisionTier::TierOne);
 }
 
-TEST(TierThreeCoordinator, AggregatesRawScoresAndWeights)
-{
+TEST(TierThreeCoordinator, AggregatesRawScoresAndWeights) {
   semaforr::domain::WorldModel world;
   const Action forward(ActionType::Forward, 1U);
   const Action left(ActionType::TurnLeft, 1U);
   semaforr::decision::DecisionCoordinator coordinator;
   coordinator.addAdvisor(std::make_unique<FixedAdvisor>(
-    "progress", std::vector<ActionScore>{{forward, 2.0}, {left, 1.0}}, 2.0));
+      "progress", std::vector<ActionScore>{{forward, 2.0}, {left, 1.0}}, 2.0));
   coordinator.addAdvisor(std::make_unique<FixedAdvisor>(
-    "clearance", std::vector<ActionScore>{{forward, -1.0}, {left, 1.0}}, 3.0));
+      "clearance", std::vector<ActionScore>{{forward, -1.0}, {left, 1.0}},
+      3.0));
 
   const std::vector<Action> candidates{forward, left};
   const auto result = coordinator.decide(DecisionContext{world}, candidates);
@@ -153,52 +127,43 @@ TEST(TierThreeCoordinator, AggregatesRawScoresAndWeights)
   EXPECT_DOUBLE_EQ(result.contributions[0].weighted_score, -3.0);
 }
 
-TEST(PlanningCoordinator, SelectsLowestCostAndUsesNameForStableTies)
-{
+TEST(PlanningCoordinator, SelectsLowestCostAndUsesNameForStableTies) {
   semaforr::planning::PlanningCoordinator coordinator;
   coordinator.registerPlanner(std::make_unique<FixedPlanner>(
-    "unavailable", semaforr::planning::PlanStatus::NoPath, 0.0));
+      "unavailable", semaforr::planning::PlanStatus::NoPath, 0.0));
   coordinator.registerPlanner(std::make_unique<FixedPlanner>(
-    "zeta", semaforr::planning::PlanStatus::Success, 2.0));
+      "zeta", semaforr::planning::PlanStatus::Success, 2.0));
   coordinator.registerPlanner(std::make_unique<FixedPlanner>(
-    "alpha", semaforr::planning::PlanStatus::Success, 2.0));
+      "alpha", semaforr::planning::PlanStatus::Success, 2.0));
 
   const auto selected = coordinator.selectPlan(
-    {{{0.0, 0.0}, semaforr::domain::Angle::zero()}, {1.0, 1.0}, nullptr});
+      {{{0.0, 0.0}, semaforr::domain::Angle::zero()}, {1.0, 1.0}, nullptr});
   ASSERT_TRUE(selected);
   EXPECT_EQ(selected->planner, "alpha");
   EXPECT_DOUBLE_EQ(selected->result.cost_m, 2.0);
 }
 
-TEST(PlanningCoordinator, RejectsInvalidRegistrationAndPlannerCosts)
-{
+TEST(PlanningCoordinator, RejectsInvalidRegistrationAndPlannerCosts) {
   semaforr::planning::PlanningCoordinator coordinator;
-  EXPECT_THROW(
-    coordinator.registerPlanner(nullptr),
-    std::invalid_argument);
-  EXPECT_THROW(
-    coordinator.registerPlanner(std::make_unique<FixedPlanner>(
-      "", semaforr::planning::PlanStatus::Success, 1.0)),
-    std::invalid_argument);
+  EXPECT_THROW(coordinator.registerPlanner(nullptr), std::invalid_argument);
+  EXPECT_THROW(coordinator.registerPlanner(std::make_unique<FixedPlanner>(
+                   "", semaforr::planning::PlanStatus::Success, 1.0)),
+               std::invalid_argument);
 
   coordinator.registerPlanner(std::make_unique<FixedPlanner>(
-    "valid", semaforr::planning::PlanStatus::Success, 1.0));
-  EXPECT_THROW(
-    coordinator.registerPlanner(std::make_unique<FixedPlanner>(
-      "valid", semaforr::planning::PlanStatus::Success, 2.0)),
-    std::invalid_argument);
+      "valid", semaforr::planning::PlanStatus::Success, 1.0));
+  EXPECT_THROW(coordinator.registerPlanner(std::make_unique<FixedPlanner>(
+                   "valid", semaforr::planning::PlanStatus::Success, 2.0)),
+               std::invalid_argument);
 
   semaforr::planning::PlanningCoordinator invalid_cost;
   invalid_cost.registerPlanner(std::make_unique<FixedPlanner>(
-    "nan",
-    semaforr::planning::PlanStatus::Success,
-    std::numeric_limits<double>::quiet_NaN()));
+      "nan", semaforr::planning::PlanStatus::Success,
+      std::numeric_limits<double>::quiet_NaN()));
   EXPECT_THROW(
-    invalid_cost.selectPlan(
-      {{{0.0, 0.0}, semaforr::domain::Angle::zero()},
-       {1.0, 1.0},
-       nullptr}),
-    std::domain_error);
+      invalid_cost.selectPlan(
+          {{{0.0, 0.0}, semaforr::domain::Angle::zero()}, {1.0, 1.0}, nullptr}),
+      std::domain_error);
 }
 
 }  // namespace

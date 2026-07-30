@@ -44,12 +44,13 @@ inputs. Convert the upstream producer to the one
 `social_context_msgs/msg/SocialObservation` contract. The learned
 `CrowdField` is a SemaFORR output and diagnostic projection.
 
-ROS 1 crowd estimator source is retained under ignored directories for
-reference. Its count/exposure, discount, and CUSUM semantics now live behind
-`social.learning.estimator`; those packages are not built in ROS 2.
+ROS 1 crowd estimator source was removed after its count/exposure, discount,
+and CUSUM semantics were reimplemented behind
+`social.learning.estimator`. Git history is the migration archive; those
+packages are not part of the ROS 2 tree.
 
 ## Acceptance
 
-The migrated launch must start with `configuration.use_legacy_files: false`,
-contain no source-tree paths, pass startup validation, and reproduce or
-intentionally explain the legacy decision trace.
+The generated YAML contains only registered ROS 2 advisor and planner names.
+The migrated launch must contain no source-tree paths, pass startup validation,
+and reproduce or intentionally explain the legacy decision trace.

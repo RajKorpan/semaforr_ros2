@@ -3,15 +3,14 @@
 
 #include <cstddef>
 #include <optional>
+#include <semaforr/domain/action.hpp>
+#include <semaforr/domain/mission.hpp>
+#include <semaforr/domain/observation.hpp>
 #include <string>
 #include <string_view>
 #include <utility>
 #include <variant>
 #include <vector>
-
-#include <semaforr/domain/action.hpp>
-#include <semaforr/domain/mission.hpp>
-#include <semaforr/domain/observation.hpp>
 
 namespace semaforr::spatial {
 
@@ -25,17 +24,9 @@ enum class SpatialRepresentation {
   PassagesAndSkeleton
 };
 
-enum class UpdateMode {
-  Incremental,
-  RebuildOnDemand
-};
+enum class UpdateMode { Incremental, RebuildOnDemand };
 
-enum class ModelStatus {
-  Empty,
-  Incomplete,
-  Fresh,
-  Stale
-};
+enum class ModelStatus { Empty, Incomplete, Fresh, Stale };
 
 struct ObservationContract {
   bool pose = true;
@@ -94,15 +85,9 @@ struct PassageSkeletonModel {
   std::vector<SkeletonEdge> edges;
 };
 
-using SpatialPayload = std::variant<
-  std::monostate,
-  TrailModel,
-  ConveyorModel,
-  RegionModel,
-  DoorExitModel,
-  HallwayModel,
-  BarrierModel,
-  PassageSkeletonModel>;
+using SpatialPayload = std::variant<std::monostate, TrailModel, ConveyorModel,
+                                    RegionModel, DoorExitModel, HallwayModel,
+                                    BarrierModel, PassageSkeletonModel>;
 
 struct SpatialModelUpdate {
   SpatialRepresentation representation = SpatialRepresentation::Trails;
@@ -125,7 +110,7 @@ std::string_view toString(ModelStatus status) noexcept;
 std::string serialize(const SpatialModelUpdate& update);
 
 class SpatialLearner {
-public:
+ public:
   virtual ~SpatialLearner() = default;
 
   virtual void observe(const NavigationEpisode& episode) = 0;

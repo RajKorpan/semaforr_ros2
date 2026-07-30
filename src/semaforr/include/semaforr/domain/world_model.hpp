@@ -3,45 +3,40 @@
 
 #include <algorithm>
 #include <optional>
+#include <semaforr/domain/action.hpp>
+#include <semaforr/domain/crowd_model.hpp>
+#include <semaforr/domain/mission.hpp>
+#include <semaforr/domain/observation.hpp>
 #include <stdexcept>
 #include <string>
 #include <utility>
 #include <vector>
 
-#include <semaforr/domain/action.hpp>
-#include <semaforr/domain/mission.hpp>
-#include <semaforr/domain/observation.hpp>
-#include <semaforr/domain/crowd_model.hpp>
-
 namespace semaforr::domain {
 
 class ActionSpace {
-public:
-  ActionSpace(
-    std::vector<double> move_distances_m,
-    std::vector<double> rotation_angles_rad)
-    : move_distances_m_(std::move(move_distances_m)),
-      rotation_angles_rad_(std::move(rotation_angles_rad))
-  {
+ public:
+  ActionSpace(std::vector<double> move_distances_m,
+              std::vector<double> rotation_angles_rad)
+      : move_distances_m_(std::move(move_distances_m)),
+        rotation_angles_rad_(std::move(rotation_angles_rad)) {
     validate(move_distances_m_, "move distances");
     validate(rotation_angles_rad_, "rotation angles");
     if (move_distances_m_.size() > Action::maximum_magnitude_index ||
         rotation_angles_rad_.size() > Action::maximum_magnitude_index) {
-      throw std::invalid_argument("action arrays may contain at most 299 values");
+      throw std::invalid_argument(
+          "action arrays may contain at most 299 values");
     }
   }
 
-  const std::vector<double>& move_distances_m() const noexcept
-  {
+  const std::vector<double>& move_distances_m() const noexcept {
     return move_distances_m_;
   }
-  const std::vector<double>& rotation_angles_rad() const noexcept
-  {
+  const std::vector<double>& rotation_angles_rad() const noexcept {
     return rotation_angles_rad_;
   }
 
-  bool contains(const Action& action) const noexcept
-  {
+  bool contains(const Action& action) const noexcept {
     switch (action.type()) {
       case ActionType::Pause:
         return action.magnitude_index() == 0U;
@@ -54,22 +49,21 @@ public:
     return false;
   }
 
-private:
-  static void validate(const std::vector<double>& values, const char* name)
-  {
+ private:
+  static void validate(const std::vector<double>& values, const char* name) {
     if (values.empty()) {
       throw std::invalid_argument(std::string(name) + " must not be empty");
     }
     if (!std::all_of(values.begin(), values.end(), [](double value) {
-        return std::isfinite(value) && value > 0.0;
-      })) {
-      throw std::invalid_argument(
-        std::string(name) + " must contain finite positive values");
+          return std::isfinite(value) && value > 0.0;
+        })) {
+      throw std::invalid_argument(std::string(name) +
+                                  " must contain finite positive values");
     }
     if (!std::is_sorted(values.begin(), values.end()) ||
         std::adjacent_find(values.begin(), values.end()) != values.end()) {
-      throw std::invalid_argument(
-        std::string(name) + " must be strictly increasing");
+      throw std::invalid_argument(std::string(name) +
+                                  " must be strictly increasing");
     }
   }
 
@@ -89,18 +83,16 @@ struct NavigationHistoryEntry {
 };
 
 class NavigationHistory {
-public:
-  void record(NavigationHistoryEntry entry)
-  {
+ public:
+  void record(NavigationHistoryEntry entry) {
     entries_.push_back(std::move(entry));
   }
 
-  const std::vector<NavigationHistoryEntry>& entries() const noexcept
-  {
+  const std::vector<NavigationHistoryEntry>& entries() const noexcept {
     return entries_;
   }
 
-private:
+ private:
   std::vector<NavigationHistoryEntry> entries_;
 };
 

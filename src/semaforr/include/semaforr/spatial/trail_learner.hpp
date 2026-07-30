@@ -6,10 +6,10 @@
 namespace semaforr::spatial {
 
 class TrailLearner final : public SpatialLearnerBase {
-public:
+ public:
   explicit TrailLearner(double minimum_sample_distance_m = 0.05);
 
-private:
+ private:
   void onObserve(const NavigationEpisode& episode) override;
   void onRebuild() override;
 

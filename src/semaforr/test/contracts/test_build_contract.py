@@ -9,131 +9,70 @@ SOURCE_DIR = Path(
 )
 
 
-def test_component_sources_are_explicit_and_complete():
-    cmake = (SOURCE_DIR / "CMakeLists.txt").read_text(encoding="utf-8")
-    source_blocks = re.findall(
-        r"set\(SEMAFORR_(?:CORE_DOMAIN|DECISION|SPATIAL|PLANNING|ENGINE)_SOURCES"
-        r"(?P<body>.*?)\n\)",
-        cmake,
-        re.DOTALL,
-    )
+def cmake_source():
+    return (SOURCE_DIR / "CMakeLists.txt").read_text(encoding="utf-8")
 
-    assert len(source_blocks) == 5
+
+def test_all_production_sources_are_explicit():
+    cmake = cmake_source()
     assert "GLOB" not in cmake
-
-    declared = {
-        source
-        for source in re.findall(r"src/(?:[\w]+/)+[\w]+\.cpp", cmake)
-        if not source.startswith("src/ros/")
-    }
+    declared = set(re.findall(r"src/(?:[\w]+/)+[\w]+\.cpp", cmake))
     observed = {
         path.relative_to(SOURCE_DIR).as_posix()
         for path in (SOURCE_DIR / "src").rglob("*.cpp")
-        if not path.relative_to(SOURCE_DIR).as_posix().startswith("src/ros/")
     }
     assert declared == observed
 
 
-def test_source_and_header_layout_is_responsibility_based():
-    expected_header_areas = {
-        "config",
-        "core",
+def test_focused_libraries_are_exported_without_compatibility_targets():
+    cmake = cmake_source()
+    for component in (
         "domain",
-        "decision",
-        "exploration",
-        "navigation",
         "planning",
-        "ros",
-        "social",
+        "advisors",
         "spatial",
-    }
-    expected_source_areas = {
-        "config",
-        "core",
-        "decision",
-        "domain",
         "navigation",
-        "ros",
-        "social",
-        "spatial",
-    }
-    include_root = SOURCE_DIR / "include" / "semaforr"
-    source_root = SOURCE_DIR / "src"
-
-    assert not list(include_root.glob("*.h"))
-    assert not list(include_root.rglob("*.h"))
-    assert not list(source_root.glob("*.cpp"))
-    assert {
-        path.name for path in include_root.iterdir() if path.is_dir()
-    } == expected_header_areas
-    assert {
-        path.name for path in source_root.iterdir() if path.is_dir()
-    } == expected_source_areas
-
-
-def test_domain_and_compatibility_libraries_are_exported():
-    cmake = (SOURCE_DIR / "CMakeLists.txt").read_text(encoding="utf-8")
-
-    assert "add_library(semaforr_domain SHARED" in cmake
-    assert "add_library(semaforr::domain ALIAS semaforr_domain)" in cmake
-    assert (
-        "set_target_properties(semaforr_domain PROPERTIES EXPORT_NAME domain)"
-        in cmake
-    )
-    assert "add_library(semaforr_core INTERFACE)" in cmake
-    assert "add_library(semaforr::core ALIAS semaforr_core)" in cmake
-    assert "set_target_properties(semaforr_core PROPERTIES EXPORT_NAME core)" in cmake
-    assert "target_link_libraries(semaforr_core INTERFACE semaforr_domain)" in cmake
-    for component in ("planning", "advisors", "spatial"):
+        "ros_adapters",
+    ):
         assert f"add_library(semaforr_{component} SHARED" in cmake
         assert f"add_library(semaforr::{component} ALIAS semaforr_{component})" in cmake
-        assert (
-            f"set_target_properties(semaforr_{component} PROPERTIES "
-            f"EXPORT_NAME {component})"
-            in cmake
-        )
-    assert "add_library(semaforr_ros INTERFACE)" in cmake
-    assert "add_library(semaforr::ros ALIAS semaforr_ros)" in cmake
+        assert f"EXPORT_NAME {component}" in cmake
+    assert "semaforr_core" not in cmake
+    assert "add_library(semaforr_ros INTERFACE)" not in cmake
     assert "ament_export_targets(export_${PROJECT_NAME} HAS_LIBRARY_TARGET)" in cmake
 
 
-def test_social_input_uses_the_dedicated_interface_package():
+def test_strict_warnings_apply_to_every_production_library():
+    cmake = cmake_source()
+    for target in (
+        "semaforr_domain",
+        "semaforr_planning",
+        "semaforr_advisors",
+        "semaforr_spatial",
+        "semaforr_navigation",
+        "semaforr_ros_adapters",
+    ):
+        assert f"semaforr_apply_project_options({target})" in cmake
+        assert f"semaforr_apply_strict_warnings({target})" in cmake
+
+
+def test_cpp_build_has_no_python_embedding_or_recursive_glob():
+    cmake = cmake_source()
     code = "\n".join(
         path.read_text(encoding="utf-8", errors="ignore")
-        for directory in ("include", "src")
-        for path in (SOURCE_DIR / directory).rglob("*")
-        if path.suffix in {".h", ".hpp", ".cpp"}
+        for root in ("include", "src")
+        for path in (SOURCE_DIR / root).rglob("*")
+        if path.suffix in {".hpp", ".cpp"}
     )
-
-    assert "semaforr.msg" not in code
-    assert "CrowdModel.msg" not in code
-    assert "social_context_msgs::msg::SocialObservation" in code
-    assert "social_observation.hpp" in code
-
-
-def test_cpp_build_does_not_embed_python():
-    cmake = (SOURCE_DIR / "CMakeLists.txt").read_text(encoding="utf-8")
-    code = "\n".join(
-        path.read_text(encoding="utf-8", errors="ignore")
-        for directory in ("include", "src")
-        for path in (SOURCE_DIR / directory).rglob("*")
-        if path.suffix in {".h", ".hpp", ".cpp"}
-    )
-
     assert "find_package(Python" not in cmake
     assert "find_package(rclpy" not in cmake
     assert "Python.h" not in code
     assert "Py_Initialize" not in code
-    assert "Py_Finalize" not in code
 
 
 def test_manifest_and_cmake_versions_match():
-    cmake = (SOURCE_DIR / "CMakeLists.txt").read_text(encoding="utf-8")
+    cmake = cmake_source()
     package = ET.parse(SOURCE_DIR / "package.xml").getroot()
-    cmake_version = re.search(
-        r"project\(semaforr VERSION ([0-9.]+)", cmake
-    )
-
-    assert cmake_version is not None
-    assert cmake_version.group(1) == package.findtext("version")
-    assert package.find("build_depend[.='message_generation']") is None
+    match = re.search(r"project\(semaforr VERSION ([0-9.]+)", cmake)
+    assert match is not None
+    assert match.group(1) == package.findtext("version")

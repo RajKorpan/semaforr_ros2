@@ -2,22 +2,17 @@
 #define SEMAFORR_ROS_NAVIGATION_ENGINE_ADAPTER_HPP
 
 #include <memory>
-
 #include <semaforr/config/Configuration.hpp>
 #include <semaforr/decision/decision_result.hpp>
-#include <semaforr/domain/SensorTypes.hpp>
+#include <semaforr/domain/world_model.hpp>
 #include <semaforr/ros/command_executor.hpp>
 #include <semaforr/ros/sensor_synchronizer.hpp>
 
-class Controller;
-
 namespace semaforr::ros {
 
-// Compatibility boundary between the event-driven ROS node and the legacy
-// Controller facade. It keeps decision selection and legacy model updates out
-// of SemaFORRNode while the ROS-independent NavigationEngine is adopted.
+// Owns the ROS-independent navigation composition used by the ROS adapter.
 class NavigationEngineAdapter {
-public:
+ public:
   explicit NavigationEngineAdapter(config::Configuration configuration);
   ~NavigationEngineAdapter();
 
@@ -26,20 +21,15 @@ public:
   NavigationEngineAdapter(NavigationEngineAdapter&&) noexcept;
   NavigationEngineAdapter& operator=(NavigationEngineAdapter&&) noexcept;
 
-  void observe(
-    const SynchronizedSensors& sensors,
-    const domain::CrowdState& crowd);
+  void observe(const SynchronizedSensors& sensors,
+               const domain::CrowdState& crowd);
 
   bool missionComplete();
   decision::DecisionResult decide();
-  ActionExecutionRequest executionRequest(
-    const domain::Action& action) const;
-  void markDecisionComplete(double mission_time_s);
+  ActionExecutionRequest executionRequest(const domain::Action& action) const;
+  const domain::WorldModel& worldModel() const noexcept;
 
-  // Visualization still reads the established Controller model.
-  Controller& visualizationModel() noexcept;
-
-private:
+ private:
   class Impl;
   std::unique_ptr<Impl> impl_;
 };

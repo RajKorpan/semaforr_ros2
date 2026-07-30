@@ -67,8 +67,8 @@ docker compose up
 ```
 
 The Docker build compiles the copied workspace; it does not depend on a host
-`build/` or `install/` directory. Retained ROS 1 crowd packages are excluded by
-their `COLCON_IGNORE` files.
+`build/` or `install/` directory. Superseded ROS 1 crowd packages have been
+removed from the active tree.
 
 ## Tests fail only after an incremental build
 

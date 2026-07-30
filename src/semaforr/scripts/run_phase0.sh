@@ -10,30 +10,34 @@ build_base="build"
 case "${profile}" in
   normal)
     colcon build \
-      --packages-select semaforr \
-      --cmake-args -DBUILD_TESTING=ON
+      --packages-up-to semaforr \
+      --cmake-args \
+        -DBUILD_TESTING=ON \
+        -DSEMAFORR_STRICT_MODERN_CODE=ON
     ;;
   sanitizer)
     build_base="build-sanitizer"
     colcon build \
-      --packages-select semaforr \
+      --packages-up-to semaforr \
       --build-base build-sanitizer \
       --install-base install-sanitizer \
       --cmake-args \
         -DBUILD_TESTING=ON \
         -DCMAKE_BUILD_TYPE=RelWithDebInfo \
-        -DSEMAFORR_ENABLE_SANITIZERS=ON
+        -DSEMAFORR_ENABLE_SANITIZERS=ON \
+        -DSEMAFORR_STRICT_MODERN_CODE=ON
     ;;
   coverage)
     build_base="build-coverage"
     colcon build \
-      --packages-select semaforr \
+      --packages-up-to semaforr \
       --build-base build-coverage \
       --install-base install-coverage \
       --cmake-args \
         -DBUILD_TESTING=ON \
         -DCMAKE_BUILD_TYPE=Debug \
-        -DSEMAFORR_ENABLE_COVERAGE=ON
+        -DSEMAFORR_ENABLE_COVERAGE=ON \
+        -DSEMAFORR_STRICT_MODERN_CODE=ON
     ;;
   *)
     echo "usage: $0 [normal|sanitizer|coverage]" >&2
@@ -75,6 +79,9 @@ if [[ "${profile}" == "coverage" ]]; then
       --remove coverage/semaforr.project.info \
       "*/src/semaforr/test/*" \
       --output-file coverage/semaforr.info
+    python3 \
+      src/semaforr/scripts/check_coverage.py \
+      coverage/semaforr.info
     genhtml \
       coverage/semaforr.info \
       --output-directory coverage/html

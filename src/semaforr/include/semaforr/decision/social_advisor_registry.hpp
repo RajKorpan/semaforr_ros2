@@ -15,8 +15,8 @@ struct SocialAdvisorRegistryConfiguration {
 };
 
 void registerSocialAdvisorFactories(
-  AdvisorRegistry& registry,
-  SocialAdvisorRegistryConfiguration configuration);
+    AdvisorRegistry& registry,
+    SocialAdvisorRegistryConfiguration configuration);
 
 }  // namespace semaforr::decision
 

@@ -2,10 +2,10 @@
 #define SEMAFORR_DECISION_SOCIAL_NAVIGATION_ADVISOR_HPP
 
 #include <chrono>
+#include <semaforr/decision/advisor.hpp>
+#include <string>
 #include <string_view>
 #include <vector>
-
-#include <semaforr/decision/advisor.hpp>
 
 namespace semaforr::decision {
 
@@ -18,26 +18,25 @@ struct SocialAdvisorConfiguration {
   double personal_space_m{1.2};
   double collision_distance_m{0.65};
   double weight{1.0};
+  std::string advisor_name{"social_navigation"};
 };
 
 class SocialNavigationAdvisor final : public Advisor {
-public:
+ public:
   explicit SocialNavigationAdvisor(SocialAdvisorConfiguration configuration);
 
-  std::string_view name() const noexcept override
-  {
-    return "social_navigation";
+  std::string_view name() const noexcept override {
+    return configuration_.advisor_name;
   }
 
   AdvisorEvaluation evaluate(
-    const DecisionContext& context,
-    std::span<const domain::Action> candidates) const override;
+      const DecisionContext& context,
+      std::span<const domain::Action> candidates) const override;
 
-private:
-  double score(
-    const domain::WorldModel& world,
-    const domain::CrowdObservation& crowd,
-    const domain::Action& action) const;
+ private:
+  double score(const domain::WorldModel& world,
+               const domain::CrowdObservation& crowd,
+               const domain::Action& action) const;
 
   SocialAdvisorConfiguration configuration_;
 };

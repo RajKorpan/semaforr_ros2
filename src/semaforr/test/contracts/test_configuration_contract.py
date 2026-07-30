@@ -7,74 +7,43 @@ SOURCE_DIR = Path(
 )
 
 
-def test_configuration_parsing_is_outside_controller():
-    controller = (
-        SOURCE_DIR / "src" / "decision" / "Controller.cpp"
-    ).read_text(encoding="utf-8")
-
-    for token in (
-        "std::ifstream",
-        "istream_iterator",
-        "initialize_params",
-        "initialize_spatial_model",
-        "atoi(",
-        "atof(",
-    ):
-        assert token not in controller
-
-    assert "Controller(semaforr::config::Configuration configuration)" in controller
-    assert "semaforr::config::loadConfiguration" in controller
-
-
-def test_ros_entry_point_loads_one_typed_configuration():
-    node = (SOURCE_DIR / "src" / "ros" / "SemaFORRNode.cpp").read_text(
+def test_runtime_configuration_is_parameter_only():
+    adapter = (SOURCE_DIR / "src/ros/ParameterConfiguration.cpp").read_text(
         encoding="utf-8"
     )
+    yaml = (SOURCE_DIR / "config/semaforr.yaml").read_text(encoding="utf-8")
+    for obsolete in (
+        "configuration.use_legacy_files",
+        "configuration.legacy.",
+        "semaforr_path",
+        "target_set",
+        "map_config",
+        "map_dimensions",
+    ):
+        assert obsolete not in adapter
+        assert obsolete not in yaml
+    assert "map.path: required path is empty" in adapter
+    assert "mission.tasks_path: required path is empty" in adapter
 
-    assert "config::Configuration controller_configuration" in node
-    assert "configurationFromParameters(node_)" in node
-    assert (
-        "std::make_unique<NavigationEngineAdapter>(" in node
-        and "std::move(controller_configuration)" in node
+
+def test_structured_configuration_validates_all_runtime_invariants():
+    source = (SOURCE_DIR / "src/config/Configuration.cpp").read_text(
+        encoding="utf-8"
     )
-    parameter_adapter = (
-        SOURCE_DIR / "src" / "ros" / "ParameterConfiguration.cpp"
-    ).read_text(encoding="utf-8")
-    assert "config::loadStructuredConfiguration" in parameter_adapter
-    assert "configuration.use_legacy_files" in parameter_adapter
-    assert (SOURCE_DIR / "config" / "semaforr.yaml").is_file()
-
-
-def test_configuration_module_is_typed_and_ros_independent():
-    header = (
-        SOURCE_DIR / "include" / "semaforr" / "config" / "Configuration.hpp"
-    ).read_text(encoding="utf-8")
-    implementation = (
-        SOURCE_DIR / "src" / "config" / "Configuration.cpp"
-    ).read_text(encoding="utf-8")
-
-    for type_name in (
-        "ControllerConfiguration",
-        "PlannerConfiguration",
-        "MapDimensions",
-        "AdvisorConfiguration",
-        "TaskConfiguration",
-        "ConfigurationFiles",
-        "Configuration",
+    for diagnostic in (
+        "must not be empty",
+        "must be finite",
+        "must be positive",
+        "unknown advisor",
+        "planner",
+        "map",
     ):
-        assert f"struct {type_name}" in header
+        assert diagnostic in source
 
-    assert "std::stod" in implementation
-    assert "std::stoll" in implementation
-    assert "missing required setting" in implementation
-    assert "duplicate setting" in implementation
-    assert "unknown setting" in implementation
 
-    combined = header + implementation
-    for ros_token in (
-        "rclcpp",
-        "geometry_msgs",
-        "sensor_msgs",
-        "semaforr::msg",
-    ):
-        assert ros_token not in combined
+def test_legacy_converter_is_offline_only():
+    cmake = (SOURCE_DIR / "CMakeLists.txt").read_text(encoding="utf-8")
+    assert "convert_legacy_config.py" in cmake
+    assert "loadConfiguration({" not in (
+        SOURCE_DIR / "src/ros/ParameterConfiguration.cpp"
+    ).read_text(encoding="utf-8")

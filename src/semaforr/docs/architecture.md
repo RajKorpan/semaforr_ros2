@@ -18,9 +18,8 @@ semaforr_node
 ```
 
 The public targets are `semaforr::domain`, `semaforr::advisors`,
-`semaforr::planning`, `semaforr::spatial`, and `semaforr::ros_adapters`.
-`semaforr::core` and `semaforr::ros` are compatibility targets. New
-ROS-independent code must not include ROS headers.
+`semaforr::planning`, `semaforr::spatial`, `semaforr::navigation`, and
+`semaforr::ros_adapters`. ROS-independent code must not include ROS headers.
 
 ## One cognitive cycle
 
@@ -51,9 +50,10 @@ zero velocity command. Missing or stale social data disables social
 participation but does not stop geometric navigation. Empty candidate sets and
 non-finite advice produce deterministic safe fallbacks.
 
-The legacy `Controller` facade and several legacy advisor implementations
-remain behind these interfaces for behavioral compatibility. New work belongs
-in the focused libraries above, not in the facade.
+The ROS1 `Controller`, `AgentState`, raw-pointer planners, and monolithic
+spatial representations have been removed. Retained legacy configuration is
+handled only by the offline migration tool and is never part of runtime
+construction.
 
 See [decision-tiers.md](decision-tiers.md), [topics-and-frames.md](topics-and-frames.md),
 [spatial-learning.md](spatial-learning.md), and

@@ -1,23 +1,19 @@
 #ifndef SEMAFORR_DECISION_OBSTACLE_VETO_RULE_HPP
 #define SEMAFORR_DECISION_OBSTACLE_VETO_RULE_HPP
 
-#include <vector>
-
 #include <semaforr/decision/rules.hpp>
+#include <vector>
 
 namespace semaforr::decision {
 
 class ObstacleVetoRule final : public VetoRule {
-public:
-  ObstacleVetoRule(
-    std::vector<double> move_distances_m,
-    double robot_radius_m,
-    double obstacle_buffer_m);
+ public:
+  ObstacleVetoRule(std::vector<double> move_distances_m, double robot_radius_m,
+                   double obstacle_buffer_m);
 
-  std::vector<Veto> evaluate(
-    const DecisionContext& context) const override;
+  std::vector<Veto> evaluate(const DecisionContext& context) const override;
 
-private:
+ private:
   std::vector<double> move_distances_m_;
   double clearance_m_;
 };

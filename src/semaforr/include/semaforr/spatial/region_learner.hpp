@@ -6,12 +6,11 @@
 namespace semaforr::spatial {
 
 class RegionLearner final : public SpatialLearnerBase {
-public:
-  RegionLearner(
-    double cluster_radius_m = 1.0,
-    std::size_t minimum_observations = 3U);
+ public:
+  RegionLearner(double cluster_radius_m = 1.0,
+                std::size_t minimum_observations = 3U);
 
-private:
+ private:
   void onObserve(const NavigationEpisode& episode) override;
   void onRebuild() override;
 

@@ -3,12 +3,11 @@
 
 #include <cstdint>
 #include <optional>
+#include <semaforr/domain/action.hpp>
+#include <semaforr/domain/geometry.hpp>
 #include <string>
 #include <string_view>
 #include <vector>
-
-#include <semaforr/domain/action.hpp>
-#include <semaforr/domain/geometry.hpp>
 
 namespace semaforr::decision {
 

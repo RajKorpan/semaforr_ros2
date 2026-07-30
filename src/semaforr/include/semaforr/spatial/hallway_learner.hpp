@@ -6,10 +6,10 @@
 namespace semaforr::spatial {
 
 class HallwayLearner final : public SpatialLearnerBase {
-public:
+ public:
   explicit HallwayLearner(double minimum_centerline_length_m = 0.5);
 
-private:
+ private:
   void onObserve(const NavigationEpisode& episode) override;
   void onRebuild() override;
 

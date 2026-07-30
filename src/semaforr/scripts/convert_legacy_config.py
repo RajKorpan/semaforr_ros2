@@ -40,6 +40,23 @@ def emit(name, value, indentation=6):
     return f"{' ' * indentation}{name}: {encoded}"
 
 
+def modern_advisor_name(legacy_name):
+    lower = legacy_name.lower()
+    if "interpersonal" in lower:
+        return "social_navigation"
+    if "crowdavoid" in lower:
+        return "crowd_avoid"
+    if "riskavoid" in lower:
+        return "risk_avoid"
+    if "flowavoid" in lower:
+        return "flow_follow"
+    if "explorer" in lower or "unlikely" in lower:
+        return "exploration"
+    if "elbowroom" in lower or "bigstep" in lower or "goaround" in lower:
+        return "clearance_rotation" if "rotation" in lower else "clearance"
+    return "goal_progress_linear" if "rotation" not in lower else "goal_progress"
+
+
 def convert(arguments):
     parameters = parse_parameters(arguments.parameters)
     dimensions_rows = list(rows(arguments.dimensions))
@@ -47,18 +64,20 @@ def convert(arguments):
         raise ValueError("dimensions: expected one row with length height granularity")
     length, height, granularity = dimensions_rows[0]
 
-    advisors = []
+    advisors_by_name = {}
     for fields in rows(arguments.advisors):
         if len(fields) != 8:
             raise ValueError("advisor row: expected eight fields")
-        advisors.append(
-            {
-                "name": fields[0],
-                "enabled": fields[2] == "t",
-                "weight": float(fields[3]),
-                "parameters": [float(value) for value in fields[4:]],
-            }
+        name = modern_advisor_name(fields[0])
+        converted = advisors_by_name.setdefault(
+            name,
+            {"name": name, "enabled": False, "weight": 0.0,
+             "parameters": [0.0, 0.0, 0.0, 0.0]},
         )
+        if fields[2] == "t":
+            converted["enabled"] = True
+            converted["weight"] = max(converted["weight"], float(fields[3]))
+    advisors = list(advisors_by_name.values())
 
     move = [float(value) for value in parameters["move"]]
     rotate = [float(value) for value in parameters["rotate"]]
@@ -67,21 +86,15 @@ def convert(arguments):
     if rotate and rotate[0] == 0.0:
         rotate.pop(0)
 
-    planner_names = {
-        "CUSUM": "cusum",
-        "hallwayskel": "hallway_skeleton",
-    }
-    planner_keys = (
-        "distance", "smooth", "novel", "density", "risk", "flow",
-        "combined", "CUSUM", "discount", "explore", "spatial",
-        "hallwayer", "trailer", "barrier", "conveys", "safe",
-        "skeleton", "hallwayskel",
-    )
+    planner_keys = ("distance", "density", "risk", "flow", "skeleton")
     enabled_planners = [
-        planner_names.get(key, key)
+        key
         for key in planner_keys
         if flag(parameters, key)
     ]
+    if any(name in enabled_planners for name in ("density", "risk", "flow")):
+        if "skeleton" not in enabled_planners:
+            enabled_planners.append("skeleton")
 
     feature_keys = {
         "trails": "trailsOn",
@@ -91,20 +104,11 @@ def convert(arguments):
         "hallways": "hallwaysOn",
         "barriers": "barrsOn",
         "astar": "aStarOn",
-        "highways": "highwaysOn",
-        "frontiers": "frontiersOn",
-        "out_of_here": "outofhereOn",
-        "doorway": "doorwayOn",
-        "find_a_way": "findawayOn",
-        "behind": "behindOn",
-        "dont_go_back": "dontgobackOn",
     }
 
     lines = [
         "semaforr:",
         "  ros__parameters:",
-        "    configuration:",
-        "      use_legacy_files: false",
         "    map:",
         emit("path", str(arguments.map), 6),
         emit("length_m", int(length), 6),
@@ -113,7 +117,6 @@ def convert(arguments):
         "    mission:",
         emit("tasks_path", str(arguments.tasks), 6),
         emit("decision_limit", scalar(parameters, "decisionlimit", int), 6),
-        emit("plan_limit", scalar(parameters, "planLimit", int), 6),
         "    actions:",
         emit("move_distances_m", move, 6),
         emit("rotation_angles_rad", rotate, 6),
@@ -125,10 +128,6 @@ def convert(arguments):
         emit("max_laser_range_m", scalar(parameters, "maxLaserRange"), 6),
         emit("max_forward_buffer_m", scalar(parameters, "maxForwardActionBuffer"), 6),
         emit("max_forward_sweep_rad", scalar(parameters, "maxForwardActionSweepAngle"), 6),
-        "    learning:",
-        emit("highway_distance_threshold_m", scalar(parameters, "highwayDistanceThreshold"), 6),
-        emit("highway_time_threshold_s", scalar(parameters, "highwayTimeThreshold"), 6),
-        emit("highway_decision_threshold", scalar(parameters, "highwayDecisionThreshold"), 6),
         "    features:",
     ]
     lines.extend(

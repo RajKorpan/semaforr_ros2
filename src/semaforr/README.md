@@ -11,10 +11,10 @@ SemaFORR is designed to enable robots to navigate complex environments using cog
 
 - Cognitive navigation algorithms
 - ROS-independent domain model with explicit ROS message adapters
-- RAII ownership for controllers, tasks, planners, graphs, and search state
+- RAII ownership for tasks, planners, learners, graphs, and search state
 - Typed, validated configuration with source-and-line diagnostics
-- Controller facade decomposed into focused mission, learning, decision, and
-  planning implementation units
+- Focused mission, learning, decision, and planning coordinators with no
+  monolithic controller facade
 - Replaceable, value-returning interfaces for all three decision tiers
 - Deterministic tier arbitration with safe empty and non-finite fallbacks
 - Decomposed path planning and robust geometry edge-case handling

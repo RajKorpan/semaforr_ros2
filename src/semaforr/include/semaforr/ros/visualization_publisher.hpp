@@ -2,10 +2,8 @@
 #define SEMAFORR_ROS_VISUALIZATION_PUBLISHER_HPP
 
 #include <memory>
-
 #include <semaforr/decision/decision_result.hpp>
-
-class Controller;
+#include <semaforr/domain/world_model.hpp>
 
 namespace rclcpp {
 class Node;
@@ -14,8 +12,8 @@ class Node;
 namespace semaforr::ros {
 
 class VisualizationPublisher {
-public:
-  VisualizationPublisher(rclcpp::Node& node, Controller& controller);
+ public:
+  VisualizationPublisher(rclcpp::Node& node, const domain::WorldModel& world);
   ~VisualizationPublisher();
 
   VisualizationPublisher(const VisualizationPublisher&) = delete;
@@ -26,7 +24,7 @@ public:
   void publishSnapshot();
   void publishDecision(const decision::DecisionResult& result);
 
-private:
+ private:
   class Impl;
   std::unique_ptr<Impl> impl_;
 };

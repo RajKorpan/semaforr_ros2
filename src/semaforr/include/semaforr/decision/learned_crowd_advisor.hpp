@@ -1,11 +1,10 @@
 #ifndef SEMAFORR_DECISION_LEARNED_CROWD_ADVISOR_HPP
 #define SEMAFORR_DECISION_LEARNED_CROWD_ADVISOR_HPP
 
+#include <semaforr/decision/advisor.hpp>
 #include <string>
 #include <string_view>
 #include <vector>
-
-#include <semaforr/decision/advisor.hpp>
 
 namespace semaforr::decision {
 
@@ -25,23 +24,20 @@ struct LearnedCrowdAdvisorConfiguration {
 };
 
 class LearnedCrowdAdvisor final : public Advisor {
-public:
-  explicit LearnedCrowdAdvisor(
-    LearnedCrowdAdvisorConfiguration configuration);
+ public:
+  explicit LearnedCrowdAdvisor(LearnedCrowdAdvisorConfiguration configuration);
 
-  std::string_view name() const noexcept override
-  {
+  std::string_view name() const noexcept override {
     return configuration_.advisor_name;
   }
 
   AdvisorEvaluation evaluate(
-    const DecisionContext& context,
-    std::span<const domain::Action> candidates) const override;
+      const DecisionContext& context,
+      std::span<const domain::Action> candidates) const override;
 
-private:
+ private:
   std::pair<domain::Point2D, domain::Angle> expected(
-    const domain::WorldModel& world,
-    const domain::Action& action) const;
+      const domain::WorldModel& world, const domain::Action& action) const;
 
   LearnedCrowdAdvisorConfiguration configuration_;
 };

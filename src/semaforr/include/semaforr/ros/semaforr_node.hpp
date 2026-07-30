@@ -2,11 +2,10 @@
 #define SEMAFORR_ROS_SEMAFORR_NODE_HPP
 
 #include <memory>
-#include <string>
-#include <string_view>
-
 #include <rclcpp/node.hpp>
 #include <rclcpp/node_options.hpp>
+#include <string>
+#include <string_view>
 
 namespace semaforr::ros {
 
@@ -20,9 +19,9 @@ enum class NavigationNodeState {
 std::string_view toString(NavigationNodeState state) noexcept;
 
 class SemaFORRNode final : public rclcpp::Node {
-public:
+ public:
   explicit SemaFORRNode(
-    const rclcpp::NodeOptions& options = rclcpp::NodeOptions{});
+      const rclcpp::NodeOptions& options = rclcpp::NodeOptions{});
   ~SemaFORRNode() override;
 
   SemaFORRNode(const SemaFORRNode&) = delete;
@@ -33,7 +32,7 @@ public:
   NavigationNodeState state() const noexcept;
   std::string lastFailure() const;
 
-private:
+ private:
   class Impl;
   std::unique_ptr<Impl> impl_;
 };
