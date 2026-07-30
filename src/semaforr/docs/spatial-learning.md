@@ -37,7 +37,7 @@ does not advance the model revision.
 | `HallwayLearner` | Pose and nonempty laser scan | End of target; orientation and midpoint bins avoid all-pairs comparison | No | hallway advisors, `hallwayskel`, `skeletonhall` |
 | `BarrierLearner` | Pose and laser ranges | Adds deduplicated adjacent obstacle-return segments after every scan | Yes | `AvoidObstacles`, `UnlikelyField`, collision-aware planners |
 | `PassageSkeletonLearner` | Pose, scan, and task boundaries | After completed action; stable node IDs and cached connected components | Yes | skeleton, hallway-skeleton, and passage planners |
-| `HighwayLearner` | HLE pose and detected passages | Builds graph and touched grid rows/columns incrementally; publishes at end of initial exploration | Yes | `HighwayPlan`, `Enforcer` |
+| `HighwayLearner` | HLE pose and detected passages | Builds touched grid rows/columns incrementally; at finalization performs local smoothing, minimum-extent extraction, intersection/spur conversion, and largest-component selection | Yes | `HighwayPlan`, `Enforcer` |
 | `KnownGridLearner` | Pose and laser visibility | Every observation into sparse construction cells | Yes | `Out`, grid planners |
 | `InclusionGridLearner` | Pose and laser visibility | Every observation into sparse construction cells | Yes | LLE, exploration |
 | `CircumstanceLearner` | Completed selected actions | End of target | No | `Precedent` |
@@ -66,8 +66,10 @@ coordinator when they need to distinguish current from retained data.
 The known and inclusion grids use sparse cells while learning and emit sorted
 sparse snapshots. Legacy consumers are densified only when the coordinator
 projects a snapshot into `domain::SpatialModel`. Highway labels rasterize only
-new path segments and record the affected rows and columns. Skeleton connected
-components are recomputed only after a graph mutation.
+new path segments and record the affected rows and columns. Highway snapshots
+use schema-versioned first-class highway, intersection, and graph entities;
+legacy node/edge projections remain available during consumer migration.
+Skeleton connected components are recomputed only after a graph mutation.
 
 Learners are rebuilt explicitly with `rebuild(kind)`, collectively with
 `rebuildStale()` or `rebuildAll()`, and at lifecycle boundaries matching their

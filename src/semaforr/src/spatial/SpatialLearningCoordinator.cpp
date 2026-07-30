@@ -310,6 +310,10 @@ void SpatialLearningCoordinator::applyTo(domain::SpatialModel& model) const {
                 payload.geometry.resolution_m, payload.geometry.origin,
                 std::move(cells), update.revision};
           } else if constexpr (std::is_same_v<Payload, HighwayModel>) {
+            model.highways.graph = payload.graph;
+            model.highways.highways = payload.highways;
+            model.highways.serialized_schema_version =
+                payload.serialized_schema_version;
             model.highways.nodes = payload.nodes;
             model.highways.edges.clear();
             for (const SkeletonEdge& edge : payload.edges)

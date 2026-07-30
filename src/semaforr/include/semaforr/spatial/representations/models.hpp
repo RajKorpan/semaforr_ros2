@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <semaforr/domain/action.hpp>
 #include <semaforr/domain/geometry.hpp>
+#include <semaforr/domain/highway.hpp>
 #include <vector>
 
 namespace semaforr::spatial {
@@ -49,16 +50,17 @@ struct InclusionGridModel {
   std::vector<std::uint32_t> included;
   std::vector<SparseGridCell> sparse_included;
 };
-struct HighwayIntersection {
-  std::size_t node = 0U;
-  std::size_t degree = 0U;
-};
+using HighwayIntersection = domain::HighwayIntersection;
 struct HighwayGridLabel {
   std::size_t row = 0U;
   std::size_t column = 0U;
   std::uint32_t label = 0U;
 };
 struct HighwayModel {
+  static constexpr std::size_t schema_version = 1U;
+  domain::Graph<domain::Intersection, domain::HighwayEdge> graph;
+  std::vector<domain::Highway> highways;
+  std::size_t serialized_schema_version = schema_version;
   std::vector<domain::Point2D> nodes;
   std::vector<SkeletonEdge> edges;
   std::vector<HighwayIntersection> intersections;

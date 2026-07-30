@@ -14,9 +14,12 @@ class HighwayLearner final : public SpatialLearnerBase {
   void onObserve(const NavigationEpisode& episode) override;
   void onRebuild() override;
   void rebuildIntersections();
+  void smoothTouchedGrid();
+  void extractHighways();
 
   double minimum_node_spacing_m_;
   double passage_clearance_m_;
+  std::size_t minimum_extent_cells_ = 3U;
   HighwayModel model_;
 };
 

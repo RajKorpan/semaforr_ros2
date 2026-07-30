@@ -109,6 +109,17 @@ TEST(HighwayLearning, BuildsVersionedGraphIncrementally) {
       std::get<semaforr::spatial::HighwayModel>(update.payload);
   EXPECT_EQ(model.nodes.size(), 3U);
   EXPECT_EQ(model.edges.size(), 2U);
+  ASSERT_EQ(model.highways.size(), 1U);
+  EXPECT_EQ(model.highways.front().axis, semaforr::domain::Axis::Horizontal);
+  EXPECT_GE(model.highways.front().cells.size(), 3U);
+  EXPECT_EQ(model.highways.front().endpoints.size(), 2U);
+  ASSERT_EQ(model.graph.edges.size(), 1U);
+  EXPECT_FALSE(model.graph.edges.front().trail_labels.empty());
+  EXPECT_EQ(model.serialized_schema_version,
+            semaforr::spatial::HighwayModel::schema_version);
+  const auto encoded = semaforr::spatial::serialize(update);
+  EXPECT_NE(encoded.find("\"schema_version\":1"), std::string::npos);
+  EXPECT_NE(encoded.find("\"trail_labels\""), std::string::npos);
   EXPECT_FALSE(model.grid_labels.empty());
   EXPECT_FALSE(model.touched_rows.empty());
   EXPECT_FALSE(model.touched_columns.empty());
@@ -136,6 +147,34 @@ TEST(HierarchicalPlans, HighwayPlanProducesTypedOperationalSteps) {
   const auto waypoints =
       semaforr::decision::Enforcer{}.operationalize(*result.hierarchical);
   EXPECT_EQ(waypoints, result.path);
+}
+
+TEST(HierarchicalPlans, HighwayPlanChoosesBestValidNetworkAlternative) {
+  semaforr::domain::SpatialModel spatial;
+  spatial.skeleton_nodes = {
+      {0.0, 0.0}, {0.0, 10.0}, {10.0, 10.0}, {10.0, 0.0}};
+  spatial.skeleton_edges = {{0U, 1U}, {1U, 2U}, {2U, 3U}};
+  spatial.highways.graph.vertices = {
+      {0U, {0, 0}, {0.0, 0.0}, true},
+      {1U, {0, 10}, {10.0, 0.0}, true}};
+  spatial.highways.graph.edges = {{0U, 1U, 0U, 10.0, {7U}}};
+  semaforr::planning::HighwayPlan planner;
+  const auto assisted = planner.plan(
+      {{{-1.0, 0.0}, semaforr::domain::Angle::zero()}, {11.0, 0.0},
+       &spatial, nullptr});
+  ASSERT_TRUE(assisted.succeeded());
+  ASSERT_TRUE(assisted.hierarchical);
+  EXPECT_EQ(assisted.hierarchical->strategy, "highway_assisted");
+
+  spatial.highways.graph.vertices = {
+      {0U, {20, 20}, {20.0, 20.0}, true},
+      {1U, {20, 30}, {30.0, 20.0}, true}};
+  const auto skeleton = planner.plan(
+      {{{-1.0, 0.0}, semaforr::domain::Angle::zero()}, {11.0, 0.0},
+       &spatial, nullptr});
+  ASSERT_TRUE(skeleton.succeeded());
+  ASSERT_TRUE(skeleton.hierarchical);
+  EXPECT_EQ(skeleton.hierarchical->strategy, "skeleton");
 }
 
 TEST(PlanCache, ReusesExactRevisionAndInvalidatesOnModelRevision) {

@@ -1,7 +1,10 @@
 #include <algorithm>
 #include <cmath>
+#include <limits>
 #include <semaforr/exploration/highway_explorer.hpp>
 #include <semaforr/spatial/highway_learner.hpp>
+#include <map>
+#include <set>
 #include <stdexcept>
 
 namespace semaforr::spatial {
@@ -31,6 +34,205 @@ void HighwayLearner::rebuildIntersections() {
   for (std::size_t node = 0U; node < degree.size(); ++node)
     if (degree[node] >= 3U)
       model_.intersections.push_back({node, degree[node]});
+}
+
+void HighwayLearner::smoothTouchedGrid() {
+  std::set<std::pair<std::size_t, std::size_t>> cells;
+  for (const auto& label : model_.grid_labels)
+    if (label.label != 0U) cells.emplace(label.row, label.column);
+  std::vector<HighwayGridLabel> additions;
+  for (const auto row : model_.touched_rows) {
+    for (const auto column : model_.touched_columns) {
+      if (!cells.contains({row, column}) &&
+          cells.contains({row, column > 0U ? column - 1U : column}) &&
+          cells.contains({row, column + 1U}))
+        additions.push_back({row, column, 1U});
+    }
+  }
+  for (const auto column : model_.touched_columns) {
+    for (const auto row : model_.touched_rows) {
+      if (!cells.contains({row, column}) &&
+          cells.contains({row > 0U ? row - 1U : row, column}) &&
+          cells.contains({row + 1U, column}))
+        additions.push_back({row, column, 1U});
+    }
+  }
+  for (const auto& addition : additions)
+    if (cells.insert({addition.row, addition.column}).second)
+      model_.grid_labels.push_back(addition);
+}
+
+void HighwayLearner::extractHighways() {
+  std::map<std::size_t, std::vector<std::size_t>> rows;
+  std::map<std::size_t, std::vector<std::size_t>> columns;
+  for (const auto& label : model_.grid_labels) {
+    if (label.label == 0U) continue;
+    rows[label.row].push_back(label.column);
+    columns[label.column].push_back(label.row);
+  }
+  model_.highways.clear();
+  const auto extract = [this](auto& bins, domain::Axis axis) {
+    for (auto& [fixed, values] : bins) {
+      std::sort(values.begin(), values.end());
+      values.erase(std::unique(values.begin(), values.end()), values.end());
+      std::size_t begin = 0U;
+      while (begin < values.size()) {
+        std::size_t end = begin;
+        while (end + 1U < values.size() &&
+               values[end + 1U] == values[end] + 1U)
+          ++end;
+        if (end - begin + 1U >= minimum_extent_cells_) {
+          domain::Highway highway;
+          highway.id = model_.highways.size();
+          highway.axis = axis;
+          for (std::size_t index = begin; index <= end; ++index)
+            highway.cells.push_back(
+                axis == domain::Axis::Horizontal
+                    ? domain::GridCell{static_cast<int>(fixed),
+                                       static_cast<int>(values[index])}
+                    : domain::GridCell{static_cast<int>(values[index]),
+                                       static_cast<int>(fixed)});
+          model_.highways.push_back(std::move(highway));
+        }
+        begin = end + 1U;
+      }
+    }
+  };
+  extract(rows, domain::Axis::Horizontal);
+  extract(columns, domain::Axis::Vertical);
+
+  std::map<std::pair<int, int>, std::vector<domain::HighwayId>> memberships;
+  for (const auto& highway : model_.highways)
+    for (const auto& cell : highway.cells)
+      memberships[{cell.row, cell.column}].push_back(highway.id);
+
+  model_.graph = {};
+  std::map<std::pair<int, int>, domain::IntersectionId> intersection_ids;
+  const auto ensureIntersection =
+      [this, &intersection_ids](const domain::GridCell& cell, bool terminal) {
+        const auto key = std::make_pair(cell.row, cell.column);
+        const auto found = intersection_ids.find(key);
+        if (found != intersection_ids.end()) {
+          if (!terminal)
+            model_.graph.vertices[found->second].terminal_access = false;
+          return found->second;
+        }
+        const auto id = model_.graph.vertices.size();
+        intersection_ids.emplace(key, id);
+        model_.graph.vertices.push_back(
+            {id, cell,
+             {static_cast<double>(cell.column) + 0.5,
+              static_cast<double>(cell.row) + 0.5},
+             terminal});
+        return id;
+      };
+  for (const auto& [cell, highways] : memberships)
+    if (highways.size() >= 2U)
+      ensureIntersection({cell.first, cell.second}, false);
+
+  for (auto& highway : model_.highways) {
+    highway.endpoints.clear();
+    for (const auto& cell : highway.cells) {
+      const auto found = intersection_ids.find({cell.row, cell.column});
+      if (found != intersection_ids.end())
+        highway.endpoints.push_back(found->second);
+    }
+    // A one-ended extent is a spur; a zero-ended extent receives two terminal
+    // access intersections so every retained highway is graph-operational.
+    const auto addTerminal = [&](const domain::GridCell& cell) {
+      const auto id = ensureIntersection(cell, true);
+      if (std::find(highway.endpoints.begin(), highway.endpoints.end(), id) ==
+          highway.endpoints.end())
+        highway.endpoints.push_back(id);
+    };
+    if (highway.endpoints.empty()) {
+      addTerminal(highway.cells.front());
+      addTerminal(highway.cells.back());
+    } else if (highway.endpoints.size() == 1U) {
+      const auto& known = model_.graph.vertices[highway.endpoints.front()].cell;
+      addTerminal(highway.cells.front() == known ? highway.cells.back()
+                                                 : highway.cells.front());
+    }
+    std::sort(highway.endpoints.begin(), highway.endpoints.end());
+    if (highway.endpoints.size() >= 2U) {
+      const auto from = highway.endpoints.front();
+      const auto to = highway.endpoints.back();
+      model_.graph.edges.push_back(
+          {from, to, highway.id,
+           domain::distance(model_.graph.vertices[from].position,
+                            model_.graph.vertices[to].position)
+               .meters(),
+           {highway.id}});
+    }
+  }
+
+  // Retain only the largest connected component of the highway graph.
+  std::vector<std::vector<std::size_t>> adjacency(model_.graph.vertices.size());
+  for (const auto& edge : model_.graph.edges) {
+    adjacency[edge.from].push_back(edge.to);
+    adjacency[edge.to].push_back(edge.from);
+  }
+  std::vector<int> component(adjacency.size(), -1);
+  std::vector<std::size_t> sizes;
+  for (std::size_t root = 0U; root < adjacency.size(); ++root) {
+    if (component[root] >= 0) continue;
+    const int id = static_cast<int>(sizes.size());
+    std::vector<std::size_t> pending{root};
+    component[root] = id;
+    std::size_t size = 0U;
+    while (!pending.empty()) {
+      const auto node = pending.back();
+      pending.pop_back();
+      ++size;
+      for (const auto neighbor : adjacency[node])
+        if (component[neighbor] < 0) {
+          component[neighbor] = id;
+          pending.push_back(neighbor);
+        }
+    }
+    sizes.push_back(size);
+  }
+  if (!sizes.empty()) {
+    const auto selected = static_cast<int>(
+        std::distance(sizes.begin(),
+                      std::max_element(sizes.begin(), sizes.end())));
+    model_.graph.edges.erase(
+        std::remove_if(model_.graph.edges.begin(), model_.graph.edges.end(),
+                       [&](const auto& edge) {
+                         return component[edge.from] != selected;
+                       }),
+        model_.graph.edges.end());
+    std::set<domain::HighwayId> retained;
+    for (const auto& edge : model_.graph.edges) retained.insert(edge.highway);
+    model_.highways.erase(
+        std::remove_if(model_.highways.begin(), model_.highways.end(),
+                       [&](const auto& highway) {
+                         return !retained.contains(highway.id);
+                       }),
+        model_.highways.end());
+    const auto missing = std::numeric_limits<std::size_t>::max();
+    std::vector<std::size_t> remap(model_.graph.vertices.size(), missing);
+    std::vector<domain::Intersection> vertices;
+    for (std::size_t old = 0U; old < model_.graph.vertices.size(); ++old) {
+      if (component[old] != selected) continue;
+      remap[old] = vertices.size();
+      auto vertex = model_.graph.vertices[old];
+      vertex.id = vertices.size();
+      vertices.push_back(std::move(vertex));
+    }
+    for (auto& edge : model_.graph.edges) {
+      edge.from = remap[edge.from];
+      edge.to = remap[edge.to];
+    }
+    for (auto& highway : model_.highways) {
+      std::vector<domain::IntersectionId> endpoints;
+      for (const auto endpoint : highway.endpoints)
+        if (endpoint < remap.size() && remap[endpoint] != missing)
+          endpoints.push_back(remap[endpoint]);
+      highway.endpoints = std::move(endpoints);
+    }
+    model_.graph.vertices = std::move(vertices);
+  }
 }
 
 void HighwayLearner::onObserve(const NavigationEpisode& episode) {
@@ -102,6 +304,8 @@ void HighwayLearner::onObserve(const NavigationEpisode& episode) {
 }
 
 void HighwayLearner::onRebuild() {
+  smoothTouchedGrid();
+  extractHighways();
   rebuildIntersections();
   publish(model_, model_.nodes.size() >= 2U ? ModelStatus::Fresh
                                             : ModelStatus::Incomplete,

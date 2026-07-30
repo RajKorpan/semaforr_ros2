@@ -7,6 +7,7 @@
 #include <optional>
 #include <semaforr/domain/action.hpp>
 #include <semaforr/domain/crowd_model.hpp>
+#include <semaforr/domain/highway.hpp>
 #include <semaforr/domain/mission.hpp>
 #include <semaforr/domain/observation.hpp>
 #include <stdexcept>
@@ -111,18 +112,6 @@ struct FreespaceGrid {
   double resolution_m = 1.0;
   Point2D origin;
   std::vector<std::uint32_t> cells;
-  std::size_t revision = 0U;
-};
-
-struct HighwayIntersection {
-  std::size_t node = 0U;
-  std::size_t degree = 0U;
-};
-
-struct HighwayGraph {
-  std::vector<Point2D> nodes;
-  std::vector<std::pair<std::size_t, std::size_t>> edges;
-  std::vector<HighwayIntersection> intersections;
   std::size_t revision = 0U;
 };
 

@@ -154,7 +154,53 @@ void payload(std::ostream& output, const SpatialPayload& value) {
                 });
           output << '}';
         } else if constexpr (std::is_same_v<Model, HighwayModel>) {
-          output << "{\"nodes\":";
+          output << "{\"schema_version\":"
+                 << model.serialized_schema_version << ",\"highways\":";
+          array(output, model.highways,
+                [](std::ostream& stream, const auto& highway) {
+                  stream << "{\"id\":" << highway.id << ",\"axis\":\""
+                         << (highway.axis == domain::Axis::Horizontal
+                                 ? "horizontal"
+                                 : "vertical")
+                         << "\",\"cells\":";
+                  array(stream, highway.cells,
+                        [](std::ostream& cell_stream, const auto& cell) {
+                          cell_stream << "{\"row\":" << cell.row
+                                      << ",\"column\":" << cell.column << '}';
+                        });
+                  stream << ",\"endpoints\":";
+                  array(stream, highway.endpoints,
+                        [](std::ostream& endpoint_stream, auto endpoint) {
+                          endpoint_stream << endpoint;
+                        });
+                  stream << '}';
+                });
+          output << ",\"graph\":{\"intersections\":";
+          array(output, model.graph.vertices,
+                [](std::ostream& stream, const auto& intersection) {
+                  stream << "{\"id\":" << intersection.id
+                         << ",\"cell\":{\"row\":" << intersection.cell.row
+                         << ",\"column\":" << intersection.cell.column
+                         << "},\"position\":";
+                  point(stream, intersection.position);
+                  stream << ",\"terminal_access\":"
+                         << (intersection.terminal_access ? "true" : "false")
+                         << '}';
+                });
+          output << ",\"edges\":";
+          array(output, model.graph.edges,
+                [](std::ostream& stream, const auto& edge) {
+                  stream << "{\"from\":" << edge.from << ",\"to\":"
+                         << edge.to << ",\"highway\":" << edge.highway
+                         << ",\"length_m\":" << edge.length_m
+                         << ",\"trail_labels\":";
+                  array(stream, edge.trail_labels,
+                        [](std::ostream& label_stream, auto label) {
+                          label_stream << label;
+                        });
+                  stream << '}';
+                });
+          output << "},\"nodes\":";
           array(output, model.nodes, point);
           output << ",\"edges\":";
           array(output, model.edges, [](std::ostream& stream, const auto& edge) {
