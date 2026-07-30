@@ -9,7 +9,7 @@
 #include <semaforr/decision/mission_manager.hpp>
 #include <semaforr/domain/observation.hpp>
 #include <semaforr/domain/world_model.hpp>
-#include <semaforr/exploration/highway_explorer.hpp>
+#include <semaforr/exploration/exploration_coordinator.hpp>
 #include <semaforr/navigation/navigation_phase.hpp>
 #include <semaforr/planning/planning_coordinator.hpp>
 #include <semaforr/planning/reactive_planner.hpp>
@@ -60,7 +60,7 @@ class NavigationEngine {
   navigation::NavigationPhaseCoordinator* phases_;
   std::string configuration_fingerprint_;
   std::vector<std::string> component_manifest_;
-  exploration::HighwayExplorer explorer_;
+  exploration::ExplorationCoordinator exploration_;
   Enforcer enforcer_;
   planning::ReactivePlannerCoordinator reactive_;
   planning::LowLevelExplorer lle_;

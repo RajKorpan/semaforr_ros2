@@ -1,4 +1,6 @@
 #include <semaforr/navigation/navigation_phase.hpp>
+#include <chrono>
+#include <cmath>
 #include <stdexcept>
 
 namespace semaforr::navigation {
@@ -22,9 +24,10 @@ NavigationPhaseCoordinator::NavigationPhaseCoordinator(
                  ? NavigationPhase::InitialExploration
                  : NavigationPhase::TargetNavigation) {
   if (configuration_.initial_exploration_enabled &&
-      configuration_.initial_exploration_observation_budget == 0U) {
+      (!std::isfinite(configuration_.initial_exploration_time_limit_s) ||
+       configuration_.initial_exploration_time_limit_s <= 0.0)) {
     throw std::invalid_argument(
-        "initial exploration requires a positive observation budget");
+        "initial exploration requires a finite positive time limit");
   }
   events_.push_back(configuration_.initial_exploration_enabled
                         ? "initial_exploration_started"
@@ -49,8 +52,22 @@ void NavigationPhaseCoordinator::completeMission() {
 }
 
 PhaseUpdate NavigationPhaseCoordinator::observe(
-    const domain::RobotObservation&, domain::WorldModel&) {
+    const domain::RobotObservation& observation, domain::WorldModel&) {
   observe();
+  if (phase_ == NavigationPhase::InitialExploration) {
+    const auto timestamp =
+        observation.observed_at == std::chrono::steady_clock::time_point{}
+            ? std::chrono::steady_clock::now()
+            : observation.observed_at;
+    if (!exploration_started_at_) exploration_started_at_ = timestamp;
+    const auto elapsed = timestamp - *exploration_started_at_;
+    if (!exploration_time_limit_reached_ &&
+        elapsed >= std::chrono::duration<double>(
+                       configuration_.initial_exploration_time_limit_s)) {
+      exploration_time_limit_reached_ = true;
+      events_.push_back("exploration_time_limit_reached");
+    }
+  }
   return {phase_, takeEvents()};
 }
 

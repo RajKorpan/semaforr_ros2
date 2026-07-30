@@ -1,9 +1,11 @@
 #ifndef SEMAFORR_NAVIGATION_NAVIGATION_PHASE_HPP
 #define SEMAFORR_NAVIGATION_NAVIGATION_PHASE_HPP
 
+#include <chrono>
 #include <cstddef>
 #include <semaforr/domain/observation.hpp>
 #include <semaforr/domain/world_model.hpp>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -32,6 +34,7 @@ struct PhaseDecision {
 struct PhaseConfiguration {
   bool initial_exploration_enabled = false;
   std::size_t initial_exploration_observation_budget = 0U;
+  double initial_exploration_time_limit_s = 1200.0;
 };
 
 class NavigationPhaseCoordinator {
@@ -46,8 +49,16 @@ class NavigationPhaseCoordinator {
   }
   bool explorationBudgetReached() const noexcept {
     return phase_ == NavigationPhase::InitialExploration &&
+           configuration_.initial_exploration_observation_budget > 0U &&
            exploration_observations_ >=
                configuration_.initial_exploration_observation_budget;
+  }
+  bool explorationTimeLimitReached() const noexcept {
+    return phase_ == NavigationPhase::InitialExploration &&
+           exploration_time_limit_reached_;
+  }
+  bool explorationCompleteRequested() const noexcept {
+    return explorationBudgetReached() || explorationTimeLimitReached();
   }
   void observe();
   PhaseUpdate observe(const domain::RobotObservation& observation,
@@ -61,6 +72,9 @@ class NavigationPhaseCoordinator {
   PhaseConfiguration configuration_;
   NavigationPhase phase_;
   std::size_t exploration_observations_ = 0U;
+  std::optional<std::chrono::steady_clock::time_point>
+      exploration_started_at_;
+  bool exploration_time_limit_reached_ = false;
   std::vector<std::string> events_;
 };
 

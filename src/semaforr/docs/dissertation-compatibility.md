@@ -26,7 +26,7 @@ not sufficient.
 
 | Dissertation component | Current equivalent | Missing implementation | Intended package / namespace | Switch | Required data | Produced data | Schedule | Consumers | Tests and acceptance criteria |
 |---|---|---|---|---|---|---|---|---|---|
-| HLE | `HighwayExplorer` | Full dissertation candidate-return/pursuit policy remains an acceptance gap | `semaforr::exploration` | `phases.initial_exploration` | pose, laser, budgets | actions, candidates, passages, events | initial phase | finalizer | deterministic actions; mission remains inactive |
+| HLE | `ExplorationCoordinator` + `HighwayExplorer` | Full dissertation candidate-return/pursuit policy remains an acceptance gap | `semaforr::exploration` | `phases.initial_exploration` | pose, laser, observation/time budgets | actions, candidates, passages, lifecycle events | initial phase | finalizer | deterministic actions; candidate lifecycle events; mission remains inactive |
 | LLE | `LowLevelExplorer` | Candidate-pursuit detail remains an acceptance gap | `semaforr::planning` | `exploration.reactive` | target, connectivity, progress, inclusion gaps | reactive action or replan request | missing guidance | Tier 2 | missing connectivity invokes one revision-scoped replan |
 | Passage | `PassageCandidate` | Stable completed-passage record missing | `semaforr::exploration` | HLE | candidate pursuit | passage cue | candidate completion | highway learner | candidate tests |
 | Regions | `RegionLearner` | None in lifecycle scope | `semaforr::spatial` | `features.regions` | pose, laser | region snapshot | observation/finalization | Enforcer, advisors | revision changes after mutation |

@@ -90,6 +90,7 @@ add_library(semaforr_planning SHARED
   src/navigation/DomainAStar.cpp
   src/navigation/DomainGraph.cpp
   src/navigation/DomainPlanner.cpp
+  src/navigation/ExplorationCoordinator.cpp
   src/navigation/HighwayExplorer.cpp
   src/navigation/HierarchicalPlan.cpp
   src/navigation/MapParser.cpp

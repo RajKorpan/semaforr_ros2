@@ -120,9 +120,35 @@ DecisionResult NavigationEngine::decide() {
   if (!observation_) {
     throw std::logic_error("navigation decision requires an observation");
   }
-  if (phases_->phase() == navigation::NavigationPhase::InitialExploration) {
-    exploration::HleDecision exploration =
-        explorer_.decide(*observation_, action_space_);
+  navigation::PhaseDecision dispatch = phases_->next(world_);
+  if (dispatch.phase == navigation::NavigationPhase::InitialExploration &&
+      phases_->explorationTimeLimitReached()) {
+    exploration_.finish();
+    learning_.finalizeInitialExploration();
+    learning_.applyTo(world_.spatial);
+    phases_->completeInitialExploration();
+    auto completed = phases_->takeEvents();
+    pending_phase_events_.insert(pending_phase_events_.end(),
+                                 completed.begin(), completed.end());
+    dispatch = phases_->next(world_);
+  }
+  if (dispatch.phase == navigation::NavigationPhase::MissionComplete) {
+    DecisionResult result;
+    result.sequence = ++decision_sequence_;
+    result.robot_pose = world_.robot.pose;
+    result.navigation_phase = dispatch.phase;
+    result.configuration_fingerprint = configuration_fingerprint_;
+    result.component_manifest = component_manifest_;
+    result.phase_events.swap(pending_phase_events_);
+    result.action = domain::Action::pause();
+    result.source = DecisionSource::SafeStop;
+    result.tier = DecisionTier::SafeStop;
+    result.selected_policy = "mission_complete_safe_stop";
+    return result;
+  }
+  if (dispatch.phase == navigation::NavigationPhase::InitialExploration) {
+    exploration::ExplorationUpdate exploration =
+        exploration_.decide(*observation_, action_space_);
     DecisionResult result;
     result.sequence = ++decision_sequence_;
     result.robot_pose = world_.robot.pose;
@@ -130,7 +156,7 @@ DecisionResult NavigationEngine::decide() {
     result.configuration_fingerprint = configuration_fingerprint_;
     result.component_manifest = component_manifest_;
     result.phase_events.swap(pending_phase_events_);
-    result.action = exploration.action;
+    result.action = exploration.decision.action;
     if (hard_safety_) {
       const std::array<domain::Action, 1U> exploration_candidate{
           result.action};
@@ -143,9 +169,11 @@ DecisionResult NavigationEngine::decide() {
     result.source = DecisionSource::Exploration;
     result.tier = DecisionTier::Exploration;
     result.selected_policy =
-        "hle:" + std::string(exploration::toString(exploration.state));
-    if (!exploration.candidates.empty())
-      result.phase_events.push_back("candidate_selected");
+        "hle:" +
+        std::string(exploration::toString(exploration.decision.state));
+    result.phase_events.insert(result.phase_events.end(),
+                               exploration.events.begin(),
+                               exploration.events.end());
     world_.navigation_history.record(
         {observation_->pose, observation_->laser, result.action});
     learning_.observe({world_.navigation_history.entries().size(),
@@ -153,7 +181,7 @@ DecisionResult NavigationEngine::decide() {
                        false, true});
     learning_.applyTo(world_.spatial);
     if (phases_->explorationBudgetReached()) {
-      explorer_.finish();
+      exploration_.finish();
       learning_.finalizeInitialExploration();
       learning_.applyTo(world_.spatial);
       phases_->completeInitialExploration();

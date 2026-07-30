@@ -119,7 +119,9 @@ class NavigationEngineAdapter::Impl {
                          .sensor_freshness_timeout_s),
         phases_({configuration_.experiment.initial_exploration.enabled,
                  configuration_.experiment.initial_exploration
-                     .observation_budget}) {
+                     .observation_budget,
+                 configuration_.experiment.initial_exploration
+                     .time_limit_s}) {
     configureLearning();
     configurePlanning();
     configureDecisions();

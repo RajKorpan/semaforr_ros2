@@ -8,6 +8,7 @@
 #include <semaforr/decision/decision_coordinator.hpp>
 #include <semaforr/decision/hard_safety_filter.hpp>
 #include <semaforr/decision/mission_manager.hpp>
+#include <semaforr/exploration/exploration_coordinator.hpp>
 #include <semaforr/navigation/navigation_phase.hpp>
 #include <semaforr/planning/planning_coordinator.hpp>
 #include <string>
@@ -238,4 +239,45 @@ TEST(NavigationPhaseCoordinator, EmitsExplicitLifecycleEvents) {
   EXPECT_EQ(events[0], "initial_model_finalized");
   EXPECT_EQ(events[1], "target_navigation_started");
   EXPECT_TRUE(phases.next(world).mission_activation_allowed);
+}
+
+TEST(NavigationPhaseCoordinator, EmitsTimeLimitOnlyOnce) {
+  using namespace semaforr::navigation;
+  semaforr::domain::WorldModel world;
+  semaforr::domain::RobotObservation observation;
+  observation.laser.minimum_range = semaforr::domain::Distance(0.0);
+  observation.laser.maximum_range = semaforr::domain::Distance(1.0);
+  observation.observed_at =
+      std::chrono::steady_clock::time_point{std::chrono::seconds(10)};
+  NavigationPhaseCoordinator phases({true, 0U, 1.0});
+  static_cast<void>(phases.observe(observation, world));
+  observation.observed_at += std::chrono::seconds(1);
+  const auto reached = phases.observe(observation, world);
+  ASSERT_EQ(reached.events.size(), 1U);
+  EXPECT_EQ(reached.events.front(), "exploration_time_limit_reached");
+  EXPECT_TRUE(phases.explorationCompleteRequested());
+  observation.observed_at += std::chrono::seconds(1);
+  EXPECT_TRUE(phases.observe(observation, world).events.empty());
+}
+
+TEST(ExplorationCoordinator, EmitsCandidateLifecycleEvents) {
+  using namespace semaforr;
+  exploration::ExplorationCoordinator coordinator(0.1);
+  domain::ActionSpace actions({0.1, 0.2}, {0.25, 0.5});
+  domain::RobotObservation observation;
+  observation.laser.angle_min = domain::Angle(-0.5);
+  observation.laser.angle_increment = domain::Angle(0.5);
+  observation.laser.minimum_range = domain::Distance(0.05);
+  observation.laser.maximum_range = domain::Distance(5.0);
+  observation.laser.ranges_m = {2.0, 2.0, 2.0};
+
+  const auto selected = coordinator.decide(observation, actions);
+  EXPECT_NE(std::find(selected.events.begin(), selected.events.end(),
+                      "candidate_selected"),
+            selected.events.end());
+  observation.pose.position.x_m = 0.2;
+  const auto completed = coordinator.decide(observation, actions);
+  EXPECT_NE(std::find(completed.events.begin(), completed.events.end(),
+                      "candidate_completed"),
+            completed.events.end());
 }

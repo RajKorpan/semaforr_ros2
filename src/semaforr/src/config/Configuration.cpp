@@ -471,12 +471,6 @@ Configuration loadStructuredConfiguration(
 void validateConfiguration(const Configuration& configuration) {
   validateNavigation(configuration.navigation);
   const auto& experiment = configuration.experiment;
-  if (configuration.experiment.initial_exploration.enabled &&
-      configuration.experiment.initial_exploration.observation_budget == 0U) {
-    throw std::runtime_error(
-        "configuration: enabled initial exploration requires a positive "
-        "observation budget");
-  }
   if (experiment.initial_exploration.enabled &&
       (experiment.initial_exploration.strategy != "hle" ||
        !std::isfinite(experiment.initial_exploration.time_limit_s) ||
@@ -484,7 +478,8 @@ void validateConfiguration(const Configuration& configuration) {
        experiment.initial_exploration.decision_budget == 0U)) {
     throw std::runtime_error(
         "configuration: HLE requires strategy 'hle' and positive time, "
-        "observation, and decision budgets");
+        "and decision budgets; observation_budget may be zero when the "
+        "time limit is authoritative");
   }
   if (!experiment.target_navigation.enabled && !configuration.tasks.empty())
     throw std::runtime_error(

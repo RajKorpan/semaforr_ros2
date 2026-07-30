@@ -142,9 +142,10 @@ int main() {
     auto invalid = valid;
     invalid.experiment.initial_exploration.enabled = true;
     invalid.experiment.initial_exploration.observation_budget = 0U;
+    invalid.experiment.initial_exploration.time_limit_s = 0.0;
     assertThrowsContaining(
         [&invalid]() { semaforr::config::validateConfiguration(invalid); },
-        "observation budget");
+        "HLE requires");
   }
   {
     auto invalid = valid;
