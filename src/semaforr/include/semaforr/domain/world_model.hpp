@@ -115,6 +115,12 @@ struct FreespaceGrid {
   std::size_t revision = 0U;
 };
 
+struct ExplorationCue {
+  std::uint64_t id = 0U;
+  Point2D start;
+  Point2D target;
+};
+
 struct SpatialModel {
   std::vector<Polygon> obstacle_polygons;
   std::vector<std::vector<Point2D>> trails;
@@ -127,6 +133,7 @@ struct SpatialModel {
   std::vector<std::pair<std::size_t, std::size_t>> skeleton_edges;
   FreespaceGrid known_grid;
   FreespaceGrid inclusion_grid;
+  std::vector<ExplorationCue> unfinished_hle_candidates;
   HighwayGraph highways;
   std::size_t revision = 0U;
 };

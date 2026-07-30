@@ -1,4 +1,5 @@
 #include <gtest/gtest.h>
+#include <algorithm>
 #include <semaforr/decision/restored_tiers.hpp>
 #include <semaforr/planning/reactive_planner.hpp>
 
@@ -50,7 +51,8 @@ TEST(ReactivePlanners, ThruBehindAndOutHaveExplicitDependencies) {
 
 TEST(LowLevelExplorer, RequestsTierTwoReplanAfterFailedProgress) {
   const semaforr::domain::ActionSpace actions({0.25}, {0.2});
-  auto world = worldWithTarget();
+  auto world = worldWithTarget({10.0, 0.0});
+  world.robot.laser = laser();
   for (std::size_t index = 0U; index < 4U; ++index)
     world.mission.record_decision();
   for (std::size_t index = 0U; index < 4U; ++index)
@@ -59,10 +61,54 @@ TEST(LowLevelExplorer, RequestsTierTwoReplanAfterFailedProgress) {
           semaforr::domain::Angle::zero()},
          laser(),
          semaforr::domain::Action(semaforr::domain::ActionType::Forward, 1U)});
-  const auto result =
-      semaforr::planning::LowLevelExplorer(4U, 0.1).evaluate({world, actions});
+  semaforr::planning::LowLevelExplorer explorer(4U, 0.1);
+  const auto pursuing = explorer.evaluate({world, actions});
+  EXPECT_EQ(pursuing.status, semaforr::planning::ReactiveStatus::Action);
+  world.spatial.skeleton_nodes = {{0.0, 0.0}, {1.0, 0.0}};
+  world.spatial.skeleton_edges = {{0U, 1U}};
+  ++world.spatial.revision;
+  const auto result = explorer.evaluate({world, actions});
   EXPECT_EQ(result.status, semaforr::planning::ReactiveStatus::RequestReplan);
   EXPECT_EQ(result.planner, "LLE");
+  EXPECT_EQ(result.completion_reason,
+            semaforr::planning::ReactiveCompletionReason::NewPlanAvailable);
+}
+
+TEST(LowLevelExplorer, AssemblesEveryCandidateSourceAndSupportsCancellation) {
+  const semaforr::domain::ActionSpace actions({0.25}, {0.2});
+  auto world = worldWithTarget({10.0, 0.0});
+  world.robot.laser = laser();
+  world.spatial.unfinished_hle_candidates.push_back(
+      {42U, {0.0, 0.0}, {1.0, 1.0}});
+  world.spatial.learned_regions.push_back({{2.0, 1.0},
+                                           semaforr::domain::Distance(0.5)});
+  world.spatial.inclusion_grid =
+      {2U, 1U, 1.0, {}, {0U, 1U}, 1U};
+  semaforr::planning::LowLevelExplorer explorer;
+  EXPECT_EQ(explorer.evaluate({world, actions}).status,
+            semaforr::planning::ReactiveStatus::Action);
+  std::vector<semaforr::planning::LLECandidateSource> sources;
+  for (const auto& candidate : explorer.candidates())
+    sources.push_back(candidate.source);
+  EXPECT_NE(std::find(sources.begin(), sources.end(),
+                      semaforr::planning::LLECandidateSource::UnfinishedHle),
+            sources.end());
+  EXPECT_NE(
+      std::find(sources.begin(), sources.end(),
+                semaforr::planning::LLECandidateSource::
+                    CurrentTargetObservation),
+      sources.end());
+  EXPECT_NE(std::find(sources.begin(), sources.end(),
+                      semaforr::planning::LLECandidateSource::RegionVisibility),
+            sources.end());
+  EXPECT_NE(std::find(sources.begin(), sources.end(),
+                      semaforr::planning::LLECandidateSource::InclusionGap),
+            sources.end());
+  explorer.cancel(semaforr::planning::InterruptionReason::SensorLost);
+  EXPECT_EQ(explorer.state(),
+            semaforr::planning::LowLevelExplorationState::Complete);
+  EXPECT_EQ(explorer.completionReason(),
+            semaforr::planning::ReactiveCompletionReason::SensorLost);
 }
 
 TEST(RestoredTierOne, VictoryForwardAndNotOppositeAreTyped) {

@@ -49,6 +49,7 @@ class NavigationEngine {
  private:
   std::vector<domain::Action> candidates() const;
   std::optional<std::string> preparePlan(MissionStep step);
+  void finishInitialExploration();
 
   domain::WorldModel& world_;
   const domain::ActionSpace& action_space_;

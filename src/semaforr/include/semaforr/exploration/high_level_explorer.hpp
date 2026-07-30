@@ -17,6 +17,7 @@ class HighLevelExplorer final : public ExplorationStrategy {
   void finish() noexcept override;
   HleState state() const noexcept { return state_; }
   PassageGridSnapshot passageGrid() const;
+  std::vector<ExplorationCandidate> unfinishedCandidates() const;
   const std::vector<domain::Point2D>& explorationPath() const noexcept {
     return exploration_path_;
   }

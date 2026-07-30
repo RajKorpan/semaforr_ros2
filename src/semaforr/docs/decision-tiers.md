@@ -26,6 +26,14 @@ planners receive a `PlanningRequest` and return a typed result:
 records the selected planner, and installs waypoints. A failed planner cannot
 silently leave a partially mutated plan.
 
+Reactive planners use a common trigger/update/cancel contract. LLE is stateful
+and temporarily owns Tier-1 actions while it assembles and pursues candidates
+from unfinished HLE cues, the current scan, stored region visibility, and
+inclusion-grid gaps. A new connectivity revision produces an explicit Tier-2
+replanning request. Target sensing, a new plan, candidate exhaustion, absence
+of candidates, budget exhaustion, sensor loss, and mission changes remain
+distinct completion or cancellation reasons.
+
 ## Tier 3: advisor aggregation
 
 After Tier 1 vetoes, each enabled advisor may score the remaining actions.

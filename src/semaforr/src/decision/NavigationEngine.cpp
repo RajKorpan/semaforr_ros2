@@ -1,4 +1,5 @@
 #include <array>
+#include <cmath>
 #include <semaforr/decision/navigation_engine.hpp>
 #include <semaforr/domain/motion_model.hpp>
 #include <stdexcept>
@@ -123,6 +124,19 @@ std::optional<std::string> NavigationEngine::preparePlan(MissionStep step) {
   return selected->planner;
 }
 
+void NavigationEngine::finishInitialExploration() {
+  world_.spatial.unfinished_hle_candidates.clear();
+  for (const auto& candidate : exploration_.unfinishedCandidates()) {
+    const double heading = candidate.heading.radians();
+    const double distance = candidate.clearance.meters();
+    world_.spatial.unfinished_hle_candidates.push_back(
+        {candidate.id, candidate.start,
+         {candidate.start.x_m + distance * std::cos(heading),
+          candidate.start.y_m + distance * std::sin(heading)}});
+  }
+  exploration_.finish();
+}
+
 DecisionResult NavigationEngine::decide() {
   if (!observation_) {
     throw std::logic_error("navigation decision requires an observation");
@@ -130,7 +144,7 @@ DecisionResult NavigationEngine::decide() {
   navigation::PhaseDecision dispatch = phases_->next(world_);
   if (dispatch.phase == navigation::NavigationPhase::InitialExploration &&
       phases_->explorationTimeLimitReached()) {
-    exploration_.finish();
+    finishInitialExploration();
     phases_->completeInitialExploration();
     auto completed = phases_->takeEvents();
     pending_phase_events_.insert(pending_phase_events_.end(),
@@ -186,7 +200,7 @@ DecisionResult NavigationEngine::decide() {
                        false, true});
     learning_.applyTo(world_.spatial);
     if (phases_->explorationBudgetReached()) {
-      exploration_.finish();
+      finishInitialExploration();
       phases_->completeInitialExploration();
       auto completed = phases_->takeEvents();
       result.phase_events.insert(result.phase_events.end(), completed.begin(),
@@ -214,7 +228,10 @@ DecisionResult NavigationEngine::decide() {
     planning_.clearCache();
     world_.recovery.confined = true;
   }
-  const std::optional<std::string> selected_planner = preparePlan(mission_step);
+  const std::optional<std::string> selected_planner =
+      lle.status == planning::ReactiveStatus::Action
+          ? std::nullopt
+          : preparePlan(mission_step);
   const auto available = candidates();
   std::vector<domain::Action> decision_candidates = available;
   std::vector<Veto> hard_vetoes;
@@ -226,7 +243,14 @@ DecisionResult NavigationEngine::decide() {
   const planning::ReactiveResult reactive =
       reactive_.evaluate({world_, action_space_});
   DecisionResult result;
-  if (reactive.status == planning::ReactiveStatus::Action &&
+  if (lle.status == planning::ReactiveStatus::Action && lle.action &&
+      std::find(decision_candidates.begin(), decision_candidates.end(),
+                *lle.action) != decision_candidates.end()) {
+    result.action = *lle.action;
+    result.source = DecisionSource::MandatoryRule;
+    result.tier = DecisionTier::TierOne;
+    result.selected_policy = "reactive:LLE";
+  } else if (reactive.status == planning::ReactiveStatus::Action &&
       reactive.action &&
       std::find(decision_candidates.begin(), decision_candidates.end(),
                 *reactive.action) != decision_candidates.end()) {

@@ -328,4 +328,20 @@ PassageGridSnapshot HighLevelExplorer::passageGrid() const {
   return result;
 }
 
+std::vector<ExplorationCandidate>
+HighLevelExplorer::unfinishedCandidates() const {
+  auto queue = candidates_;
+  std::vector<ExplorationCandidate> result;
+  if (active_) result.push_back(*active_);
+  while (!queue.empty()) {
+    result.push_back(queue.top());
+    queue.pop();
+  }
+  std::stable_sort(result.begin(), result.end(),
+                   [](const auto& left, const auto& right) {
+                     return left.id < right.id;
+                   });
+  return result;
+}
+
 }  // namespace semaforr::exploration

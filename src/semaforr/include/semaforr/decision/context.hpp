@@ -7,6 +7,7 @@ namespace semaforr::decision {
 
 struct DecisionContext {
   const domain::WorldModel& world;
+  const domain::ActionSpace* action_space = nullptr;
 };
 
 }  // namespace semaforr::decision

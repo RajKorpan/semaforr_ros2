@@ -27,6 +27,9 @@ class ExplorationCoordinator {
   }
   void finish() noexcept;
   PassageGridSnapshot passageGrid() const { return explorer_.passageGrid(); }
+  std::vector<ExplorationCandidate> unfinishedCandidates() const {
+    return explorer_.unfinishedCandidates();
+  }
 
  private:
   HighLevelExplorer explorer_;

@@ -22,6 +22,7 @@ double headingError(const domain::Pose2D& pose, domain::Point2D target) {
 
 domain::Action turn(double error, const domain::ActionSpace& actions) {
   const auto& values = actions.rotation_angles_rad();
+  if (values.empty()) return domain::Action::pause();
   const auto found =
       std::lower_bound(values.begin(), values.end(), std::abs(error));
   const std::size_t magnitude =
@@ -33,34 +34,121 @@ domain::Action turn(double error, const domain::ActionSpace& actions) {
                         magnitude);
 }
 
+bool targetSensed(const domain::WorldModel& world) {
+  if (!world.mission.active() || !world.robot.laser ||
+      world.robot.laser->ranges_m.empty())
+    return false;
+  const auto target = world.mission.active()->target;
+  const double range = domain::distance(world.robot.pose.position, target).meters();
+  const double bearing = headingError(world.robot.pose, target);
+  const double first = world.robot.laser->angle_min.radians();
+  const double increment = world.robot.laser->angle_increment.radians();
+  if (increment <= 0.0 || bearing < first) return false;
+  const auto beam = static_cast<std::size_t>(
+      std::llround((bearing - first) / increment));
+  return beam < world.robot.laser->ranges_m.size() &&
+         world.robot.laser->ranges_m[beam] + 0.05 >= range;
+}
+
+ReactiveResult resultFrom(std::string_view planner,
+                          ReactivePlanUpdate update) {
+  return {update.status, update.action, std::string(planner),
+          std::move(update.explanation), update.completion_reason};
+}
+
 }  // namespace
 
-ReactiveResult Thru::evaluate(const ReactiveRequest& request) const {
-  const auto target = waypoint(request.world);
-  if (!target) return {};
-  const double error = headingError(request.world.robot.pose, *target);
-  if (std::abs(error) > 0.35) return {};
+ReactiveResult ReactivePlanner::evaluate(const ReactiveRequest& request) {
+  decision::DecisionContext context{request.world, &request.action_space};
+  if (!evaluateTrigger(context).triggered) return {};
+  return resultFrom(name(), update(context));
+}
+
+std::string_view toString(ReactiveCompletionReason reason) noexcept {
+  switch (reason) {
+    case ReactiveCompletionReason::None: return "none";
+    case ReactiveCompletionReason::TargetSensed: return "target_sensed";
+    case ReactiveCompletionReason::NewPlanAvailable: return "new_plan_available";
+    case ReactiveCompletionReason::CandidateExhausted:
+      return "candidate_exhausted";
+    case ReactiveCompletionReason::NoCandidates: return "no_candidates";
+    case ReactiveCompletionReason::BudgetExceeded: return "budget_exceeded";
+    case ReactiveCompletionReason::SensorLost: return "sensor_lost";
+    case ReactiveCompletionReason::MissionChanged: return "mission_changed";
+  }
+  return "none";
+}
+
+std::string_view toString(LowLevelExplorationState state) noexcept {
+  switch (state) {
+    case LowLevelExplorationState::DetectMissingGuidance:
+      return "detect_missing_guidance";
+    case LowLevelExplorationState::AssembleCandidateRays:
+      return "assemble_candidate_rays";
+    case LowLevelExplorationState::RankByTargetRelevance:
+      return "rank_by_target_relevance";
+    case LowLevelExplorationState::PlanToCandidateStart:
+      return "plan_to_candidate_start";
+    case LowLevelExplorationState::PursueCandidate:
+      return "pursue_candidate";
+    case LowLevelExplorationState::CheckConnectivity:
+      return "check_connectivity";
+    case LowLevelExplorationState::Complete: return "complete";
+  }
+  return "complete";
+}
+
+TriggerEvaluation Thru::evaluateTrigger(
+    const decision::DecisionContext& context) const {
+  const auto target = waypoint(context.world);
+  return {target && std::abs(headingError(context.world.robot.pose, *target)) <=
+                        0.35,
+          "waypoint lies through the current opening"};
+}
+
+ReactivePlanUpdate Thru::update(
+    const decision::DecisionContext& context) {
+  if (!context.action_space || !evaluateTrigger(context).triggered) return {};
   return {ReactiveStatus::Action,
-          domain::Action(domain::ActionType::Forward, 1U),
-          std::string(name()), "waypoint lies through the current opening"};
+          domain::Action(domain::ActionType::Forward, 1U), {},
+          ReactiveCompletionReason::None, std::nullopt,
+          "waypoint lies through the current opening"};
 }
 
-ReactiveResult Behind::evaluate(const ReactiveRequest& request) const {
-  const auto target = waypoint(request.world);
-  if (!target) return {};
-  const double error = headingError(request.world.robot.pose, *target);
-  if (std::abs(error) < 2.35) return {};
-  return {ReactiveStatus::Action, turn(error, request.action_space),
-          std::string(name()), "active waypoint is behind the robot"};
+TriggerEvaluation Behind::evaluateTrigger(
+    const decision::DecisionContext& context) const {
+  const auto target = waypoint(context.world);
+  return {target && std::abs(headingError(context.world.robot.pose, *target)) >=
+                        2.35,
+          "active waypoint is behind the robot"};
 }
 
-ReactiveResult Out::evaluate(const ReactiveRequest& request) const {
-  if (!request.world.recovery.confined) return {};
-  const auto& grid = request.world.spatial.inclusion_grid;
+ReactivePlanUpdate Behind::update(
+    const decision::DecisionContext& context) {
+  const auto target = waypoint(context.world);
+  if (!target || !context.action_space || !evaluateTrigger(context).triggered)
+    return {};
+  return {ReactiveStatus::Action,
+          turn(headingError(context.world.robot.pose, *target),
+               *context.action_space),
+          {}, ReactiveCompletionReason::None, std::nullopt,
+          "active waypoint is behind the robot"};
+}
+
+TriggerEvaluation Out::evaluateTrigger(
+    const decision::DecisionContext& context) const {
+  return {context.world.recovery.confined, "robot is confined"};
+}
+
+ReactivePlanUpdate Out::update(
+    const decision::DecisionContext& context) {
+  if (!context.action_space || !context.world.recovery.confined) return {};
+  const auto& grid = context.world.spatial.inclusion_grid;
   if (grid.cells.empty())
     return {ReactiveStatus::Action,
-            domain::Action(domain::ActionType::TurnLeft, 1U),
-            std::string(name()), "survey while leaving confinement"};
+            domain::Action(domain::ActionType::TurnLeft, 1U), {},
+            ReactiveCompletionReason::None, std::nullopt,
+            "survey while leaving confinement"};
   const auto least = std::min_element(grid.cells.begin(), grid.cells.end());
   const std::size_t index =
       static_cast<std::size_t>(least - grid.cells.begin());
@@ -70,14 +158,16 @@ ReactiveResult Out::evaluate(const ReactiveRequest& request) const {
       grid.columns == 0U ? 0U : index % grid.columns;
   if (target_column == robot_column)
     return {ReactiveStatus::Action,
-            domain::Action(domain::ActionType::Forward, 1U),
-            std::string(name()), "move toward least-included space"};
+            domain::Action(domain::ActionType::Forward, 1U), {},
+            ReactiveCompletionReason::None, std::nullopt,
+            "move toward least-included space"};
   return {ReactiveStatus::Action,
           domain::Action(target_column < robot_column
                              ? domain::ActionType::TurnRight
                              : domain::ActionType::TurnLeft,
                          1U),
-          std::string(name()), "turn toward least-included space"};
+          {}, ReactiveCompletionReason::None, std::nullopt,
+          "turn toward least-included space"};
 }
 
 ReactivePlannerCoordinator::ReactivePlannerCoordinator()
@@ -108,54 +198,243 @@ void ReactivePlannerCoordinator::add(
 }
 
 ReactiveResult ReactivePlannerCoordinator::evaluate(
-    const ReactiveRequest& request) const {
+    const ReactiveRequest& request) {
+  decision::DecisionContext context{request.world, &request.action_space};
   for (const auto& planner : planners_) {
-    ReactiveResult result = planner->evaluate(request);
+    if (!planner->evaluateTrigger(context).triggered) continue;
+    auto result = resultFrom(planner->name(), planner->update(context));
     if (result.status != ReactiveStatus::NotApplicable) return result;
   }
   return {};
 }
 
-LowLevelExplorer::LowLevelExplorer(std::size_t history_window,
-                                   double progress_threshold_m)
-    : history_window_(history_window),
-      progress_threshold_m_(progress_threshold_m) {
-  if (history_window_ < 2U || !(progress_threshold_m_ > 0.0))
-    throw std::invalid_argument("invalid LLE progress configuration");
+void ReactivePlannerCoordinator::cancelAll(InterruptionReason reason) {
+  for (auto& planner : planners_) planner->cancel(reason);
 }
 
-ReactiveResult LowLevelExplorer::evaluate(
-    const ReactiveRequest& request) const {
-  const auto& history = request.world.navigation_history.entries();
-  if (!request.world.mission.active())
-    return {};
-  const bool only_direct_guidance =
-      request.world.mission.active()->plan.size() <= 1U;
+LowLevelExplorer::LowLevelExplorer(std::size_t history_window,
+                                   double progress_threshold_m,
+                                   std::size_t decision_budget)
+    : history_window_(history_window),
+      progress_threshold_m_(progress_threshold_m),
+      decision_budget_(decision_budget) {
+  if (history_window_ < 2U || !(progress_threshold_m_ > 0.0) ||
+      decision_budget_ == 0U)
+    throw std::invalid_argument("invalid LLE progress/budget configuration");
+}
+
+TriggerEvaluation LowLevelExplorer::evaluateTrigger(
+    const decision::DecisionContext& context) const {
+  if (!context.world.mission.active()) return {};
+  const auto& task = *context.world.mission.active();
+  const bool only_direct_guidance = task.plan.size() <= 1U;
   const bool lacks_connectivity =
-      request.world.spatial.skeleton_nodes.empty() &&
-      request.world.spatial.highways.nodes.empty();
-  if (only_direct_guidance && lacks_connectivity &&
-      (!last_missing_knowledge_revision_ ||
-       *last_missing_knowledge_revision_ != request.world.spatial.revision)) {
-    last_missing_knowledge_revision_ = request.world.spatial.revision;
-    return {ReactiveStatus::RequestReplan, std::nullopt, "LLE",
-            "target-directed planning lacks learned connectivity"};
+      context.world.spatial.skeleton_nodes.empty() &&
+      context.world.spatial.highways.nodes.empty() &&
+      context.world.spatial.highways.graph.vertices.empty();
+  const auto& history = context.world.navigation_history.entries();
+  bool stalled = false;
+  if (history.size() >= history_window_) {
+    const auto first =
+        history.end() - static_cast<std::ptrdiff_t>(history_window_);
+    const double displacement =
+        domain::distance(first->pose.position, history.back().pose.position)
+            .meters();
+    stalled = displacement < progress_threshold_m_ &&
+              std::any_of(first, history.end(), [](const auto& entry) {
+                return entry.action.type() == domain::ActionType::Forward;
+              });
   }
-  if (request.world.mission.decisions_for_active() < history_window_) return {};
-  if (history.size() < history_window_) return {};
-  const auto first = history.end() -
-                     static_cast<std::ptrdiff_t>(history_window_);
-  const double displacement =
-      domain::distance(first->pose.position, history.back().pose.position)
-          .meters();
-  const bool attempted_motion =
-      std::any_of(first, history.end(), [](const auto& entry) {
-        return entry.action.type() == domain::ActionType::Forward;
-      });
-  if (attempted_motion && displacement < progress_threshold_m_)
-    return {ReactiveStatus::RequestReplan, std::nullopt, "LLE",
-            "insufficient progress; request Tier-2 replan"};
+  return {(only_direct_guidance && lacks_connectivity) || stalled,
+          stalled ? "target navigation has stalled"
+                  : "target-directed planning lacks learned connectivity"};
+}
+
+void LowLevelExplorer::assembleCandidates(const domain::WorldModel& world) {
+  ranked_candidates_.clear();
+  candidate_cursor_ = 0U;
+  const auto target = world.mission.active()->target;
+  const auto add = [&](LLECandidateSource source, domain::Point2D start,
+                       domain::Point2D point, std::uint64_t stable_id = 0U) {
+    const double relevance = -domain::distance(point, target).meters();
+    ranked_candidates_.push_back(
+        {stable_id == 0U ? next_candidate_id_++ : stable_id, source, start,
+         point, relevance});
+  };
+  for (const auto& cue : world.spatial.unfinished_hle_candidates)
+    add(LLECandidateSource::UnfinishedHle, cue.start, cue.target, cue.id);
+
+  const auto& laser = *world.robot.laser;
+  for (std::size_t beam = 0U; beam < laser.ranges_m.size(); ++beam) {
+    const double range = laser.ranges_m[beam];
+    if (!std::isfinite(range) || range < laser.minimum_range.meters()) continue;
+    const double angle =
+        world.robot.pose.heading.radians() + laser.angle_min.radians() +
+        static_cast<double>(beam) * laser.angle_increment.radians();
+    add(LLECandidateSource::CurrentTargetObservation,
+        world.robot.pose.position,
+        {world.robot.pose.position.x_m + range * std::cos(angle),
+         world.robot.pose.position.y_m + range * std::sin(angle)});
+  }
+  for (const auto& region : world.spatial.learned_regions)
+    add(LLECandidateSource::RegionVisibility, world.robot.pose.position,
+        region.center);
+  const auto& grid = world.spatial.inclusion_grid;
+  if (grid.columns > 0U && grid.rows > 0U) {
+    for (std::size_t index = 0U; index < grid.cells.size(); ++index) {
+      if (grid.cells[index] != 0U) continue;
+      const auto row = index / grid.columns;
+      const auto column = index % grid.columns;
+      add(LLECandidateSource::InclusionGap, world.robot.pose.position,
+          {grid.origin.x_m + (static_cast<double>(column) + 0.5) *
+                                 grid.resolution_m,
+           grid.origin.y_m + (static_cast<double>(row) + 0.5) *
+                                 grid.resolution_m});
+    }
+  }
+}
+
+domain::Action LowLevelExplorer::actionToward(
+    const domain::Pose2D& pose, domain::Point2D target,
+    const domain::ActionSpace& actions) const {
+  const double error = headingError(pose, target);
+  return std::abs(error) > 0.2
+             ? turn(error, actions)
+             : domain::Action(domain::ActionType::Forward, 1U);
+}
+
+ReactivePlanUpdate LowLevelExplorer::complete(
+    ReactiveCompletionReason reason, std::string explanation,
+    ReactiveStatus status) {
+  completion_reason_ = reason;
+  state_ = LowLevelExplorationState::Complete;
+  return {status, std::nullopt, state_, reason, std::nullopt,
+          std::move(explanation)};
+}
+
+ReactivePlanUpdate LowLevelExplorer::update(
+    const decision::DecisionContext& context) {
+  if (!context.world.mission.active())
+    return complete(ReactiveCompletionReason::MissionChanged,
+                    "mission is no longer active");
+  if (mission_id_ && *mission_id_ != context.world.mission.active()->id)
+    return complete(ReactiveCompletionReason::MissionChanged,
+                    "active mission changed");
+  if (!context.world.robot.laser ||
+      context.world.robot.laser->ranges_m.empty())
+    return complete(ReactiveCompletionReason::SensorLost,
+                    "laser observation is unavailable");
+  if (state_ != LowLevelExplorationState::DetectMissingGuidance &&
+      context.world.mission.active()->plan.size() > 1U)
+    return complete(ReactiveCompletionReason::NewPlanAvailable,
+                    "a new target-directed plan is available");
+  if (targetSensed(context.world))
+    return complete(ReactiveCompletionReason::TargetSensed,
+                    "target is directly sensed");
+  if (++decisions_ > decision_budget_)
+    return complete(ReactiveCompletionReason::BudgetExceeded,
+                    "LLE decision budget exceeded");
+  if (!context.action_space)
+    return complete(ReactiveCompletionReason::SensorLost,
+                    "action space is unavailable");
+
+  if (state_ == LowLevelExplorationState::Complete) {
+    state_ = LowLevelExplorationState::DetectMissingGuidance;
+    completion_reason_ = ReactiveCompletionReason::None;
+    decisions_ = 1U;
+  }
+  if (state_ == LowLevelExplorationState::DetectMissingGuidance) {
+    if (!evaluateTrigger(context).triggered) return {};
+    mission_id_ = context.world.mission.active()->id;
+    source_revision_ = context.world.spatial.revision;
+    state_ = LowLevelExplorationState::AssembleCandidateRays;
+  }
+  if (state_ == LowLevelExplorationState::AssembleCandidateRays) {
+    assembleCandidates(context.world);
+    if (ranked_candidates_.empty())
+      return complete(ReactiveCompletionReason::NoCandidates,
+                      "no LLE candidates are available");
+    state_ = LowLevelExplorationState::RankByTargetRelevance;
+  }
+  if (state_ == LowLevelExplorationState::RankByTargetRelevance) {
+    std::stable_sort(
+        ranked_candidates_.begin(), ranked_candidates_.end(),
+        [](const auto& left, const auto& right) {
+          return left.target_relevance > right.target_relevance ||
+                 (left.target_relevance == right.target_relevance &&
+                  left.id < right.id);
+        });
+    state_ = LowLevelExplorationState::PlanToCandidateStart;
+  }
+  if (candidate_cursor_ >= ranked_candidates_.size())
+    return complete(ReactiveCompletionReason::CandidateExhausted,
+                    "all LLE candidates were exhausted");
+  const auto& candidate = ranked_candidates_[candidate_cursor_];
+  if (state_ == LowLevelExplorationState::PlanToCandidateStart) {
+    if (domain::distance(context.world.robot.pose.position, candidate.start)
+            .meters() > progress_threshold_m_) {
+      return {ReactiveStatus::Action,
+              actionToward(context.world.robot.pose, candidate.start,
+                           *context.action_space),
+              state_, ReactiveCompletionReason::None, candidate.id,
+              "plan to candidate start"};
+    }
+    state_ = LowLevelExplorationState::PursueCandidate;
+  }
+  if (state_ == LowLevelExplorationState::PursueCandidate) {
+    state_ = LowLevelExplorationState::CheckConnectivity;
+    return {ReactiveStatus::Action,
+            actionToward(context.world.robot.pose, candidate.target,
+                         *context.action_space),
+            LowLevelExplorationState::PursueCandidate,
+            ReactiveCompletionReason::None, candidate.id,
+            "pursue candidate ray"};
+  }
+  if (state_ == LowLevelExplorationState::CheckConnectivity) {
+    const bool connectivity =
+        context.world.spatial.revision != source_revision_ &&
+        (!context.world.spatial.skeleton_nodes.empty() ||
+         !context.world.spatial.highways.nodes.empty() ||
+         !context.world.spatial.highways.graph.vertices.empty());
+    if (connectivity)
+      return complete(ReactiveCompletionReason::NewPlanAvailable,
+                      "new connectivity found; request Tier-2 replanning",
+                      ReactiveStatus::RequestReplan);
+    ++candidate_cursor_;
+    state_ = LowLevelExplorationState::PlanToCandidateStart;
+    if (candidate_cursor_ >= ranked_candidates_.size())
+      return complete(ReactiveCompletionReason::CandidateExhausted,
+                      "all LLE candidates were exhausted");
+    return update(context);
+  }
   return {};
+}
+
+void LowLevelExplorer::cancel(InterruptionReason reason) {
+  switch (reason) {
+    case InterruptionReason::TargetSensed:
+      completion_reason_ = ReactiveCompletionReason::TargetSensed;
+      break;
+    case InterruptionReason::NewPlanAvailable:
+      completion_reason_ = ReactiveCompletionReason::NewPlanAvailable;
+      break;
+    case InterruptionReason::SensorLost:
+      completion_reason_ = ReactiveCompletionReason::SensorLost;
+      break;
+    case InterruptionReason::MissionChanged:
+    case InterruptionReason::Disabled:
+      completion_reason_ = ReactiveCompletionReason::MissionChanged;
+      break;
+  }
+  state_ = LowLevelExplorationState::Complete;
+}
+
+ReactiveResult LowLevelExplorer::evaluate(const ReactiveRequest& request) {
+  decision::DecisionContext context{request.world, &request.action_space};
+  if (state_ == LowLevelExplorationState::DetectMissingGuidance &&
+      !evaluateTrigger(context).triggered)
+    return {};
+  return resultFrom(name(), update(context));
 }
 
 }  // namespace semaforr::planning
