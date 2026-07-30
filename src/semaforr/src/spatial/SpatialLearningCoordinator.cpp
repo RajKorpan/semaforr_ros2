@@ -38,6 +38,9 @@ void clearRepresentation(domain::SpatialModel& model,
     case SpatialRepresentation::InclusionGrid:
       model.inclusion_grid = {};
       break;
+    case SpatialRepresentation::Highways:
+      model.highways = {};
+      break;
   }
 }
 
@@ -64,6 +67,7 @@ SpatialLearningCoordinator SpatialLearningCoordinator::defaults(
   coordinator.addLearner(std::make_unique<PassageSkeletonLearner>());
   coordinator.addLearner(std::make_unique<KnownGridLearner>());
   coordinator.addLearner(std::make_unique<InclusionGridLearner>());
+  coordinator.addLearner(std::make_unique<HighwayLearner>());
   return coordinator;
 }
 
@@ -269,6 +273,17 @@ void SpatialLearningCoordinator::applyTo(domain::SpatialModel& model) const {
                 payload.geometry.columns, payload.geometry.rows,
                 payload.geometry.resolution_m, payload.geometry.origin,
                 payload.included, update.revision};
+          } else if constexpr (std::is_same_v<Payload, HighwayModel>) {
+            model.highways.nodes = payload.nodes;
+            model.highways.edges.clear();
+            for (const SkeletonEdge& edge : payload.edges)
+              model.highways.edges.emplace_back(edge.from, edge.to);
+            model.highways.intersections.clear();
+            for (const HighwayIntersection& intersection :
+                 payload.intersections)
+              model.highways.intersections.push_back(
+                  {intersection.node, intersection.degree});
+            model.highways.revision = update.revision;
           }
         },
         update.payload);

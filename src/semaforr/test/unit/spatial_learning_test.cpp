@@ -70,10 +70,10 @@ TEST(SpatialLearning, DefaultModulesDeclareLifecycleAndConsumers) {
   using namespace semaforr::spatial;
   auto coordinator = SpatialLearningCoordinator::defaults(100U);
 
-  EXPECT_EQ(coordinator.learnerCount(), 9U);
-  EXPECT_EQ(coordinator.enabledCount(), 9U);
+  EXPECT_EQ(coordinator.learnerCount(), 10U);
+  EXPECT_EQ(coordinator.enabledCount(), 10U);
   const auto inspection = coordinator.inspect();
-  ASSERT_EQ(inspection.size(), 9U);
+  ASSERT_EQ(inspection.size(), 10U);
   for (const LearnerInspection& learner : inspection) {
     EXPECT_FALSE(learner.name.empty());
     EXPECT_FALSE(learner.contract.update_trigger.empty());

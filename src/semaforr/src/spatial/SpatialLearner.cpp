@@ -134,6 +134,20 @@ void payload(std::ostream& output, const SpatialPayload& value) {
           array(output, model.included,
                 [](std::ostream& stream, auto cell) { stream << cell; });
           output << '}';
+        } else if constexpr (std::is_same_v<Model, HighwayModel>) {
+          output << "{\"nodes\":";
+          array(output, model.nodes, point);
+          output << ",\"edges\":";
+          array(output, model.edges, [](std::ostream& stream, const auto& edge) {
+            stream << "{\"from\":" << edge.from << ",\"to\":" << edge.to << '}';
+          });
+          output << ",\"intersections\":";
+          array(output, model.intersections,
+                [](std::ostream& stream, const auto& intersection) {
+                  stream << "{\"node\":" << intersection.node
+                         << ",\"degree\":" << intersection.degree << '}';
+                });
+          output << '}';
         }
       },
       value);
@@ -161,6 +175,8 @@ std::string_view toString(SpatialRepresentation representation) noexcept {
       return "known_grid";
     case SpatialRepresentation::InclusionGrid:
       return "inclusion_grid";
+    case SpatialRepresentation::Highways:
+      return "highways";
   }
   return "unknown";
 }

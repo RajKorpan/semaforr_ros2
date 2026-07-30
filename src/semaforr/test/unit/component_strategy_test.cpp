@@ -177,6 +177,9 @@ TEST(NavigationPhaseCoordinator, DelaysMissionUntilExplorationBudgetCompletes) {
   phases.observe();
   EXPECT_EQ(phases.phase(), NavigationPhase::InitialExploration);
   phases.observe();
+  EXPECT_TRUE(phases.explorationBudgetReached());
+  EXPECT_EQ(phases.phase(), NavigationPhase::InitialExploration);
+  phases.completeInitialExploration();
   EXPECT_EQ(phases.phase(), NavigationPhase::TargetNavigation);
   EXPECT_TRUE(phases.missionActivationAllowed());
   phases.completeMission();

@@ -17,14 +17,14 @@ strategy is scheduled for a later restoration phase.
 | Skeleton | `PassageSkeletonLearner` | Implemented | Incremental graph append | skeleton planner |
 | Known grid | `KnownGridLearner` | Implemented | Every coherent laser view | Out, LLE |
 | Inclusion grid | `InclusionGridLearner` | Implemented | Every accepted pose | LLE, coverage |
-| Highways/intersections | none | Missing | End of HLE | HighwayPlan |
+| Highways/intersections | `HighwayLearner` | Implemented | Incremental during HLE | `HighwayPlan` |
 | Circumstances/settings | none | Missing | Every decision / learned batch | Precedent |
-| HLE preliminary phase | `NavigationPhaseCoordinator` | Foundation | Before mission activation | exploration strategy |
+| HLE preliminary phase | `HighwayExplorer` + phase coordinator | Implemented | Before mission activation | highway learner |
 | LLE | none | Missing | Reactive Tier 1 | replanning |
 | Hard collision safety | `HardSafetyFilter` | Implemented | Before cognitive arbitration | command selection |
 | Victory/NotOpposite | tier interfaces exist | Missing | Ordered Tier 1 | action selection |
-| Enforcer/Thru/Behind/Out | none | Missing | Reactive Tier 1 | plan execution |
-| Tier-2 planner voting | `PlanningCoordinator` | Partial | Plan creation | mission |
+| Enforcer operationalization | `Enforcer` | Implemented | Plan installation/progress | mission |
+| Tier-2 hierarchical planning | `SkeletonPlan`, `HighwayPlan`, cached coordinator | Implemented | Plan creation | mission |
 | Tier-3 range voting | `DecisionCoordinator` | Implemented | When enabled | action selection |
 | Dissertation advisor catalog | navigation/social advisors | Partial | Tier 3 | action selection |
 | Configuration fingerprint | `configurationFingerprint` | Implemented | Startup | diagnostics |

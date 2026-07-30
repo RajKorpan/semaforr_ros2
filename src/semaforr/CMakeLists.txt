@@ -80,6 +80,7 @@ set(SEMAFORR_DOMAIN_SOURCES
 )
 
 set(SEMAFORR_NAVIGATION_SOURCES
+  src/decision/Enforcer.cpp
   src/decision/MissionManager.cpp
   src/decision/NavigationEngine.cpp
   src/decision/NavigationPhase.cpp
@@ -89,6 +90,8 @@ add_library(semaforr_planning SHARED
   src/navigation/DomainAStar.cpp
   src/navigation/DomainGraph.cpp
   src/navigation/DomainPlanner.cpp
+  src/navigation/HighwayExplorer.cpp
+  src/navigation/HierarchicalPlan.cpp
   src/navigation/MapParser.cpp
   src/navigation/PlanningCoordinator.cpp
 )
@@ -127,6 +130,7 @@ add_library(semaforr_spatial SHARED
   src/spatial/DoorExitLearner.cpp
   src/spatial/HallwayLearner.cpp
   src/spatial/GridLearners.cpp
+  src/spatial/HighwayLearner.cpp
   src/spatial/PassageSkeletonLearner.cpp
   src/spatial/RegionLearner.cpp
   src/spatial/SpatialLearner.cpp
@@ -376,6 +380,14 @@ if(BUILD_TESTING)
   target_link_libraries(
     semaforr_navigation_scenario_test semaforr_navigation)
   semaforr_apply_project_options(semaforr_navigation_scenario_test)
+
+  ament_add_gtest(
+    semaforr_phase34_navigation_test
+    test/unit/phase34_navigation_test.cpp
+  )
+  target_link_libraries(
+    semaforr_phase34_navigation_test semaforr_navigation)
+  semaforr_apply_project_options(semaforr_phase34_navigation_test)
 
   ament_add_pytest_test(semaforr_source_contract_test
     test/contracts/test_source_contract.py

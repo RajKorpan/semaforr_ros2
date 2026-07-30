@@ -11,6 +11,7 @@
 #include <semaforr/decision/obstacle_veto_rule.hpp>
 #include <semaforr/decision/social_navigation_advisor.hpp>
 #include <semaforr/planning/domain_planner.hpp>
+#include <semaforr/planning/hierarchical_plan.hpp>
 #include <semaforr/ros/navigation_engine_adapter.hpp>
 #include <string>
 #include <utility>
@@ -139,6 +140,10 @@ class NavigationEngineAdapter::Impl {
                          grids_enabled);
     learning_.setEnabled(spatial::SpatialRepresentation::InclusionGrid,
                          grids_enabled);
+    learning_.setEnabled(spatial::SpatialRepresentation::Highways,
+                         grids_enabled &&
+                             configuration_.experiment.initial_exploration
+                                 .enabled);
   }
 
   void configurePlanning() {
@@ -146,8 +151,8 @@ class NavigationEngineAdapter::Impl {
     addPlanner(planning_, "distance", planning::PlannerObjective::Distance);
     const auto& planners = configuration_.navigation.planners;
     if (planners.skeleton) {
-      addPlanner(planning_, "skeleton",
-                 planning::PlannerObjective::SkeletonDistance);
+      planning_.registerPlanner(std::make_unique<planning::SkeletonPlan>());
+      planning_.registerPlanner(std::make_unique<planning::HighwayPlan>());
     }
     if (planners.density) {
       addPlanner(planning_, "density",

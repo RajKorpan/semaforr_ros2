@@ -29,6 +29,11 @@ class NavigationPhaseCoordinator {
   bool missionActivationAllowed() const noexcept {
     return phase_ == NavigationPhase::TargetNavigation;
   }
+  bool explorationBudgetReached() const noexcept {
+    return phase_ == NavigationPhase::InitialExploration &&
+           exploration_observations_ >=
+               configuration_.initial_exploration_observation_budget;
+  }
   void observe();
   void completeInitialExploration();
   void completeMission();

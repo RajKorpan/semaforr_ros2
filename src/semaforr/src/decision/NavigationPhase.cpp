@@ -31,9 +31,6 @@ NavigationPhaseCoordinator::NavigationPhaseCoordinator(
 void NavigationPhaseCoordinator::observe() {
   if (phase_ != NavigationPhase::InitialExploration) return;
   ++exploration_observations_;
-  if (exploration_observations_ >=
-      configuration_.initial_exploration_observation_budget)
-    completeInitialExploration();
 }
 
 void NavigationPhaseCoordinator::completeInitialExploration() {

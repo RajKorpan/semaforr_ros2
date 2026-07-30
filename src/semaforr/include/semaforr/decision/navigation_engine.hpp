@@ -4,10 +4,12 @@
 #include <cstdint>
 #include <optional>
 #include <semaforr/decision/decision_coordinator.hpp>
+#include <semaforr/decision/enforcer.hpp>
 #include <semaforr/decision/hard_safety_filter.hpp>
 #include <semaforr/decision/mission_manager.hpp>
 #include <semaforr/domain/observation.hpp>
 #include <semaforr/domain/world_model.hpp>
+#include <semaforr/exploration/highway_explorer.hpp>
 #include <semaforr/navigation/navigation_phase.hpp>
 #include <semaforr/planning/planning_coordinator.hpp>
 #include <semaforr/social/crowd_field_learner.hpp>
@@ -53,6 +55,8 @@ class NavigationEngine {
   navigation::NavigationPhaseCoordinator* phases_;
   std::string configuration_fingerprint_;
   std::vector<std::string> component_manifest_;
+  exploration::HighwayExplorer explorer_;
+  Enforcer enforcer_;
   domain::Distance goal_tolerance_;
   std::optional<domain::RobotObservation> observation_;
   std::uint64_t decision_sequence_{0U};

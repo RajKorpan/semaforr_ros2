@@ -1,3 +1,4 @@
+#include <array>
 #include <semaforr/decision/navigation_engine.hpp>
 #include <semaforr/domain/motion_model.hpp>
 #include <stdexcept>
@@ -85,7 +86,10 @@ std::optional<std::string> NavigationEngine::preparePlan(MissionStep step) {
     mission_.installPlan({world_.mission.active()->target});
     return std::nullopt;
   }
-  mission_.installPlan(selected->result.path);
+  mission_.installPlan(selected->result.hierarchical
+                           ? enforcer_.operationalize(
+                                 *selected->result.hierarchical)
+                           : selected->result.path);
   mission_.advanceWaypoint(world_.robot.pose, goal_tolerance_);
   return selected->planner;
 }
@@ -95,22 +99,38 @@ DecisionResult NavigationEngine::decide() {
     throw std::logic_error("navigation decision requires an observation");
   }
   if (phases_->phase() == navigation::NavigationPhase::InitialExploration) {
+    exploration::HleDecision exploration =
+        explorer_.decide(*observation_, action_space_);
     DecisionResult result;
     result.sequence = ++decision_sequence_;
     result.robot_pose = world_.robot.pose;
     result.navigation_phase = phases_->phase();
     result.configuration_fingerprint = configuration_fingerprint_;
     result.component_manifest = component_manifest_;
-    result.action = domain::Action::pause();
+    result.action = exploration.action;
+    if (hard_safety_) {
+      const std::array<domain::Action, 1U> exploration_candidate{
+          result.action};
+      auto filtered = hard_safety_->filter(DecisionContext{world_},
+                                           exploration_candidate);
+      result.vetoes = std::move(filtered.vetoes);
+      if (filtered.safe_actions.empty())
+        result.action = domain::Action::pause();
+    }
     result.source = DecisionSource::Exploration;
     result.tier = DecisionTier::Exploration;
-    result.selected_policy = "initial_exploration_pending";
+    result.selected_policy =
+        "hle:" + std::string(exploration::toString(exploration.state));
     world_.navigation_history.record(
         {observation_->pose, observation_->laser, result.action});
     learning_.observe({world_.navigation_history.entries().size(),
                        *observation_, result.action, std::nullopt, false,
-                       false});
+                       false, true});
     learning_.applyTo(world_.spatial);
+    if (phases_->explorationBudgetReached()) {
+      explorer_.finish();
+      phases_->completeInitialExploration();
+    }
     return result;
   }
   const MissionStep mission_step = mission_.prepareDecision();

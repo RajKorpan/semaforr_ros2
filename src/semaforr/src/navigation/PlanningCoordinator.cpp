@@ -23,6 +23,15 @@ void PlanningCoordinator::registerPlanner(std::unique_ptr<Planner> planner) {
 
 std::optional<SelectedPlan> PlanningCoordinator::selectPlan(
     const PlanningRequest& request) {
+  const std::size_t revision =
+      request.spatial_model ? request.spatial_model->revision : 0U;
+  if (cached_ && cached_->start.position == request.start.position &&
+      cached_->start.heading == request.start.heading &&
+      cached_->goal == request.goal &&
+      cached_->spatial_revision == revision) {
+    ++cache_hits_;
+    return cached_->selected;
+  }
   std::optional<SelectedPlan> selected;
   for (const auto& planner : planners_) {
     PlanResult candidate = planner->plan(request);
@@ -40,6 +49,8 @@ std::optional<SelectedPlan> PlanningCoordinator::selectPlan(
       selected = SelectedPlan{std::move(candidate), name};
     }
   }
+  if (selected)
+    cached_ = CacheEntry{request.start, request.goal, revision, *selected};
   return selected;
 }
 

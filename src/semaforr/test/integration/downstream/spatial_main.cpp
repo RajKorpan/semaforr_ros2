@@ -3,5 +3,5 @@
 int main() {
   const auto learning =
       semaforr::spatial::SpatialLearningCoordinator::defaults();
-  return learning.learnerCount() == 9U ? 0 : 1;
+  return learning.learnerCount() == 10U ? 0 : 1;
 }

@@ -3,8 +3,6 @@
 
 #include <algorithm>
 #include <cstdint>
-#include <cstdint>
-#include <cstdint>
 #include <optional>
 #include <semaforr/domain/action.hpp>
 #include <semaforr/domain/crowd_model.hpp>
@@ -114,6 +112,18 @@ struct FreespaceGrid {
   std::size_t revision = 0U;
 };
 
+struct HighwayIntersection {
+  std::size_t node = 0U;
+  std::size_t degree = 0U;
+};
+
+struct HighwayGraph {
+  std::vector<Point2D> nodes;
+  std::vector<std::pair<std::size_t, std::size_t>> edges;
+  std::vector<HighwayIntersection> intersections;
+  std::size_t revision = 0U;
+};
+
 struct SpatialModel {
   std::vector<Polygon> obstacle_polygons;
   std::vector<std::vector<Point2D>> trails;
@@ -126,6 +136,7 @@ struct SpatialModel {
   std::vector<std::pair<std::size_t, std::size_t>> skeleton_edges;
   FreespaceGrid known_grid;
   FreespaceGrid inclusion_grid;
+  HighwayGraph highways;
   std::size_t revision = 0U;
 };
 

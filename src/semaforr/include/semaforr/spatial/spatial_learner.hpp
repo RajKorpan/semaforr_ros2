@@ -3,8 +3,6 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <cstdint>
-#include <cstdint>
 #include <optional>
 #include <semaforr/domain/action.hpp>
 #include <semaforr/domain/mission.hpp>
@@ -26,7 +24,8 @@ enum class SpatialRepresentation {
   Barriers,
   PassagesAndSkeleton,
   KnownGrid,
-  InclusionGrid
+  InclusionGrid,
+  Highways
 };
 
 enum class UpdateMode { Incremental, RebuildOnDemand };
@@ -57,6 +56,7 @@ struct NavigationEpisode {
   std::optional<domain::TaskId> active_task;
   bool task_started = false;
   bool task_finished = false;
+  bool initial_exploration = false;
 };
 
 struct TrailModel {
@@ -115,10 +115,22 @@ struct InclusionGridModel {
   std::vector<std::uint32_t> included;
 };
 
+struct HighwayIntersection {
+  std::size_t node = 0U;
+  std::size_t degree = 0U;
+};
+
+struct HighwayModel {
+  std::vector<domain::Point2D> nodes;
+  std::vector<SkeletonEdge> edges;
+  std::vector<HighwayIntersection> intersections;
+};
+
 using SpatialPayload = std::variant<std::monostate, TrailModel, ConveyorModel,
                                     RegionModel, DoorExitModel, HallwayModel,
                                     BarrierModel, PassageSkeletonModel,
-                                    KnownGridModel, InclusionGridModel>;
+                                    KnownGridModel, InclusionGridModel,
+                                    HighwayModel>;
 
 struct SpatialModelUpdate {
   SpatialRepresentation representation = SpatialRepresentation::Trails;
