@@ -94,6 +94,7 @@ add_library(semaforr_planning SHARED
   src/navigation/HierarchicalPlan.cpp
   src/navigation/MapParser.cpp
   src/navigation/PlanningCoordinator.cpp
+  src/navigation/ReactivePlanner.cpp
 )
 set_target_properties(semaforr_planning PROPERTIES EXPORT_NAME planning)
 add_library(semaforr::planning ALIAS semaforr_planning)
@@ -111,6 +112,7 @@ add_library(semaforr_advisors SHARED
   src/decision/LearnedCrowdAdvisor.cpp
   src/decision/NavigationAdvisor.cpp
   src/decision/ObstacleVetoRule.cpp
+  src/decision/RestoredTiers.cpp
   src/decision/SocialAdvisorRegistry.cpp
   src/decision/SocialNavigationAdvisor.cpp
 )
@@ -388,6 +390,15 @@ if(BUILD_TESTING)
   target_link_libraries(
     semaforr_phase34_navigation_test semaforr_navigation)
   semaforr_apply_project_options(semaforr_phase34_navigation_test)
+
+  ament_add_gtest(
+    semaforr_phase56_restoration_test
+    test/unit/phase56_restoration_test.cpp
+  )
+  target_link_libraries(
+    semaforr_phase56_restoration_test
+    semaforr_navigation semaforr_advisors)
+  semaforr_apply_project_options(semaforr_phase56_restoration_test)
 
   ament_add_pytest_test(semaforr_source_contract_test
     test/contracts/test_source_contract.py

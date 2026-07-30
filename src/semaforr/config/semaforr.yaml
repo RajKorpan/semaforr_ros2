@@ -119,13 +119,21 @@ semaforr:
       names:
         [goal_progress, goal_progress_linear, clearance,
          clearance_rotation, exploration, social_navigation,
-         crowd_avoid, risk_avoid, flow_follow]
-      enabled: [true, true, true, true, true, true, true, true, true]
-      weights: [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
+         crowd_avoid, risk_avoid, flow_follow, avoid_revisit,
+         prefer_regions, prefer_highways, prefer_doors, follow_trails]
+      enabled: [true, true, true, true, true, true, true, true, true,
+                true, true, true, true, true]
+      weights: [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
+                1.0, 1.0, 1.0, 1.0, 1.0]
       # Four reserved values per advisor. ROS parameters do not support
       # arrays of mappings, so this remains a validated flat array.
       parameters:
         [0.0, 0.0, 0.0, 0.0,
+         0.0, 0.0, 0.0, 0.0,
+         0.0, 0.0, 0.0, 0.0,
+         0.0, 0.0, 0.0, 0.0,
+         0.0, 0.0, 0.0, 0.0,
+         0.0, 0.0, 0.0, 0.0,
          0.0, 0.0, 0.0, 0.0,
          0.0, 0.0, 0.0, 0.0,
          0.0, 0.0, 0.0, 0.0,

@@ -25,6 +25,7 @@ class Advisor {
  public:
   virtual ~Advisor() = default;
   virtual std::string_view name() const noexcept = 0;
+  virtual std::vector<std::string_view> dependencies() const { return {}; }
   virtual AdvisorEvaluation evaluate(
       const DecisionContext& context,
       std::span<const domain::Action> candidates) const = 0;

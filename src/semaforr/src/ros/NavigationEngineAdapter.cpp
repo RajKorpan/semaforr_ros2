@@ -9,6 +9,7 @@
 #include <semaforr/decision/navigation_advisor.hpp>
 #include <semaforr/decision/navigation_engine.hpp>
 #include <semaforr/decision/obstacle_veto_rule.hpp>
+#include <semaforr/decision/restored_tiers.hpp>
 #include <semaforr/decision/social_navigation_advisor.hpp>
 #include <semaforr/planning/domain_planner.hpp>
 #include <semaforr/planning/hierarchical_plan.hpp>
@@ -75,6 +76,19 @@ decision::NavigationAdvisorObjective objectiveFor(const std::string& name) {
     return decision::NavigationAdvisorObjective::Clearance;
   }
   return decision::NavigationAdvisorObjective::GoalProgress;
+}
+
+decision::SpatialAdvisorObjective spatialObjectiveFor(
+    const std::string& name) {
+  if (name == "prefer_regions")
+    return decision::SpatialAdvisorObjective::PreferRegions;
+  if (name == "prefer_highways")
+    return decision::SpatialAdvisorObjective::PreferHighways;
+  if (name == "prefer_doors")
+    return decision::SpatialAdvisorObjective::PreferDoors;
+  if (name == "follow_trails")
+    return decision::SpatialAdvisorObjective::FollowTrails;
+  return decision::SpatialAdvisorObjective::AvoidRevisit;
 }
 
 void addPlanner(planning::PlanningCoordinator& coordinator,
@@ -167,6 +181,17 @@ class NavigationEngineAdapter::Impl {
   }
 
   void configureDecisions() {
+    decision::TierOneRegistry tier_one_registry;
+    decision::AdvisorRegistry tier_three_registry;
+    decision::registerRestoredTierFactories(
+        tier_one_registry, tier_three_registry, action_space_);
+    if (configuration_.experiment.tiers.tier_one) {
+      decisions_.addMandatoryRule(
+          tier_one_registry.createMandatory("Victory"));
+      decisions_.addMandatoryRule(
+          tier_one_registry.createMandatory("Forward"));
+      decisions_.addVetoRule(tier_one_registry.createVeto("NotOpposite"));
+    }
     if (!configuration_.experiment.tiers.tier_three) return;
     for (const auto& advisor : configuration_.advisors) {
       if (!advisor.active) {
@@ -203,6 +228,16 @@ class NavigationEngineAdapter::Impl {
         }
         decisions_.addAdvisor(std::make_unique<decision::LearnedCrowdAdvisor>(
             std::move(learned)));
+        continue;
+      }
+      if (advisor.name == "avoid_revisit" ||
+          advisor.name == "prefer_regions" ||
+          advisor.name == "prefer_highways" ||
+          advisor.name == "prefer_doors" ||
+          advisor.name == "follow_trails") {
+        decisions_.addAdvisor(std::make_unique<decision::SpatialAdvisor>(
+            advisor.name, spatialObjectiveFor(advisor.name), action_space_,
+            advisor.weight));
         continue;
       }
       decisions_.addAdvisor(std::make_unique<decision::NavigationAdvisor>(

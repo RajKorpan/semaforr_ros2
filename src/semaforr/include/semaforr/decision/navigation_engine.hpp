@@ -12,6 +12,7 @@
 #include <semaforr/exploration/highway_explorer.hpp>
 #include <semaforr/navigation/navigation_phase.hpp>
 #include <semaforr/planning/planning_coordinator.hpp>
+#include <semaforr/planning/reactive_planner.hpp>
 #include <semaforr/social/crowd_field_learner.hpp>
 #include <semaforr/spatial/spatial_learning_coordinator.hpp>
 #include <string>
@@ -57,6 +58,8 @@ class NavigationEngine {
   std::vector<std::string> component_manifest_;
   exploration::HighwayExplorer explorer_;
   Enforcer enforcer_;
+  planning::ReactivePlannerCoordinator reactive_;
+  planning::LowLevelExplorer lle_;
   domain::Distance goal_tolerance_;
   std::optional<domain::RobotObservation> observation_;
   std::uint64_t decision_sequence_{0U};

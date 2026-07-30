@@ -20,13 +20,14 @@ strategy is scheduled for a later restoration phase.
 | Highways/intersections | `HighwayLearner` | Implemented | Incremental during HLE | `HighwayPlan` |
 | Circumstances/settings | none | Missing | Every decision / learned batch | Precedent |
 | HLE preliminary phase | `HighwayExplorer` + phase coordinator | Implemented | Before mission activation | highway learner |
-| LLE | none | Missing | Reactive Tier 1 | replanning |
+| LLE | `LowLevelExplorer` | Implemented | Progress window | Tier-2 replanning |
 | Hard collision safety | `HardSafetyFilter` | Implemented | Before cognitive arbitration | command selection |
-| Victory/NotOpposite | tier interfaces exist | Missing | Ordered Tier 1 | action selection |
+| Victory/NotOpposite/Forward | restored Tier-1 registry | Implemented | Ordered Tier 1 | action selection |
+| Thru/Behind/Out | reactive planner coordinator | Implemented | Before Tier-3 arbitration | plan execution |
 | Enforcer operationalization | `Enforcer` | Implemented | Plan installation/progress | mission |
 | Tier-2 hierarchical planning | `SkeletonPlan`, `HighwayPlan`, cached coordinator | Implemented | Plan creation | mission |
 | Tier-3 range voting | `DecisionCoordinator` | Implemented | When enabled | action selection |
-| Dissertation advisor catalog | navigation/social advisors | Partial | Tier 3 | action selection |
+| Commonsense/spatial advisor catalog | dependency-declared advisor registry | Implemented | Tier 3 | action selection |
 | Configuration fingerprint | `configurationFingerprint` | Implemented | Startup | diagnostics |
 | Component manifest | `componentManifest` | Implemented | Startup | diagnostics |
 | Named ablation profiles | `AblationProfile` | Implemented | Before validation | experiments |

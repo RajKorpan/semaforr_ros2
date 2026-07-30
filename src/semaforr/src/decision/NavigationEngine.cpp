@@ -50,6 +50,13 @@ void NavigationEngine::observe(const domain::RobotObservation& observation) {
   observation.laser.validate();
   observation_ = observation;
   phases_->observe();
+  if (world_.recovery.confined &&
+      !world_.navigation_history.entries().empty() &&
+      domain::distance(
+          observation.pose.position,
+          world_.navigation_history.entries().back().pose.position)
+              .meters() > 0.1)
+    world_.recovery.confined = false;
   world_.robot.pose = observation.pose;
   world_.robot.laser = observation.laser;
   if (observation.crowd) {
@@ -142,6 +149,14 @@ DecisionResult NavigationEngine::decide() {
     result.component_manifest = component_manifest_;
     return result;
   }
+  const planning::ReactiveResult lle =
+      lle_.evaluate({world_, action_space_});
+  if (lle.status == planning::ReactiveStatus::RequestReplan &&
+      world_.mission.active()) {
+    mission_.clearPlan();
+    planning_.clearCache();
+    world_.recovery.confined = true;
+  }
   const std::optional<std::string> selected_planner = preparePlan(mission_step);
   const auto available = candidates();
   std::vector<domain::Action> decision_candidates = available;
@@ -151,8 +166,20 @@ DecisionResult NavigationEngine::decide() {
     decision_candidates = std::move(filtered.safe_actions);
     hard_vetoes = std::move(filtered.vetoes);
   }
-  DecisionResult result =
-      decisions_.decide(DecisionContext{world_}, decision_candidates);
+  const planning::ReactiveResult reactive =
+      reactive_.evaluate({world_, action_space_});
+  DecisionResult result;
+  if (reactive.status == planning::ReactiveStatus::Action &&
+      reactive.action &&
+      std::find(decision_candidates.begin(), decision_candidates.end(),
+                *reactive.action) != decision_candidates.end()) {
+    result.action = *reactive.action;
+    result.source = DecisionSource::MandatoryRule;
+    result.tier = DecisionTier::TierOne;
+    result.selected_policy = "reactive:" + reactive.planner;
+  } else {
+    result = decisions_.decide(DecisionContext{world_}, decision_candidates);
+  }
   result.vetoes.insert(result.vetoes.begin(),
                        std::make_move_iterator(hard_vetoes.begin()),
                        std::make_move_iterator(hard_vetoes.end()));

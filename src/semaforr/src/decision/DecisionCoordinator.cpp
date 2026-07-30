@@ -62,11 +62,14 @@ DecisionResult DecisionCoordinator::decide(const DecisionContext& context,
                                            std::span<const Action> candidates) {
   for (const auto& rule : mandatory_rules_) {
     if (auto decision = rule->evaluate(context)) {
+      if (std::find(candidates.begin(), candidates.end(), decision->action) ==
+          candidates.end())
+        continue;
       DecisionResult result;
       result.action = decision->action;
       result.source = DecisionSource::MandatoryRule;
       result.tier = DecisionTier::TierOne;
-      result.selected_policy = "mandatory_rule";
+      result.selected_policy = "mandatory_rule:" + decision->rule;
       return result;
     }
   }

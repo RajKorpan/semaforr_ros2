@@ -29,6 +29,8 @@ void MissionManager::installPlan(std::vector<domain::Point2D> plan) {
   mission_.install_active_plan(std::move(plan));
 }
 
+void MissionManager::clearPlan() { mission_.install_active_plan({}); }
+
 bool MissionManager::advanceWaypoint(const domain::Pose2D& pose,
                                      domain::Distance tolerance) {
   return mission_.advance_waypoint(pose, tolerance);
