@@ -112,8 +112,11 @@ class NavigationEngineAdapter::Impl {
         mission_(world_.mission),
         learning_(spatial::SpatialLearningCoordinator::defaults()),
         hard_safety_(action_space_.move_distances_m(),
+                     action_space_.rotation_angles_rad(),
                      configuration_.navigation.robot_footprint,
-                     configuration_.navigation.robot_footprint_buffer),
+                     configuration_.navigation.robot_footprint_buffer,
+                     configuration_.experiment.safety_envelope
+                         .sensor_freshness_timeout_s),
         phases_({configuration_.experiment.initial_exploration.enabled,
                  configuration_.experiment.initial_exploration
                      .observation_budget}) {
@@ -142,8 +145,7 @@ class NavigationEngineAdapter::Impl {
     engine_ = std::make_unique<decision::NavigationEngine>(
         world_, action_space_, decisions_, mission_, planning_, learning_,
         crowd_learning_.get(), domain::Distance(0.5),
-        configuration_.experiment.safety_envelope.enabled ? &hard_safety_
-                                                          : nullptr,
+        &hard_safety_,
         &phases_,
         config::configurationFingerprint(configuration_),
         config::componentManifest(configuration_),

@@ -1,9 +1,12 @@
 #include <gtest/gtest.h>
 
+#include <algorithm>
+#include <chrono>
 #include <limits>
 #include <memory>
 #include <optional>
 #include <semaforr/decision/decision_coordinator.hpp>
+#include <semaforr/decision/hard_safety_filter.hpp>
 #include <semaforr/decision/mission_manager.hpp>
 #include <semaforr/navigation/navigation_phase.hpp>
 #include <semaforr/planning/planning_coordinator.hpp>
@@ -126,6 +129,38 @@ TEST(TierThreeCoordinator, AggregatesRawScoresAndWeights) {
   ASSERT_EQ(result.contributions.size(), 4U);
   EXPECT_DOUBLE_EQ(result.contributions[0].raw_score, -1.0);
   EXPECT_DOUBLE_EQ(result.contributions[0].weighted_score, -3.0);
+}
+
+TEST(HardSafetyFilter, RejectsMissingLaserAndInvalidActionIndices) {
+  using namespace semaforr;
+  domain::WorldModel world;
+  decision::HardSafetyFilter safety({0.2}, {0.5}, 0.25, 0.05);
+  const std::vector<Action> candidates{
+      Action::pause(), Action(ActionType::Forward, 1U),
+      Action(ActionType::Forward, 2U), Action(ActionType::TurnLeft, 1U)};
+
+  const auto without_laser =
+      safety.filter(DecisionContext{world}, candidates);
+  ASSERT_EQ(without_laser.safe_actions.size(), 1U);
+  EXPECT_EQ(without_laser.safe_actions.front(), Action::pause());
+
+  domain::LaserObservation laser;
+  laser.angle_min = domain::Angle(-0.5);
+  laser.angle_increment = domain::Angle(0.5);
+  laser.minimum_range = domain::Distance(0.05);
+  laser.maximum_range = domain::Distance(5.0);
+  laser.ranges_m = {5.0, 0.35, 5.0};
+  world.robot.laser = laser;
+  world.robot.observed_at = std::chrono::steady_clock::now();
+  const auto obstructed = safety.filter(DecisionContext{world}, candidates);
+  EXPECT_EQ(std::find(obstructed.safe_actions.begin(),
+                      obstructed.safe_actions.end(),
+                      Action(ActionType::Forward, 1U)),
+            obstructed.safe_actions.end());
+  EXPECT_EQ(std::find(obstructed.safe_actions.begin(),
+                      obstructed.safe_actions.end(),
+                      Action(ActionType::Forward, 2U)),
+            obstructed.safe_actions.end());
 }
 
 TEST(PlanningCoordinator, SelectsLowestCostAndUsesNameForStableTies) {

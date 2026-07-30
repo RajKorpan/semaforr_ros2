@@ -36,6 +36,7 @@ struct TierConfiguration {
 
 struct SafetyEnvelopeConfiguration {
   bool enabled = true;
+  double sensor_freshness_timeout_s = 0.5;
 };
 
 struct InitialExplorationConfiguration {

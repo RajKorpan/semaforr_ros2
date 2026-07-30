@@ -33,6 +33,11 @@ domain::VelocityCommand commandFor(
   return {};
 }
 
+double approach(double current, double target, double maximum_delta) {
+  return current +
+         std::clamp(target - current, -maximum_delta, maximum_delta);
+}
+
 }  // namespace
 
 CommandExecutor::CommandExecutor(CommandExecutorConfiguration configuration)
@@ -45,6 +50,22 @@ CommandExecutor::CommandExecutor(CommandExecutorConfiguration configuration)
     throw std::invalid_argument(
         "turn linear velocity must be finite and non-negative");
   }
+  requirePositiveFinite(configuration_.maximum_linear_velocity_mps,
+                        "maximum linear velocity");
+  requirePositiveFinite(configuration_.maximum_angular_velocity_radps,
+                        "maximum angular velocity");
+  requirePositiveFinite(configuration_.maximum_linear_acceleration_mps2,
+                        "maximum linear acceleration");
+  requirePositiveFinite(configuration_.maximum_angular_acceleration_radps2,
+                        "maximum angular acceleration");
+  if (configuration_.linear_velocity_mps >
+          configuration_.maximum_linear_velocity_mps ||
+      configuration_.turn_linear_velocity_mps >
+          configuration_.maximum_linear_velocity_mps ||
+      configuration_.angular_velocity_radps >
+          configuration_.maximum_angular_velocity_radps)
+    throw std::invalid_argument(
+        "command velocities must not exceed configured platform bounds");
   requirePositiveFinite(configuration_.distance_tolerance_m,
                         "distance tolerance");
   requirePositiveFinite(configuration_.angle_tolerance_rad, "angle tolerance");
@@ -70,6 +91,14 @@ ActionExecutionUpdate CommandExecutor::start(
     throw std::invalid_argument(
         "action targets must be finite and non-negative");
   }
+  const std::size_t magnitude = request.action.magnitude_index();
+  if ((request.action.type() == domain::ActionType::Forward &&
+       magnitude > configuration_.maximum_move_action_index) ||
+      ((request.action.type() == domain::ActionType::TurnLeft ||
+        request.action.type() == domain::ActionType::TurnRight) &&
+       magnitude > configuration_.maximum_rotation_action_index))
+    throw std::invalid_argument(
+        "action magnitude index is outside the configured action space");
   if (request.action.type() == domain::ActionType::Forward &&
       request.target_distance_m <= 0.0) {
     throw std::invalid_argument(
@@ -84,15 +113,17 @@ ActionExecutionUpdate CommandExecutor::start(
   request_ = request;
   previous_pose_ = pose;
   started_at_ = now;
+  command_updated_at_ = now;
   status_ = ActionExecutionStatus::Executing;
   progress_ = 0.0;
-  command_ = commandFor(request.action, configuration_);
+  command_ = {};
   return {status_, command_, progress_, target()};
 }
 
 ActionExecutionUpdate CommandExecutor::update(const domain::Pose2D& pose,
                                               const rclcpp::Time& now) {
-  if (!executing() || !request_ || !previous_pose_ || !started_at_) {
+  if (!executing() || !request_ || !previous_pose_ || !started_at_ ||
+      !command_updated_at_) {
     return {status_, command_, progress_, target()};
   }
   if (now.get_clock_type() != started_at_->get_clock_type() ||
@@ -148,6 +179,25 @@ ActionExecutionUpdate CommandExecutor::update(const domain::Pose2D& pose,
   if (elapsed_s >= timeoutSeconds()) {
     return terminal(ActionExecutionStatus::TimedOut);
   }
+  const double command_elapsed_s = (now - *command_updated_at_).seconds();
+  if (!std::isfinite(command_elapsed_s) || command_elapsed_s < 0.0)
+    return terminal(ActionExecutionStatus::ClockReset);
+  const auto desired = commandFor(request_->action, configuration_);
+  command_.linear_mps =
+      approach(command_.linear_mps, desired.linear_mps,
+               configuration_.maximum_linear_acceleration_mps2 *
+                   command_elapsed_s);
+  command_.angular_radps =
+      approach(command_.angular_radps, desired.angular_radps,
+               configuration_.maximum_angular_acceleration_radps2 *
+                   command_elapsed_s);
+  command_updated_at_ = now;
+  if (!command_.finite() ||
+      std::abs(command_.linear_mps) >
+          configuration_.maximum_linear_velocity_mps ||
+      std::abs(command_.angular_radps) >
+          configuration_.maximum_angular_velocity_radps)
+    return terminal(ActionExecutionStatus::Cancelled);
   return {status_, command_, progress_, target()};
 }
 
@@ -171,11 +221,15 @@ double CommandExecutor::timeoutSeconds() const noexcept {
     case domain::ActionType::Forward:
       nominal_s =
           request_->target_distance_m / configuration_.linear_velocity_mps;
+      nominal_s += configuration_.linear_velocity_mps /
+                   configuration_.maximum_linear_acceleration_mps2;
       break;
     case domain::ActionType::TurnRight:
     case domain::ActionType::TurnLeft:
       nominal_s =
           request_->target_angle_rad / configuration_.angular_velocity_radps;
+      nominal_s += configuration_.angular_velocity_radps /
+                   configuration_.maximum_angular_acceleration_radps2;
       break;
     case domain::ActionType::Pause:
       break;

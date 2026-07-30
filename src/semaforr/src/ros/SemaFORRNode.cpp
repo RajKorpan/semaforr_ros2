@@ -116,6 +116,10 @@ void declareRuntimeParameters(rclcpp::Node& node) {
   node.declare_parameter("command.linear_velocity_mps", 0.5);
   node.declare_parameter("command.angular_velocity_radps", 0.5);
   node.declare_parameter("command.turn_linear_velocity_mps", 0.01);
+  node.declare_parameter("command.maximum_linear_velocity_mps", 0.5);
+  node.declare_parameter("command.maximum_angular_velocity_radps", 0.5);
+  node.declare_parameter("command.maximum_linear_acceleration_mps2", 1.0);
+  node.declare_parameter("command.maximum_angular_acceleration_radps2", 1.0);
   node.declare_parameter("command.distance_tolerance_m", 0.06);
   node.declare_parameter("command.angle_tolerance_rad", 0.11);
   node.declare_parameter("command.timeout_multiplier", 1.5);
@@ -201,6 +205,20 @@ RuntimeConfiguration readRuntimeConfiguration(rclcpp::Node& node) {
       node.get_parameter("command.angular_velocity_radps").as_double();
   configuration.commands.turn_linear_velocity_mps =
       node.get_parameter("command.turn_linear_velocity_mps").as_double();
+  configuration.commands.maximum_linear_velocity_mps =
+      node.get_parameter("command.maximum_linear_velocity_mps").as_double();
+  configuration.commands.maximum_angular_velocity_radps =
+      node.get_parameter("command.maximum_angular_velocity_radps").as_double();
+  configuration.commands.maximum_linear_acceleration_mps2 =
+      node.get_parameter("command.maximum_linear_acceleration_mps2")
+          .as_double();
+  configuration.commands.maximum_angular_acceleration_radps2 =
+      node.get_parameter("command.maximum_angular_acceleration_radps2")
+          .as_double();
+  configuration.commands.maximum_move_action_index =
+      node.get_parameter("actions.move_distances_m").as_double_array().size();
+  configuration.commands.maximum_rotation_action_index =
+      node.get_parameter("actions.rotation_angles_rad").as_double_array().size();
   configuration.commands.distance_tolerance_m =
       node.get_parameter("command.distance_tolerance_m").as_double();
   configuration.commands.angle_tolerance_rad =
@@ -684,6 +702,13 @@ class SemaFORRNode::Impl {
   }
 
   void publishCommand(const domain::VelocityCommand& command) {
+    if (!command.finite() ||
+        std::abs(command.linear_mps) >
+            runtime_.commands.maximum_linear_velocity_mps ||
+        std::abs(command.angular_radps) >
+            runtime_.commands.maximum_angular_velocity_radps)
+      throw std::runtime_error(
+          "command executor produced a non-finite or out-of-bounds command");
     command_publisher_->publish(toRos(command));
     zero_latched_ = command.linear_mps == 0.0 && command.angular_radps == 0.0;
   }

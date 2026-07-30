@@ -101,7 +101,7 @@ TEST(CommandExecutor, SeparatesTargetDistanceFromVelocity) {
   const auto started =
       executor.start(request, domainPose(0.0, 0.0, 0.0), at(1.0));
   EXPECT_EQ(started.status, ActionExecutionStatus::Executing);
-  EXPECT_DOUBLE_EQ(started.command.linear_mps, 0.5);
+  EXPECT_DOUBLE_EQ(started.command.linear_mps, 0.0);
   EXPECT_DOUBLE_EQ(started.target, 0.2);
 
   const auto completed = executor.update(domainPose(0.15, 0.0, 0.0), at(1.2));
@@ -132,7 +132,7 @@ TEST(CommandExecutor, ReportsTimeoutsAndOdometryResetsSafely) {
   CommandExecutor timeout_executor(CommandExecutorConfiguration{});
   timeout_executor.start(request, domainPose(0.0, 0.0, 0.0), at(1.0));
   const auto timed_out =
-      timeout_executor.update(domainPose(0.0, 0.0, 0.0), at(1.31));
+      timeout_executor.update(domainPose(0.0, 0.0, 0.0), at(2.1));
   EXPECT_EQ(timed_out.status, ActionExecutionStatus::TimedOut);
   EXPECT_DOUBLE_EQ(timed_out.command.linear_mps, 0.0);
 
@@ -141,6 +141,36 @@ TEST(CommandExecutor, ReportsTimeoutsAndOdometryResetsSafely) {
   const auto reset = reset_executor.update(domainPose(5.0, 0.0, 0.0), at(1.1));
   EXPECT_EQ(reset.status, ActionExecutionStatus::OdometryReset);
   EXPECT_DOUBLE_EQ(reset.command.linear_mps, 0.0);
+}
+
+TEST(CommandExecutor, EnforcesActionVelocityAndAccelerationBounds) {
+  using namespace semaforr;
+  using namespace semaforr::ros;
+  CommandExecutorConfiguration configuration;
+  configuration.maximum_move_action_index = 1U;
+  configuration.maximum_rotation_action_index = 1U;
+  configuration.maximum_linear_acceleration_mps2 = 1.0;
+  CommandExecutor executor(configuration);
+
+  EXPECT_THROW(
+      executor.start(
+          {domain::Action(domain::ActionType::Forward, 2U), 0.2, 0.0},
+          domainPose(0.0, 0.0, 0.0), at(1.0)),
+      std::invalid_argument);
+
+  executor.start(
+      {domain::Action(domain::ActionType::Forward, 1U), 1.0, 0.0},
+      domainPose(0.0, 0.0, 0.0), at(1.0));
+  const auto first =
+      executor.update(domainPose(0.0, 0.0, 0.0), at(1.1));
+  EXPECT_NEAR(first.command.linear_mps, 0.1, 1.0e-9);
+  const auto second =
+      executor.update(domainPose(0.0, 0.0, 0.0), at(1.2));
+  EXPECT_NEAR(second.command.linear_mps, 0.2, 1.0e-9);
+
+  auto invalid = configuration;
+  invalid.linear_velocity_mps = 0.6;
+  EXPECT_THROW(CommandExecutor(invalid), std::invalid_argument);
 }
 
 TEST(CommandExecutor, SensorTimeoutCancellationPublishesAZeroCommand) {

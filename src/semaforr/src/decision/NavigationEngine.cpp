@@ -68,6 +68,7 @@ void NavigationEngine::observe(const domain::RobotObservation& observation) {
     world_.recovery.confined = false;
   world_.robot.pose = observation.pose;
   world_.robot.laser = observation.laser;
+  world_.robot.observed_at = observation.observed_at;
   if (observation.crowd) {
     world_.crowd.update(*observation.crowd);
     if (crowd_learning_ &&

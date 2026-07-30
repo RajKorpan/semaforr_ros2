@@ -70,6 +70,7 @@ void declareConfigurationParameters(rclcpp::Node& node) {
   node.declare_parameter("social.advisors.enabled", true);
   node.declare_parameter("social.planners.enabled", true);
   node.declare_parameter("safety.command_envelope.enabled", true);
+  node.declare_parameter("safety.sensor_freshness_timeout_s", 0.5);
   node.declare_parameter("map.path", std::string{});
   node.declare_parameter("mission.tasks_path", std::string{});
   node.declare_parameter("map.length_m", 200);
@@ -305,6 +306,8 @@ config::Configuration configurationFromParameters(rclcpp::Node& node) {
       node.get_parameter("social.planners.enabled").as_bool();
   configuration.experiment.safety_envelope.enabled =
       node.get_parameter("safety.command_envelope.enabled").as_bool();
+  configuration.experiment.safety_envelope.sensor_freshness_timeout_s =
+      node.get_parameter("safety.sensor_freshness_timeout_s").as_double();
   if (!configuration.experiment.social.enabled) {
     configuration.experiment.social.observations = false;
     configuration.experiment.social.learning = false;

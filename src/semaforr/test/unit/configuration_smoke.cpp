@@ -89,7 +89,7 @@ int main() {
     invalid.experiment.safety_envelope.enabled = false;
     assertThrowsContaining(
         [&invalid]() { semaforr::config::validateConfiguration(invalid); },
-        "Tier 1 may be disabled");
+        "invariant platform boundary");
   }
   {
     auto invalid = valid;

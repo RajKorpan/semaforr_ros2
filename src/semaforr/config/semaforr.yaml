@@ -93,6 +93,10 @@ semaforr:
       linear_velocity_mps: 0.5
       angular_velocity_radps: 0.5
       turn_linear_velocity_mps: 0.01
+      maximum_linear_velocity_mps: 0.5
+      maximum_angular_velocity_radps: 0.5
+      maximum_linear_acceleration_mps2: 1.0
+      maximum_angular_acceleration_radps2: 1.0
       distance_tolerance_m: 0.06
       angle_tolerance_rad: 0.11
       timeout_multiplier: 1.5
@@ -117,6 +121,7 @@ semaforr:
     safety:
       command_envelope:
         enabled: true
+      sensor_freshness_timeout_s: 0.5
       visibility_epsilon_m: 0.005
       laser_angle_increment_rad: 0.005817
       robot_radius_m: 0.2794

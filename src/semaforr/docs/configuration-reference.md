@@ -62,6 +62,22 @@ Spatial representations are individually controlled by `features.trails`,
 individually selected in `planners.enabled`, including `distance`, `skeleton`,
 `highway`, `density`, `risk`, and `flow`.
 
+## Invariant safety boundary
+
+Safety is deliberately outside cognitive Tier 1. Before arbitration,
+`HardSafetyFilter` rejects motion without a usable laser view, invalid action
+indices, and forward actions that violate collision clearance. The
+configurable Tier-1 `avoid_obstacles` rule remains available for dissertation
+semantics and diagnostics, but is not the platform safety boundary.
+
+Immediately before command publication, the sensor synchronizer cancels
+execution when pose or laser data is stale or incoherent. `CommandExecutor`
+then validates action indices and finite targets, ramps commands within
+`command.maximum_{linear,angular}_acceleration_*`, and enforces
+`command.maximum_{linear,angular}_velocity_*`. The publishing boundary performs
+a final finite-value and velocity-bound check. Emergency cancellation and
+shutdown always publish zero velocity immediately.
+
 ## Social-learning parameters
 
 `social.learning.estimator` accepts `count_exposure`, `discount`, or `cusum`.
@@ -86,7 +102,7 @@ Startup fails with a parameter name and actionable reason when:
   neither HLE output nor a configured loaded model;
 - LLE lacks the inclusion grid, Tier 2, its reactive registration, or any
   global replanning strategy;
-- Tier 1 is disabled while `safety.command_envelope.enabled` is false;
+- the invariant `safety.command_envelope.enabled` boundary is disabled;
 - a spatial or social advisor lacks its declared representation or social
   subsystem;
 - crowd-cost planning is enabled without the skeleton and crowd learner;

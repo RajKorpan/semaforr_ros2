@@ -2,6 +2,7 @@
 #define SEMAFORR_DOMAIN_WORLD_MODEL_HPP
 
 #include <algorithm>
+#include <chrono>
 #include <cstdint>
 #include <optional>
 #include <semaforr/domain/action.hpp>
@@ -75,6 +76,7 @@ class ActionSpace {
 struct RobotState {
   Pose2D pose;
   std::optional<LaserObservation> laser;
+  std::chrono::steady_clock::time_point observed_at{};
 };
 
 struct NavigationHistoryEntry {

@@ -365,6 +365,9 @@ std::string configurationFingerprint(const Configuration& configuration) {
             << configuration.experiment.social.advisors << '|'
             << configuration.experiment.social.planners << '|'
             << configuration.experiment.safety_envelope.enabled << '|'
+            << configuration.experiment.safety_envelope
+                   .sensor_freshness_timeout_s
+            << '|'
             << configuration.map_file << '|' << configuration.map_dimensions.length
             << '|' << configuration.map_dimensions.height << '|'
             << configuration.map_dimensions.granularity;
@@ -521,11 +524,16 @@ void validateConfiguration(const Configuration& configuration) {
       throw std::runtime_error(
           "configuration: duplicate reactive planner '" + planner + "'");
   }
-  if (!experiment.tiers.tier_one &&
-      !experiment.safety_envelope.enabled)
+  if (!experiment.safety_envelope.enabled)
     throw std::runtime_error(
-        "configuration: Tier 1 may be disabled only while "
-        "safety.command_envelope.enabled is true");
+        "configuration: safety.command_envelope.enabled is an invariant "
+        "platform boundary and must remain true for every cognitive ablation");
+  if (!std::isfinite(
+          experiment.safety_envelope.sensor_freshness_timeout_s) ||
+      experiment.safety_envelope.sensor_freshness_timeout_s <= 0.0)
+    throw std::runtime_error(
+        "configuration: safety.sensor_freshness_timeout_s must be finite "
+        "and positive");
   if (experiment.reactive_exploration_enabled &&
       (!experiment.tiers.tier_one ||
        !configuration.navigation.inclusion_grid_on ||

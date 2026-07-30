@@ -1,6 +1,7 @@
 #ifndef SEMAFORR_ROS_COMMAND_EXECUTOR_HPP
 #define SEMAFORR_ROS_COMMAND_EXECUTOR_HPP
 
+#include <cstddef>
 #include <optional>
 #include <rclcpp/time.hpp>
 #include <semaforr/domain/action.hpp>
@@ -14,6 +15,14 @@ struct CommandExecutorConfiguration {
   double linear_velocity_mps{0.5};
   double angular_velocity_radps{0.5};
   double turn_linear_velocity_mps{0.01};
+  double maximum_linear_velocity_mps{0.5};
+  double maximum_angular_velocity_radps{0.5};
+  double maximum_linear_acceleration_mps2{1.0};
+  double maximum_angular_acceleration_radps2{1.0};
+  std::size_t maximum_move_action_index{
+      domain::Action::maximum_magnitude_index};
+  std::size_t maximum_rotation_action_index{
+      domain::Action::maximum_magnitude_index};
   double distance_tolerance_m{0.06};
   double angle_tolerance_rad{0.11};
   double timeout_multiplier{1.5};
@@ -71,6 +80,7 @@ class CommandExecutor {
   std::optional<ActionExecutionRequest> request_;
   std::optional<domain::Pose2D> previous_pose_;
   std::optional<rclcpp::Time> started_at_;
+  std::optional<rclcpp::Time> command_updated_at_;
   ActionExecutionStatus status_{ActionExecutionStatus::Idle};
   domain::VelocityCommand command_;
   double progress_{0.0};
