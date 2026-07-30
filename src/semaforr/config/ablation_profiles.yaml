@@ -1,0 +1,23 @@
+# Named experiment profiles. `experiment.profile` expands these invariants in
+# the ROS-independent configuration layer; explicit custom settings use
+# `profile: custom`.
+profiles:
+  full:
+    tiers: [tier1, tier2, tier3]
+  tier1_only:
+    tiers: [tier1]
+  tier1_tier3:
+    tiers: [tier1, tier3]
+  tier3_only:
+    tiers: [tier3]
+  tier1_tier2_tier3:
+    tiers: [tier1, tier2, tier3]
+  no_initial_exploration:
+    initial_exploration: false
+  no_opportunistic_exploration:
+    opportunistic_exploration: false
+  no_spatial_model:
+    spatial_representations: []
+    planners: []
+  no_social:
+    social: false

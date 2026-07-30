@@ -43,6 +43,14 @@ void applyPlanner(config::PlannerConfiguration& planners,
 }  // namespace
 
 void declareConfigurationParameters(rclcpp::Node& node) {
+  node.declare_parameter("experiment.profile", std::string{"custom"});
+  node.declare_parameter("tiers.tier1.enabled", true);
+  node.declare_parameter("tiers.tier2.enabled", true);
+  node.declare_parameter("tiers.tier3.enabled", true);
+  node.declare_parameter("phases.initial_exploration.enabled", false);
+  node.declare_parameter("phases.initial_exploration.observation_budget", 0);
+  node.declare_parameter("exploration.opportunistic.enabled", false);
+  node.declare_parameter("social.enabled", true);
   node.declare_parameter("map.path", std::string{});
   node.declare_parameter("mission.tasks_path", std::string{});
   node.declare_parameter("map.length_m", 200);
@@ -192,9 +200,33 @@ config::Configuration configurationFromParameters(rclcpp::Node& node) {
       static_cast<int>(node.get_parameter("map.height_m").as_int());
   dimensions.granularity = node.get_parameter("map.granularity_m").as_double();
 
-  return config::loadStructuredConfiguration(std::move(navigation), dimensions,
-                                             std::move(advisors), tasks_file,
-                                             map_file);
+  auto configuration = config::loadStructuredConfiguration(
+      std::move(navigation), dimensions, std::move(advisors), tasks_file,
+      map_file);
+  configuration.experiment.profile = config::ablationProfileFromString(
+      node.get_parameter("experiment.profile").as_string());
+  configuration.experiment.tiers = {
+      node.get_parameter("tiers.tier1.enabled").as_bool(),
+      node.get_parameter("tiers.tier2.enabled").as_bool(),
+      node.get_parameter("tiers.tier3.enabled").as_bool()};
+  configuration.experiment.initial_exploration.enabled =
+      node.get_parameter("phases.initial_exploration.enabled").as_bool();
+  const auto observation_budget =
+      node.get_parameter("phases.initial_exploration.observation_budget")
+          .as_int();
+  if (observation_budget < 0) {
+    throw std::runtime_error(
+        "phases.initial_exploration.observation_budget must be nonnegative");
+  }
+  configuration.experiment.initial_exploration.observation_budget =
+      static_cast<std::size_t>(observation_budget);
+  configuration.experiment.opportunistic_exploration =
+      node.get_parameter("exploration.opportunistic.enabled").as_bool();
+  configuration.experiment.social_enabled =
+      node.get_parameter("social.enabled").as_bool();
+  config::applyAblationProfile(configuration);
+  config::validateConfiguration(configuration);
+  return configuration;
 }
 
 }  // namespace semaforr::ros

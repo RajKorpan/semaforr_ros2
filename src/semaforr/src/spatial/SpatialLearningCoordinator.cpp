@@ -32,6 +32,12 @@ void clearRepresentation(domain::SpatialModel& model,
       model.skeleton_nodes.clear();
       model.skeleton_edges.clear();
       break;
+    case SpatialRepresentation::KnownGrid:
+      model.known_grid = {};
+      break;
+    case SpatialRepresentation::InclusionGrid:
+      model.inclusion_grid = {};
+      break;
   }
 }
 
@@ -56,6 +62,8 @@ SpatialLearningCoordinator SpatialLearningCoordinator::defaults(
   coordinator.addLearner(std::make_unique<HallwayLearner>());
   coordinator.addLearner(std::make_unique<BarrierLearner>());
   coordinator.addLearner(std::make_unique<PassageSkeletonLearner>());
+  coordinator.addLearner(std::make_unique<KnownGridLearner>());
+  coordinator.addLearner(std::make_unique<InclusionGridLearner>());
   return coordinator;
 }
 
@@ -204,6 +212,18 @@ std::string SpatialLearningCoordinator::serialize(
   return spatial::serialize(entry.learner->snapshot());
 }
 
+std::string SpatialLearningCoordinator::serializeAll() const {
+  std::string result{"{\"schema\":\"semaforr.spatial.v1\",\"models\":["};
+  bool first = true;
+  for (const auto& update : snapshots()) {
+    if (!first) result += ',';
+    first = false;
+    result += spatial::serialize(update);
+  }
+  result += "]}";
+  return result;
+}
+
 void SpatialLearningCoordinator::applyTo(domain::SpatialModel& model) const {
   for (const Entry& entry : learners_) {
     if (!entry.enabled) {
@@ -215,7 +235,7 @@ void SpatialLearningCoordinator::applyTo(domain::SpatialModel& model) const {
       continue;
     }
     std::visit(
-        [&model](const auto& payload) {
+        [&model, &update](const auto& payload) {
           using Payload = std::decay_t<decltype(payload)>;
           if constexpr (std::is_same_v<Payload, TrailModel>) {
             model.trails = payload.trails;
@@ -238,10 +258,26 @@ void SpatialLearningCoordinator::applyTo(domain::SpatialModel& model) const {
             for (const SkeletonEdge& edge : payload.edges) {
               model.skeleton_edges.emplace_back(edge.from, edge.to);
             }
+          } else if constexpr (std::is_same_v<Payload, KnownGridModel>) {
+            model.known_grid = {
+                payload.geometry.columns, payload.geometry.rows,
+                payload.geometry.resolution_m, payload.geometry.origin,
+                payload.observations, update.revision};
+          } else if constexpr (std::is_same_v<Payload,
+                                               InclusionGridModel>) {
+            model.inclusion_grid = {
+                payload.geometry.columns, payload.geometry.rows,
+                payload.geometry.resolution_m, payload.geometry.origin,
+                payload.included, update.revision};
           }
         },
         update.payload);
   }
+  std::size_t revision = 0U;
+  for (const Entry& entry : learners_)
+    if (entry.enabled)
+      revision = std::max(revision, entry.learner->snapshot().revision);
+  model.revision = revision;
 }
 
 std::size_t SpatialLearningCoordinator::enabledCount() const noexcept {

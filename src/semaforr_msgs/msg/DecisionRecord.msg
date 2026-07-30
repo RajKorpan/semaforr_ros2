@@ -5,6 +5,10 @@ uint8 EXPLORATION=3
 uint8 FALLBACK=4
 uint8 SAFE_STOP=5
 
+uint8 PHASE_INITIAL_EXPLORATION=0
+uint8 PHASE_TARGET_NAVIGATION=1
+uint8 PHASE_MISSION_COMPLETE=2
+
 uint8 SOURCE_MANDATORY_RULE=0
 uint8 SOURCE_TIER_THREE_ADVISOR=1
 uint8 SOURCE_PLANNER=2
@@ -24,6 +28,9 @@ uint8 OUTCOME_SHUTDOWN=7
 std_msgs/Header header
 uint64 sequence
 geometry_msgs/Pose2D robot_pose
+uint8 navigation_phase
+string configuration_fingerprint
+string[] component_manifest
 bool has_task
 semaforr_msgs/TaskDiagnostic task
 semaforr_msgs/DecisionAction[] candidates

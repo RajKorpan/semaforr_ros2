@@ -5,6 +5,7 @@
 #include <optional>
 #include <semaforr/decision/decision_coordinator.hpp>
 #include <semaforr/decision/mission_manager.hpp>
+#include <semaforr/navigation/navigation_phase.hpp>
 #include <semaforr/planning/planning_coordinator.hpp>
 #include <string>
 #include <string_view>
@@ -167,3 +168,17 @@ TEST(PlanningCoordinator, RejectsInvalidRegistrationAndPlannerCosts) {
 }
 
 }  // namespace
+
+TEST(NavigationPhaseCoordinator, DelaysMissionUntilExplorationBudgetCompletes) {
+  using namespace semaforr::navigation;
+  NavigationPhaseCoordinator phases({true, 2U});
+  EXPECT_EQ(phases.phase(), NavigationPhase::InitialExploration);
+  EXPECT_FALSE(phases.missionActivationAllowed());
+  phases.observe();
+  EXPECT_EQ(phases.phase(), NavigationPhase::InitialExploration);
+  phases.observe();
+  EXPECT_EQ(phases.phase(), NavigationPhase::TargetNavigation);
+  EXPECT_TRUE(phases.missionActivationAllowed());
+  phases.completeMission();
+  EXPECT_EQ(phases.phase(), NavigationPhase::MissionComplete);
+}

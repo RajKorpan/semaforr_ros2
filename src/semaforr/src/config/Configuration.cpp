@@ -1,7 +1,9 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstdint>
 #include <fstream>
+#include <iomanip>
 #include <iterator>
 #include <regex>
 #include <semaforr/config/Configuration.hpp>
@@ -13,6 +15,15 @@
 
 namespace semaforr::config {
 namespace {
+
+std::uint64_t fnv1a(std::string_view value) {
+  std::uint64_t hash = 14695981039346656037ULL;
+  for (const unsigned char byte : value) {
+    hash ^= byte;
+    hash *= 1099511628211ULL;
+  }
+  return hash;
+}
 
 std::runtime_error errorAt(const std::string& source, std::size_t line,
                            const std::string& message) {
@@ -192,6 +203,158 @@ void validateMap(const std::string& map_file, const MapDimensions& dimensions) {
 
 }  // namespace
 
+std::string_view toString(AblationProfile profile) noexcept {
+  switch (profile) {
+    case AblationProfile::Full:
+      return "full";
+    case AblationProfile::TierOneOnly:
+      return "tier1_only";
+    case AblationProfile::TierOneTierThree:
+      return "tier1_tier3";
+    case AblationProfile::TierThreeOnly:
+      return "tier3_only";
+    case AblationProfile::TierOneTierTwoTierThree:
+      return "tier1_tier2_tier3";
+    case AblationProfile::NoInitialExploration:
+      return "no_initial_exploration";
+    case AblationProfile::NoOpportunisticExploration:
+      return "no_opportunistic_exploration";
+    case AblationProfile::NoSpatialModel:
+      return "no_spatial_model";
+    case AblationProfile::NoSocial:
+      return "no_social";
+    case AblationProfile::Custom:
+      return "custom";
+  }
+  return "custom";
+}
+
+AblationProfile ablationProfileFromString(const std::string& value) {
+  for (const AblationProfile profile :
+       {AblationProfile::Full, AblationProfile::TierOneOnly,
+        AblationProfile::TierOneTierThree, AblationProfile::TierThreeOnly,
+        AblationProfile::TierOneTierTwoTierThree,
+        AblationProfile::NoInitialExploration,
+        AblationProfile::NoOpportunisticExploration,
+        AblationProfile::NoSpatialModel, AblationProfile::NoSocial,
+        AblationProfile::Custom}) {
+    if (value == toString(profile)) return profile;
+  }
+  throw std::runtime_error("unknown experiment profile '" + value + "'");
+}
+
+void applyAblationProfile(Configuration& configuration) {
+  auto& experiment = configuration.experiment;
+  switch (experiment.profile) {
+    case AblationProfile::Full:
+    case AblationProfile::TierOneTierTwoTierThree:
+      experiment.tiers = {true, true, true};
+      break;
+    case AblationProfile::TierOneOnly:
+      experiment.tiers = {true, false, false};
+      break;
+    case AblationProfile::TierOneTierThree:
+      experiment.tiers = {true, false, true};
+      break;
+    case AblationProfile::TierThreeOnly:
+      experiment.tiers = {false, false, true};
+      break;
+    case AblationProfile::NoInitialExploration:
+      experiment.initial_exploration = {};
+      break;
+    case AblationProfile::NoOpportunisticExploration:
+      experiment.opportunistic_exploration = false;
+      break;
+    case AblationProfile::NoSpatialModel:
+      configuration.navigation.trails_on = false;
+      configuration.navigation.conveyors_on = false;
+      configuration.navigation.regions_on = false;
+      configuration.navigation.doors_on = false;
+      configuration.navigation.hallways_on = false;
+      configuration.navigation.barriers_on = false;
+      configuration.navigation.a_star_on = false;
+      configuration.navigation.planners = {};
+      break;
+    case AblationProfile::NoSocial:
+      experiment.social_enabled = false;
+      configuration.navigation.crowd_learning.enabled = false;
+      configuration.navigation.planners.density = false;
+      configuration.navigation.planners.risk = false;
+      configuration.navigation.planners.flow = false;
+      for (auto& advisor : configuration.advisors) {
+        if (advisor.name == "social_navigation" ||
+            advisor.name == "crowd_avoid" || advisor.name == "risk_avoid" ||
+            advisor.name == "flow_follow") {
+          advisor.active = false;
+        }
+      }
+      break;
+    case AblationProfile::Custom:
+      break;
+  }
+}
+
+std::string configurationFingerprint(const Configuration& configuration) {
+  std::ostringstream canonical;
+  canonical << std::setprecision(17) << toString(configuration.experiment.profile)
+            << '|' << configuration.experiment.tiers.tier_one << '|'
+            << configuration.experiment.tiers.tier_two << '|'
+            << configuration.experiment.tiers.tier_three << '|'
+            << configuration.experiment.initial_exploration.enabled << '|'
+            << configuration.experiment.initial_exploration.observation_budget
+            << '|' << configuration.experiment.opportunistic_exploration << '|'
+            << configuration.experiment.social_enabled << '|'
+            << configuration.map_file << '|' << configuration.map_dimensions.length
+            << '|' << configuration.map_dimensions.height << '|'
+            << configuration.map_dimensions.granularity;
+  for (const double value : configuration.navigation.move_actions)
+    canonical << "|m:" << value;
+  for (const double value : configuration.navigation.rotate_actions)
+    canonical << "|r:" << value;
+  canonical << '|' << configuration.navigation.trails_on << '|'
+            << configuration.navigation.conveyors_on << '|'
+            << configuration.navigation.regions_on << '|'
+            << configuration.navigation.doors_on << '|'
+            << configuration.navigation.hallways_on << '|'
+            << configuration.navigation.barriers_on << '|'
+            << configuration.navigation.a_star_on << '|'
+            << configuration.navigation.crowd_learning.enabled;
+  for (const auto& advisor : configuration.advisors)
+    canonical << "|a:" << advisor.name << ':' << advisor.active << ':'
+              << advisor.weight;
+  for (const auto& task : configuration.tasks)
+    canonical << "|t:" << task.x << ':' << task.y;
+  std::ostringstream encoded;
+  encoded << std::hex << std::setw(16) << std::setfill('0')
+          << fnv1a(canonical.str());
+  return encoded.str();
+}
+
+std::vector<std::string> componentManifest(
+    const Configuration& configuration) {
+  std::vector<std::string> result{"hard_safety:obstacle_clearance",
+                                  "phase:target_navigation"};
+  const auto& experiment = configuration.experiment;
+  if (experiment.initial_exploration.enabled)
+    result.push_back("phase:initial_exploration");
+  if (experiment.tiers.tier_one) result.push_back("tier:tier_one");
+  if (experiment.tiers.tier_two) result.push_back("tier:tier_two");
+  if (experiment.tiers.tier_three) result.push_back("tier:tier_three");
+  const auto add_feature = [&result](bool enabled, std::string name) {
+    if (enabled) result.push_back("spatial:" + std::move(name));
+  };
+  add_feature(configuration.navigation.trails_on, "trails");
+  add_feature(configuration.navigation.conveyors_on, "conveyors");
+  add_feature(configuration.navigation.regions_on, "regions");
+  add_feature(configuration.navigation.doors_on, "doors");
+  add_feature(configuration.navigation.hallways_on, "hallways");
+  add_feature(configuration.navigation.barriers_on, "barriers");
+  for (const auto& advisor : configuration.advisors)
+    if (advisor.active) result.push_back("advisor:" + advisor.name);
+  std::sort(result.begin(), result.end());
+  return result;
+}
+
 Configuration loadStructuredConfiguration(
     NavigationConfiguration navigation, MapDimensions map_dimensions,
     std::vector<AdvisorConfiguration> advisors, const std::string& tasks_file,
@@ -202,12 +365,25 @@ Configuration loadStructuredConfiguration(
   configuration.advisors = std::move(advisors);
   configuration.tasks = parseTasks(tasks_file);
   configuration.map_file = map_file;
+  applyAblationProfile(configuration);
   validateConfiguration(configuration);
   return configuration;
 }
 
 void validateConfiguration(const Configuration& configuration) {
   validateNavigation(configuration.navigation);
+  if (configuration.experiment.initial_exploration.enabled &&
+      configuration.experiment.initial_exploration.observation_budget == 0U) {
+    throw std::runtime_error(
+        "configuration: enabled initial exploration requires a positive "
+        "observation budget");
+  }
+  if (!configuration.experiment.tiers.tier_one &&
+      !configuration.experiment.tiers.tier_two &&
+      !configuration.experiment.tiers.tier_three) {
+    throw std::runtime_error(
+        "configuration: at least one cognitive tier must be enabled");
+  }
   if (configuration.map_dimensions.length <= 0 ||
       configuration.map_dimensions.height <= 0 ||
       !std::isfinite(configuration.map_dimensions.granularity) ||
@@ -216,10 +392,12 @@ void validateConfiguration(const Configuration& configuration) {
         "configuration: map dimensions and granularity must be positive");
   }
 
-  if (configuration.advisors.empty()) {
+  if (configuration.experiment.tiers.tier_three &&
+      configuration.advisors.empty()) {
     throw std::runtime_error("configuration: at least one advisor is required");
   }
-  if (std::none_of(
+  if (configuration.experiment.tiers.tier_three &&
+      std::none_of(
           configuration.advisors.begin(), configuration.advisors.end(),
           [](const AdvisorConfiguration& advisor) { return advisor.active; })) {
     throw std::runtime_error(

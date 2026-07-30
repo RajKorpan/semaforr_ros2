@@ -281,6 +281,18 @@ std::uint8_t toMessage(NavigationNodeState state) noexcept {
   return semaforr_msgs::msg::NavigationState::STOPPED;
 }
 
+std::uint8_t toMessage(navigation::NavigationPhase phase) noexcept {
+  switch (phase) {
+    case navigation::NavigationPhase::InitialExploration:
+      return semaforr_msgs::msg::NavigationState::PHASE_INITIAL_EXPLORATION;
+    case navigation::NavigationPhase::TargetNavigation:
+      return semaforr_msgs::msg::NavigationState::PHASE_TARGET_NAVIGATION;
+    case navigation::NavigationPhase::MissionComplete:
+      return semaforr_msgs::msg::NavigationState::PHASE_MISSION_COMPLETE;
+  }
+  return semaforr_msgs::msg::NavigationState::PHASE_MISSION_COMPLETE;
+}
+
 void rotatePositionCovariance(
     social_context_msgs::msg::PedestrianObservation& pedestrian,
     const geometry_msgs::msg::TransformStamped& transform) {
@@ -687,6 +699,10 @@ class SemaFORRNode::Impl {
     message.header.frame_id = runtime_.sensors.pose_frame;
     message.transition_sequence = ++transition_sequence_;
     message.state = toMessage(state_);
+    message.navigation_phase =
+        navigation_engine_
+            ? toMessage(navigation_engine_->phase())
+            : semaforr_msgs::msg::NavigationState::PHASE_TARGET_NAVIGATION;
     message.detail = detail;
     message.failure = failure;
     if (state_publisher_) {

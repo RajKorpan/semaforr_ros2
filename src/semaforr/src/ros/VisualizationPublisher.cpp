@@ -99,6 +99,18 @@ std::uint8_t toMessage(decision::ActionOutcome outcome) {
   return semaforr_msgs::msg::DecisionRecord::OUTCOME_CANCELLED;
 }
 
+std::uint8_t toMessage(navigation::NavigationPhase phase) {
+  switch (phase) {
+    case navigation::NavigationPhase::InitialExploration:
+      return semaforr_msgs::msg::DecisionRecord::PHASE_INITIAL_EXPLORATION;
+    case navigation::NavigationPhase::TargetNavigation:
+      return semaforr_msgs::msg::DecisionRecord::PHASE_TARGET_NAVIGATION;
+    case navigation::NavigationPhase::MissionComplete:
+      return semaforr_msgs::msg::DecisionRecord::PHASE_MISSION_COMPLETE;
+  }
+  return semaforr_msgs::msg::DecisionRecord::PHASE_MISSION_COMPLETE;
+}
+
 semaforr_msgs::msg::DecisionRecord toMessage(
     const decision::DecisionResult& source, const rclcpp::Time& stamp,
     const std::string& frame_id) {
@@ -106,6 +118,9 @@ semaforr_msgs::msg::DecisionRecord toMessage(
   result.header.stamp = stamp;
   result.header.frame_id = frame_id;
   result.sequence = source.sequence;
+  result.navigation_phase = toMessage(source.navigation_phase);
+  result.configuration_fingerprint = source.configuration_fingerprint;
+  result.component_manifest = source.component_manifest;
   result.robot_pose.x = source.robot_pose.position.x_m;
   result.robot_pose.y = source.robot_pose.position.y_m;
   result.robot_pose.theta = source.robot_pose.heading.radians();

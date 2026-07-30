@@ -82,6 +82,7 @@ set(SEMAFORR_DOMAIN_SOURCES
 set(SEMAFORR_NAVIGATION_SOURCES
   src/decision/MissionManager.cpp
   src/decision/NavigationEngine.cpp
+  src/decision/NavigationPhase.cpp
 )
 
 add_library(semaforr_planning SHARED
@@ -103,6 +104,7 @@ semaforr_apply_strict_warnings(semaforr_planning)
 
 add_library(semaforr_advisors SHARED
   src/decision/DecisionCoordinator.cpp
+  src/decision/HardSafetyFilter.cpp
   src/decision/LearnedCrowdAdvisor.cpp
   src/decision/NavigationAdvisor.cpp
   src/decision/ObstacleVetoRule.cpp
@@ -124,6 +126,7 @@ add_library(semaforr_spatial SHARED
   src/spatial/ConveyorLearner.cpp
   src/spatial/DoorExitLearner.cpp
   src/spatial/HallwayLearner.cpp
+  src/spatial/GridLearners.cpp
   src/spatial/PassageSkeletonLearner.cpp
   src/spatial/RegionLearner.cpp
   src/spatial/SpatialLearner.cpp

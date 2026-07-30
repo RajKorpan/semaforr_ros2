@@ -14,6 +14,8 @@ class PassageSkeletonLearner final : public SpatialLearnerBase {
   void onRebuild() override;
 
   double minimum_node_spacing_m_;
+  PassageSkeletonModel model_;
+  std::optional<domain::TaskId> last_task_;
 };
 
 }  // namespace semaforr::spatial

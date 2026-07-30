@@ -1,5 +1,46 @@
 semaforr:
   ros__parameters:
+    experiment:
+      profile: custom
+
+    tiers:
+      tier1:
+        enabled: true
+      tier2:
+        enabled: true
+      tier3:
+        enabled: true
+
+    phases:
+      initial_exploration:
+        # Phase framework only; HLE action generation is restored separately.
+        enabled: false
+        observation_budget: 0
+
+    exploration:
+      opportunistic:
+        enabled: false
+
+    social:
+      enabled: true
+      maximum_age_s: 0.75
+      minimum_confidence: 0.25
+      learning:
+        enabled: true
+        estimator: count_exposure
+        resolution_m: 1.0
+        origin_x_m: 0.0
+        origin_y_m: 0.0
+        discount_factor: 0.7
+        minimum_update_period_s: 1.0
+        encounter_radius_m: 1.0
+        minimum_flow_speed_mps: 0.05
+        confidence_exposures: 10.0
+        cusum_increase: 4.0
+        cusum_decrease: -3.0
+        cusum_threshold: 10.0
+        random_seed: 0
+
     topics:
       pose: pose
       scan: scan_raw
@@ -28,25 +69,6 @@ semaforr:
       control_rate_hz: 30.0
       sensor_timeout_s: 0.5
       sensor_sync_tolerance_s: 0.1
-
-    social:
-      maximum_age_s: 0.75
-      minimum_confidence: 0.25
-      learning:
-        enabled: true
-        estimator: count_exposure
-        resolution_m: 1.0
-        origin_x_m: 0.0
-        origin_y_m: 0.0
-        discount_factor: 0.7
-        minimum_update_period_s: 1.0
-        encounter_radius_m: 1.0
-        minimum_flow_speed_mps: 0.05
-        confidence_exposures: 10.0
-        cusum_increase: 4.0
-        cusum_decrease: -3.0
-        cusum_threshold: 10.0
-        random_seed: 0
 
     command:
       linear_velocity_mps: 0.5

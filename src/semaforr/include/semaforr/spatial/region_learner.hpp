@@ -16,6 +16,8 @@ class RegionLearner final : public SpatialLearnerBase {
 
   double cluster_radius_m_;
   std::size_t minimum_observations_;
+  RegionModel model_;
+  std::vector<std::size_t> observation_counts_;
 };
 
 }  // namespace semaforr::spatial

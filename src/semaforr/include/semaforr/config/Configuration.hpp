@@ -2,11 +2,45 @@
 #define SEMAFORR_CONFIG_CONFIGURATION_HPP
 
 #include <array>
+#include <cstddef>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace semaforr {
 namespace config {
+
+enum class AblationProfile {
+  Full,
+  TierOneOnly,
+  TierOneTierThree,
+  TierThreeOnly,
+  TierOneTierTwoTierThree,
+  NoInitialExploration,
+  NoOpportunisticExploration,
+  NoSpatialModel,
+  NoSocial,
+  Custom
+};
+
+struct TierConfiguration {
+  bool tier_one = true;
+  bool tier_two = true;
+  bool tier_three = true;
+};
+
+struct InitialExplorationConfiguration {
+  bool enabled = false;
+  std::size_t observation_budget = 0U;
+};
+
+struct ExperimentConfiguration {
+  AblationProfile profile = AblationProfile::Custom;
+  TierConfiguration tiers;
+  InitialExplorationConfiguration initial_exploration;
+  bool opportunistic_exploration = false;
+  bool social_enabled = true;
+};
 
 struct PlannerConfiguration {
   bool distance = false;
@@ -79,12 +113,20 @@ struct TaskConfiguration {
 };
 
 struct Configuration {
+  ExperimentConfiguration experiment;
   NavigationConfiguration navigation;
   MapDimensions map_dimensions;
   std::vector<AdvisorConfiguration> advisors;
   std::vector<TaskConfiguration> tasks;
   std::string map_file;
 };
+
+std::string_view toString(AblationProfile profile) noexcept;
+AblationProfile ablationProfileFromString(const std::string& value);
+void applyAblationProfile(Configuration& configuration);
+std::string configurationFingerprint(const Configuration& configuration);
+std::vector<std::string> componentManifest(
+    const Configuration& configuration);
 
 Configuration loadStructuredConfiguration(
     NavigationConfiguration navigation, MapDimensions map_dimensions,

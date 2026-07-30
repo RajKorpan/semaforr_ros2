@@ -2,6 +2,9 @@
 #define SEMAFORR_SPATIAL_SPATIAL_LEARNER_HPP
 
 #include <cstddef>
+#include <cstdint>
+#include <cstdint>
+#include <cstdint>
 #include <optional>
 #include <semaforr/domain/action.hpp>
 #include <semaforr/domain/mission.hpp>
@@ -21,10 +24,19 @@ enum class SpatialRepresentation {
   DoorsAndExits,
   Hallways,
   Barriers,
-  PassagesAndSkeleton
+  PassagesAndSkeleton,
+  KnownGrid,
+  InclusionGrid
 };
 
 enum class UpdateMode { Incremental, RebuildOnDemand };
+enum class UpdateSchedule {
+  EveryObservation,
+  AfterCompletedAction,
+  EndOfTarget,
+  EndOfInitialExploration,
+  OnDemand
+};
 
 enum class ModelStatus { Empty, Incomplete, Fresh, Stale };
 
@@ -35,6 +47,7 @@ struct ObservationContract {
   bool task_boundaries = false;
   std::string update_trigger;
   std::vector<std::string> consumers;
+  UpdateSchedule schedule = UpdateSchedule::EveryObservation;
 };
 
 struct NavigationEpisode {
@@ -85,9 +98,27 @@ struct PassageSkeletonModel {
   std::vector<SkeletonEdge> edges;
 };
 
+struct GridGeometry {
+  std::size_t columns = 0U;
+  std::size_t rows = 0U;
+  double resolution_m = 1.0;
+  domain::Point2D origin;
+};
+
+struct KnownGridModel {
+  GridGeometry geometry;
+  std::vector<std::uint32_t> observations;
+};
+
+struct InclusionGridModel {
+  GridGeometry geometry;
+  std::vector<std::uint32_t> included;
+};
+
 using SpatialPayload = std::variant<std::monostate, TrailModel, ConveyorModel,
                                     RegionModel, DoorExitModel, HallwayModel,
-                                    BarrierModel, PassageSkeletonModel>;
+                                    BarrierModel, PassageSkeletonModel,
+                                    KnownGridModel, InclusionGridModel>;
 
 struct SpatialModelUpdate {
   SpatialRepresentation representation = SpatialRepresentation::Trails;
@@ -96,6 +127,7 @@ struct SpatialModelUpdate {
   std::size_t observed_episodes = 0U;
   std::optional<std::size_t> last_observation_sequence;
   UpdateMode update_mode = UpdateMode::Incremental;
+  UpdateSchedule update_schedule = UpdateSchedule::EveryObservation;
   ModelStatus status = ModelStatus::Empty;
   SpatialPayload payload;
   std::vector<std::string> consumers;
@@ -106,6 +138,7 @@ struct SpatialModelUpdate {
 
 std::string_view toString(SpatialRepresentation representation) noexcept;
 std::string_view toString(UpdateMode mode) noexcept;
+std::string_view toString(UpdateSchedule schedule) noexcept;
 std::string_view toString(ModelStatus status) noexcept;
 std::string serialize(const SpatialModelUpdate& update);
 

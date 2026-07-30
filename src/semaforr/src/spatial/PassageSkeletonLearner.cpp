@@ -7,12 +7,12 @@ namespace semaforr::spatial {
 PassageSkeletonLearner::PassageSkeletonLearner(double minimum_node_spacing_m)
     : SpatialLearnerBase(
           SpatialRepresentation::PassagesAndSkeleton, "passage_skeleton",
-          UpdateMode::RebuildOnDemand,
+          UpdateMode::Incremental,
           {true,
            true,
            false,
            true,
-           "simplify traversed paths into a graph when rebuild is requested",
+           "append spaced path nodes and connectivity incrementally",
            {"skeleton", "hallwayskel", "skeletonhall", "passage planners"}}),
       minimum_node_spacing_m_(minimum_node_spacing_m) {
   if (!std::isfinite(minimum_node_spacing_m_) ||
@@ -22,30 +22,28 @@ PassageSkeletonLearner::PassageSkeletonLearner(double minimum_node_spacing_m)
   }
 }
 
-void PassageSkeletonLearner::onObserve(const NavigationEpisode&) {}
+void PassageSkeletonLearner::onObserve(const NavigationEpisode& episode) {
+  const domain::Point2D point = episode.observation.pose.position;
+  const bool task_changed = last_task_ && episode.active_task != last_task_;
+  if (model_.nodes.empty() || task_changed ||
+      domain::distance(model_.nodes.back(), point).meters() >=
+          minimum_node_spacing_m_) {
+    const auto previous = model_.nodes.size();
+    model_.nodes.push_back(point);
+    if (previous > 0U && !task_changed)
+      model_.edges.push_back({previous - 1U, previous});
+  }
+  last_task_ = episode.active_task;
+  publish(model_, model_.edges.empty() ? ModelStatus::Incomplete
+                                      : ModelStatus::Fresh,
+          model_.edges.empty() ? "at least two spaced observations are required"
+                               : "skeleton connectivity updated incrementally");
+}
 
 void PassageSkeletonLearner::onRebuild() {
-  PassageSkeletonModel model;
-  std::optional<domain::TaskId> task;
-  for (const NavigationEpisode& episode : episodes()) {
-    const domain::Point2D point = episode.observation.pose.position;
-    const bool task_changed = task && episode.active_task != task;
-    if (model.nodes.empty() || task_changed ||
-        domain::distance(model.nodes.back(), point).meters() >=
-            minimum_node_spacing_m_) {
-      model.nodes.push_back(point);
-      if (model.nodes.size() >= 2U && !task_changed) {
-        model.edges.push_back(
-            {model.nodes.size() - 2U, model.nodes.size() - 1U});
-      }
-    }
-    task = episode.active_task;
-  }
-  publish(model,
-          model.edges.empty() ? ModelStatus::Incomplete : ModelStatus::Fresh,
-          model.edges.empty()
-              ? "at least two spaced observations are required"
-              : "passage and skeleton graph rebuilt from traversed paths");
+  publish(model_, model_.edges.empty() ? ModelStatus::Incomplete
+                                      : ModelStatus::Fresh,
+          "incremental skeleton snapshot refreshed");
 }
 
 }  // namespace semaforr::spatial

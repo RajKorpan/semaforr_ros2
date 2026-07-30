@@ -10,7 +10,11 @@ NavigationEngine::NavigationEngine(
     DecisionCoordinator& decisions, MissionManager& mission,
     planning::PlanningCoordinator& planning,
     spatial::SpatialLearningCoordinator& learning,
-    social::CrowdFieldLearner* crowd_learning, domain::Distance goal_tolerance)
+    social::CrowdFieldLearner* crowd_learning, domain::Distance goal_tolerance,
+    HardSafetyFilter* hard_safety,
+    navigation::NavigationPhaseCoordinator* phases,
+    std::string configuration_fingerprint,
+    std::vector<std::string> component_manifest)
     : world_(world),
       action_space_(action_space),
       decisions_(decisions),
@@ -18,6 +22,10 @@ NavigationEngine::NavigationEngine(
       planning_(planning),
       learning_(learning),
       crowd_learning_(crowd_learning),
+      hard_safety_(hard_safety),
+      phases_(phases ? phases : &owned_phases_),
+      configuration_fingerprint_(std::move(configuration_fingerprint)),
+      component_manifest_(std::move(component_manifest)),
       goal_tolerance_(goal_tolerance) {}
 
 std::vector<domain::Action> NavigationEngine::candidates() const {
@@ -40,6 +48,7 @@ std::vector<domain::Action> NavigationEngine::candidates() const {
 void NavigationEngine::observe(const domain::RobotObservation& observation) {
   observation.laser.validate();
   observation_ = observation;
+  phases_->observe();
   world_.robot.pose = observation.pose;
   world_.robot.laser = observation.laser;
   if (observation.crowd) {
@@ -85,15 +94,53 @@ DecisionResult NavigationEngine::decide() {
   if (!observation_) {
     throw std::logic_error("navigation decision requires an observation");
   }
+  if (phases_->phase() == navigation::NavigationPhase::InitialExploration) {
+    DecisionResult result;
+    result.sequence = ++decision_sequence_;
+    result.robot_pose = world_.robot.pose;
+    result.navigation_phase = phases_->phase();
+    result.configuration_fingerprint = configuration_fingerprint_;
+    result.component_manifest = component_manifest_;
+    result.action = domain::Action::pause();
+    result.source = DecisionSource::Exploration;
+    result.tier = DecisionTier::Exploration;
+    result.selected_policy = "initial_exploration_pending";
+    world_.navigation_history.record(
+        {observation_->pose, observation_->laser, result.action});
+    learning_.observe({world_.navigation_history.entries().size(),
+                       *observation_, result.action, std::nullopt, false,
+                       false});
+    learning_.applyTo(world_.spatial);
+    return result;
+  }
   const MissionStep mission_step = mission_.prepareDecision();
   if (mission_step == MissionStep::Complete) {
-    return {};
+    phases_->completeMission();
+    DecisionResult result;
+    result.navigation_phase = phases_->phase();
+    result.configuration_fingerprint = configuration_fingerprint_;
+    result.component_manifest = component_manifest_;
+    return result;
   }
   const std::optional<std::string> selected_planner = preparePlan(mission_step);
   const auto available = candidates();
-  DecisionResult result = decisions_.decide(DecisionContext{world_}, available);
+  std::vector<domain::Action> decision_candidates = available;
+  std::vector<Veto> hard_vetoes;
+  if (hard_safety_) {
+    auto filtered = hard_safety_->filter(DecisionContext{world_}, available);
+    decision_candidates = std::move(filtered.safe_actions);
+    hard_vetoes = std::move(filtered.vetoes);
+  }
+  DecisionResult result =
+      decisions_.decide(DecisionContext{world_}, decision_candidates);
+  result.vetoes.insert(result.vetoes.begin(),
+                       std::make_move_iterator(hard_vetoes.begin()),
+                       std::make_move_iterator(hard_vetoes.end()));
   result.sequence = ++decision_sequence_;
   result.robot_pose = world_.robot.pose;
+  result.navigation_phase = phases_->phase();
+  result.configuration_fingerprint = configuration_fingerprint_;
+  result.component_manifest = component_manifest_;
   result.candidates = available;
   result.planner = selected_planner;
   if (world_.mission.active()) {
@@ -125,8 +172,13 @@ DecisionResult NavigationEngine::decide(
   return decide();
 }
 
-bool NavigationEngine::missionComplete() const noexcept {
-  return mission_.complete();
+bool NavigationEngine::missionComplete() noexcept {
+  if (mission_.complete()) phases_->completeMission();
+  return phases_->phase() == navigation::NavigationPhase::MissionComplete;
+}
+
+navigation::NavigationPhase NavigationEngine::phase() const noexcept {
+  return phases_->phase();
 }
 
 }  // namespace semaforr::decision

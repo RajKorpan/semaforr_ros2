@@ -47,12 +47,41 @@ void assertThrowsContaining(Operation operation, const std::string& expected) {
 int main() {
   const auto valid = validConfiguration();
   semaforr::config::validateConfiguration(valid);
+  assert(semaforr::config::configurationFingerprint(valid).size() == 16U);
+  assert(!semaforr::config::componentManifest(valid).empty());
+  {
+    auto profiled = valid;
+    profiled.experiment.profile =
+        semaforr::config::AblationProfile::NoSocial;
+    semaforr::config::applyAblationProfile(profiled);
+    semaforr::config::validateConfiguration(profiled);
+    assert(!profiled.experiment.social_enabled);
+    assert(!profiled.navigation.crowd_learning.enabled);
+  }
+  {
+    auto profiled = valid;
+    profiled.experiment.profile =
+        semaforr::config::AblationProfile::TierOneOnly;
+    semaforr::config::applyAblationProfile(profiled);
+    for (auto& advisor : profiled.advisors) advisor.active = false;
+    semaforr::config::validateConfiguration(profiled);
+    assert(profiled.experiment.tiers.tier_one);
+    assert(!profiled.experiment.tiers.tier_three);
+  }
   const std::string source_dir = SEMAFORR_TEST_SOURCE_DIR;
   const auto loaded = semaforr::config::loadStructuredConfiguration(
       valid.navigation, valid.map_dimensions, valid.advisors,
       source_dir + "/config/example/mission.conf", valid.map_file);
   assert(loaded.tasks.size() == 3U);
 
+  {
+    auto invalid = valid;
+    invalid.experiment.initial_exploration.enabled = true;
+    invalid.experiment.initial_exploration.observation_budget = 0U;
+    assertThrowsContaining(
+        [&invalid]() { semaforr::config::validateConfiguration(invalid); },
+        "observation budget");
+  }
   {
     auto invalid = valid;
     invalid.navigation.move_actions = {0.2, 0.1};

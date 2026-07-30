@@ -70,10 +70,10 @@ TEST(SpatialLearning, DefaultModulesDeclareLifecycleAndConsumers) {
   using namespace semaforr::spatial;
   auto coordinator = SpatialLearningCoordinator::defaults(100U);
 
-  EXPECT_EQ(coordinator.learnerCount(), 7U);
-  EXPECT_EQ(coordinator.enabledCount(), 7U);
+  EXPECT_EQ(coordinator.learnerCount(), 9U);
+  EXPECT_EQ(coordinator.enabledCount(), 9U);
   const auto inspection = coordinator.inspect();
-  ASSERT_EQ(inspection.size(), 7U);
+  ASSERT_EQ(inspection.size(), 9U);
   for (const LearnerInspection& learner : inspection) {
     EXPECT_FALSE(learner.name.empty());
     EXPECT_FALSE(learner.contract.update_trigger.empty());
@@ -127,13 +127,16 @@ TEST(SpatialLearning, AutomaticRebuildUsesAcceptedEpisodeCount) {
   auto coordinator = SpatialLearningCoordinator::defaults(2U);
 
   coordinator.observe(episode(7U, 0.0, true));
-  EXPECT_EQ(coordinator.snapshot(SpatialRepresentation::Regions)->revision, 0U);
+  const auto first_revision =
+      coordinator.snapshot(SpatialRepresentation::Regions)->revision;
+  EXPECT_GT(first_revision, 0U);
 
   coordinator.observe(episode(8U, 0.3));
-  EXPECT_GT(coordinator.snapshot(SpatialRepresentation::Regions)->revision, 0U);
+  EXPECT_GT(coordinator.snapshot(SpatialRepresentation::Regions)->revision,
+            first_revision);
 }
 
-TEST(SpatialLearning, DeferredModelsExposeStalenessAndPreserveLastFreshModel) {
+TEST(SpatialLearning, RegionAndSkeletonModelsUpdateIncrementally) {
   using namespace semaforr;
   using namespace semaforr::spatial;
   auto coordinator = SpatialLearningCoordinator::defaults(100U);
@@ -141,9 +144,6 @@ TEST(SpatialLearning, DeferredModelsExposeStalenessAndPreserveLastFreshModel) {
   coordinator.observe(episode(2U, 0.3));
   coordinator.observe(episode(3U, 0.6));
 
-  EXPECT_EQ(coordinator.snapshot(SpatialRepresentation::Regions)->status,
-            ModelStatus::Incomplete);
-  coordinator.rebuild(SpatialRepresentation::Regions);
   const auto fresh = coordinator.snapshot(SpatialRepresentation::Regions);
   ASSERT_TRUE(fresh);
   ASSERT_EQ(fresh->status, ModelStatus::Fresh);
@@ -151,17 +151,16 @@ TEST(SpatialLearning, DeferredModelsExposeStalenessAndPreserveLastFreshModel) {
   domain::SpatialModel projected;
   coordinator.applyTo(projected);
   ASSERT_FALSE(projected.learned_regions.empty());
-  const auto region_count = projected.learned_regions.size();
+  const auto region_revision = fresh->revision;
 
   coordinator.observe(episode(4U, 0.9));
   EXPECT_EQ(coordinator.snapshot(SpatialRepresentation::Regions)->status,
-            ModelStatus::Stale);
-  coordinator.applyTo(projected);
-  EXPECT_EQ(projected.learned_regions.size(), region_count);
-
-  coordinator.rebuildStale();
-  EXPECT_EQ(coordinator.snapshot(SpatialRepresentation::Regions)->status,
             ModelStatus::Fresh);
+  EXPECT_GT(coordinator.snapshot(SpatialRepresentation::Regions)->revision,
+            region_revision);
+  coordinator.applyTo(projected);
+  EXPECT_GT(projected.revision, 0U);
+  EXPECT_FALSE(projected.skeleton_edges.empty());
 }
 
 TEST(SpatialLearning, EveryRepresentationRebuildsAndSerializesIndependently) {
@@ -198,6 +197,13 @@ TEST(SpatialLearning, EveryRepresentationRebuildsAndSerializesIndependently) {
   EXPECT_TRUE(std::holds_alternative<PassageSkeletonModel>(
       coordinator.snapshot(SpatialRepresentation::PassagesAndSkeleton)
           ->payload));
+  EXPECT_TRUE(std::holds_alternative<KnownGridModel>(
+      coordinator.snapshot(SpatialRepresentation::KnownGrid)->payload));
+  EXPECT_TRUE(std::holds_alternative<InclusionGridModel>(
+      coordinator.snapshot(SpatialRepresentation::InclusionGrid)->payload));
+  const std::string all = coordinator.serializeAll();
+  EXPECT_NE(all.find("\"schema\":\"semaforr.spatial.v1\""),
+            std::string::npos);
 }
 
 TEST(SpatialLearning, EpisodeOrderingIsValidatedPerLearner) {

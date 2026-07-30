@@ -5,6 +5,7 @@
 #include <semaforr/spatial/conveyor_learner.hpp>
 #include <semaforr/spatial/door_exit_learner.hpp>
 #include <semaforr/spatial/hallway_learner.hpp>
+#include <semaforr/spatial/grid_learners.hpp>
 #include <semaforr/spatial/passage_skeleton_learner.hpp>
 #include <semaforr/spatial/region_learner.hpp>
 #include <semaforr/spatial/trail_learner.hpp>

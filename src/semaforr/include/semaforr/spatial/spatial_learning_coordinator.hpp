@@ -41,6 +41,7 @@ class SpatialLearningCoordinator {
   std::vector<SpatialModelUpdate> snapshots() const;
   std::vector<LearnerInspection> inspect() const;
   std::string serialize(SpatialRepresentation representation) const;
+  std::string serializeAll() const;
 
   void applyTo(domain::SpatialModel& model) const;
   std::size_t learnerCount() const noexcept { return learners_.size(); }

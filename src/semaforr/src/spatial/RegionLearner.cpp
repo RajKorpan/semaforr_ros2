@@ -1,5 +1,6 @@
 #include <algorithm>
 #include <cmath>
+#include <limits>
 #include <semaforr/spatial/region_learner.hpp>
 #include <stdexcept>
 
@@ -8,12 +9,12 @@ namespace semaforr::spatial {
 RegionLearner::RegionLearner(double cluster_radius_m,
                              std::size_t minimum_observations)
     : SpatialLearnerBase(
-          SpatialRepresentation::Regions, "region", UpdateMode::RebuildOnDemand,
+          SpatialRepresentation::Regions, "region", UpdateMode::Incremental,
           {true,
            true,
            false,
            false,
-           "cluster accumulated poses when rebuild is requested",
+           "incrementally merge local freespace observations",
            {"RegionLeaverLinear", "RegionLeaverRotation", "skeleton planner"}}),
       cluster_radius_m_(cluster_radius_m),
       minimum_observations_(minimum_observations) {
@@ -26,51 +27,58 @@ RegionLearner::RegionLearner(double cluster_radius_m,
   }
 }
 
-void RegionLearner::onObserve(const NavigationEpisode&) {}
+void RegionLearner::onObserve(const NavigationEpisode& episode) {
+  const auto point = episode.observation.pose.position;
+  const auto finite_range = std::min_element(
+      episode.observation.laser.ranges_m.begin(),
+      episode.observation.laser.ranges_m.end(),
+      [](double left, double right) {
+        return (std::isfinite(left) ? left
+                                    : std::numeric_limits<double>::max()) <
+               (std::isfinite(right) ? right
+                                     : std::numeric_limits<double>::max());
+      });
+  double sensed_radius = 0.25;
+  if (finite_range != episode.observation.laser.ranges_m.end() &&
+      std::isfinite(*finite_range))
+    sensed_radius = std::clamp(*finite_range, 0.25, cluster_radius_m_);
+
+  std::size_t nearest = model_.regions.size();
+  double nearest_distance = cluster_radius_m_;
+  for (std::size_t index = 0U; index < model_.regions.size(); ++index) {
+    const double distance =
+        domain::distance(model_.regions[index].center, point).meters();
+    if (distance <= nearest_distance) {
+      nearest = index;
+      nearest_distance = distance;
+    }
+  }
+  if (nearest == model_.regions.size()) {
+    model_.regions.push_back({point, domain::Distance(sensed_radius)});
+    observation_counts_.push_back(1U);
+  } else {
+    auto& region = model_.regions[nearest];
+    const auto count = ++observation_counts_[nearest];
+    region.center.x_m += (point.x_m - region.center.x_m) /
+                         static_cast<double>(count);
+    region.center.y_m += (point.y_m - region.center.y_m) /
+                         static_cast<double>(count);
+    region.radius = domain::Distance(std::clamp(
+        std::max(region.radius.meters(), sensed_radius), 0.25,
+        cluster_radius_m_));
+  }
+  const bool enough = std::any_of(
+      observation_counts_.begin(), observation_counts_.end(),
+      [this](std::size_t count) { return count >= minimum_observations_; });
+  publish(model_, enough ? ModelStatus::Fresh : ModelStatus::Incomplete,
+          enough ? "regions updated incrementally"
+                 : "region observations below publication threshold");
+}
 
 void RegionLearner::onRebuild() {
-  struct Cluster {
-    std::vector<domain::Point2D> points;
-  };
-  std::vector<Cluster> clusters;
-  for (const NavigationEpisode& episode : episodes()) {
-    const domain::Point2D point = episode.observation.pose.position;
-    auto found = std::find_if(
-        clusters.begin(), clusters.end(), [&](const Cluster& cluster) {
-          return domain::distance(cluster.points.front(), point).meters() <=
-                 cluster_radius_m_;
-        });
-    if (found == clusters.end()) {
-      clusters.push_back({{point}});
-    } else {
-      found->points.push_back(point);
-    }
-  }
-
-  RegionModel model;
-  for (const Cluster& cluster : clusters) {
-    if (cluster.points.size() < minimum_observations_) {
-      continue;
-    }
-    domain::Point2D center;
-    for (const domain::Point2D& point : cluster.points) {
-      center.x_m += point.x_m;
-      center.y_m += point.y_m;
-    }
-    center.x_m /= static_cast<double>(cluster.points.size());
-    center.y_m /= static_cast<double>(cluster.points.size());
-    double radius = 0.25;
-    for (const domain::Point2D& point : cluster.points) {
-      radius = std::max(radius, domain::distance(center, point).meters());
-    }
-    model.regions.push_back(
-        {center, domain::Distance(std::min(cluster_radius_m_, radius + 0.25))});
-  }
-  publish(model,
-          model.regions.empty() ? ModelStatus::Incomplete : ModelStatus::Fresh,
-          model.regions.empty()
-              ? "no pose cluster reached the observation threshold"
-              : "regions rebuilt from pose clusters");
+  publish(model_, model_.regions.empty() ? ModelStatus::Incomplete
+                                         : ModelStatus::Fresh,
+          "incremental region snapshot refreshed");
 }
 
 }  // namespace semaforr::spatial

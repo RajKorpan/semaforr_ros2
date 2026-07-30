@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <memory>
 #include <semaforr/decision/learned_crowd_advisor.hpp>
+#include <semaforr/decision/hard_safety_filter.hpp>
 #include <semaforr/decision/mission_manager.hpp>
 #include <semaforr/decision/navigation_advisor.hpp>
 #include <semaforr/decision/navigation_engine.hpp>
@@ -94,7 +95,13 @@ class NavigationEngineAdapter::Impl {
                     domain::Action::pause(),
                     configuration_.navigation.crowd_learning.random_seed}),
         mission_(world_.mission),
-        learning_(spatial::SpatialLearningCoordinator::defaults()) {
+        learning_(spatial::SpatialLearningCoordinator::defaults()),
+        hard_safety_(action_space_.move_distances_m(),
+                     configuration_.navigation.robot_footprint,
+                     configuration_.navigation.robot_footprint_buffer),
+        phases_({configuration_.experiment.initial_exploration.enabled,
+                 configuration_.experiment.initial_exploration
+                     .observation_budget}) {
     configureLearning();
     configurePlanning();
     configureDecisions();
@@ -104,7 +111,9 @@ class NavigationEngineAdapter::Impl {
     }
     engine_ = std::make_unique<decision::NavigationEngine>(
         world_, action_space_, decisions_, mission_, planning_, learning_,
-        crowd_learning_.get(), domain::Distance(0.5));
+        crowd_learning_.get(), domain::Distance(0.5), &hard_safety_, &phases_,
+        config::configurationFingerprint(configuration_),
+        config::componentManifest(configuration_));
   }
 
   void configureLearning() {
@@ -123,9 +132,17 @@ class NavigationEngineAdapter::Impl {
                          features.barriers_on);
     learning_.setEnabled(spatial::SpatialRepresentation::PassagesAndSkeleton,
                          features.a_star_on || features.planners.skeleton);
+    const bool grids_enabled =
+        configuration_.experiment.profile !=
+        config::AblationProfile::NoSpatialModel;
+    learning_.setEnabled(spatial::SpatialRepresentation::KnownGrid,
+                         grids_enabled);
+    learning_.setEnabled(spatial::SpatialRepresentation::InclusionGrid,
+                         grids_enabled);
   }
 
   void configurePlanning() {
+    if (!configuration_.experiment.tiers.tier_two) return;
     addPlanner(planning_, "distance", planning::PlannerObjective::Distance);
     const auto& planners = configuration_.navigation.planners;
     if (planners.skeleton) {
@@ -145,11 +162,7 @@ class NavigationEngineAdapter::Impl {
   }
 
   void configureDecisions() {
-    decisions_.addVetoRule(std::make_unique<decision::ObstacleVetoRule>(
-        action_space_.move_distances_m(),
-        configuration_.navigation.robot_footprint,
-        configuration_.navigation.robot_footprint_buffer));
-
+    if (!configuration_.experiment.tiers.tier_three) return;
     for (const auto& advisor : configuration_.advisors) {
       if (!advisor.active) {
         continue;
@@ -201,6 +214,8 @@ class NavigationEngineAdapter::Impl {
   decision::MissionManager mission_;
   planning::PlanningCoordinator planning_;
   spatial::SpatialLearningCoordinator learning_;
+  decision::HardSafetyFilter hard_safety_;
+  navigation::NavigationPhaseCoordinator phases_;
   std::unique_ptr<social::CrowdFieldLearner> crowd_learning_;
   std::unique_ptr<decision::NavigationEngine> engine_;
 };
@@ -223,6 +238,10 @@ void NavigationEngineAdapter::observe(const SynchronizedSensors& sensors,
 
 bool NavigationEngineAdapter::missionComplete() {
   return impl_->engine_->missionComplete();
+}
+
+navigation::NavigationPhase NavigationEngineAdapter::phase() const noexcept {
+  return impl_->engine_->phase();
 }
 
 decision::DecisionResult NavigationEngineAdapter::decide() {

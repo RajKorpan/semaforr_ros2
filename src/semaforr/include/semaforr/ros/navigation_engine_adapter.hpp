@@ -25,6 +25,7 @@ class NavigationEngineAdapter {
                const domain::CrowdState& crowd);
 
   bool missionComplete();
+  navigation::NavigationPhase phase() const noexcept;
   decision::DecisionResult decide();
   ActionExecutionRequest executionRequest(const domain::Action& action) const;
   const domain::WorldModel& worldModel() const noexcept;

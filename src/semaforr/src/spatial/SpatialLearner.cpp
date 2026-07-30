@@ -114,6 +114,26 @@ void payload(std::ostream& output, const SpatialPayload& value) {
                          << '}';
                 });
           output << '}';
+        } else if constexpr (std::is_same_v<Model, KnownGridModel>) {
+          output << "{\"geometry\":{\"columns\":" << model.geometry.columns
+                 << ",\"rows\":" << model.geometry.rows
+                 << ",\"resolution_m\":" << model.geometry.resolution_m
+                 << ",\"origin\":";
+          point(output, model.geometry.origin);
+          output << "},\"observations\":";
+          array(output, model.observations,
+                [](std::ostream& stream, auto cell) { stream << cell; });
+          output << '}';
+        } else if constexpr (std::is_same_v<Model, InclusionGridModel>) {
+          output << "{\"geometry\":{\"columns\":" << model.geometry.columns
+                 << ",\"rows\":" << model.geometry.rows
+                 << ",\"resolution_m\":" << model.geometry.resolution_m
+                 << ",\"origin\":";
+          point(output, model.geometry.origin);
+          output << "},\"included\":";
+          array(output, model.included,
+                [](std::ostream& stream, auto cell) { stream << cell; });
+          output << '}';
         }
       },
       value);
@@ -137,12 +157,32 @@ std::string_view toString(SpatialRepresentation representation) noexcept {
       return "barriers";
     case SpatialRepresentation::PassagesAndSkeleton:
       return "passages_and_skeleton";
+    case SpatialRepresentation::KnownGrid:
+      return "known_grid";
+    case SpatialRepresentation::InclusionGrid:
+      return "inclusion_grid";
   }
   return "unknown";
 }
 
 std::string_view toString(UpdateMode mode) noexcept {
   return mode == UpdateMode::Incremental ? "incremental" : "rebuild_on_demand";
+}
+
+std::string_view toString(UpdateSchedule schedule) noexcept {
+  switch (schedule) {
+    case UpdateSchedule::EveryObservation:
+      return "every_observation";
+    case UpdateSchedule::AfterCompletedAction:
+      return "after_completed_action";
+    case UpdateSchedule::EndOfTarget:
+      return "end_of_target";
+    case UpdateSchedule::EndOfInitialExploration:
+      return "end_of_initial_exploration";
+    case UpdateSchedule::OnDemand:
+      return "on_demand";
+  }
+  return "on_demand";
 }
 
 std::string_view toString(ModelStatus status) noexcept {
@@ -173,6 +213,8 @@ std::string serialize(const SpatialModelUpdate& update) {
     output << "null";
   }
   output << ",\"update_mode\":" << quote(toString(update.update_mode))
+         << ",\"update_schedule\":"
+         << quote(toString(update.update_schedule))
          << ",\"status\":" << quote(toString(update.status))
          << ",\"consumers\":";
   array(output, update.consumers,
@@ -203,6 +245,7 @@ SpatialLearnerBase::SpatialLearnerBase(SpatialRepresentation representation,
   update_.representation = representation;
   update_.learner = std::move(name);
   update_.update_mode = mode;
+  update_.update_schedule = contract_.schedule;
   update_.consumers = contract_.consumers;
 }
 

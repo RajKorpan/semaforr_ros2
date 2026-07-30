@@ -2,6 +2,7 @@
 
 - [Build and deployment](deployment.md)
 - [Architecture overview](architecture.md)
+- [Dissertation compatibility matrix](dissertation-compatibility.md)
 - [Decision-tier guide](decision-tiers.md)
 - [Advisor catalog](advisor-catalog.md)
 - [Planner catalog](planner-catalog.md)

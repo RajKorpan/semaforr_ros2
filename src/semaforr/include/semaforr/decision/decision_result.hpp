@@ -5,6 +5,7 @@
 #include <optional>
 #include <semaforr/domain/action.hpp>
 #include <semaforr/domain/geometry.hpp>
+#include <semaforr/navigation/navigation_phase.hpp>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -71,6 +72,10 @@ struct TaskDiagnostic {
 struct DecisionResult {
   std::uint64_t sequence{0U};
   domain::Pose2D robot_pose;
+  navigation::NavigationPhase navigation_phase{
+      navigation::NavigationPhase::TargetNavigation};
+  std::string configuration_fingerprint;
+  std::vector<std::string> component_manifest;
   std::optional<TaskDiagnostic> task;
   std::vector<domain::Action> candidates;
   domain::Action action{domain::Action::pause()};
