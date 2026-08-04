@@ -4,6 +4,24 @@
 #include <utility>
 
 namespace semaforr::decision {
+namespace {
+
+void validatePositiveMagnitudes(const std::vector<double>& values,
+                                std::string_view description,
+                                bool allow_empty = false) {
+  if (values.empty() && !allow_empty) {
+    throw std::invalid_argument(std::string(description) +
+                                " must not be empty");
+  }
+  for (const double value : values) {
+    if (!std::isfinite(value) || value <= 0.0) {
+      throw std::invalid_argument(std::string(description) +
+                                  " must be finite and positive");
+    }
+  }
+}
+
+}  // namespace
 
 LearnedCrowdAdvisor::LearnedCrowdAdvisor(
     LearnedCrowdAdvisorConfiguration configuration)
@@ -11,12 +29,20 @@ LearnedCrowdAdvisor::LearnedCrowdAdvisor(
   if (configuration_.advisor_name.empty()) {
     throw std::invalid_argument("learned crowd advisor name must not be empty");
   }
+  validatePositiveMagnitudes(configuration_.move_distances_m,
+                             "learned crowd move distances");
+  validatePositiveMagnitudes(configuration_.rotation_angles_rad,
+                             "learned crowd rotation angles", true);
   if (!std::isfinite(configuration_.weight) ||
       !std::isfinite(configuration_.minimum_cell_confidence) ||
       configuration_.minimum_cell_confidence < 0.0 ||
-      configuration_.minimum_cell_confidence > 1.0) {
+      configuration_.minimum_cell_confidence > 1.0 ||
+      configuration_.maximum_live_age < std::chrono::nanoseconds::zero() ||
+      !std::isfinite(configuration_.minimum_live_confidence) ||
+      configuration_.minimum_live_confidence < 0.0 ||
+      configuration_.minimum_live_confidence > 1.0) {
     throw std::invalid_argument(
-        "learned crowd advisor weight and confidence must be finite and valid");
+        "learned crowd advisor weight, age, and confidence must be valid");
   }
 }
 
@@ -56,8 +82,11 @@ AdvisorEvaluation LearnedCrowdAdvisor::evaluate(
   evaluation.model_revision_used = context.world.crowd.learned().version;
   evaluation.weight = configuration_.weight;
   evaluation.explanation = "shared visibility-normalized learned crowd field";
-  const bool live_people = context.world.crowd.current() &&
-                           !context.world.crowd.current()->pedestrians.empty();
+  const bool live_people =
+      context.world.crowd.current() &&
+      context.world.crowd.current()->usable(
+          configuration_.maximum_live_age,
+          configuration_.minimum_live_confidence);
   const bool learned = context.world.crowd.learnedAvailable();
   if (!learned &&
       (configuration_.objective != LearnedCrowdObjective::AvoidEncounterRisk ||
@@ -86,7 +115,11 @@ AdvisorEvaluation LearnedCrowdAdvisor::evaluate(
             !live_people) {
           continue;
         }
-        score = -context.world.crowd.navigationRiskAt(position);
+        score = -std::max(
+            context.world.crowd.learnedEncounterRiskAt(position),
+            live_people
+                ? context.world.crowd.predictiveCollisionRiskAt(position)
+                : 0.0);
         evaluation.explanation =
             "maximum of learned encounter and live prediction risk";
         break;

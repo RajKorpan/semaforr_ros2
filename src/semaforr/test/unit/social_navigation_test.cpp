@@ -143,6 +143,30 @@ TEST(SocialNavigation, StalePredictionDisablesAdvisor) {
   EXPECT_TRUE(result.scores.empty());
 }
 
+TEST(SocialNavigation, PredictionStartsAtObservationAge) {
+  auto fresh = crowd(pedestrian("crossing", 1.0, -1.0, 0.0, 1.0));
+  fresh.data_age = std::chrono::nanoseconds::zero();
+  auto aged = fresh;
+  aged.data_age = std::chrono::seconds(1);
+  const semaforr::decision::SocialNavigationAdvisor age_aware(
+      {{0.2, 1.0},
+       {0.5},
+       std::chrono::seconds(2),
+       0.25,
+       2.0,
+       1.2,
+       0.65,
+       1.0});
+  const std::vector<Action> actions{Action(ActionType::Forward, 2U)};
+
+  const auto fresh_result = age_aware.evaluate({worldWith(fresh)}, actions);
+  const auto aged_result = age_aware.evaluate({worldWith(aged)}, actions);
+  ASSERT_TRUE(fresh_result.participated);
+  ASSERT_TRUE(aged_result.participated);
+  EXPECT_GT(scoreFor(aged_result, actions.front()),
+            scoreFor(fresh_result, actions.front()));
+}
+
 TEST(SocialNavigation, RecordedTrajectoryChangesDeterministicAction) {
   const std::vector<Action> actions{Action::pause(),
                                     Action(ActionType::Forward, 2U)};

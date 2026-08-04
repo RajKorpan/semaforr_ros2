@@ -7,9 +7,13 @@ namespace semaforr::decision {
 void registerSocialAdvisorFactories(
     AdvisorRegistry& registry,
     SocialAdvisorRegistryConfiguration configuration) {
+  configuration.live.advisor_name = "social_navigation";
   configuration.density.objective = LearnedCrowdObjective::AvoidDensity;
+  configuration.density.advisor_name = "crowd_avoid";
   configuration.risk.objective = LearnedCrowdObjective::AvoidEncounterRisk;
+  configuration.risk.advisor_name = "risk_avoid";
   configuration.flow.objective = LearnedCrowdObjective::PreferFollowingFlow;
+  configuration.flow.advisor_name = "flow_follow";
 
   registry.registerFactory("social_navigation", [value = configuration.live] {
     return std::make_unique<SocialNavigationAdvisor>(value);

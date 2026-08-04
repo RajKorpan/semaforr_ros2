@@ -99,8 +99,6 @@ AdvisorEvaluation SocialNavigationAdvisor::evaluate(
     const DecisionContext& context,
     std::span<const domain::Action> candidates) const {
   AdvisorEvaluation evaluation;
-  evaluation.model_revision_used =
-      static_cast<std::size_t>(context.world.crowd.history().size());
   evaluation.weight = configuration_.weight;
   evaluation.explanation =
       "predicted interpersonal distance, crossing, following, and flow risk";
@@ -111,6 +109,8 @@ AdvisorEvaluation SocialNavigationAdvisor::evaluate(
         "social data absent, invalid, or stale; advisor disabled";
     return evaluation;
   }
+  evaluation.model_revision_used =
+      static_cast<std::size_t>(current->observed_at.count());
 
   evaluation.participated = true;
   evaluation.scores.reserve(candidates.size());
@@ -144,14 +144,19 @@ double SocialNavigationAdvisor::score(const domain::WorldModel& world,
     if (pedestrian.confidence < configuration_.minimum_confidence) {
       continue;
     }
-    double minimum_separation = euclideanDistance(start, pedestrian.position);
+    const double observation_age_s =
+        std::chrono::duration<double>(crowd.data_age).count();
+    const domain::Point2D current_person = pedestrianAt(
+        pedestrian, crowd.observed_at, observation_age_s);
+    double minimum_separation = euclideanDistance(start, current_person);
     for (int sample = 1; sample <= samples; ++sample) {
       const double fraction =
           static_cast<double>(sample) / static_cast<double>(samples);
       const domain::Point2D robot = interpolate(start, end, fraction);
       const domain::Point2D person =
           pedestrianAt(pedestrian, crowd.observed_at,
-                       configuration_.prediction_horizon_s * fraction);
+                       observation_age_s +
+                           configuration_.prediction_horizon_s * fraction);
       minimum_separation =
           std::min(minimum_separation, euclideanDistance(robot, person));
     }
@@ -174,8 +179,8 @@ double SocialNavigationAdvisor::score(const domain::WorldModel& world,
                            pedestrian.velocity_mps.y_m * heading_y;
       const double lateral = std::fabs(pedestrian.velocity_mps.x_m * heading_y -
                                        pedestrian.velocity_mps.y_m * heading_x);
-      const double ahead = (pedestrian.position.x_m - start.x_m) * heading_x +
-                           (pedestrian.position.y_m - start.y_m) * heading_y;
+      const double ahead = (current_person.x_m - start.x_m) * heading_x +
+                           (current_person.y_m - start.y_m) * heading_y;
       if (ahead > 0.0 && ahead < 3.0 && lateral < 0.75) {
         if (along < 0.0) {
           risk += pedestrian.confidence * (1.0 + std::fabs(along));

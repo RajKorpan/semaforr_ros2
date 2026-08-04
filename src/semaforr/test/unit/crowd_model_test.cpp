@@ -176,6 +176,47 @@ TEST(CrowdConsumers, RiskAdvisorAndPlannerShareLivePredictionRisk) {
                    -model.navigationRiskAt({4.0, 4.0}));
 }
 
+TEST(CrowdConsumers, RiskAdvisorIgnoresStaleLivePrediction) {
+  semaforr::domain::CrowdFieldSnapshot field;
+  field.geometry = {"map", 3.0, 3.0, 1.0, 0.0, 0.0};
+  field.cells.resize(field.geometry.cellCount());
+  field.estimator = "count";
+  field.version = 1U;
+  field.generated_at = 1s;
+  auto& learned_cell = field.cells.at(*field.geometry.index({1.5, 1.5}));
+  learned_cell.visibility_exposures = 10.0;
+  learned_cell.risk_experiences = 10.0;
+  learned_cell.risk_encounters = 2.0;
+  learned_cell.learned_encounter_risk = 0.2;
+  learned_cell.confidence = 1.0;
+  learned_cell.last_updated = 1s;
+  field.validate();
+
+  auto stale = crowd(1s, true);
+  stale.data_age = 2s;
+  stale.pedestrians.front().position = {1.5, 1.5};
+  stale.validate();
+  semaforr::domain::WorldModel world;
+  world.robot.pose = {{0.5, 1.5}, semaforr::domain::Angle::zero()};
+  world.crowd.setLearned(std::move(field));
+  world.crowd.update(std::move(stale));
+  semaforr::decision::LearnedCrowdAdvisor advisor(
+      {semaforr::decision::LearnedCrowdObjective::AvoidEncounterRisk,
+       {1.0},
+       {0.5},
+       1.0,
+       0.0,
+       "risk_avoid"});
+  const std::vector<semaforr::domain::Action> actions{
+      semaforr::domain::Action(semaforr::domain::ActionType::Forward, 1U)};
+  const auto evaluation =
+      advisor.evaluate(semaforr::decision::DecisionContext{world}, actions);
+
+  ASSERT_TRUE(evaluation.participated);
+  ASSERT_EQ(evaluation.scores.size(), 1U);
+  EXPECT_DOUBLE_EQ(evaluation.scores.front().raw_score, -0.2);
+}
+
 TEST(CrowdConsumers, AdvisorAndPlannerReadTheSameLearnedCell) {
   semaforr::social::CrowdFieldLearner learner(configuration());
   ASSERT_TRUE(learner.observe({{1.5, 1.5}, semaforr::domain::Angle::zero()},
@@ -234,10 +275,6 @@ TEST(CrowdConsumers, StableRegistryConstructsAllSocialAdvisors) {
   configuration.density.rotation_angles_rad = {0.5};
   configuration.risk = configuration.density;
   configuration.flow = configuration.density;
-  configuration.density.advisor_name = "crowd_avoid";
-  configuration.risk.advisor_name = "risk_avoid";
-  configuration.flow.advisor_name = "flow_follow";
-
   semaforr::decision::AdvisorRegistry registry;
   semaforr::decision::registerSocialAdvisorFactories(registry, configuration);
   EXPECT_EQ(registry.create("social_navigation")->name(), "social_navigation");
