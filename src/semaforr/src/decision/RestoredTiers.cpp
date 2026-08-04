@@ -15,6 +15,39 @@ std::optional<domain::Point2D> waypoint(const domain::WorldModel& world) {
       world.mission.active()->target);
 }
 
+bool sensed(const domain::Pose2D& pose,
+            const domain::LaserObservation& laser,
+            domain::Point2D point) {
+  if (laser.ranges_m.empty() || laser.angle_increment.radians() <= 0.0)
+    return false;
+  const double distance = domain::distance(pose.position, point).meters();
+  const double bearing = domain::Angle::normalize(
+      std::atan2(point.y_m - pose.position.y_m,
+                 point.x_m - pose.position.x_m) -
+      pose.heading.radians());
+  const double coordinate =
+      (bearing - laser.angle_min.radians()) /
+      laser.angle_increment.radians();
+  if (coordinate < 0.0 ||
+      coordinate > static_cast<double>(laser.ranges_m.size() - 1U))
+    return false;
+  const auto center = static_cast<std::ptrdiff_t>(std::llround(coordinate));
+  std::size_t visible = 0U;
+  std::size_t sampled = 0U;
+  for (std::ptrdiff_t offset = -2; offset <= 2; ++offset) {
+    const auto beam = center + offset;
+    if (beam < 0 ||
+        beam >= static_cast<std::ptrdiff_t>(laser.ranges_m.size()))
+      continue;
+    ++sampled;
+    if (laser.ranges_m[static_cast<std::size_t>(beam)] +
+            domain::geometry_tolerance_m >=
+        distance)
+      ++visible;
+  }
+  return sampled >= 3U && visible >= 3U;
+}
+
 double nearest(domain::Point2D point,
                const std::vector<domain::Point2D>& values) {
   double result = std::numeric_limits<double>::infinity();
@@ -37,20 +70,12 @@ std::optional<Decision> VictoryRule::evaluate(
   if (!context.world.robot.laser ||
       context.world.robot.laser->ranges_m.empty())
     return std::nullopt;
+  if (!sensed(context.world.robot.pose, *context.world.robot.laser, target))
+    return std::nullopt;
   const double error = domain::Angle::normalize(
       std::atan2(target.y_m - context.world.robot.pose.position.y_m,
                  target.x_m - context.world.robot.pose.position.x_m) -
       context.world.robot.pose.heading.radians());
-  const auto& laser = *context.world.robot.laser;
-  if (laser.angle_increment.radians() <= 0.0 ||
-      error < laser.angle_min.radians())
-    return std::nullopt;
-  const auto beam = static_cast<std::size_t>(std::llround(
-      (error - laser.angle_min.radians()) /
-      laser.angle_increment.radians()));
-  if (beam >= laser.ranges_m.size() ||
-      laser.ranges_m[beam] + domain::geometry_tolerance_m < distance)
-    return std::nullopt;
   if (std::abs(error) > 0.15) {
     const auto& turns = action_space_.rotation_angles_rad();
     if (turns.empty()) return std::nullopt;
@@ -80,14 +105,13 @@ std::optional<Decision> VictoryRule::evaluate(
 
 std::vector<Veto> ForwardRule::evaluate(
     const DecisionContext& context) const {
-  const auto target = waypoint(context.world);
-  if (!target) return {};
+  if (!waypoint(context.world)) return {};
+  synchronizeVisitedGrid(context.world);
+  if (visited_plan_positions_.empty()) return {};
   const auto& pose = context.world.robot.pose;
-  const double current_error = domain::Angle::normalize(
-      std::atan2(target->y_m - pose.position.y_m,
-                 target->x_m - pose.position.x_m) -
-      pose.heading.radians());
   std::vector<Veto> vetoes;
+  std::size_t rotations = 0U;
+  const double lookahead_m = action_space_.move_distances_m().back();
   for (std::size_t index = 1U;
        index <= action_space_.rotation_angles_rad().size(); ++index) {
     for (const auto type :
@@ -95,35 +119,80 @@ std::vector<Veto> ForwardRule::evaluate(
       const domain::Action action(type, index);
       const auto expected =
           domain::expectedPoseAfterAction(pose, action, action_space_);
-      const double next_error = domain::Angle::normalize(
-          std::atan2(target->y_m - expected.position.y_m,
-                     target->x_m - expected.position.x_m) -
-          expected.heading.radians());
-      if (std::abs(current_error) <= 1.5707963267948966 &&
-          std::abs(next_error) > 1.5707963267948966 +
-                                     heading_tolerance_rad_)
+      const domain::Point2D projected{
+          expected.position.x_m + lookahead_m *
+                                      std::cos(expected.heading.radians()),
+          expected.position.y_m + lookahead_m *
+                                      std::sin(expected.heading.radians())};
+      ++rotations;
+      if (std::any_of(visited_plan_positions_.begin(),
+                      visited_plan_positions_.end(), [&](const auto& point) {
+                        return domain::distance(projected, point).meters() <=
+                               std::sqrt(2.0) * visited_grid_resolution_m_ +
+                                   domain::geometry_tolerance_m;
+                      }))
         vetoes.push_back(
             {action, std::string(name()),
-             "prevent orientation regression along the executed plan"});
+             "one-step lookahead returns to the executed plan"});
     }
   }
+  if (vetoes.size() == rotations) {
+    visited_plan_positions_.clear();
+    return {};
+  }
   return vetoes;
+}
+
+void ForwardRule::synchronizeVisitedGrid(
+    const domain::WorldModel& world) const {
+  if (!world.mission.active()) {
+    task_id_.reset();
+    history_cursor_ = 0U;
+    visited_plan_positions_.clear();
+    return;
+  }
+  const auto current_task = world.mission.active()->id;
+  if (!task_id_ || *task_id_ != current_task) {
+    task_id_ = current_task;
+    history_cursor_ = world.navigation_history.entries().size();
+    visited_plan_positions_.clear();
+  }
+  const auto& history = world.navigation_history.entries();
+  if (!world.mission.active()->plan.empty()) {
+    for (; history_cursor_ < history.size(); ++history_cursor_)
+      visited_plan_positions_.push_back(history[history_cursor_].pose.position);
+  } else {
+    history_cursor_ = history.size();
+  }
 }
 
 std::vector<Veto> NotOppositeRule::evaluate(
     const DecisionContext& context) const {
   const auto& history = context.world.navigation_history.entries();
   if (history.empty()) return {};
-  const domain::Action previous = history.back().action;
-  if (previous.type() == domain::ActionType::TurnLeft)
-    return {{domain::Action(domain::ActionType::TurnRight,
-                            previous.magnitude_index()),
-             std::string(name()), "avoid immediately reversing a turn"}};
-  if (previous.type() == domain::ActionType::TurnRight)
-    return {{domain::Action(domain::ActionType::TurnLeft,
-                            previous.magnitude_index()),
-             std::string(name()), "avoid immediately reversing a turn"}};
-  return {};
+  std::vector<double> recent_orientations;
+  const auto first = history.size() > 2U ? history.size() - 2U : 0U;
+  for (std::size_t index = first; index < history.size(); ++index)
+    recent_orientations.push_back(history[index].pose.heading.radians());
+  std::vector<Veto> vetoes;
+  for (std::size_t magnitude = 1U;
+       magnitude <= action_space_.rotation_angles_rad().size(); ++magnitude) {
+    for (const auto type :
+         {domain::ActionType::TurnLeft, domain::ActionType::TurnRight}) {
+      const domain::Action action(type, magnitude);
+      const auto predicted = domain::expectedPoseAfterAction(
+          context.world.robot.pose, action, action_space_);
+      if (std::any_of(recent_orientations.begin(), recent_orientations.end(),
+                      [&](double orientation) {
+                        return std::abs(domain::Angle::normalize(
+                                   predicted.heading.radians() - orientation)) <=
+                               orientation_tolerance_rad_;
+                      }))
+        vetoes.push_back(
+            {action, std::string(name()), "avoid a recently occupied orientation"});
+    }
+  }
+  return vetoes;
 }
 
 SpatialAdvisor::SpatialAdvisor(std::string name,
@@ -293,8 +362,9 @@ void registerRestoredTierFactories(TierOneRegistry& tier_one,
             action_space.move_distances_m(), robot_radius_m,
             obstacle_buffer_m);
       });
-  tier_one.registerVeto(
-      "not_opposite", [] { return std::make_unique<NotOppositeRule>(); });
+  tier_one.registerVeto("not_opposite", [action_space] {
+    return std::make_unique<NotOppositeRule>(action_space);
+  });
   tier_one.registerOperationalizer(
       "enforcer", [] { return std::make_unique<Enforcer>(); });
   tier_one.registerReactive("thru",

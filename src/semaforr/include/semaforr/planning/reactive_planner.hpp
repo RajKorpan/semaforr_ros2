@@ -67,6 +67,9 @@ class ReactivePlanner {
 
 class Thru final : public ReactivePlanner {
  public:
+  explicit Thru(std::size_t decision_budget = 20U,
+                double desired_step_m = 0.8,
+                double endpoint_tolerance_m = 0.75);
   std::string_view name() const noexcept override { return "Thru"; }
   std::vector<std::string_view> dependencies() const override {
     return {"active_waypoint", "laser"};
@@ -74,14 +77,24 @@ class Thru final : public ReactivePlanner {
   TriggerEvaluation evaluateTrigger(
       const decision::DecisionContext&) const override;
   ReactivePlanUpdate update(const decision::DecisionContext&) override;
-  void cancel(InterruptionReason) override {}
+  void cancel(InterruptionReason) override;
+
+ private:
+  std::optional<domain::Point2D> chooseEndpoint(
+      const domain::WorldModel&) const;
+  std::optional<domain::Point2D> endpoint_;
+  std::optional<domain::TaskId> mission_id_;
+  std::size_t decisions_ = 0U;
+  std::size_t decision_budget_;
+  double desired_step_m_;
+  double endpoint_tolerance_m_;
 };
 
 class Behind final : public ReactivePlanner {
  public:
   std::string_view name() const noexcept override { return "Behind"; }
   std::vector<std::string_view> dependencies() const override {
-    return {"active_waypoint"};
+    return {"active_waypoint", "laser", "navigation_history"};
   }
   TriggerEvaluation evaluateTrigger(
       const decision::DecisionContext&) const override;
@@ -91,6 +104,9 @@ class Behind final : public ReactivePlanner {
 
 class Out final : public ReactivePlanner {
  public:
+  explicit Out(std::size_t coverage_threshold = 4U,
+               double covered_fraction = 0.75,
+               std::size_t maximum_new_cells = 1U);
   std::string_view name() const noexcept override { return "Out"; }
   std::vector<std::string_view> dependencies() const override {
     return {"recovery_state", "known_grid"};
@@ -98,7 +114,22 @@ class Out final : public ReactivePlanner {
   TriggerEvaluation evaluateTrigger(
       const decision::DecisionContext&) const override;
   ReactivePlanUpdate update(const decision::DecisionContext&) override;
-  void cancel(InterruptionReason) override {}
+  void cancel(InterruptionReason) override;
+
+ private:
+  enum class State { Idle, Survey, Escape };
+  void reset() noexcept;
+  void buildEscape(const domain::WorldModel&);
+
+  State state_ = State::Idle;
+  std::optional<domain::TaskId> mission_id_;
+  std::size_t rotations_ = 0U;
+  std::size_t baseline_known_cells_ = 0U;
+  std::vector<domain::Point2D> escape_points_;
+  std::size_t escape_cursor_ = 0U;
+  std::size_t coverage_threshold_;
+  double covered_fraction_;
+  std::size_t maximum_new_cells_;
 };
 
 class ReactivePlannerCoordinator {
@@ -124,6 +155,7 @@ struct LLECandidate {
   domain::Point2D start;
   domain::Point2D target;
   double target_relevance = 0.0;
+  bool validated_cue = false;
 };
 
 class LowLevelExplorer final : public ReactivePlanner,
@@ -131,7 +163,10 @@ class LowLevelExplorer final : public ReactivePlanner,
  public:
   explicit LowLevelExplorer(std::size_t history_window = 4U,
                             double progress_threshold_m = 0.1,
-                            std::size_t decision_budget = 64U);
+                            std::size_t decision_budget = 64U,
+                            double minimum_cue_length_m = 2.0,
+                            double target_cue_tolerance_m = 5.0,
+                            std::size_t cue_waypoint_count = 20U);
   std::string_view name() const noexcept override { return "LLE"; }
   std::vector<std::string_view> dependencies() const override {
     return {"active_target", "laser", "regions", "inclusion_grid",
@@ -154,6 +189,9 @@ class LowLevelExplorer final : public ReactivePlanner,
 
  private:
   void assembleCandidates(const domain::WorldModel&);
+  bool appendCurrentViewCandidates(const domain::WorldModel&);
+  void installCandidateWaypoints(const LLECandidate&);
+  std::size_t includedCellCount(const domain::WorldModel&) const noexcept;
   domain::Action actionToward(const domain::Pose2D&, domain::Point2D,
                               const domain::ActionSpace&) const;
   ReactivePlanUpdate complete(ReactiveCompletionReason, std::string,
@@ -172,6 +210,13 @@ class LowLevelExplorer final : public ReactivePlanner,
   std::optional<domain::TaskId> mission_id_;
   std::size_t source_revision_ = 0U;
   std::uint64_t next_candidate_id_ = 1U;
+  double minimum_cue_length_m_;
+  double target_cue_tolerance_m_;
+  std::size_t cue_waypoint_count_;
+  std::vector<domain::Point2D> cue_waypoints_;
+  std::size_t waypoint_cursor_ = 0U;
+  std::size_t lost_waypoint_cycles_ = 0U;
+  std::size_t initial_included_cells_ = 0U;
 };
 
 std::string_view toString(ReactiveCompletionReason) noexcept;

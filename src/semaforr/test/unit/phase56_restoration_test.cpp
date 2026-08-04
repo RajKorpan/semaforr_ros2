@@ -74,31 +74,105 @@ TEST(TierThreeCatalog, SpatialAdvisorReportsSourceRevision) {
 }
 
 TEST(ReactivePlanners, ThruBehindAndOutHaveExplicitDependencies) {
-  const semaforr::domain::ActionSpace actions({0.25}, {0.2, 1.0});
-  auto world = worldWithTarget();
+  const semaforr::domain::ActionSpace actions(
+      {0.25, 0.8}, {0.2, 1.5707963267948966});
+  auto world = worldWithTarget({0.4, 0.0});
+  auto tight_view = laser();
+  tight_view.angle_min = semaforr::domain::Angle(-0.3);
+  tight_view.ranges_m = {2.0, 2.0, 0.5, 0.5, 0.5, 2.0, 2.0};
+  world.robot.laser = tight_view;
   semaforr::planning::Thru thru;
   auto result = thru.evaluate({world, actions});
   ASSERT_EQ(result.status, semaforr::planning::ReactiveStatus::Action);
-  EXPECT_EQ(result.action->type(), semaforr::domain::ActionType::Forward);
+  EXPECT_TRUE(result.action.has_value());
   EXPECT_FALSE(thru.dependencies().empty());
 
-  world.robot.pose.heading = semaforr::domain::Angle(3.0);
+  world = worldWithTarget({-1.0, 0.0});
+  auto forward_view = laser();
+  forward_view.angle_min = semaforr::domain::Angle(-0.5);
+  world.robot.laser = forward_view;
+  world.navigation_history.record(
+      {world.robot.pose, forward_view, semaforr::domain::Action::pause()});
   semaforr::planning::Behind behind;
   result = behind.evaluate({world, actions});
   ASSERT_EQ(result.status, semaforr::planning::ReactiveStatus::Action);
-  EXPECT_NE(result.action->type(), semaforr::domain::ActionType::Forward);
+  EXPECT_EQ(result.action->type(), semaforr::domain::ActionType::TurnRight);
+  EXPECT_EQ(result.action->magnitude_index(), 2U);
 
-  world.robot.pose.heading = semaforr::domain::Angle::zero();
   world.recovery.confined = true;
-  world.spatial.inclusion_grid = {3U, 1U, 1.0, {}, {5U, 4U, 0U}, 1U};
+  world.spatial.known_grid = {3U, 1U, 1.0, {}, {5U, 4U, 0U}, 1U};
   semaforr::planning::Out out;
   result = out.evaluate({world, actions});
   EXPECT_EQ(result.status, semaforr::planning::ReactiveStatus::Action);
+  EXPECT_EQ(result.action->type(), semaforr::domain::ActionType::TurnRight);
+  EXPECT_EQ(result.action->magnitude_index(), 2U);
+}
+
+TEST(VictoryRule, RequiresThreeOfFiveTargetRaysToBeClear) {
+  const semaforr::domain::ActionSpace actions({0.25}, {0.2});
+  auto world = worldWithTarget({2.0, 0.0});
+  auto view = laser();
+  view.angle_min = semaforr::domain::Angle(-0.2);
+  view.ranges_m = {0.5, 0.5, 2.5, 0.5, 0.5};
+  world.robot.laser = view;
+  semaforr::decision::VictoryRule victory(semaforr::domain::Distance(0.2),
+                                           actions);
+  EXPECT_FALSE(victory.evaluate({world}).has_value());
+  view.ranges_m = {0.5, 2.5, 2.5, 2.5, 0.5};
+  world.robot.laser = view;
+  EXPECT_TRUE(victory.evaluate({world}).has_value());
+}
+
+TEST(NotOppositeRule, VetoesRotationsBackToEitherRecentOrientation) {
+  const semaforr::domain::ActionSpace actions({0.25}, {0.5});
+  auto world = worldWithTarget();
+  world.navigation_history.record(
+      {{{0.0, 0.0}, semaforr::domain::Angle::zero()}, laser(),
+       semaforr::domain::Action::pause()});
+  world.navigation_history.record(
+      {{{0.0, 0.0}, semaforr::domain::Angle(0.5)}, laser(),
+       semaforr::domain::Action(
+           semaforr::domain::ActionType::TurnLeft, 1U)});
+  world.robot.pose.heading = semaforr::domain::Angle(1.0);
+  const semaforr::decision::NotOppositeRule rule(actions);
+  const auto vetoes = rule.evaluate({world});
+  ASSERT_EQ(vetoes.size(), 1U);
+  EXPECT_EQ(vetoes.front().action.type(),
+            semaforr::domain::ActionType::TurnRight);
+}
+
+TEST(Behind, DoesNotRepeatAQuarterTurn) {
+  const semaforr::domain::ActionSpace actions(
+      {0.25}, {1.5707963267948966});
+  auto world = worldWithTarget({-1.0, 0.0});
+  auto view = laser();
+  view.angle_min = semaforr::domain::Angle(-0.5);
+  world.robot.laser = view;
+  world.navigation_history.record(
+      {world.robot.pose, view,
+       semaforr::domain::Action(
+           semaforr::domain::ActionType::TurnRight, 1U)});
+  semaforr::planning::Behind behind;
+  EXPECT_EQ(behind.evaluate({world, actions}).status,
+            semaforr::planning::ReactiveStatus::NotApplicable);
+}
+
+TEST(Thru, RequiresAVisibleCueAndBlockedForwardMove) {
+  const semaforr::domain::ActionSpace actions(
+      {0.25, 0.8}, {0.2, 1.5707963267948966});
+  auto world = worldWithTarget({0.4, 0.0});
+  auto open = laser();
+  open.angle_min = semaforr::domain::Angle(-0.3);
+  open.ranges_m = std::vector<double>(7U, 2.0);
+  world.robot.laser = open;
+  semaforr::planning::Thru thru;
+  EXPECT_EQ(thru.evaluate({world, actions}).status,
+            semaforr::planning::ReactiveStatus::NotApplicable);
 }
 
 TEST(LowLevelExplorer, RequestsTierTwoReplanAfterFailedProgress) {
   const semaforr::domain::ActionSpace actions({0.25}, {0.2});
-  auto world = worldWithTarget({10.0, 0.0});
+  auto world = worldWithTarget({4.0, 0.0});
   world.robot.laser = laser();
   for (std::size_t index = 0U; index < 4U; ++index)
     world.mission.record_decision();
@@ -121,13 +195,13 @@ TEST(LowLevelExplorer, RequestsTierTwoReplanAfterFailedProgress) {
             semaforr::planning::ReactiveCompletionReason::NewPlanAvailable);
 }
 
-TEST(LowLevelExplorer, AssemblesEveryCandidateSourceAndSupportsCancellation) {
+TEST(LowLevelExplorer, AssemblesValidCueSourcesAndSupportsCancellation) {
   const semaforr::domain::ActionSpace actions({0.25}, {0.2});
   auto world = worldWithTarget({10.0, 0.0});
   world.robot.laser = laser();
   world.spatial.unfinished_hle_candidates.push_back(
-      {42U, {0.0, 0.0}, {1.0, 1.0}});
-  world.spatial.learned_regions.push_back({{2.0, 1.0},
+      {42U, {0.0, 0.0}, {3.5, 0.0}});
+  world.spatial.learned_regions.push_back({{3.5, 1.0},
                                            semaforr::domain::Distance(0.5)});
   world.spatial.inclusion_grid =
       {2U, 1U, 1.0, {}, {0U, 1U}, 1U};
@@ -148,7 +222,7 @@ TEST(LowLevelExplorer, AssemblesEveryCandidateSourceAndSupportsCancellation) {
   EXPECT_NE(std::find(sources.begin(), sources.end(),
                       semaforr::planning::LLECandidateSource::RegionVisibility),
             sources.end());
-  EXPECT_NE(std::find(sources.begin(), sources.end(),
+  EXPECT_EQ(std::find(sources.begin(), sources.end(),
                       semaforr::planning::LLECandidateSource::InclusionGap),
             sources.end());
   explorer.cancel(semaforr::planning::InterruptionReason::SensorLost);
@@ -171,12 +245,19 @@ TEST(RestoredTierOne, VictoryForwardAndNotOppositeAreTyped) {
   EXPECT_EQ(direct.evaluate({visible})->action.type(),
             semaforr::domain::ActionType::Forward);
   semaforr::decision::ForwardRule forward(
-      semaforr::domain::ActionSpace({0.25}, {2.0}));
+      semaforr::domain::ActionSpace(
+          {2.0}, {1.5707963267948966, 3.1415926535897932}));
+  EXPECT_TRUE(forward.evaluate({visible}).empty());
+  visible.navigation_history.record(
+      {{{-2.0, 0.0}, semaforr::domain::Angle::zero()}, laser(),
+       semaforr::domain::Action(
+           semaforr::domain::ActionType::Forward, 1U)});
   EXPECT_FALSE(forward.evaluate({visible}).empty());
   world.navigation_history.record(
       {world.robot.pose, laser(),
        semaforr::domain::Action(semaforr::domain::ActionType::TurnLeft, 1U)});
-  semaforr::decision::NotOppositeRule not_opposite;
+  world.robot.pose.heading = semaforr::domain::Angle(0.2);
+  semaforr::decision::NotOppositeRule not_opposite(actions);
   const auto vetoes = not_opposite.evaluate({world});
   ASSERT_EQ(vetoes.size(), 1U);
   EXPECT_EQ(vetoes.front().action.type(),
