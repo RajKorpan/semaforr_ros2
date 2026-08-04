@@ -148,6 +148,38 @@ void validateNavigation(const NavigationConfiguration& configuration) {
     throw std::runtime_error(
         "configuration: crowd-cost planners require social.learning.enabled");
   }
+  const std::set<std::string> selection_policies{
+      "single", "minimum_normalized_cost", "range_vote", "pareto_then_vote",
+      "shortest_valid"};
+  if (!selection_policies.contains(configuration.planners.selection_policy))
+    throw std::runtime_error(
+        "configuration: planners.selection_policy must be single, "
+        "minimum_normalized_cost, range_vote, pareto_then_vote, or "
+        "shortest_valid");
+  const std::size_t enabled_planner_count =
+      static_cast<std::size_t>(configuration.planners.distance) +
+      configuration.planners.density + configuration.planners.risk +
+      configuration.planners.flow + configuration.planners.region +
+      configuration.planners.hallway + configuration.planners.trail +
+      configuration.planners.conveyor + configuration.planners.skeleton +
+      configuration.planners.highway;
+  if (configuration.planners.selection_policy == "single" &&
+      enabled_planner_count != 1U)
+    throw std::runtime_error(
+        "configuration: selection policy 'single' requires exactly one "
+        "enabled planner");
+  if (configuration.planners.region && !configuration.regions_on)
+    throw std::runtime_error(
+        "configuration: RegionPlan requires the region representation");
+  if (configuration.planners.hallway && !configuration.hallways_on)
+    throw std::runtime_error(
+        "configuration: HallwayPlan requires the hallway representation");
+  if (configuration.planners.trail && !configuration.trails_on)
+    throw std::runtime_error(
+        "configuration: TrailPlan requires the trail representation");
+  if (configuration.planners.conveyor && !configuration.conveyors_on)
+    throw std::runtime_error(
+        "configuration: ConveyorPlan requires the conveyor representation");
 
   const auto& crowd = configuration.crowd_learning;
   const bool known_estimator =
@@ -277,8 +309,7 @@ void applyAblationProfile(Configuration& configuration) {
       experiment.opportunistic_exploration = false;
       for (auto& advisor : configuration.advisors) {
         if (advisor.name == "exploration" || advisor.name == "novelty" ||
-            advisor.name == "curiosity" ||
-            advisor.name == "spatial_learner" ||
+            advisor.name == "curiosity" || advisor.name == "spatial_learner" ||
             advisor.name == "enfilade" || advisor.name == "visual_scan")
           advisor.active = false;
       }
@@ -300,6 +331,10 @@ void applyAblationProfile(Configuration& configuration) {
       configuration.navigation.planners.density = false;
       configuration.navigation.planners.risk = false;
       configuration.navigation.planners.flow = false;
+      configuration.navigation.planners.region = false;
+      configuration.navigation.planners.hallway = false;
+      configuration.navigation.planners.trail = false;
+      configuration.navigation.planners.conveyor = false;
       configuration.navigation.planners.skeleton = false;
       configuration.navigation.planners.highway = false;
       break;
@@ -348,48 +383,41 @@ void applyAblationProfile(Configuration& configuration) {
 
 std::string configurationFingerprint(const Configuration& configuration) {
   std::ostringstream canonical;
-  canonical << std::setprecision(17) << toString(configuration.experiment.profile)
-            << '|' << configuration.experiment.random_seed
-            << '|' << configuration.experiment.tiers.tier_one << '|'
-            << configuration.experiment.tiers.tier_two << '|'
-            << configuration.experiment.tiers.tier_three << '|'
-            << configuration.experiment.initial_exploration.enabled << '|'
-            << configuration.experiment.initial_exploration.observation_budget
-            << '|' << configuration.experiment.initial_exploration.strategy
-            << '|' << configuration.experiment.initial_exploration.time_limit_s
-            << '|'
-            << configuration.experiment.initial_exploration.decision_budget
-            << '|'
-            << configuration.experiment.initial_exploration.minimum_clearance_m
-            << '|'
-            << configuration.experiment.initial_exploration
-                   .heading_tolerance_rad
-            << '|'
-            << configuration.experiment.initial_exploration
-                   .candidate_completion_distance_m
-            << '|'
-            << configuration.experiment.initial_exploration
-                   .cue_similarity_radius_m
-            << '|'
-            << configuration.experiment.initial_exploration
-                   .passage_grid_resolution_m
-            << '|'
-            << configuration.experiment.initial_exploration
-                   .minimum_bundle_beams
-            << '|' << configuration.experiment.reactive_exploration_enabled
-            << '|' << configuration.experiment.opportunistic_exploration << '|'
-            << configuration.experiment.social.enabled << '|'
-            << configuration.experiment.social.observations << '|'
-            << configuration.experiment.social.learning << '|'
-            << configuration.experiment.social.advisors << '|'
-            << configuration.experiment.social.planners << '|'
-            << configuration.experiment.safety_envelope.enabled << '|'
-            << configuration.experiment.safety_envelope
-                   .sensor_freshness_timeout_s
-            << '|'
-            << configuration.map_file << '|' << configuration.map_dimensions.length
-            << '|' << configuration.map_dimensions.height << '|'
-            << configuration.map_dimensions.granularity;
+  canonical
+      << std::setprecision(17) << toString(configuration.experiment.profile)
+      << '|' << configuration.experiment.random_seed << '|'
+      << configuration.experiment.tiers.tier_one << '|'
+      << configuration.experiment.tiers.tier_two << '|'
+      << configuration.experiment.tiers.tier_three << '|'
+      << configuration.experiment.initial_exploration.enabled << '|'
+      << configuration.experiment.initial_exploration.observation_budget << '|'
+      << configuration.experiment.initial_exploration.strategy << '|'
+      << configuration.experiment.initial_exploration.time_limit_s << '|'
+      << configuration.experiment.initial_exploration.decision_budget << '|'
+      << configuration.experiment.initial_exploration.minimum_clearance_m << '|'
+      << configuration.experiment.initial_exploration.heading_tolerance_rad
+      << '|'
+      << configuration.experiment.initial_exploration
+             .candidate_completion_distance_m
+      << '|'
+      << configuration.experiment.initial_exploration.cue_similarity_radius_m
+      << '|'
+      << configuration.experiment.initial_exploration.passage_grid_resolution_m
+      << '|'
+      << configuration.experiment.initial_exploration.minimum_bundle_beams
+      << '|' << configuration.experiment.reactive_exploration_enabled << '|'
+      << configuration.experiment.opportunistic_exploration << '|'
+      << configuration.experiment.social.enabled << '|'
+      << configuration.experiment.social.observations << '|'
+      << configuration.experiment.social.learning << '|'
+      << configuration.experiment.social.advisors << '|'
+      << configuration.experiment.social.planners << '|'
+      << configuration.experiment.safety_envelope.enabled << '|'
+      << configuration.experiment.safety_envelope.sensor_freshness_timeout_s
+      << '|' << configuration.map_file << '|'
+      << configuration.map_dimensions.length << '|'
+      << configuration.map_dimensions.height << '|'
+      << configuration.map_dimensions.granularity;
   for (const double value : configuration.navigation.move_actions)
     canonical << "|m:" << value;
   for (const double value : configuration.navigation.rotate_actions)
@@ -415,6 +443,11 @@ std::string configurationFingerprint(const Configuration& configuration) {
             << configuration.navigation.planners.density << '|'
             << configuration.navigation.planners.risk << '|'
             << configuration.navigation.planners.flow << '|'
+            << configuration.navigation.planners.region << '|'
+            << configuration.navigation.planners.hallway << '|'
+            << configuration.navigation.planners.trail << '|'
+            << configuration.navigation.planners.conveyor << '|'
+            << configuration.navigation.planners.selection_policy << '|'
             << configuration.navigation.crowd_learning.enabled;
   for (const auto& advisor : configuration.advisors)
     canonical << "|a:" << advisor.name << ':' << advisor.active << ':'
@@ -427,8 +460,7 @@ std::string configurationFingerprint(const Configuration& configuration) {
   return encoded.str();
 }
 
-std::vector<std::string> componentManifest(
-    const Configuration& configuration) {
+std::vector<std::string> componentManifest(const Configuration& configuration) {
   std::vector<std::string> result{"hard_safety:obstacle_clearance",
                                   "phase:target_navigation"};
   const auto& experiment = configuration.experiment;
@@ -440,8 +472,7 @@ std::vector<std::string> componentManifest(
   for (const auto& rule : experiment.tiers.tier_one_rules)
     if (experiment.tiers.tier_one) result.push_back("tier1:" + rule);
   for (const auto& planner : experiment.tiers.reactive_planners)
-    if (experiment.tiers.tier_one)
-      result.push_back("reactive:" + planner);
+    if (experiment.tiers.tier_one) result.push_back("reactive:" + planner);
   if (experiment.reactive_exploration_enabled)
     result.push_back("exploration:lle");
   const auto add_feature = [&result](bool enabled, std::string name) {
@@ -466,6 +497,10 @@ std::vector<std::string> componentManifest(
   add_planner(configuration.navigation.planners.density, "density");
   add_planner(configuration.navigation.planners.risk, "risk");
   add_planner(configuration.navigation.planners.flow, "flow");
+  add_planner(configuration.navigation.planners.region, "region");
+  add_planner(configuration.navigation.planners.hallway, "hallway");
+  add_planner(configuration.navigation.planners.trail, "trail");
+  add_planner(configuration.navigation.planners.conveyor, "conveyor");
   for (const auto& advisor : configuration.advisors)
     if (advisor.active) result.push_back("advisor:" + advisor.name);
   std::sort(result.begin(), result.end());
@@ -512,8 +547,9 @@ void validateConfiguration(const Configuration& configuration) {
         "configuration: target navigation cannot be disabled when mission "
         "tasks are configured");
   const std::vector<std::string> tier_one_order{
-      "victory", "avoid_obstacles", "not_opposite", "enforcer", "thru",
-      "behind", "out", "low_level_exploration", "forward", "precedent"};
+      "victory", "avoid_obstacles", "not_opposite", "enforcer",
+      "thru",    "behind",          "out",          "low_level_exploration",
+      "forward", "precedent"};
   std::size_t previous = 0U;
   bool first_rule = true;
   std::set<std::string> configured_rules;
@@ -524,8 +560,8 @@ void validateConfiguration(const Configuration& configuration) {
       throw std::runtime_error("configuration: unknown Tier-1 rule '" + rule +
                                "'");
     if (!configured_rules.insert(rule).second)
-      throw std::runtime_error("configuration: duplicate Tier-1 rule '" +
-                               rule + "'");
+      throw std::runtime_error("configuration: duplicate Tier-1 rule '" + rule +
+                               "'");
     const std::size_t position =
         static_cast<std::size_t>(found - tier_one_order.begin());
     if (!first_rule && position <= previous)
@@ -534,23 +570,22 @@ void validateConfiguration(const Configuration& configuration) {
     first_rule = false;
     previous = position;
   }
-  const std::set<std::string> registered_reactive{
-      "thru", "behind", "out", "low_level_exploration"};
+  const std::set<std::string> registered_reactive{"thru", "behind", "out",
+                                                  "low_level_exploration"};
   std::set<std::string> configured_reactive;
   for (const auto& planner : experiment.tiers.reactive_planners) {
     if (!registered_reactive.contains(planner))
-      throw std::runtime_error(
-          "configuration: unknown reactive planner '" + planner + "'");
+      throw std::runtime_error("configuration: unknown reactive planner '" +
+                               planner + "'");
     if (!configured_reactive.insert(planner).second)
-      throw std::runtime_error(
-          "configuration: duplicate reactive planner '" + planner + "'");
+      throw std::runtime_error("configuration: duplicate reactive planner '" +
+                               planner + "'");
   }
   if (!experiment.safety_envelope.enabled)
     throw std::runtime_error(
         "configuration: safety.command_envelope.enabled is an invariant "
         "platform boundary and must remain true for every cognitive ablation");
-  if (!std::isfinite(
-          experiment.safety_envelope.sensor_freshness_timeout_s) ||
+  if (!std::isfinite(experiment.safety_envelope.sensor_freshness_timeout_s) ||
       experiment.safety_envelope.sensor_freshness_timeout_s <= 0.0)
     throw std::runtime_error(
         "configuration: safety.sensor_freshness_timeout_s must be finite "
@@ -566,9 +601,14 @@ void validateConfiguration(const Configuration& configuration) {
          configuration.navigation.planners.highway ||
          configuration.navigation.planners.density ||
          configuration.navigation.planners.risk ||
-         configuration.navigation.planners.flow)))
+         configuration.navigation.planners.flow ||
+         configuration.navigation.planners.region ||
+         configuration.navigation.planners.hallway ||
+         configuration.navigation.planners.trail ||
+         configuration.navigation.planners.conveyor)))
     throw std::runtime_error(
-        "configuration: LLE requires Tier 1, the inclusion grid, Tier 2 replanning, "
+        "configuration: LLE requires Tier 1, the inclusion grid, Tier 2 "
+        "replanning, "
         "'low_level_exploration' in reactive planners, and at least one "
         "enabled global replanning strategy");
   if (experiment.reactive_exploration_enabled &&
@@ -611,15 +651,39 @@ void validateConfiguration(const Configuration& configuration) {
         "configuration: at least one decision-producing advisor must be "
         "active");
   }
-  const std::set<std::string> registered_advisors{
-      "goal_progress",      "goal_progress_linear", "clearance",
-      "clearance_rotation", "exploration",          "social_navigation",
-      "crowd_avoid", "risk_avoid", "flow_follow", "avoid_revisit",
-      "prefer_regions", "prefer_highways", "prefer_doors", "follow_trails",
-      "big_step", "elbow_room", "novelty", "go_around", "greedy",
-      "curiosity", "enfilade", "visual_scan", "convey", "enter", "exit",
-      "trailer", "unlikely", "access", "crossroads", "follow",
-      "least_angle", "spatial_learner", "stay"};
+  const std::set<std::string> registered_advisors{"goal_progress",
+                                                  "goal_progress_linear",
+                                                  "clearance",
+                                                  "clearance_rotation",
+                                                  "exploration",
+                                                  "social_navigation",
+                                                  "crowd_avoid",
+                                                  "risk_avoid",
+                                                  "flow_follow",
+                                                  "avoid_revisit",
+                                                  "prefer_regions",
+                                                  "prefer_highways",
+                                                  "prefer_doors",
+                                                  "follow_trails",
+                                                  "big_step",
+                                                  "elbow_room",
+                                                  "novelty",
+                                                  "go_around",
+                                                  "greedy",
+                                                  "curiosity",
+                                                  "enfilade",
+                                                  "visual_scan",
+                                                  "convey",
+                                                  "enter",
+                                                  "exit",
+                                                  "trailer",
+                                                  "unlikely",
+                                                  "access",
+                                                  "crossroads",
+                                                  "follow",
+                                                  "least_angle",
+                                                  "spatial_learner",
+                                                  "stay"};
   std::set<std::string> names;
   for (const AdvisorConfiguration& advisor : configuration.advisors) {
     if (!names.insert(advisor.name).second) {
@@ -641,22 +705,18 @@ void validateConfiguration(const Configuration& configuration) {
             ? !configuration.navigation.regions_on
         : advisor.name == "prefer_highways"
             ? !configuration.navigation.highways_on
-        : advisor.name == "prefer_doors"
-            ? !configuration.navigation.doors_on
+        : advisor.name == "prefer_doors" ? !configuration.navigation.doors_on
         : (advisor.name == "follow_trails" || advisor.name == "trailer")
             ? !configuration.navigation.trails_on
-        : advisor.name == "convey"
-            ? !configuration.navigation.conveyors_on
+        : advisor.name == "convey" ? !configuration.navigation.conveyors_on
         : (advisor.name == "follow" || advisor.name == "crossroads" ||
            advisor.name == "stay")
             ? !configuration.navigation.hallways_on
-        : advisor.name == "enter"
-            ? !configuration.navigation.regions_on
+        : advisor.name == "enter" ? !configuration.navigation.regions_on
         : (advisor.name == "access" || advisor.name == "unlikely")
             ? (!configuration.navigation.regions_on ||
                !configuration.navigation.doors_on)
-        : advisor.name == "least_angle"
-            ? !configuration.navigation.regions_on
+        : advisor.name == "least_angle" ? !configuration.navigation.regions_on
         : advisor.name == "spatial_learner"
             ? (!configuration.navigation.inclusion_grid_on ||
                !configuration.navigation.regions_on ||

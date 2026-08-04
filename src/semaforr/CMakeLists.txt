@@ -91,7 +91,9 @@ add_library(semaforr_planning SHARED
   src/planning/domain_planner.cpp
   src/planning/hierarchical_plan.cpp
   src/planning/map_parser.cpp
+  src/planning/plan_types.cpp
   src/planning/planning_coordinator.cpp
+  src/planning/planner_registry.cpp
   src/planning/reactive_planner.cpp
 )
 set_target_properties(semaforr_planning PROPERTIES EXPORT_NAME planning)

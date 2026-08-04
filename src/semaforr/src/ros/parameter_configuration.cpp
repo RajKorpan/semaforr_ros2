@@ -34,6 +34,14 @@ void applyPlanner(config::PlannerConfiguration& planners,
     planners.risk = true;
   else if (name == "flow")
     planners.flow = true;
+  else if (name == "region")
+    planners.region = true;
+  else if (name == "hallway")
+    planners.hallway = true;
+  else if (name == "trail")
+    planners.trail = true;
+  else if (name == "conveyor")
+    planners.conveyor = true;
   else if (name == "skeleton")
     planners.skeleton = true;
   else if (name == "highway")
@@ -68,8 +76,8 @@ void declareConfigurationParameters(rclcpp::Node& node) {
       "phases.initial_exploration.candidate_completion_distance_m", 0.1);
   node.declare_parameter("phases.initial_exploration.cue_similarity_radius_m",
                          0.5);
-  node.declare_parameter(
-      "phases.initial_exploration.passage_grid_resolution_m", 0.5);
+  node.declare_parameter("phases.initial_exploration.passage_grid_resolution_m",
+                         0.5);
   node.declare_parameter("phases.initial_exploration.minimum_bundle_beams", 1);
   node.declare_parameter("phases.target_navigation.enabled", true);
   node.declare_parameter("exploration.reactive.enabled", true);
@@ -101,10 +109,9 @@ void declareConfigurationParameters(rclcpp::Node& node) {
   node.declare_parameter("safety.max_laser_range_m", 5.0);
   node.declare_parameter("safety.max_forward_buffer_m", 0.1);
   node.declare_parameter("safety.max_forward_sweep_rad", 0.5236);
-  for (const std::string feature : {"trails", "conveyors", "regions", "doors",
-                                    "hallways", "barriers", "astar",
-                                    "known_grid", "inclusion_grid", "highways",
-                                    "circumstances"}) {
+  for (const std::string feature :
+       {"trails", "conveyors", "regions", "doors", "hallways", "barriers",
+        "astar", "known_grid", "inclusion_grid", "highways", "circumstances"}) {
     const bool default_value = feature == "trails" || feature == "conveyors" ||
                                feature == "regions" || feature == "doors" ||
                                feature == "known_grid" ||
@@ -114,6 +121,8 @@ void declareConfigurationParameters(rclcpp::Node& node) {
   node.declare_parameter("features.loaded_highway_model", std::string{});
 
   node.declare_parameter("planners.enabled", std::vector<std::string>{});
+  node.declare_parameter("planners.selection_policy",
+                         std::string{"range_vote"});
   node.declare_parameter("advisors.names", defaultAdvisorNames());
   node.declare_parameter("advisors.enabled",
                          std::vector<bool>(defaultAdvisorNames().size(), true));
@@ -210,6 +219,8 @@ config::Configuration configurationFromParameters(rclcpp::Node& node) {
   for (const std::string& planner : enabled_planners) {
     applyPlanner(navigation.planners, planner);
   }
+  navigation.planners.selection_policy =
+      node.get_parameter("planners.selection_policy").as_string();
 
   const auto names = node.get_parameter("advisors.names").as_string_array();
   const auto enabled = node.get_parameter("advisors.enabled").as_bool_array();
@@ -250,8 +261,7 @@ config::Configuration configurationFromParameters(rclcpp::Node& node) {
   const auto mode = node.get_parameter("experiment.mode").as_string();
   const auto legacy_profile =
       node.get_parameter("experiment.profile").as_string();
-  if (mode != "custom" && legacy_profile != "custom" &&
-      mode != legacy_profile)
+  if (mode != "custom" && legacy_profile != "custom" && mode != legacy_profile)
     throw std::runtime_error(
         "experiment.mode and deprecated experiment.profile conflict");
   configuration.experiment.profile = config::ablationProfileFromString(
@@ -309,8 +319,7 @@ config::Configuration configurationFromParameters(rclcpp::Node& node) {
       node.get_parameter("phases.initial_exploration.cue_similarity_radius_m")
           .as_double();
   hle.passage_grid_resolution_m =
-      node.get_parameter(
-              "phases.initial_exploration.passage_grid_resolution_m")
+      node.get_parameter("phases.initial_exploration.passage_grid_resolution_m")
           .as_double();
   const auto minimum_bundle_beams =
       node.get_parameter("phases.initial_exploration.minimum_bundle_beams")
@@ -318,8 +327,7 @@ config::Configuration configurationFromParameters(rclcpp::Node& node) {
   if (minimum_bundle_beams <= 0)
     throw std::runtime_error(
         "phases.initial_exploration.minimum_bundle_beams must be positive");
-  hle.minimum_bundle_beams =
-      static_cast<std::size_t>(minimum_bundle_beams);
+  hle.minimum_bundle_beams = static_cast<std::size_t>(minimum_bundle_beams);
   configuration.experiment.target_navigation.enabled =
       node.get_parameter("phases.target_navigation.enabled").as_bool();
   configuration.experiment.reactive_exploration_enabled =

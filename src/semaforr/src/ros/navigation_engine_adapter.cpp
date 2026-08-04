@@ -11,6 +11,7 @@
 #include <semaforr/decision/tier_registry.hpp>
 #include <semaforr/planning/domain_planner.hpp>
 #include <semaforr/planning/hierarchical_plan.hpp>
+#include <semaforr/planning/planner_registry.hpp>
 #include <semaforr/ros/navigation_engine_adapter.hpp>
 #include <string>
 #include <utility>
@@ -56,12 +57,6 @@ social::CrowdFieldLearnerConfiguration crowdConfiguration(
   return result;
 }
 
-void addPlanner(planning::PlanningCoordinator& coordinator,
-                const std::string& name, planning::PlannerObjective objective) {
-  coordinator.registerPlanner(
-      std::make_unique<planning::DomainPlanner>(name, objective));
-}
-
 }  // namespace
 
 class NavigationEngineAdapter::Impl {
@@ -82,11 +77,10 @@ class NavigationEngineAdapter::Impl {
                      configuration_.navigation.robot_footprint_buffer,
                      configuration_.experiment.safety_envelope
                          .sensor_freshness_timeout_s),
-        phases_({configuration_.experiment.initial_exploration.enabled,
-                 configuration_.experiment.initial_exploration
-                     .observation_budget,
-                 configuration_.experiment.initial_exploration
-                     .time_limit_s}) {
+        phases_(
+            {configuration_.experiment.initial_exploration.enabled,
+             configuration_.experiment.initial_exploration.observation_budget,
+             configuration_.experiment.initial_exploration.time_limit_s}) {
     configureLearning();
     configurePlanning();
     configureDecisions();
@@ -128,12 +122,9 @@ class NavigationEngineAdapter::Impl {
             : nullptr;
     engine_ = std::make_unique<decision::NavigationEngine>(
         world_, action_space_, decisions_, mission_, planning_, learning_,
-        crowd_learning_.get(), domain::Distance(0.5),
-        &hard_safety_,
-        &phases_,
+        crowd_learning_.get(), domain::Distance(0.5), &hard_safety_, &phases_,
         config::configurationFingerprint(configuration_),
-        config::componentManifest(configuration_),
-        std::move(enabled_reactive),
+        config::componentManifest(configuration_), std::move(enabled_reactive),
         configuration_.experiment.reactive_exploration_enabled &&
             has_tier_one_rule("low_level_exploration"),
         has_tier_one_rule("enforcer"),
@@ -148,8 +139,7 @@ class NavigationEngineAdapter::Impl {
                                  .cue_similarity_radius_m),
             domain::Distance(configuration_.experiment.initial_exploration
                                  .passage_grid_resolution_m),
-            configuration_.experiment.initial_exploration
-                .minimum_bundle_beams,
+            configuration_.experiment.initial_exploration.minimum_bundle_beams,
             std::chrono::duration<double>(
                 configuration_.experiment.initial_exploration.time_limit_s),
             configuration_.experiment.initial_exploration.decision_budget},
@@ -185,24 +175,17 @@ class NavigationEngineAdapter::Impl {
   void configurePlanning() {
     if (!configuration_.experiment.tiers.tier_two) return;
     const auto& planners = configuration_.navigation.planners;
-    if (planners.distance)
-      addPlanner(planning_, "distance", planning::PlannerObjective::Distance);
-    if (planners.skeleton) {
-      planning_.registerPlanner(std::make_unique<planning::SkeletonPlan>());
-    }
-    if (planners.highway) {
-      planning_.registerPlanner(std::make_unique<planning::HighwayPlan>());
-    }
-    if (planners.density) {
-      addPlanner(planning_, "density",
-                 planning::PlannerObjective::CrowdDensity);
-    }
-    if (planners.risk) {
-      addPlanner(planning_, "risk", planning::PlannerObjective::EncounterRisk);
-    }
-    if (planners.flow) {
-      addPlanner(planning_, "flow", planning::PlannerObjective::FlowAlignment);
-    }
+    planning_.setSelectionPolicy(
+        planning::planSelectionPolicyFromString(planners.selection_policy));
+    const auto registry = planning::defaultPlannerRegistry();
+    const std::vector<std::pair<std::string, bool>> enabled = {
+        {"distance", planners.distance}, {"density", planners.density},
+        {"risk", planners.risk},         {"flow", planners.flow},
+        {"region", planners.region},     {"hallway", planners.hallway},
+        {"trail", planners.trail},       {"conveyor", planners.conveyor},
+        {"skeleton", planners.skeleton}, {"highway", planners.highway}};
+    for (const auto& [name, on] : enabled)
+      if (on) planning_.registerPlanner(registry.create(name));
   }
 
   void configureDecisions() {
@@ -216,8 +199,7 @@ class NavigationEngineAdapter::Impl {
     decision::registerAdvisorCatalog(tier_three_registry, action_space_,
                                      configuration_.advisors);
     if (configuration_.experiment.tiers.tier_one) {
-      for (const auto& rule :
-           configuration_.experiment.tiers.tier_one_rules) {
+      for (const auto& rule : configuration_.experiment.tiers.tier_one_rules) {
         switch (tier_one_registry.kind(rule)) {
           case decision::TierOneRegistry::Kind::Mandatory:
             decisions_.addMandatoryRule(

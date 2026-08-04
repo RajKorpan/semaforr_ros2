@@ -1,39 +1,78 @@
 #ifndef SEMAFORR_PLANNING_PLANNER_HPP
 #define SEMAFORR_PLANNING_PLANNER_HPP
 
-#include <semaforr/domain/geometry.hpp>
-#include <semaforr/domain/world_model.hpp>
+#include <map>
 #include <optional>
+#include <semaforr/domain/highway.hpp>
+#include <semaforr/domain/world_model.hpp>
 #include <string>
 #include <string_view>
 #include <utility>
+#include <variant>
 #include <vector>
 
 namespace semaforr::planning {
 
-enum class PlanStepKind {
-  ApproachNetwork,
-  TraverseSkeleton,
-  EnterHighway,
-  FollowHighway,
-  CrossIntersection,
-  LeaveNetwork,
-  ReachGoal
+enum class PlanObjective {
+  Distance,
+  CrowdDensity,
+  EncounterRisk,
+  FlowOpposition,
+  RegionPreference,
+  HallwayPreference,
+  TrailPreference,
+  ConveyorPreference,
+  SkeletonDistance,
+  HighwayDistance
 };
 
-struct PlanStep {
-  PlanStepKind kind = PlanStepKind::ReachGoal;
+using ObjectiveCosts = std::map<PlanObjective, double>;
+
+struct WaypointStep {
   domain::Point2D target;
-  std::optional<std::size_t> network_node;
 };
+struct SubtrailStep {
+  std::vector<domain::Point2D> waypoints;
+  std::optional<domain::TrailId> trail_id;
+  std::size_t cursor = 0U;
+};
+struct RegionStep {
+  std::size_t region_id = 0U;
+  domain::Point2D center;
+};
+struct HighwayStep {
+  domain::HighwayId highway_id = 0U;
+  domain::IntersectionId from = 0U;
+  domain::IntersectionId to = 0U;
+  std::vector<domain::Point2D> fallback_subtrail;
+};
+struct IntersectionStep {
+  domain::IntersectionId intersection_id = 0U;
+  domain::Point2D centroid;
+};
+
+using PlanStep = std::variant<WaypointStep, SubtrailStep, RegionStep,
+                              HighwayStep, IntersectionStep>;
+
+enum class PlanValidity { Valid, Stale, Invalid, Complete };
 
 struct HierarchicalPlan {
+  std::string planner;
+  PlanObjective objective = PlanObjective::Distance;
   std::vector<PlanStep> steps;
-  std::size_t spatial_revision = 0U;
-  std::string strategy;
+  ObjectiveCosts estimated_objective_costs;
+  std::map<std::string, std::size_t> source_model_revisions;
+  std::size_t cursor = 0U;
+  std::string provenance;
+  PlanValidity validity = PlanValidity::Valid;
+  std::vector<std::string> diagnostics;
 
   bool empty() const noexcept { return steps.empty(); }
+  bool exhausted() const noexcept { return cursor >= steps.size(); }
 };
+
+std::optional<domain::Point2D> stepTarget(const PlanStep& step) noexcept;
+std::string_view toString(PlanObjective objective) noexcept;
 
 enum class PlanStatus { Success, NoPath, InvalidRequest, PlannerUnavailable };
 
@@ -50,6 +89,8 @@ struct PlanResult {
   double cost_m{0.0};
   std::string explanation;
   std::optional<HierarchicalPlan> hierarchical;
+  PlanObjective primary_objective = PlanObjective::Distance;
+  ObjectiveCosts objective_costs;
 
   PlanResult() = default;
   PlanResult(PlanStatus plan_status, std::vector<domain::Point2D> plan_path,
@@ -69,8 +110,10 @@ class Planner {
   virtual ~Planner() = default;
   virtual PlanResult plan(const PlanningRequest& request) = 0;
   virtual std::string_view name() const noexcept = 0;
+  virtual PlanObjective objective() const noexcept {
+    return PlanObjective::Distance;
+  }
 };
 
 }  // namespace semaforr::planning
-
-#endif  // SEMAFORR_PLANNING_PLANNER_HPP
+#endif

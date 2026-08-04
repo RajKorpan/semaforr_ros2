@@ -40,6 +40,9 @@ class PlanOperationalizer {
   virtual std::string_view name() const noexcept = 0;
   virtual std::vector<domain::Point2D> operationalize(
       const planning::HierarchicalPlan&) const = 0;
+  virtual std::optional<domain::Point2D> operationalizeNext(
+      planning::HierarchicalPlan&, const domain::SpatialModel&,
+      const domain::Pose2D&, domain::Distance) const = 0;
 };
 
 struct ReplanningRequest {
@@ -51,8 +54,7 @@ class ReplanningTrigger {
  public:
   virtual ~ReplanningTrigger() = default;
   virtual std::string_view name() const noexcept = 0;
-  virtual ReplanningRequest evaluateReplan(
-      const DecisionContext&) const = 0;
+  virtual ReplanningRequest evaluateReplan(const DecisionContext&) const = 0;
 };
 
 }  // namespace semaforr::decision

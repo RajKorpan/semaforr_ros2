@@ -141,7 +141,7 @@ semaforr:
       conveyors: true
       regions: true
       doors: true
-      hallways: false
+      hallways: true
       barriers: false
       astar: false
       known_grid: true
@@ -150,7 +150,8 @@ semaforr:
       circumstances: false
       loaded_highway_model: ""
     planners:
-      enabled: [distance, skeleton, density, risk, flow]
+      enabled: [distance, region, hallway, trail, conveyor, skeleton, density, risk, flow]
+      selection_policy: range_vote
 
     advisors:
       names:

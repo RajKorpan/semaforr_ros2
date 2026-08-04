@@ -18,8 +18,7 @@ NavigationEngine::NavigationEngine(
     std::string configuration_fingerprint,
     std::vector<std::string> component_manifest,
     std::vector<std::unique_ptr<planning::ReactivePlanner>> reactive_planners,
-    bool low_level_exploration_enabled,
-    bool enforcer_enabled,
+    bool low_level_exploration_enabled, bool enforcer_enabled,
     exploration::HighLevelExplorationConfiguration hle_configuration,
     std::unique_ptr<planning::ReactivePlanner> low_level_explorer,
     std::unique_ptr<PlanOperationalizer> plan_operationalizer)
@@ -35,13 +34,11 @@ NavigationEngine::NavigationEngine(
       configuration_fingerprint_(std::move(configuration_fingerprint)),
       component_manifest_(std::move(component_manifest)),
       exploration_(std::move(hle_configuration)),
-      enforcer_(plan_operationalizer
-                    ? std::move(plan_operationalizer)
-                    : std::make_unique<Enforcer>()),
+      enforcer_(plan_operationalizer ? std::move(plan_operationalizer)
+                                     : std::make_unique<Enforcer>()),
       reactive_(std::move(reactive_planners)),
-      lle_(low_level_explorer
-               ? std::move(low_level_explorer)
-               : std::make_unique<planning::LowLevelExplorer>()),
+      lle_(low_level_explorer ? std::move(low_level_explorer)
+                              : std::make_unique<planning::LowLevelExplorer>()),
       low_level_exploration_enabled_(low_level_exploration_enabled),
       enforcer_enabled_(enforcer_enabled),
       goal_tolerance_(goal_tolerance) {
@@ -77,9 +74,8 @@ void NavigationEngine::observe(const domain::RobotObservation& observation) {
                                phase_update.events.end());
   if (world_.recovery.confined &&
       !world_.navigation_history.entries().empty() &&
-      domain::distance(
-          observation.pose.position,
-          world_.navigation_history.entries().back().pose.position)
+      domain::distance(observation.pose.position,
+                       world_.navigation_history.entries().back().pose.position)
               .meters() > 0.1)
     world_.recovery.confined = false;
   world_.robot.pose = observation.pose;
@@ -105,6 +101,8 @@ void NavigationEngine::observe(const domain::RobotObservation& observation) {
     mission_.advanceWaypoint(observation.pose, goal_tolerance_);
   }
   if (had_active_task && !world_.mission.active()) {
+    active_hierarchy_.reset();
+    hierarchy_task_.reset();
     learning_.finalizeTarget();
     learning_.applyTo(world_.spatial);
   }
@@ -117,6 +115,18 @@ std::optional<std::string> NavigationEngine::preparePlan(MissionStep step) {
   if (step == MissionStep::Ready && !world_.mission.active()->plan.empty()) {
     return std::nullopt;
   }
+  if (enforcer_enabled_ && active_hierarchy_ && hierarchy_task_ &&
+      *hierarchy_task_ == world_.mission.active()->id) {
+    const auto next = enforcer_->operationalizeNext(
+        *active_hierarchy_, world_.spatial, world_.robot.pose, goal_tolerance_);
+    if (next) {
+      mission_.installPlan({*next});
+      mission_.advanceWaypoint(world_.robot.pose, goal_tolerance_);
+      return active_hierarchy_->planner;
+    }
+    active_hierarchy_.reset();
+    hierarchy_task_.reset();
+  }
   const auto selected =
       planning_.selectPlan({world_.robot.pose, world_.mission.active()->target,
                             &world_.spatial, &world_.crowd});
@@ -124,10 +134,16 @@ std::optional<std::string> NavigationEngine::preparePlan(MissionStep step) {
     mission_.installPlan({world_.mission.active()->target});
     return std::nullopt;
   }
-  mission_.installPlan(enforcer_enabled_ && selected->result.hierarchical
-                           ? enforcer_->operationalize(
-                                 *selected->result.hierarchical)
-                           : selected->result.path);
+  if (enforcer_enabled_ && selected->result.hierarchical) {
+    active_hierarchy_ = *selected->result.hierarchical;
+    hierarchy_task_ = world_.mission.active()->id;
+    const auto next = enforcer_->operationalizeNext(
+        *active_hierarchy_, world_.spatial, world_.robot.pose, goal_tolerance_);
+    mission_.installPlan(next ? std::vector<domain::Point2D>{*next}
+                              : selected->result.path);
+  } else {
+    mission_.installPlan(selected->result.path);
+  }
   mission_.advanceWaypoint(world_.robot.pose, goal_tolerance_);
   return selected->planner;
 }
@@ -138,7 +154,8 @@ void NavigationEngine::finishInitialExploration() {
     const double heading = candidate.heading.radians();
     const double distance = candidate.clearance.meters();
     world_.spatial.unfinished_hle_candidates.push_back(
-        {candidate.id, candidate.start,
+        {candidate.id,
+         candidate.start,
          {candidate.start.x_m + distance * std::cos(heading),
           candidate.start.y_m + distance * std::sin(heading)}});
   }
@@ -155,8 +172,8 @@ DecisionResult NavigationEngine::decide() {
     finishInitialExploration();
     phases_->completeInitialExploration();
     auto completed = phases_->takeEvents();
-    pending_phase_events_.insert(pending_phase_events_.end(),
-                                 completed.begin(), completed.end());
+    pending_phase_events_.insert(pending_phase_events_.end(), completed.begin(),
+                                 completed.end());
     dispatch = phases_->next(world_);
   }
   if (dispatch.phase == navigation::NavigationPhase::MissionComplete) {
@@ -185,10 +202,9 @@ DecisionResult NavigationEngine::decide() {
     result.phase_events.swap(pending_phase_events_);
     result.action = exploration.decision.action;
     if (hard_safety_) {
-      const std::array<domain::Action, 1U> exploration_candidate{
-          result.action};
-      auto filtered = hard_safety_->filter(DecisionContext{world_},
-                                           exploration_candidate);
+      const std::array<domain::Action, 1U> exploration_candidate{result.action};
+      auto filtered =
+          hard_safety_->filter(DecisionContext{world_}, exploration_candidate);
       result.vetoes = std::move(filtered.vetoes);
       if (filtered.safe_actions.empty())
         result.action = domain::Action::pause();
@@ -196,16 +212,15 @@ DecisionResult NavigationEngine::decide() {
     result.source = DecisionSource::Exploration;
     result.tier = DecisionTier::Exploration;
     result.selected_policy =
-        "hle:" +
-        std::string(exploration::toString(exploration.decision.state));
+        "hle:" + std::string(exploration::toString(exploration.decision.state));
     result.phase_events.insert(result.phase_events.end(),
                                exploration.events.begin(),
                                exploration.events.end());
     world_.navigation_history.record(
-        {observation_->pose, observation_->laser, result.action});
+        {observation_->pose, observation_->laser, result.action, std::nullopt});
     learning_.observe({world_.navigation_history.entries().size(),
-                       *observation_, result.action, std::nullopt, false,
-                       false, true});
+                       *observation_, result.action, std::nullopt, false, false,
+                       true});
     learning_.applyTo(world_.spatial);
     if (phases_->explorationBudgetReached()) {
       finishInitialExploration();
@@ -227,9 +242,8 @@ DecisionResult NavigationEngine::decide() {
     return result;
   }
   const planning::ReactiveResult lle =
-      low_level_exploration_enabled_
-          ? lle_->evaluate({world_, action_space_})
-          : planning::ReactiveResult{};
+      low_level_exploration_enabled_ ? lle_->evaluate({world_, action_space_})
+                                     : planning::ReactiveResult{};
   if (lle.status == planning::ReactiveStatus::RequestReplan &&
       world_.mission.active()) {
     mission_.clearPlan();
@@ -259,9 +273,9 @@ DecisionResult NavigationEngine::decide() {
     result.tier = DecisionTier::TierOne;
     result.selected_policy = "reactive:LLE";
   } else if (reactive.status == planning::ReactiveStatus::Action &&
-      reactive.action &&
-      std::find(decision_candidates.begin(), decision_candidates.end(),
-                *reactive.action) != decision_candidates.end()) {
+             reactive.action &&
+             std::find(decision_candidates.begin(), decision_candidates.end(),
+                       *reactive.action) != decision_candidates.end()) {
     result.action = *reactive.action;
     result.source = DecisionSource::MandatoryRule;
     result.tier = DecisionTier::TierOne;

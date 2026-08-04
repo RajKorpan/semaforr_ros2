@@ -23,27 +23,23 @@ namespace semaforr::decision {
 
 class NavigationEngine {
  public:
-  NavigationEngine(domain::WorldModel& world,
-                   const domain::ActionSpace& action_space,
-                   DecisionCoordinator& decisions, MissionManager& mission,
-                   planning::PlanningCoordinator& planning,
-                   spatial::SpatialLearningCoordinator& learning,
-                   social::CrowdFieldLearner* crowd_learning = nullptr,
-                   domain::Distance goal_tolerance = domain::Distance(0.5),
-                   HardSafetyFilter* hard_safety = nullptr,
-                   navigation::NavigationPhaseCoordinator* phases = nullptr,
-                   std::string configuration_fingerprint = {},
-                   std::vector<std::string> component_manifest = {},
-                   std::vector<std::unique_ptr<planning::ReactivePlanner>>
-                       reactive_planners = {},
-                   bool low_level_exploration_enabled = true,
-                   bool enforcer_enabled = true,
-                   exploration::HighLevelExplorationConfiguration
-                       hle_configuration = {},
-                   std::unique_ptr<planning::ReactivePlanner>
-                       low_level_explorer = nullptr,
-                   std::unique_ptr<PlanOperationalizer>
-                       plan_operationalizer = nullptr);
+  NavigationEngine(
+      domain::WorldModel& world, const domain::ActionSpace& action_space,
+      DecisionCoordinator& decisions, MissionManager& mission,
+      planning::PlanningCoordinator& planning,
+      spatial::SpatialLearningCoordinator& learning,
+      social::CrowdFieldLearner* crowd_learning = nullptr,
+      domain::Distance goal_tolerance = domain::Distance(0.5),
+      HardSafetyFilter* hard_safety = nullptr,
+      navigation::NavigationPhaseCoordinator* phases = nullptr,
+      std::string configuration_fingerprint = {},
+      std::vector<std::string> component_manifest = {},
+      std::vector<std::unique_ptr<planning::ReactivePlanner>>
+          reactive_planners = {},
+      bool low_level_exploration_enabled = true, bool enforcer_enabled = true,
+      exploration::HighLevelExplorationConfiguration hle_configuration = {},
+      std::unique_ptr<planning::ReactivePlanner> low_level_explorer = nullptr,
+      std::unique_ptr<PlanOperationalizer> plan_operationalizer = nullptr);
 
   void observe(const domain::RobotObservation& observation);
   DecisionResult decide();
@@ -76,6 +72,8 @@ class NavigationEngine {
   bool enforcer_enabled_;
   domain::Distance goal_tolerance_;
   std::optional<domain::RobotObservation> observation_;
+  std::optional<planning::HierarchicalPlan> active_hierarchy_;
+  std::optional<domain::TaskId> hierarchy_task_;
   std::vector<std::string> pending_phase_events_;
   std::uint64_t decision_sequence_{0U};
 };

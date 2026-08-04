@@ -1,18 +1,21 @@
 #include <gtest/gtest.h>
+
 #include <memory>
 #include <semaforr/decision/enforcer.hpp>
 #include <semaforr/exploration/exploration_coordinator.hpp>
-#include <semaforr/exploration/highway_explorer.hpp>
 #include <semaforr/exploration/high_level_explorer.hpp>
+#include <semaforr/exploration/highway_explorer.hpp>
 #include <semaforr/planning/domain_planner.hpp>
 #include <semaforr/planning/hierarchical_plan.hpp>
+#include <semaforr/planning/planner_registry.hpp>
 #include <semaforr/planning/planning_coordinator.hpp>
 #include <semaforr/spatial/learners/highway_learner.hpp>
 
 namespace {
 
-semaforr::domain::RobotObservation observation(
-    double x, std::vector<double> ranges = {2.0, 2.0, 2.0, 2.0, 2.0}) {
+semaforr::domain::RobotObservation observation(double x,
+                                               std::vector<double> ranges = {
+                                                   2.0, 2.0, 2.0, 2.0, 2.0}) {
   semaforr::domain::RobotObservation result;
   result.pose = {{x, 0.0}, semaforr::domain::Angle::zero()};
   result.laser.angle_min = semaforr::domain::Angle(-0.4);
@@ -38,10 +41,10 @@ TEST(HighwayExplore, PassageSelectionAndStateTransitionsAreDeterministic) {
   EXPECT_EQ(one.action.type(), semaforr::domain::ActionType::TurnRight);
 }
 
-TEST(HighLevelExplore, OwnsDeterministicCandidateLifecycleAndSparsePassageGrid) {
+TEST(HighLevelExplore,
+     OwnsDeterministicCandidateLifecycleAndSparsePassageGrid) {
   semaforr::exploration::HighLevelExplorationConfiguration configuration;
-  configuration.candidate_completion_distance =
-      semaforr::domain::Distance(0.1);
+  configuration.candidate_completion_distance = semaforr::domain::Distance(0.1);
   semaforr::exploration::HighLevelExplorer explorer(configuration);
   const semaforr::domain::ActionSpace actions({0.1, 0.2}, {0.25, 0.5});
   auto view = observation(0.0);
@@ -57,8 +60,7 @@ TEST(HighLevelExplore, OwnsDeterministicCandidateLifecycleAndSparsePassageGrid) 
   EXPECT_EQ(*selected.candidate_id, 1U);
 
   const auto pursuing = explorer.update({view, actions, {}});
-  EXPECT_EQ(pursuing.state,
-            semaforr::exploration::HleState::PursueCandidate);
+  EXPECT_EQ(pursuing.state, semaforr::exploration::HleState::PursueCandidate);
   EXPECT_EQ(pursuing.event,
             semaforr::exploration::CandidateLifecycleEvent::PursuitStarted);
   view.pose.position.x_m = 0.2;
@@ -77,8 +79,7 @@ TEST(HighLevelExplore, ReportsBudgetCompletionAndFinalizesExactlyOnce) {
   const auto view = observation(0.0);
   static_cast<void>(explorer.update({view, actions, {}}));
   const auto finalizing = explorer.update({view, actions, {}});
-  EXPECT_EQ(finalizing.state,
-            semaforr::exploration::HleState::FinalizeModel);
+  EXPECT_EQ(finalizing.state, semaforr::exploration::HleState::FinalizeModel);
   EXPECT_EQ(finalizing.completion_reason,
             semaforr::exploration::ExplorationCompletionReason::
                 DecisionBudgetExceeded);
@@ -105,8 +106,7 @@ TEST(HighwayLearning, BuildsVersionedGraphIncrementally) {
   const auto update = learner.snapshot();
   ASSERT_TRUE(update.usable());
   EXPECT_EQ(update.revision, 1U);
-  const auto& model =
-      std::get<semaforr::spatial::HighwayModel>(update.payload);
+  const auto& model = std::get<semaforr::spatial::HighwayModel>(update.payload);
   EXPECT_EQ(model.nodes.size(), 3U);
   EXPECT_EQ(model.edges.size(), 2U);
   ASSERT_EQ(model.highways.size(), 1U);
@@ -132,49 +132,53 @@ TEST(HierarchicalPlans, HighwayPlanProducesTypedOperationalSteps) {
   spatial.highways.intersections = {{1U, 3U}};
   spatial.revision = 7U;
   semaforr::planning::HighwayPlan planner;
-  const auto result = planner.plan(
-      {{{-1.0, 0.0}, semaforr::domain::Angle::zero()}, {3.0, 0.0},
-       &spatial, nullptr});
+  const auto result =
+      planner.plan({{{-1.0, 0.0}, semaforr::domain::Angle::zero()},
+                    {3.0, 0.0},
+                    &spatial,
+                    nullptr});
   ASSERT_TRUE(result.succeeded());
   ASSERT_TRUE(result.hierarchical);
-  EXPECT_EQ(result.hierarchical->spatial_revision, 7U);
+  EXPECT_EQ(result.hierarchical->source_model_revisions.at("spatial"), 7U);
   EXPECT_TRUE(std::any_of(
       result.hierarchical->steps.begin(), result.hierarchical->steps.end(),
       [](const auto& step) {
-        return step.kind ==
-               semaforr::planning::PlanStepKind::CrossIntersection;
+        return std::holds_alternative<semaforr::planning::IntersectionStep>(
+            step);
       }));
   const auto waypoints =
       semaforr::decision::Enforcer{}.operationalize(*result.hierarchical);
-  EXPECT_EQ(waypoints, result.path);
+  ASSERT_EQ(waypoints.size(), 1U);
+  EXPECT_EQ(waypoints.front(), result.path.front());
 }
 
 TEST(HierarchicalPlans, HighwayPlanChoosesBestValidNetworkAlternative) {
   semaforr::domain::SpatialModel spatial;
-  spatial.skeleton_nodes = {
-      {0.0, 0.0}, {0.0, 10.0}, {10.0, 10.0}, {10.0, 0.0}};
+  spatial.skeleton_nodes = {{0.0, 0.0}, {0.0, 10.0}, {10.0, 10.0}, {10.0, 0.0}};
   spatial.skeleton_edges = {{0U, 1U}, {1U, 2U}, {2U, 3U}};
-  spatial.highways.graph.vertices = {
-      {0U, {0, 0}, {0.0, 0.0}, true},
-      {1U, {0, 10}, {10.0, 0.0}, true}};
+  spatial.highways.graph.vertices = {{0U, {0, 0}, {0.0, 0.0}, true},
+                                     {1U, {0, 10}, {10.0, 0.0}, true}};
   spatial.highways.graph.edges = {{0U, 1U, 0U, 10.0, {7U}}};
   semaforr::planning::HighwayPlan planner;
-  const auto assisted = planner.plan(
-      {{{-1.0, 0.0}, semaforr::domain::Angle::zero()}, {11.0, 0.0},
-       &spatial, nullptr});
+  const auto assisted =
+      planner.plan({{{-1.0, 0.0}, semaforr::domain::Angle::zero()},
+                    {11.0, 0.0},
+                    &spatial,
+                    nullptr});
   ASSERT_TRUE(assisted.succeeded());
   ASSERT_TRUE(assisted.hierarchical);
-  EXPECT_EQ(assisted.hierarchical->strategy, "highway_assisted");
+  EXPECT_EQ(assisted.hierarchical->planner, "highway_assisted");
 
-  spatial.highways.graph.vertices = {
-      {0U, {20, 20}, {20.0, 20.0}, true},
-      {1U, {20, 30}, {30.0, 20.0}, true}};
-  const auto skeleton = planner.plan(
-      {{{-1.0, 0.0}, semaforr::domain::Angle::zero()}, {11.0, 0.0},
-       &spatial, nullptr});
+  spatial.highways.graph.vertices = {{0U, {20, 20}, {20.0, 20.0}, true},
+                                     {1U, {20, 30}, {30.0, 20.0}, true}};
+  const auto skeleton =
+      planner.plan({{{-1.0, 0.0}, semaforr::domain::Angle::zero()},
+                    {11.0, 0.0},
+                    &spatial,
+                    nullptr});
   ASSERT_TRUE(skeleton.succeeded());
   ASSERT_TRUE(skeleton.hierarchical);
-  EXPECT_EQ(skeleton.hierarchical->strategy, "skeleton");
+  EXPECT_EQ(skeleton.hierarchical->planner, "skeleton");
 }
 
 TEST(PlanCache, ReusesExactRevisionAndInvalidatesOnModelRevision) {
@@ -184,7 +188,9 @@ TEST(PlanCache, ReusesExactRevisionAndInvalidatesOnModelRevision) {
           "distance", semaforr::planning::PlannerObjective::Distance));
   semaforr::domain::SpatialModel spatial;
   semaforr::planning::PlanningRequest request{
-      {{0.0, 0.0}, semaforr::domain::Angle::zero()}, {2.0, 0.0}, &spatial,
+      {{0.0, 0.0}, semaforr::domain::Angle::zero()},
+      {2.0, 0.0},
+      &spatial,
       nullptr};
   ASSERT_TRUE(coordinator.selectPlan(request));
   ASSERT_TRUE(coordinator.selectPlan(request));
@@ -192,4 +198,52 @@ TEST(PlanCache, ReusesExactRevisionAndInvalidatesOnModelRevision) {
   ++spatial.revision;
   ASSERT_TRUE(coordinator.selectPlan(request));
   EXPECT_EQ(coordinator.cacheHits(), 1U);
+}
+
+TEST(PlannerRegistry, ClassifiesGridAffordanceAndFreespacePlanners) {
+  const auto registry = semaforr::planning::defaultPlannerRegistry();
+  EXPECT_EQ(registry.inputModel("density"),
+            semaforr::planning::PlannerInputModel::Grid);
+  EXPECT_EQ(registry.inputModel("region"),
+            semaforr::planning::PlannerInputModel::AffordanceModifiedGrid);
+  EXPECT_EQ(registry.inputModel("highway"),
+            semaforr::planning::PlannerInputModel::Freespace);
+  EXPECT_EQ(registry.create("flow")->objective(),
+            semaforr::planning::PlanObjective::FlowOpposition);
+  EXPECT_THROW(registry.create("unknown"), std::invalid_argument);
+}
+
+TEST(AffordancePlanner, RegionCostModificationChangesTheChosenRoute) {
+  semaforr::domain::SpatialModel spatial;
+  spatial.skeleton_nodes = {{0.0, 0.0}, {1.0, 1.0}, {1.0, -1.0}, {2.0, 0.0}};
+  spatial.skeleton_edges = {{0U, 1U}, {1U, 3U}, {0U, 2U}, {2U, 3U}};
+  spatial.learned_regions.push_back(
+      {{1.0, 1.0}, semaforr::domain::Distance(0.4)});
+  semaforr::planning::DomainPlanner planner(
+      "region", semaforr::planning::PlanObjective::RegionPreference);
+  const auto result =
+      planner.plan({{{0.0, 0.0}, semaforr::domain::Angle::zero()},
+                    {2.0, 0.0},
+                    &spatial,
+                    nullptr});
+  ASSERT_TRUE(result.succeeded());
+  EXPECT_TRUE(std::any_of(result.path.begin(), result.path.end(),
+                          [](const auto& point) { return point.y_m > 0.5; }));
+  EXPECT_TRUE(result.objective_costs.contains(
+      semaforr::planning::PlanObjective::RegionPreference));
+}
+
+TEST(PlanSelection, SupportsEveryExplicitPolicyName) {
+  using semaforr::planning::PlanSelectionPolicy;
+  EXPECT_EQ(semaforr::planning::planSelectionPolicyFromString("single"),
+            PlanSelectionPolicy::Single);
+  EXPECT_EQ(semaforr::planning::planSelectionPolicyFromString("range_vote"),
+            PlanSelectionPolicy::RangeVote);
+  EXPECT_EQ(
+      semaforr::planning::planSelectionPolicyFromString("pareto_then_vote"),
+      PlanSelectionPolicy::ParetoThenVote);
+  EXPECT_EQ(semaforr::planning::planSelectionPolicyFromString("shortest_valid"),
+            PlanSelectionPolicy::ShortestValid);
+  EXPECT_THROW(semaforr::planning::planSelectionPolicyFromString("raw_cost"),
+               std::invalid_argument);
 }

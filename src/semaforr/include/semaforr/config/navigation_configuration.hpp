@@ -28,10 +28,11 @@ struct TierConfiguration {
   bool tier_two = true;
   bool tier_three = true;
   std::vector<std::string> tier_one_rules{
-      "victory", "avoid_obstacles", "not_opposite", "enforcer", "thru",
-      "behind", "out", "low_level_exploration", "forward", "precedent"};
+      "victory", "avoid_obstacles", "not_opposite", "enforcer",
+      "thru",    "behind",          "out",          "low_level_exploration",
+      "forward", "precedent"};
   std::vector<std::string> reactive_planners{"thru", "behind", "out",
-                                              "low_level_exploration"};
+                                             "low_level_exploration"};
 };
 
 struct SafetyEnvelopeConfiguration {
@@ -85,8 +86,13 @@ struct PlannerConfiguration {
   bool density = false;
   bool risk = false;
   bool flow = false;
+  bool region = false;
+  bool hallway = false;
+  bool trail = false;
+  bool conveyor = false;
   bool skeleton = false;
   bool highway = false;
+  std::string selection_policy = "range_vote";
 };
 
 struct CrowdLearningConfiguration {
@@ -169,8 +175,7 @@ std::string_view toString(AblationProfile profile) noexcept;
 AblationProfile ablationProfileFromString(const std::string& value);
 void applyAblationProfile(Configuration& configuration);
 std::string configurationFingerprint(const Configuration& configuration);
-std::vector<std::string> componentManifest(
-    const Configuration& configuration);
+std::vector<std::string> componentManifest(const Configuration& configuration);
 
 Configuration loadStructuredConfiguration(
     NavigationConfiguration navigation, MapDimensions map_dimensions,
