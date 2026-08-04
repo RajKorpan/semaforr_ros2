@@ -8,7 +8,7 @@ SOURCE_DIR = Path(
 
 
 def test_runtime_configuration_is_parameter_only():
-    adapter = (SOURCE_DIR / "src/ros/ParameterConfiguration.cpp").read_text(
+    adapter = (SOURCE_DIR / "src/ros/parameter_configuration.cpp").read_text(
         encoding="utf-8"
     )
     yaml = (SOURCE_DIR / "config/semaforr.yaml").read_text(encoding="utf-8")
@@ -27,7 +27,7 @@ def test_runtime_configuration_is_parameter_only():
 
 
 def test_structured_configuration_validates_all_runtime_invariants():
-    source = (SOURCE_DIR / "src/config/Configuration.cpp").read_text(
+    source = (SOURCE_DIR / "src/config/navigation_configuration.cpp").read_text(
         encoding="utf-8"
     )
     for diagnostic in (
@@ -45,5 +45,5 @@ def test_legacy_converter_is_offline_only():
     cmake = (SOURCE_DIR / "CMakeLists.txt").read_text(encoding="utf-8")
     assert "convert_legacy_config.py" in cmake
     assert "loadConfiguration({" not in (
-        SOURCE_DIR / "src/ros/ParameterConfiguration.cpp"
+        SOURCE_DIR / "src/ros/parameter_configuration.cpp"
     ).read_text(encoding="utf-8")

@@ -10,16 +10,19 @@ semaforr_node
   -> semaforr::ros_adapters
        -> SensorSynchronizer / CommandExecutor / VisualizationPublisher
        -> domain message and parameter adapters
-  -> semaforr::domain
-       -> NavigationEngine / MissionManager / WorldModel
-       -> semaforr::advisors
-       -> semaforr::planning
-       -> semaforr::spatial
+       -> semaforr::navigation
+            -> NavigationEngine / MissionManager
+            -> semaforr::exploration
+            -> semaforr::advisors
+            -> semaforr::planning
+            -> semaforr::spatial
+                 -> semaforr::domain / WorldModel
 ```
 
-The public targets are `semaforr::domain`, `semaforr::advisors`,
-`semaforr::planning`, `semaforr::spatial`, `semaforr::navigation`, and
-`semaforr::ros_adapters`. ROS-independent code must not include ROS headers.
+The public targets are `semaforr::domain`, `semaforr::planning`,
+`semaforr::spatial`, `semaforr::exploration`, `semaforr::advisors`,
+`semaforr::navigation`, and `semaforr::ros_adapters`. ROS-independent code
+must not include ROS headers.
 
 ## One cognitive cycle
 
@@ -57,4 +60,4 @@ construction.
 
 See [decision-tiers.md](decision-tiers.md), [topics-and-frames.md](topics-and-frames.md),
 [spatial-learning.md](spatial-learning.md), and
-[social_navigation.md](social_navigation.md) for subsystem contracts.
+[social-navigation.md](social-navigation.md) for subsystem contracts.

@@ -24,7 +24,7 @@ def test_navigation_engine_composes_focused_collaborators():
 
 
 def test_ros_adapter_owns_domain_composition_not_legacy_controller():
-    source = read("src/ros/NavigationEngineAdapter.cpp")
+    source = read("src/ros/navigation_engine_adapter.cpp")
     for component in (
         "domain::WorldModel",
         "decision::DecisionCoordinator",

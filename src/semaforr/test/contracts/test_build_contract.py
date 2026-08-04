@@ -29,6 +29,7 @@ def test_focused_libraries_are_exported_without_compatibility_targets():
     for component in (
         "domain",
         "planning",
+        "exploration",
         "advisors",
         "spatial",
         "navigation",
@@ -47,6 +48,7 @@ def test_strict_warnings_apply_to_every_production_library():
     for target in (
         "semaforr_domain",
         "semaforr_planning",
+        "semaforr_exploration",
         "semaforr_advisors",
         "semaforr_spatial",
         "semaforr_navigation",

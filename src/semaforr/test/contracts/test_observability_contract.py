@@ -31,7 +31,7 @@ def test_one_decision_result_contains_complete_explanation():
 
 
 def test_ros_publisher_serializes_structured_decision_record():
-    source = read("src/ros/VisualizationPublisher.cpp")
+    source = read("src/ros/visualization_publisher.cpp")
     assert "semaforr_msgs::msg::DecisionRecord" in source
     assert "raw_score" in source
     assert "weighted_score" in source
@@ -40,8 +40,8 @@ def test_ros_publisher_serializes_structured_decision_record():
 
 def test_node_uses_ros_logging_levels():
     source = (
-        read("src/ros/SemaFORRNode.cpp")
-        + read("src/ros/VisualizationPublisher.cpp")
+        read("src/ros/semaforr_node_component.cpp")
+        + read("src/ros/visualization_publisher.cpp")
     )
     for level in ("RCLCPP_DEBUG", "RCLCPP_INFO", "RCLCPP_WARN", "RCLCPP_ERROR"):
         assert level in source

@@ -74,8 +74,8 @@ individually selected in `planners.enabled`, including `distance`, `skeleton`,
 Safety is deliberately outside cognitive Tier 1. Before arbitration,
 `HardSafetyFilter` rejects motion without a usable laser view, invalid action
 indices, and forward actions that violate collision clearance. The
-configurable Tier-1 `avoid_obstacles` rule remains available for dissertation
-semantics and diagnostics, but is not the platform safety boundary.
+configurable Tier-1 `avoid_obstacles` rule remains available for cognitive
+behavior and diagnostics, but is not the platform safety boundary.
 
 Immediately before command publication, the sensor synchronizer cancels
 execution when pose or laser data is stale or incoherent. `CommandExecutor`

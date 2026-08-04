@@ -26,6 +26,6 @@ def test_tier_interfaces_are_typed_and_value_returning():
 
 def test_registries_reject_unknown_component_names():
     registry = read("include/semaforr/decision/registry.hpp")
-    planning = read("src/ros/ParameterConfiguration.cpp")
+    planning = read("src/ros/parameter_configuration.cpp")
     assert "throw std::invalid_argument" in registry
     assert "unknown planner name" in planning.lower()

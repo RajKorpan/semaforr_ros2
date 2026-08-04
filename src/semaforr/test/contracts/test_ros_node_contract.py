@@ -12,8 +12,8 @@ def read(relative):
 
 
 def test_ros_node_has_event_driven_state_machine():
-    implementation = read("src/ros/SemaFORRNode.cpp")
-    main = read("src/ros/semaforr_node.cpp")
+    implementation = read("src/ros/semaforr_node_component.cpp")
+    main = read("src/ros/main.cpp")
     header = read("include/semaforr/ros/semaforr_node.hpp")
 
     for state in (
@@ -45,19 +45,19 @@ def test_ros_responsibilities_are_separate_public_components():
 
     cmake = read("CMakeLists.txt")
     for source in (
-        "CommandExecutor.cpp",
-        "NavigationEngineAdapter.cpp",
-        "SensorSynchronizer.cpp",
-        "VisualizationPublisher.cpp",
-        "SemaFORRNode.cpp",
+        "command_executor.cpp",
+        "navigation_engine_adapter.cpp",
+        "sensor_synchronizer.cpp",
+        "visualization_publisher.cpp",
+        "semaforr_node_component.cpp",
     ):
         assert f"src/ros/{source}" in cmake
 
 
 def test_safety_time_frames_topics_and_qos_are_explicit():
-    implementation = read("src/ros/SemaFORRNode.cpp")
-    synchronizer = read("src/ros/SensorSynchronizer.cpp")
-    executor = read("src/ros/CommandExecutor.cpp")
+    implementation = read("src/ros/semaforr_node_component.cpp")
+    synchronizer = read("src/ros/sensor_synchronizer.cpp")
+    executor = read("src/ros/command_executor.cpp")
     yaml = read("config/semaforr.yaml")
 
     assert "publishZero(true)" in implementation

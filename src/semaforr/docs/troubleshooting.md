@@ -82,4 +82,4 @@ colcon test-result --verbose
 ```
 
 Never delete or edit source fixtures to make a regression comparison pass.
-Classify intentional differences in the Phase 14 regression report.
+Classify intentional differences in the regression report.

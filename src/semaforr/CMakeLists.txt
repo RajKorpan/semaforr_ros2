@@ -72,30 +72,27 @@ find_package(tf2_ros REQUIRED)
 find_package(visualization_msgs REQUIRED)
 
 set(SEMAFORR_DOMAIN_SOURCES
-  src/config/Configuration.cpp
-  src/domain/CrowdModel.cpp
-  src/domain/MotionModel.cpp
-  src/decision/DecisionResult.cpp
-  src/social/CrowdFieldLearner.cpp
+  src/config/navigation_configuration.cpp
+  src/domain/crowd_model.cpp
+  src/domain/motion_model.cpp
+  src/decision/decision_result.cpp
+  src/social/crowd_field_learner.cpp
 )
 
 set(SEMAFORR_NAVIGATION_SOURCES
-  src/decision/MissionManager.cpp
-  src/decision/NavigationEngine.cpp
-  src/decision/NavigationPhase.cpp
+  src/decision/mission_manager.cpp
+  src/decision/navigation_engine.cpp
+  src/navigation/navigation_phase.cpp
 )
 
 add_library(semaforr_planning SHARED
-  src/navigation/DomainAStar.cpp
-  src/navigation/DomainGraph.cpp
-  src/navigation/DomainPlanner.cpp
-    src/navigation/ExplorationCoordinator.cpp
-    src/navigation/HighLevelExplorer.cpp
-    src/navigation/HighwayExplorer.cpp
-  src/navigation/HierarchicalPlan.cpp
-  src/navigation/MapParser.cpp
-  src/navigation/PlanningCoordinator.cpp
-  src/navigation/ReactivePlanner.cpp
+  src/planning/domain_astar.cpp
+  src/planning/domain_graph.cpp
+  src/planning/domain_planner.cpp
+  src/planning/hierarchical_plan.cpp
+  src/planning/map_parser.cpp
+  src/planning/planning_coordinator.cpp
+  src/planning/reactive_planner.cpp
 )
 set_target_properties(semaforr_planning PROPERTIES EXPORT_NAME planning)
 add_library(semaforr::planning ALIAS semaforr_planning)
@@ -108,17 +105,17 @@ semaforr_apply_project_options(semaforr_planning)
 semaforr_apply_strict_warnings(semaforr_planning)
 
 add_library(semaforr_advisors SHARED
-  src/decision/AdvisorCatalogRegistry.cpp
-  src/decision/DecisionCoordinator.cpp
-  src/decision/DissertationAdvisor.cpp
-  src/decision/Enforcer.cpp
-  src/decision/HardSafetyFilter.cpp
-  src/decision/LearnedCrowdAdvisor.cpp
-  src/decision/NavigationAdvisor.cpp
-  src/decision/ObstacleVetoRule.cpp
-  src/decision/RestoredTiers.cpp
-  src/decision/SocialAdvisorRegistry.cpp
-  src/decision/SocialNavigationAdvisor.cpp
+  src/decision/advisors/catalog_registry.cpp
+  src/decision/decision_coordinator.cpp
+  src/decision/advisors/heuristic_advisor.cpp
+  src/decision/plan_enforcer.cpp
+  src/decision/hard_safety_filter.cpp
+  src/decision/advisors/social/learned_crowd_advisor.cpp
+  src/decision/advisors/navigation_advisor.cpp
+  src/decision/obstacle_veto_rule.cpp
+  src/decision/tier_registry.cpp
+  src/decision/advisors/social/registry.cpp
+  src/decision/advisors/social/social_navigation_advisor.cpp
 )
 set_target_properties(semaforr_advisors PROPERTIES EXPORT_NAME advisors)
 add_library(semaforr::advisors ALIAS semaforr_advisors)
@@ -131,18 +128,18 @@ semaforr_apply_project_options(semaforr_advisors)
 semaforr_apply_strict_warnings(semaforr_advisors)
 
 add_library(semaforr_spatial SHARED
-  src/spatial/BarrierLearner.cpp
-  src/spatial/ConveyorLearner.cpp
-  src/spatial/CircumstanceLearner.cpp
-  src/spatial/DoorExitLearner.cpp
-  src/spatial/HallwayLearner.cpp
-  src/spatial/GridLearners.cpp
-  src/spatial/HighwayLearner.cpp
-  src/spatial/PassageSkeletonLearner.cpp
-  src/spatial/RegionLearner.cpp
-  src/spatial/SpatialLearner.cpp
-  src/spatial/SpatialLearningCoordinator.cpp
-  src/spatial/TrailLearner.cpp
+  src/spatial/barrier_learner.cpp
+  src/spatial/conveyor_learner.cpp
+  src/spatial/circumstance_learner.cpp
+  src/spatial/door_exit_learner.cpp
+  src/spatial/hallway_learner.cpp
+  src/spatial/grid_learners.cpp
+  src/spatial/highway_learner.cpp
+  src/spatial/passage_skeleton_learner.cpp
+  src/spatial/region_learner.cpp
+  src/spatial/learner.cpp
+  src/spatial/spatial_learning_coordinator.cpp
+  src/spatial/trail_learner.cpp
 )
 set_target_properties(semaforr_spatial PROPERTIES EXPORT_NAME spatial)
 add_library(semaforr::spatial ALIAS semaforr_spatial)
@@ -169,6 +166,23 @@ target_link_libraries(semaforr_planning PUBLIC semaforr_domain)
 target_link_libraries(semaforr_advisors PUBLIC semaforr_domain semaforr_planning)
 target_link_libraries(semaforr_spatial PUBLIC semaforr_domain)
 
+add_library(semaforr_exploration SHARED
+  src/exploration/exploration_coordinator.cpp
+  src/exploration/high_level_explorer.cpp
+  src/exploration/highway_explorer.cpp
+)
+set_target_properties(semaforr_exploration PROPERTIES EXPORT_NAME exploration)
+add_library(semaforr::exploration ALIAS semaforr_exploration)
+target_include_directories(semaforr_exploration
+  PUBLIC
+    "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>"
+    "$<INSTALL_INTERFACE:include>"
+)
+target_link_libraries(
+  semaforr_exploration PUBLIC semaforr_domain semaforr_planning semaforr_spatial)
+semaforr_apply_project_options(semaforr_exploration)
+semaforr_apply_strict_warnings(semaforr_exploration)
+
 add_library(semaforr_navigation SHARED ${SEMAFORR_NAVIGATION_SOURCES})
 set_target_properties(semaforr_navigation PROPERTIES EXPORT_NAME navigation)
 add_library(semaforr::navigation ALIAS semaforr_navigation)
@@ -182,6 +196,7 @@ target_link_libraries(
   PUBLIC
     semaforr_domain
     semaforr_planning
+    semaforr_exploration
     semaforr_advisors
     semaforr_spatial
 )
@@ -189,14 +204,14 @@ semaforr_apply_project_options(semaforr_navigation)
 semaforr_apply_strict_warnings(semaforr_navigation)
 
 add_library(semaforr_ros_adapters SHARED
-  src/ros/CommandExecutor.cpp
-  src/ros/MessageAdapters.cpp
-  src/ros/NavigationEngineAdapter.cpp
-  src/ros/ParameterConfiguration.cpp
-  src/ros/SemaFORRNode.cpp
-  src/ros/SensorSynchronizer.cpp
-  src/ros/SocialObservationBuffer.cpp
-  src/ros/VisualizationPublisher.cpp
+  src/ros/command_executor.cpp
+  src/ros/message_adapters.cpp
+  src/ros/navigation_engine_adapter.cpp
+  src/ros/parameter_configuration.cpp
+  src/ros/semaforr_node_component.cpp
+  src/ros/sensor_synchronizer.cpp
+  src/ros/social_observation_buffer.cpp
+  src/ros/visualization_publisher.cpp
 )
 set_target_properties(
   semaforr_ros_adapters PROPERTIES EXPORT_NAME ros_adapters)
@@ -223,7 +238,7 @@ ament_target_dependencies(semaforr_ros_adapters
 semaforr_apply_project_options(semaforr_ros_adapters)
 semaforr_apply_strict_warnings(semaforr_ros_adapters)
 
-add_executable(semaforr_node src/ros/semaforr_node.cpp)
+add_executable(semaforr_node src/ros/main.cpp)
 target_link_libraries(
   semaforr_node
   semaforr_navigation
@@ -239,6 +254,7 @@ install(
   TARGETS
     semaforr_domain
     semaforr_planning
+    semaforr_exploration
     semaforr_advisors
     semaforr_spatial
     semaforr_navigation
@@ -389,21 +405,21 @@ if(BUILD_TESTING)
   semaforr_apply_project_options(semaforr_navigation_scenario_test)
 
   ament_add_gtest(
-    semaforr_phase34_navigation_test
-    test/unit/phase34_navigation_test.cpp
+    semaforr_exploration_planning_test
+    test/unit/exploration_planning_test.cpp
   )
   target_link_libraries(
-    semaforr_phase34_navigation_test semaforr_navigation)
-  semaforr_apply_project_options(semaforr_phase34_navigation_test)
+    semaforr_exploration_planning_test semaforr_navigation)
+  semaforr_apply_project_options(semaforr_exploration_planning_test)
 
   ament_add_gtest(
-    semaforr_phase56_restoration_test
-    test/unit/phase56_restoration_test.cpp
+    semaforr_tier_advisor_test
+    test/unit/tier_advisor_test.cpp
   )
   target_link_libraries(
-    semaforr_phase56_restoration_test
+    semaforr_tier_advisor_test
     semaforr_navigation semaforr_advisors)
-  semaforr_apply_project_options(semaforr_phase56_restoration_test)
+  semaforr_apply_project_options(semaforr_tier_advisor_test)
 
   ament_add_pytest_test(semaforr_source_contract_test
     test/contracts/test_source_contract.py
@@ -461,12 +477,12 @@ if(BUILD_TESTING)
     test/contracts/test_observability_contract.py
     ENV "SEMAFORR_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
   )
-  ament_add_pytest_test(semaforr_phase14_strategy_test
-    test/contracts/test_phase14_strategy.py
+  ament_add_pytest_test(semaforr_navigation_strategy_test
+    test/contracts/test_navigation_strategy.py
     ENV "SEMAFORR_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
   )
-  ament_add_pytest_test(semaforr_phase15_deployment_test
-    test/contracts/test_phase15_deployment.py
+  ament_add_pytest_test(semaforr_deployment_test
+    test/contracts/test_deployment.py
     ENV "SEMAFORR_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
   )
 endif()

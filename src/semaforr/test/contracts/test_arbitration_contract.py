@@ -11,7 +11,7 @@ def test_arbitration_has_explicit_safe_fallbacks_and_seeded_rng():
     header = (
         SOURCE_DIR / "include/semaforr/decision/decision_coordinator.hpp"
     ).read_text(encoding="utf-8")
-    source = (SOURCE_DIR / "src/decision/DecisionCoordinator.cpp").read_text(
+    source = (SOURCE_DIR / "src/decision/decision_coordinator.cpp").read_text(
         encoding="utf-8"
     )
     assert "random_seed" in header
@@ -26,7 +26,7 @@ def test_arbitration_has_explicit_safe_fallbacks_and_seeded_rng():
 
 
 def test_vetoed_actions_cannot_reenter_aggregation():
-    source = (SOURCE_DIR / "src/decision/DecisionCoordinator.cpp").read_text(
+    source = (SOURCE_DIR / "src/decision/decision_coordinator.cpp").read_text(
         encoding="utf-8"
     )
     assert "vetoed.contains(candidate)" in source

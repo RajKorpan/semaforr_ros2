@@ -12,8 +12,8 @@ def read(relative):
 
 
 def test_one_social_message_crosses_the_ros_boundary():
-    adapters = read("src/ros/MessageAdapters.cpp")
-    node = read("src/ros/SemaFORRNode.cpp")
+    adapters = read("src/ros/message_adapters.cpp")
+    node = read("src/ros/semaforr_node_component.cpp")
     assert "social_context_msgs::msg::SocialObservation" in adapters
     assert "CrowdModel.msg" not in adapters + node
     assert "crowd_pose_all" not in adapters + node
@@ -34,9 +34,9 @@ def test_crowd_model_unifies_live_and_learned_social_state():
 
 
 def test_advisors_and_planners_consume_domain_crowd_model():
-    advisor = read("src/decision/SocialNavigationAdvisor.cpp")
-    learned = read("src/decision/LearnedCrowdAdvisor.cpp")
-    planner = read("src/navigation/DomainPlanner.cpp")
+    advisor = read("src/decision/advisors/social/social_navigation_advisor.cpp")
+    learned = read("src/decision/advisors/social/learned_crowd_advisor.cpp")
+    planner = read("src/planning/domain_planner.cpp")
     assert "world.crowd" in advisor
     assert "world.crowd" in learned
     assert "request.crowd_model" in planner
@@ -44,8 +44,8 @@ def test_advisors_and_planners_consume_domain_crowd_model():
 
 
 def test_stale_social_data_has_explicit_fallback():
-    advisor = read("src/decision/SocialNavigationAdvisor.cpp")
-    planner = read("src/navigation/DomainPlanner.cpp")
+    advisor = read("src/decision/advisors/social/social_navigation_advisor.cpp")
+    planner = read("src/planning/domain_planner.cpp")
     assert "current->usable" in advisor
     assert "advisor disabled" in advisor
     assert "sample->stale" in planner

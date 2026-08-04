@@ -1,4 +1,4 @@
-# SemaFORR Phase 0 Baseline
+# SemaFORR behavioral baseline
 
 This directory captures observable behavior before the SemaFORR refactor.
 It contains two complementary baselines:
@@ -21,7 +21,7 @@ reviewed and the contract is intentionally updated.
 Build and source the workspace in ROS 2 Humble:
 
 ```bash
-src/semaforr/scripts/run_phase0.sh normal
+src/semaforr/scripts/run_quality_checks.sh normal
 source install/setup.bash
 mkdir -p baseline-results
 ros2 launch semaforr stage_tutorial_baseline.launch.py \
@@ -58,9 +58,9 @@ performance comparison.
 ## Profiles
 
 ```bash
-src/semaforr/scripts/run_phase0.sh normal
-src/semaforr/scripts/run_phase0.sh sanitizer
-src/semaforr/scripts/run_phase0.sh coverage
+src/semaforr/scripts/run_quality_checks.sh normal
+src/semaforr/scripts/run_quality_checks.sh sanitizer
+src/semaforr/scripts/run_quality_checks.sh coverage
 ```
 
 The sanitizer profile enables AddressSanitizer, UndefinedBehaviorSanitizer, and

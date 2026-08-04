@@ -1,6 +1,6 @@
 #include <cassert>
 #include <limits>
-#include <semaforr/config/Configuration.hpp>
+#include <semaforr/config/navigation_configuration.hpp>
 #include <stdexcept>
 #include <string>
 #include <utility>

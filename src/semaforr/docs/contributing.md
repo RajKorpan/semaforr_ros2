@@ -15,7 +15,7 @@ colcon test-result --verbose
 
 Run `python3 src/semaforr/scripts/check_source_quality.py` before submitting.
 The sanitizer, coverage, and regression commands are in
-`phase-14-testing.md`.
+`testing.md`.
 
 ## Design rules
 

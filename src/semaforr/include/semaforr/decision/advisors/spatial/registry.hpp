@@ -1,2 +1,2 @@
 #pragma once
-#include <semaforr/decision/advisor_catalog_registry.hpp>
+#include <semaforr/decision/advisors/catalog_registry.hpp>

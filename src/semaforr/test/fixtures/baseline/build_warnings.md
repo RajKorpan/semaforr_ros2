@@ -1,6 +1,6 @@
 # Initial ROS 2 Humble build warning inventory
 
-The normal Phase 0 build completed successfully on 2026-07-27 in approximately
+The baseline build completed successfully on 2026-07-27 in approximately
 67 seconds. It emitted repeated warnings from header-defined functions. The
 unique warning locations are summarized here:
 

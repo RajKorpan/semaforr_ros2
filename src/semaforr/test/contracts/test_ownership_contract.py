@@ -31,7 +31,7 @@ def test_polymorphic_owners_use_unique_ptr_and_virtual_destructors():
     for header in (
         "include/semaforr/decision/advisor.hpp",
         "include/semaforr/planning/planner.hpp",
-        "include/semaforr/spatial/spatial_learner.hpp",
+        "include/semaforr/spatial/learner.hpp",
     ):
         assert "virtual ~" in (SOURCE_DIR / header).read_text(encoding="utf-8")
 

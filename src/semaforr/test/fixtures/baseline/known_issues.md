@@ -1,4 +1,4 @@
-# Known behavior at the Phase 0 boundary
+# Known baseline behavior
 
 These observations are recorded so that characterization does not turn known
 defects into permanent requirements.
@@ -50,12 +50,12 @@ covered by a new expectation and called out in the corresponding change.
 
 ## Resolved after the baseline
 
-Phase 8 replaced Tier 2 and Tier 3 time-seeded tie selection with stable
+The current implementation replaces Tier 2 and Tier 3 time-seeded tie selection with stable
 ordering. Tier 3 now returns `PAUSE` when no finite candidate exists instead of
 performing modulo by zero. Tier 2 rejects empty plans and safely declines
 selection when all candidate costs are non-finite.
 
-Phase 4 replaced the tested owning raw-pointer paths with values and
-`std::unique_ptr`. Phase 5 made configuration fields initialized and validated.
+Owning raw-pointer paths were replaced with values and `std::unique_ptr`.
+Configuration fields are initialized and validated.
 The ROS shutdown path now exits cleanly after the baseline recorder sends
 `SIGINT`.

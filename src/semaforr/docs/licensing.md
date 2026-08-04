@@ -1,7 +1,7 @@
 # Licensing audit
 
 `package.xml` declares `Apache-2.0`. No license, copyright, or provenance file
-was present in the package or repository history inspected during the Phase 1
+was present in the package or repository history inspected during the initial
 audit. The removed TinyXML sources carried their own upstream notices and are
 no longer distributed by this package.
 

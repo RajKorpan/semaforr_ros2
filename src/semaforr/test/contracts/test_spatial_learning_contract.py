@@ -13,7 +13,7 @@ def test_uniform_spatial_learner_lifecycle_is_public_and_ros_independent():
         / "include"
         / "semaforr"
         / "spatial"
-        / "spatial_learner.hpp"
+        / "learner.hpp"
     ).read_text(encoding="utf-8")
 
     assert "class SpatialLearner" in header
@@ -26,7 +26,7 @@ def test_uniform_spatial_learner_lifecycle_is_public_and_ros_independent():
 
 
 def test_each_representation_has_a_focused_module():
-    include_dir = SOURCE_DIR / "include" / "semaforr" / "spatial"
+    include_dir = SOURCE_DIR / "include" / "semaforr" / "spatial" / "learners"
     source_dir = SOURCE_DIR / "src" / "spatial"
     modules = {
         "trail": "Trail",
@@ -41,7 +41,7 @@ def test_each_representation_has_a_focused_module():
         header = (include_dir / f"{filename}_learner.hpp").read_text(
             encoding="utf-8"
         )
-        source = (source_dir / f"{class_name}Learner.cpp").read_text(
+        source = (source_dir / f"{filename}_learner.cpp").read_text(
             encoding="utf-8"
         )
         assert f"class {class_name}Learner final" in header
@@ -57,7 +57,7 @@ def test_coordinator_owns_learners_and_exposes_independent_controls():
         / "spatial_learning_coordinator.hpp"
     ).read_text(encoding="utf-8")
     source = (
-        SOURCE_DIR / "src" / "spatial" / "SpatialLearningCoordinator.cpp"
+        SOURCE_DIR / "src" / "spatial" / "spatial_learning_coordinator.cpp"
     ).read_text(encoding="utf-8")
 
     for operation in (

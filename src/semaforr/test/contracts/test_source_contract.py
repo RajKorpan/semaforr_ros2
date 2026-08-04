@@ -46,9 +46,9 @@ def extract_yaml_number(source, key):
 
 def test_ros_topic_contract():
     contract = load_contract()["ros"]
-    source = (SOURCE_DIR / "src" / "ros" / "SemaFORRNode.cpp").read_text(
-        encoding="utf-8"
-    )
+    source = (
+        SOURCE_DIR / "src" / "ros" / "semaforr_node_component.cpp"
+    ).read_text(encoding="utf-8")
     yaml = (SOURCE_DIR / "config" / "semaforr.yaml").read_text(
         encoding="utf-8"
     )

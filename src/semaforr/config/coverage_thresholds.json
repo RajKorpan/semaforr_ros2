@@ -1,14 +1,14 @@
 {
   "minimum_line_percent": 80.0,
   "files": [
-    "src/config/Configuration.cpp",
-    "src/domain/MotionModel.cpp",
-    "src/decision/ObstacleVetoRule.cpp",
-    "src/decision/DecisionCoordinator.cpp",
-    "src/decision/MissionManager.cpp",
-    "src/decision/NavigationAdvisor.cpp",
-    "src/decision/NavigationEngine.cpp",
-    "src/navigation/DomainPlanner.cpp",
-    "src/navigation/PlanningCoordinator.cpp"
+    "src/config/navigation_configuration.cpp",
+    "src/domain/motion_model.cpp",
+    "src/decision/obstacle_veto_rule.cpp",
+    "src/decision/decision_coordinator.cpp",
+    "src/decision/mission_manager.cpp",
+    "src/decision/advisors/navigation_advisor.cpp",
+    "src/decision/navigation_engine.cpp",
+    "src/planning/domain_planner.cpp",
+    "src/planning/planning_coordinator.cpp"
   ]
 }

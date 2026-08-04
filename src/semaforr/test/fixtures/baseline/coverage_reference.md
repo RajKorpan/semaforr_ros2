@@ -1,6 +1,6 @@
 # Coverage reference
 
-The Phase 0 profile was regenerated against the completed Phase 0-9 structure
+The baseline profile was regenerated against the current package structure
 under ROS 2 Humble on 2026-07-29. All 67 tests passed before capture.
 
 The HTML report is generated at `coverage/html/index.html`. System headers and

@@ -6,7 +6,7 @@ an action vetoed by Tier 1 cannot re-enter Tier 3 aggregation.
 ## Tier 1: mandatory rules and vetoes
 
 Every configured Tier-1 name is resolved by `TierOneRegistry`; the adapter
-contains no name-specific construction branches. The validated dissertation
+contains no name-specific construction branches. The validated execution
 order is `victory`, `avoid_obstacles`, `not_opposite`, `enforcer`, `thru`,
 `behind`, `out`, `low_level_exploration`, `forward`, `precedent`.
 

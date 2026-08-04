@@ -2,7 +2,7 @@
 #define SEMAFORR_ROS_NAVIGATION_ENGINE_ADAPTER_HPP
 
 #include <memory>
-#include <semaforr/config/Configuration.hpp>
+#include <semaforr/config/navigation_configuration.hpp>
 #include <semaforr/decision/decision_result.hpp>
 #include <semaforr/domain/world_model.hpp>
 #include <semaforr/ros/command_executor.hpp>

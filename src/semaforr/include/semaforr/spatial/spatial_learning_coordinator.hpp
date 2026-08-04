@@ -5,7 +5,7 @@
 #include <memory>
 #include <optional>
 #include <semaforr/domain/world_model.hpp>
-#include <semaforr/spatial/spatial_learner.hpp>
+#include <semaforr/spatial/learner.hpp>
 #include <string>
 #include <vector>
 

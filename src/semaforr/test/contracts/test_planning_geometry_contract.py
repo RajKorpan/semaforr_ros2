@@ -25,7 +25,7 @@ def test_geometry_uses_typed_metric_values_and_one_angle_normalizer():
 
 def test_graph_storage_is_separate_from_astar_search_state():
     graph = read("include/semaforr/planning/graph.hpp")
-    astar = read("src/navigation/DomainAStar.cpp")
+    astar = read("src/planning/domain_astar.cpp")
     assert "struct GraphEdge" in graph
     assert "mutable" not in graph
     assert "std::priority_queue" in astar
@@ -34,7 +34,7 @@ def test_graph_storage_is_separate_from_astar_search_state():
 
 def test_typed_planner_uses_domain_crowd_and_spatial_models():
     planner = read("include/semaforr/planning/planner.hpp")
-    implementation = read("src/navigation/DomainPlanner.cpp")
+    implementation = read("src/planning/domain_planner.cpp")
     assert "const domain::SpatialModel*" in planner
     assert "const domain::CrowdModel*" in planner
     assert "PlannerObjective" in read("include/semaforr/planning/domain_planner.hpp")

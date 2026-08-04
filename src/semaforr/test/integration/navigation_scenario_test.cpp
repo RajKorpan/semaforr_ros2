@@ -6,7 +6,7 @@
 #include <semaforr/decision/decision_coordinator.hpp>
 #include <semaforr/decision/mission_manager.hpp>
 #include <semaforr/decision/obstacle_veto_rule.hpp>
-#include <semaforr/decision/social_navigation_advisor.hpp>
+#include <semaforr/decision/advisors/social/social_navigation_advisor.hpp>
 #include <span>
 #include <string>
 #include <string_view>

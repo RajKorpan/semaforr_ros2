@@ -3,7 +3,7 @@
 #include <limits>
 #include <numbers>
 #include <semaforr/decision/decision_coordinator.hpp>
-#include <semaforr/decision/navigation_advisor.hpp>
+#include <semaforr/decision/advisors/navigation_advisor.hpp>
 #include <semaforr/decision/obstacle_veto_rule.hpp>
 #include <semaforr/domain/motion_model.hpp>
 #include <stdexcept>

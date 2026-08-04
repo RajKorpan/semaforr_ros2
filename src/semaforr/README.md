@@ -75,7 +75,7 @@ ros2 run semaforr semaforr_convert_legacy_config \
   --output converted.yaml
 ```
 
-## Refactoring baseline
+## Architecture and verification
 
 The pre-refactor characterization harness, runtime scenario, sanitizer profile,
 coverage profile, and known-behavior inventory are documented in
@@ -85,19 +85,14 @@ The ROS-independent `semaforr::domain` target, message adapters, build profiles,
 installed package layout, and downstream-consumer checks are documented in
 `docs/build-and-package.md`.
 
-The implementation and verification status of Phases 0-9 is recorded in
-`docs/phases-0-9-completion.md`.
-
-Phase 10 and the per-representation observation/update/consumer contracts are
-documented in `docs/phase-10-completion.md` and
-`docs/spatial-learning.md`.
-
-The event-driven ROS node architecture, parameters, state machine, and
-sensor-loss verification are documented in `docs/phase-11-completion.md`.
+The per-representation observation, update, and consumer contracts are
+documented in `docs/spatial-learning.md`. The event-driven ROS node
+architecture, parameters, state machine, and sensor-loss behavior are covered
+by `docs/architecture.md`, `docs/topics-and-frames.md`, and `docs/testing.md`.
 
 The canonical social API, unified `CrowdModel`, learning strategies, planner
 and advisor consumers, stale-data fallback, persistence, and diagnostic
-projection are documented in `docs/social_navigation.md`.
+projection are documented in `docs/social-navigation.md`.
 
 ## Documentation
 

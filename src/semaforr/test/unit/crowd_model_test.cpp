@@ -2,8 +2,8 @@
 
 #include <chrono>
 #include <limits>
-#include <semaforr/decision/learned_crowd_advisor.hpp>
-#include <semaforr/decision/social_advisor_registry.hpp>
+#include <semaforr/decision/advisors/social/learned_crowd_advisor.hpp>
+#include <semaforr/decision/advisors/social/registry.hpp>
 #include <semaforr/domain/crowd_model.hpp>
 #include <semaforr/planning/domain_planner.hpp>
 #include <semaforr/social/crowd_field_learner.hpp>

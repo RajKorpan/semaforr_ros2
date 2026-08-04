@@ -6,7 +6,7 @@
 #include <memory>
 #include <rclcpp/time.hpp>
 #include <semaforr/decision/decision_coordinator.hpp>
-#include <semaforr/decision/social_navigation_advisor.hpp>
+#include <semaforr/decision/advisors/social/social_navigation_advisor.hpp>
 #include <semaforr/domain/crowd_model.hpp>
 #include <semaforr/domain/social.hpp>
 #include <semaforr/ros/social_observation_buffer.hpp>
