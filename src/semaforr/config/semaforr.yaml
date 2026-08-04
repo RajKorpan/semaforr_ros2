@@ -147,8 +147,21 @@ semaforr:
       known_grid: true
       inclusion_grid: true
       highways: false
-      circumstances: false
+      circumstances: true
       loaded_highway_model: ""
+
+    circumstances:
+      setting_resolution_m: 1.0
+      setting_radius_m: 10.0
+      minimum_cluster_size: 50
+      assignment_confidence_threshold: 0.95
+      similarity_l1_threshold: 125.0
+      reclustering_threshold: 100
+      minimum_case_evidence: 10
+      accuracy_threshold: 0.75
+      action_confidence_threshold: 0.25
+      distance_bin_base_m: 2.0
+      angle_bin_count: 8
     planners:
       enabled: [distance, region, hallway, trail, conveyor, skeleton, density, risk, flow]
       selection_policy: range_vote

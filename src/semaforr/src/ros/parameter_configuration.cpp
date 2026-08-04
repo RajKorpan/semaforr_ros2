@@ -114,11 +114,23 @@ void declareConfigurationParameters(rclcpp::Node& node) {
         "astar", "known_grid", "inclusion_grid", "highways", "circumstances"}) {
     const bool default_value = feature == "trails" || feature == "conveyors" ||
                                feature == "regions" || feature == "doors" ||
+                               feature == "circumstances" ||
                                feature == "known_grid" ||
                                feature == "inclusion_grid";
     node.declare_parameter("features." + feature, default_value);
   }
   node.declare_parameter("features.loaded_highway_model", std::string{});
+  node.declare_parameter("circumstances.setting_resolution_m", 1.0);
+  node.declare_parameter("circumstances.setting_radius_m", 10.0);
+  node.declare_parameter("circumstances.minimum_cluster_size", 50);
+  node.declare_parameter("circumstances.assignment_confidence_threshold", 0.95);
+  node.declare_parameter("circumstances.similarity_l1_threshold", 125.0);
+  node.declare_parameter("circumstances.reclustering_threshold", 100);
+  node.declare_parameter("circumstances.minimum_case_evidence", 10);
+  node.declare_parameter("circumstances.accuracy_threshold", 0.75);
+  node.declare_parameter("circumstances.action_confidence_threshold", 0.25);
+  node.declare_parameter("circumstances.distance_bin_base_m", 2.0);
+  node.declare_parameter("circumstances.angle_bin_count", 8);
 
   node.declare_parameter("planners.enabled", std::vector<std::string>{});
   node.declare_parameter("planners.selection_policy",
@@ -214,6 +226,29 @@ config::Configuration configurationFromParameters(rclcpp::Node& node) {
       node.get_parameter("features.circumstances").as_bool();
   navigation.loaded_highway_model =
       node.get_parameter("features.loaded_highway_model").as_string();
+  auto& circumstances = navigation.circumstances;
+  circumstances.setting_resolution_m =
+      node.get_parameter("circumstances.setting_resolution_m").as_double();
+  circumstances.setting_radius_m =
+      node.get_parameter("circumstances.setting_radius_m").as_double();
+  circumstances.minimum_cluster_size = static_cast<std::size_t>(
+      node.get_parameter("circumstances.minimum_cluster_size").as_int());
+  circumstances.assignment_confidence_threshold = node.get_parameter(
+      "circumstances.assignment_confidence_threshold").as_double();
+  circumstances.similarity_l1_threshold = node.get_parameter(
+      "circumstances.similarity_l1_threshold").as_double();
+  circumstances.reclustering_threshold = static_cast<std::size_t>(
+      node.get_parameter("circumstances.reclustering_threshold").as_int());
+  circumstances.minimum_case_evidence = static_cast<std::size_t>(
+      node.get_parameter("circumstances.minimum_case_evidence").as_int());
+  circumstances.accuracy_threshold =
+      node.get_parameter("circumstances.accuracy_threshold").as_double();
+  circumstances.action_confidence_threshold = node.get_parameter(
+      "circumstances.action_confidence_threshold").as_double();
+  circumstances.distance_bin_base_m =
+      node.get_parameter("circumstances.distance_bin_base_m").as_double();
+  circumstances.angle_bin_count = static_cast<std::size_t>(
+      node.get_parameter("circumstances.angle_bin_count").as_int());
   const auto enabled_planners =
       node.get_parameter("planners.enabled").as_string_array();
   for (const std::string& planner : enabled_planners) {

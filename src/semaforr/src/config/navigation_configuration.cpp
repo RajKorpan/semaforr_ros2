@@ -148,6 +148,36 @@ void validateNavigation(const NavigationConfiguration& configuration) {
     throw std::runtime_error(
         "configuration: crowd-cost planners require social.learning.enabled");
   }
+  const auto& circumstance = configuration.circumstances;
+  const bool circumstance_finite =
+      std::isfinite(circumstance.setting_resolution_m) &&
+      std::isfinite(circumstance.setting_radius_m) &&
+      std::isfinite(circumstance.assignment_confidence_threshold) &&
+      std::isfinite(circumstance.similarity_l1_threshold) &&
+      std::isfinite(circumstance.accuracy_threshold) &&
+      std::isfinite(circumstance.action_confidence_threshold) &&
+      std::isfinite(circumstance.distance_bin_base_m);
+  if (!circumstance_finite || circumstance.setting_resolution_m <= 0.0 ||
+      circumstance.setting_radius_m <= 0.0 ||
+      circumstance.minimum_cluster_size == 0U ||
+      circumstance.minimum_cluster_size > 1000000U ||
+      circumstance.reclustering_threshold == 0U ||
+      circumstance.reclustering_threshold > 1000000U ||
+      circumstance.minimum_case_evidence == 0U ||
+      circumstance.minimum_case_evidence > 1000000U ||
+      circumstance.assignment_confidence_threshold < 0.0 ||
+      circumstance.assignment_confidence_threshold > 1.0 ||
+      circumstance.similarity_l1_threshold <= 0.0 ||
+      circumstance.accuracy_threshold < 0.0 ||
+      circumstance.accuracy_threshold > 1.0 ||
+      circumstance.action_confidence_threshold < 0.0 ||
+      circumstance.action_confidence_threshold > 1.0 ||
+      circumstance.distance_bin_base_m <= 0.0 ||
+      circumstance.angle_bin_count == 0U ||
+      circumstance.angle_bin_count > 360U)
+    throw std::runtime_error(
+        "configuration: circumstance normalization, clustering, confidence, "
+        "accuracy, and evidence thresholds are outside valid ranges");
   const std::set<std::string> selection_policies{
       "single", "minimum_normalized_cost", "range_vote", "pareto_then_vote",
       "shortest_valid"};
@@ -326,6 +356,7 @@ void applyAblationProfile(Configuration& configuration) {
       configuration.navigation.inclusion_grid_on = false;
       configuration.navigation.highways_on = false;
       configuration.navigation.circumstances_on = false;
+      std::erase(experiment.tiers.tier_one_rules, "precedent");
       experiment.reactive_exploration_enabled = false;
       configuration.navigation.planners.distance = false;
       configuration.navigation.planners.density = false;
@@ -437,6 +468,30 @@ std::string configurationFingerprint(const Configuration& configuration) {
             << configuration.navigation.inclusion_grid_on << '|'
             << configuration.navigation.highways_on << '|'
             << configuration.navigation.circumstances_on << '|'
+            << configuration.navigation.circumstances.setting_resolution_m
+            << '|'
+            << configuration.navigation.circumstances.setting_radius_m << '|'
+            << configuration.navigation.circumstances.minimum_cluster_size
+            << '|'
+            << configuration.navigation.circumstances
+                   .assignment_confidence_threshold
+            << '|'
+            << configuration.navigation.circumstances
+                   .similarity_l1_threshold
+            << '|'
+            << configuration.navigation.circumstances
+                   .reclustering_threshold
+            << '|'
+            << configuration.navigation.circumstances.minimum_case_evidence
+            << '|'
+            << configuration.navigation.circumstances.accuracy_threshold
+            << '|'
+            << configuration.navigation.circumstances
+                   .action_confidence_threshold
+            << '|'
+            << configuration.navigation.circumstances.distance_bin_base_m
+            << '|'
+            << configuration.navigation.circumstances.angle_bin_count << '|'
             << configuration.navigation.planners.distance << '|'
             << configuration.navigation.planners.skeleton << '|'
             << configuration.navigation.planners.highway << '|'
@@ -585,6 +640,10 @@ void validateConfiguration(const Configuration& configuration) {
     throw std::runtime_error(
         "configuration: safety.command_envelope.enabled is an invariant "
         "platform boundary and must remain true for every cognitive ablation");
+  if (experiment.tiers.tier_one && configured_rules.contains("precedent") &&
+      !configuration.navigation.circumstances_on)
+    throw std::runtime_error(
+        "configuration: Precedent requires the circumstances representation");
   if (!std::isfinite(experiment.safety_envelope.sensor_freshness_timeout_s) ||
       experiment.safety_envelope.sensor_freshness_timeout_s <= 0.0)
     throw std::runtime_error(

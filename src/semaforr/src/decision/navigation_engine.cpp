@@ -220,7 +220,9 @@ DecisionResult NavigationEngine::decide() {
         {observation_->pose, observation_->laser, result.action, std::nullopt});
     learning_.observe({world_.navigation_history.entries().size(),
                        *observation_, result.action, std::nullopt, false, false,
-                       true});
+                       true, true, std::nullopt, {},
+                       action_space_.move_distances_m(),
+                       action_space_.rotation_angles_rad()});
     learning_.applyTo(world_.spatial);
     if (phases_->explorationBudgetReached()) {
       finishInitialExploration();
@@ -292,7 +294,7 @@ DecisionResult NavigationEngine::decide() {
   result.configuration_fingerprint = configuration_fingerprint_;
   result.component_manifest = component_manifest_;
   result.phase_events.swap(pending_phase_events_);
-  result.candidates = available;
+  result.candidates = decision_candidates;
   result.planner = selected_planner;
   if (world_.mission.active()) {
     result.task = TaskDiagnostic{
@@ -310,7 +312,13 @@ DecisionResult NavigationEngine::decide() {
                      result.action, active_task,
                      mission_step == MissionStep::ActivatedTask ||
                          mission_step == MissionStep::SkippedTask,
-                     false});
+                     false, false, true,
+                     world_.mission.active()
+                         ? std::optional<domain::Point2D>(
+                               world_.mission.active()->target)
+                         : std::nullopt,
+                     decision_candidates, action_space_.move_distances_m(),
+                     action_space_.rotation_angles_rad()});
   learning_.applyTo(world_.spatial);
   mission_.recordDecision();
   (void)planning_;

@@ -73,6 +73,7 @@ find_package(visualization_msgs REQUIRED)
 
 set(SEMAFORR_DOMAIN_SOURCES
   src/config/navigation_configuration.cpp
+  src/domain/circumstance.cpp
   src/domain/crowd_model.cpp
   src/domain/motion_model.cpp
   src/decision/decision_result.cpp

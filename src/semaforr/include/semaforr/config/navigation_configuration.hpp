@@ -113,6 +113,20 @@ struct CrowdLearningConfiguration {
   unsigned int random_seed = 0U;
 };
 
+struct CircumstanceConfiguration {
+  double setting_resolution_m = 1.0;
+  double setting_radius_m = 10.0;
+  std::size_t minimum_cluster_size = 50U;
+  double assignment_confidence_threshold = 0.95;
+  double similarity_l1_threshold = 125.0;
+  std::size_t reclustering_threshold = 100U;
+  std::size_t minimum_case_evidence = 10U;
+  double accuracy_threshold = 0.75;
+  double action_confidence_threshold = 0.25;
+  double distance_bin_base_m = 2.0;
+  std::size_t angle_bin_count = 8U;
+};
+
 struct NavigationConfiguration {
   int task_decision_limit = 0;
   double can_see_point_epsilon = 0.0;
@@ -136,11 +150,12 @@ struct NavigationConfiguration {
   bool known_grid_on = true;
   bool inclusion_grid_on = true;
   bool highways_on = false;
-  bool circumstances_on = false;
+  bool circumstances_on = true;
   std::string loaded_highway_model;
 
   PlannerConfiguration planners;
   CrowdLearningConfiguration crowd_learning;
+  CircumstanceConfiguration circumstances;
 };
 
 struct MapDimensions {

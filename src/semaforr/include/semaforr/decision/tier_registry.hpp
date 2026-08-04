@@ -74,15 +74,26 @@ class NotOppositeRule final : public VetoRule {
   double orientation_tolerance_rad_;
 };
 
+struct PrecedentConfiguration {
+  std::size_t minimum_case_evidence = 10U;
+  double accuracy_threshold = 0.75;
+  double action_confidence_threshold = 0.25;
+};
+
 class PrecedentRule final : public VetoRule {
  public:
+  explicit PrecedentRule(
+      domain::ActionSpace action_space = domain::ActionSpace({0.25}, {0.2}),
+      PrecedentConfiguration configuration = {});
   std::string_view name() const noexcept override { return "Precedent"; }
   std::vector<std::string_view> dependencies() const override {
     return {"circumstances"};
   }
-  std::vector<Veto> evaluate(const DecisionContext&) const override {
-    return {};
-  }
+  std::vector<Veto> evaluate(const DecisionContext&) const override;
+
+ private:
+  domain::ActionSpace action_space_;
+  PrecedentConfiguration configuration_;
 };
 
 enum class SpatialAdvisorObjective {
@@ -145,10 +156,11 @@ class TierOneRegistry {
 };
 
 void registerTierFactories(TierOneRegistry& tier_one,
-                                   AdvisorRegistry& tier_three,
-                                   const domain::ActionSpace& action_space,
-                                   double robot_radius_m = 0.25,
-                                   double obstacle_buffer_m = 0.1);
+                           AdvisorRegistry& tier_three,
+                           const domain::ActionSpace& action_space,
+                           double robot_radius_m = 0.25,
+                           double obstacle_buffer_m = 0.1,
+                           PrecedentConfiguration precedent = {});
 
 }  // namespace semaforr::decision
 

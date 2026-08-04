@@ -57,6 +57,29 @@ social::CrowdFieldLearnerConfiguration crowdConfiguration(
   return result;
 }
 
+spatial::CircumstanceLearningConfiguration circumstanceConfiguration(
+    const config::Configuration& configuration) {
+  const auto& source = configuration.navigation.circumstances;
+  return {source.setting_resolution_m,
+          source.setting_radius_m,
+          source.minimum_cluster_size,
+          source.assignment_confidence_threshold,
+          source.similarity_l1_threshold,
+          source.reclustering_threshold,
+          source.minimum_case_evidence,
+          source.accuracy_threshold,
+          source.action_confidence_threshold,
+          source.distance_bin_base_m,
+          source.angle_bin_count};
+}
+
+decision::PrecedentConfiguration precedentConfiguration(
+    const config::Configuration& configuration) {
+  const auto& source = configuration.navigation.circumstances;
+  return {source.minimum_case_evidence, source.accuracy_threshold,
+          source.action_confidence_threshold};
+}
+
 }  // namespace
 
 class NavigationEngineAdapter::Impl {
@@ -70,7 +93,8 @@ class NavigationEngineAdapter::Impl {
                     domain::Action::pause(),
                     configuration_.experiment.random_seed}),
         mission_(world_.mission),
-        learning_(spatial::SpatialLearningCoordinator::defaults()),
+        learning_(spatial::SpatialLearningCoordinator::defaults(
+            10U, circumstanceConfiguration(configuration_))),
         hard_safety_(action_space_.move_distances_m(),
                      action_space_.rotation_angles_rad(),
                      configuration_.navigation.robot_footprint,
@@ -93,7 +117,8 @@ class NavigationEngineAdapter::Impl {
     decision::registerTierFactories(
         tier_one_registry, unused_advisors, action_space_,
         configuration_.navigation.robot_footprint,
-        configuration_.navigation.robot_footprint_buffer);
+        configuration_.navigation.robot_footprint_buffer,
+        precedentConfiguration(configuration_));
     std::vector<std::unique_ptr<planning::ReactivePlanner>> enabled_reactive;
     for (const auto& planner :
          configuration_.experiment.tiers.reactive_planners) {
@@ -195,7 +220,8 @@ class NavigationEngineAdapter::Impl {
     decision::registerTierFactories(
         tier_one_registry, unused_advisors, action_space_,
         configuration_.navigation.robot_footprint,
-        configuration_.navigation.robot_footprint_buffer);
+        configuration_.navigation.robot_footprint_buffer,
+        precedentConfiguration(configuration_));
     decision::registerAdvisorCatalog(tier_three_registry, action_space_,
                                      configuration_.advisors);
     if (configuration_.experiment.tiers.tier_one) {

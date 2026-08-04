@@ -43,6 +43,7 @@ void clearRepresentation(domain::SpatialModel& model,
       model.highways = {};
       break;
     case SpatialRepresentation::Circumstances:
+      model.circumstances = {};
       break;
   }
 }
@@ -60,6 +61,12 @@ SpatialLearningCoordinator::SpatialLearningCoordinator(
 
 SpatialLearningCoordinator SpatialLearningCoordinator::defaults(
     std::size_t automatic_rebuild_interval) {
+  return defaults(automatic_rebuild_interval, {});
+}
+
+SpatialLearningCoordinator SpatialLearningCoordinator::defaults(
+    std::size_t automatic_rebuild_interval,
+    CircumstanceLearningConfiguration circumstance_configuration) {
   SpatialLearningCoordinator coordinator(automatic_rebuild_interval);
   coordinator.addLearner(std::make_unique<TrailLearner>());
   coordinator.addLearner(std::make_unique<ConveyorLearner>());
@@ -71,7 +78,8 @@ SpatialLearningCoordinator SpatialLearningCoordinator::defaults(
   coordinator.addLearner(std::make_unique<KnownGridLearner>());
   coordinator.addLearner(std::make_unique<InclusionGridLearner>());
   coordinator.addLearner(std::make_unique<HighwayLearner>());
-  coordinator.addLearner(std::make_unique<CircumstanceLearner>());
+  coordinator.addLearner(std::make_unique<CircumstanceLearner>(
+      std::move(circumstance_configuration)));
   return coordinator;
 }
 
@@ -327,6 +335,9 @@ void SpatialLearningCoordinator::applyTo(domain::SpatialModel& model) const {
               model.highways.intersections.push_back(
                   {intersection.node, intersection.degree});
             model.highways.revision = update.revision;
+          } else if constexpr (std::is_same_v<Payload, CircumstanceModel>) {
+            model.circumstances = payload;
+            model.circumstances.revision = update.revision;
           }
         },
         update.payload);

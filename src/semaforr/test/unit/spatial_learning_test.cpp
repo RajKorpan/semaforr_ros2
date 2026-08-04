@@ -304,3 +304,41 @@ TEST(SpatialLearning, InitialExplorationFinalizationPublishesGraphModels) {
   EXPECT_GT(highway->revision, 0U);
   EXPECT_GT(skeleton->revision, 0U);
 }
+
+TEST(CircumstanceLearning, NormalizesSettingsAndLearnsQualifiedCases) {
+  using namespace semaforr;
+  using namespace semaforr::spatial;
+  CircumstanceLearningConfiguration configuration;
+  configuration.setting_resolution_m = 1.0;
+  configuration.setting_radius_m = 5.0;
+  configuration.minimum_cluster_size = 2U;
+  configuration.reclustering_threshold = 2U;
+  configuration.minimum_case_evidence = 2U;
+  configuration.assignment_confidence_threshold = 0.8;
+  CircumstanceLearner learner(configuration);
+
+  for (std::size_t index = 0U; index < 4U; ++index) {
+    NavigationEpisode input = episode(index + 1U, 0.4 * index,
+                                      index == 0U);
+    input.active_target = domain::Point2D{4.0, 0.0};
+    input.viable_actions = {
+        domain::Action(domain::ActionType::Forward, 1U),
+        domain::Action(domain::ActionType::TurnLeft, 1U)};
+    input.move_distances_m = {0.25};
+    input.rotation_angles_rad = {0.2};
+    input.task_finished = index == 3U;
+    learner.observe(input);
+  }
+  learner.rebuild();
+
+  const auto update = learner.snapshot();
+  ASSERT_TRUE(std::holds_alternative<CircumstanceModel>(update.payload));
+  const auto& model = std::get<CircumstanceModel>(update.payload);
+  ASSERT_EQ(model.clusters.size(), 1U);
+  EXPECT_EQ(model.clusters.front().evidence, 4U);
+  EXPECT_EQ(model.clusters.front().centroid.side_cells, 11U);
+  ASSERT_FALSE(model.cases.empty());
+  EXPECT_GE(model.cases.front().evidence, 2U);
+  EXPECT_GE(model.cases.front().accuracy, configuration.accuracy_threshold);
+  EXPECT_FALSE(model.cases.front().confidence.empty());
+}

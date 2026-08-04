@@ -227,13 +227,62 @@ void payload(std::ostream& output, const SpatialPayload& value) {
                 [](std::ostream& stream, auto value) { stream << value; });
           output << '}';
         } else if constexpr (std::is_same_v<Model, CircumstanceModel>) {
-          output << "{\"actions\":";
-          array(output, model.actions,
-                [](std::ostream& stream, const auto& item) {
-                  stream << "{\"type\":"
-                         << static_cast<int>(item.action.type())
-                         << ",\"magnitude\":" << item.action.magnitude_index()
-                         << ",\"occurrences\":" << item.occurrences << '}';
+          const auto action = [](std::ostream& stream,
+                                 const domain::Action& value) {
+            stream << "{\"type\":" << static_cast<int>(value.type())
+                   << ",\"magnitude\":" << value.magnitude_index() << '}';
+          };
+          output << "{\"minimum_cluster_size\":"
+                 << model.minimum_cluster_size
+                 << ",\"minimum_case_evidence\":"
+                 << model.minimum_case_evidence
+                 << ",\"assignment_confidence_threshold\":"
+                 << model.assignment_confidence_threshold
+                 << ",\"similarity_l1_threshold\":"
+                 << model.similarity_l1_threshold
+                 << ",\"accuracy_threshold\":" << model.accuracy_threshold
+                 << ",\"action_confidence_threshold\":"
+                 << model.action_confidence_threshold
+                 << ",\"unclustered_settings\":"
+                 << model.unclustered_settings << ",\"clusters\":";
+          array(output, model.clusters,
+                [](std::ostream& stream, const auto& cluster) {
+                  stream << "{\"id\":" << cluster.id
+                         << ",\"evidence\":" << cluster.evidence
+                         << ",\"assignment_confidence\":"
+                         << cluster.assignment_confidence
+                         << ",\"side_cells\":"
+                         << cluster.centroid.side_cells
+                         << ",\"resolution_m\":"
+                         << cluster.centroid.resolution_m
+                         << ",\"radius_m\":" << cluster.centroid.radius_m
+                         << ",\"freespace\":";
+                  array(stream, cluster.centroid.freespace,
+                        [](std::ostream& values, double cell) {
+                          values << cell;
+                        });
+                  stream << '}';
+                });
+          output << ",\"cases\":";
+          array(output, model.cases,
+                [&](std::ostream& stream, const auto& item) {
+                  stream << "{\"circumstance_id\":"
+                         << item.key.circumstance_id
+                         << ",\"distance_bin\":" << item.key.distance_bin
+                         << ",\"angle_bin\":" << item.key.angle_bin
+                         << ",\"evidence\":" << item.evidence
+                         << ",\"accuracy\":" << item.accuracy
+                         << ",\"action_pairs\":";
+                  array(stream, item.action_pairs,
+                        [&](std::ostream& pairs, const auto& pair) {
+                          pairs << "{\"actual\":";
+                          action(pairs, pair.actual);
+                          pairs << ",\"hypothetical\":";
+                          action(pairs, pair.hypothetical);
+                          pairs << ",\"occurrences\":" << pair.occurrences
+                                << '}';
+                        });
+                  stream << '}';
                 });
           output << '}';
         }

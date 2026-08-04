@@ -195,6 +195,94 @@ std::vector<Veto> NotOppositeRule::evaluate(
   return vetoes;
 }
 
+PrecedentRule::PrecedentRule(domain::ActionSpace action_space,
+                             PrecedentConfiguration configuration)
+    : action_space_(std::move(action_space)), configuration_(configuration) {
+  if (configuration_.minimum_case_evidence == 0U ||
+      !std::isfinite(configuration_.accuracy_threshold) ||
+      configuration_.accuracy_threshold < 0.0 ||
+      configuration_.accuracy_threshold > 1.0 ||
+      !std::isfinite(configuration_.action_confidence_threshold) ||
+      configuration_.action_confidence_threshold < 0.0 ||
+      configuration_.action_confidence_threshold > 1.0)
+    throw std::invalid_argument("invalid Precedent evidence thresholds");
+}
+
+std::vector<Veto> PrecedentRule::evaluate(
+    const DecisionContext& context) const {
+  const auto& world = context.world;
+  const auto& model = world.spatial.circumstances;
+  if (!world.robot.laser || !world.mission.active() || model.clusters.empty())
+    return {};
+  domain::SettingNormalizationConfiguration setting_configuration;
+  setting_configuration.resolution_m =
+      model.clusters.front().centroid.resolution_m;
+  setting_configuration.radius_m =
+      model.clusters.front().centroid.radius_m;
+  setting_configuration.assignment_confidence_threshold =
+      model.assignment_confidence_threshold;
+  setting_configuration.similarity_l1_threshold =
+      model.similarity_l1_threshold;
+  setting_configuration.distance_bin_base_m = model.distance_bin_base_m;
+  setting_configuration.angle_bin_count = model.angle_bin_count;
+  const auto setting =
+      domain::normalizeSetting(*world.robot.laser, setting_configuration);
+  const auto match = domain::matchCircumstance(model, setting);
+  if (!match) return {};
+  const auto cluster = std::find_if(
+      model.clusters.begin(), model.clusters.end(),
+      [&](const auto& item) { return item.id == match->id; });
+  if (cluster == model.clusters.end() ||
+      cluster->evidence < model.minimum_cluster_size ||
+      match->confidence < model.assignment_confidence_threshold)
+    return {};
+  const auto key = domain::circumstanceCaseKey(
+      match->id, world.robot.pose, world.mission.active()->target, model);
+  const auto evidence =
+      std::find_if(model.cases.begin(), model.cases.end(),
+                   [&](const auto& item) { return item.key == key; });
+  const std::size_t required_evidence =
+      std::max(configuration_.minimum_case_evidence,
+               model.minimum_case_evidence);
+  const double required_accuracy =
+      std::max(configuration_.accuracy_threshold, model.accuracy_threshold);
+  const double confidence_threshold = std::max(
+      configuration_.action_confidence_threshold,
+      model.action_confidence_threshold);
+  if (evidence == model.cases.end() ||
+      evidence->evidence < required_evidence ||
+      evidence->accuracy < required_accuracy)
+    return {};
+  std::map<domain::Action, std::size_t> counts;
+  std::size_t maximum = 0U;
+  for (const auto& pair : evidence->action_pairs) {
+    counts[pair.hypothetical] += pair.occurrences;
+    maximum = std::max(maximum, counts[pair.hypothetical]);
+  }
+  std::vector<domain::Action> actions{domain::Action::pause()};
+  for (std::size_t index = 1U;
+       index <= action_space_.move_distances_m().size(); ++index)
+    actions.emplace_back(domain::ActionType::Forward, index);
+  for (std::size_t index = 1U;
+       index <= action_space_.rotation_angles_rad().size(); ++index) {
+    actions.emplace_back(domain::ActionType::TurnRight, index);
+    actions.emplace_back(domain::ActionType::TurnLeft, index);
+  }
+  std::vector<Veto> vetoes;
+  for (const auto& action : actions) {
+    const double confidence =
+        (1.0 + static_cast<double>(counts[action])) /
+        (1.0 + static_cast<double>(maximum));
+    if (confidence < confidence_threshold)
+      vetoes.push_back(
+          {action, std::string(name()),
+           "case evidence=" + std::to_string(evidence->evidence) +
+               " accuracy=" + std::to_string(evidence->accuracy) +
+               " action confidence=" + std::to_string(confidence)});
+  }
+  return vetoes;
+}
+
 SpatialAdvisor::SpatialAdvisor(std::string name,
                                SpatialAdvisorObjective objective,
                                domain::ActionSpace action_space, double weight)
@@ -346,10 +434,10 @@ std::unique_ptr<VetoRule> TierOneRegistry::createVeto(
 }
 
 void registerTierFactories(TierOneRegistry& tier_one,
-                                   AdvisorRegistry& tier_three,
-                                   const domain::ActionSpace& action_space,
-                                   double robot_radius_m,
-                                   double obstacle_buffer_m) {
+                           AdvisorRegistry& tier_three,
+                           const domain::ActionSpace& action_space,
+                           double robot_radius_m, double obstacle_buffer_m,
+                           PrecedentConfiguration precedent) {
   tier_one.registerMandatory(
       "victory", [action_space] {
         return std::make_unique<VictoryRule>(domain::Distance(0.5),
@@ -381,7 +469,9 @@ void registerTierFactories(TierOneRegistry& tier_one,
         return std::make_unique<ForwardRule>(action_space);
       });
   tier_one.registerVeto(
-      "precedent", [] { return std::make_unique<PrecedentRule>(); });
+      "precedent", [action_space, precedent] {
+        return std::make_unique<PrecedentRule>(action_space, precedent);
+      });
   const auto add = [&](std::string name, SpatialAdvisorObjective objective) {
     tier_three.registerFactory(
         name, [name, objective, action_space] {

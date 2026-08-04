@@ -7,6 +7,7 @@
 #include <optional>
 #include <semaforr/domain/action.hpp>
 #include <semaforr/domain/crowd_model.hpp>
+#include <semaforr/domain/circumstance.hpp>
 #include <semaforr/domain/highway.hpp>
 #include <semaforr/domain/mission.hpp>
 #include <semaforr/domain/observation.hpp>
@@ -137,6 +138,7 @@ struct SpatialModel {
   FreespaceGrid inclusion_grid;
   std::vector<ExplorationCue> unfinished_hle_candidates;
   HighwayGraph highways;
+  CircumstanceModel circumstances;
   std::size_t revision = 0U;
 };
 

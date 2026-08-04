@@ -60,6 +60,10 @@ struct NavigationEpisode {
   bool task_finished = false;
   bool initial_exploration = false;
   bool action_completed = true;
+  std::optional<domain::Point2D> active_target;
+  std::vector<domain::Action> viable_actions;
+  std::vector<double> move_distances_m;
+  std::vector<double> rotation_angles_rad;
 };
 
 using SpatialPayload = std::variant<std::monostate, TrailModel, ConveyorModel,

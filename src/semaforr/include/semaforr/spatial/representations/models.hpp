@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <semaforr/domain/action.hpp>
+#include <semaforr/domain/circumstance.hpp>
 #include <semaforr/domain/geometry.hpp>
 #include <semaforr/domain/highway.hpp>
 #include <vector>
@@ -68,13 +69,7 @@ struct HighwayModel {
   std::vector<std::size_t> touched_rows;
   std::vector<std::size_t> touched_columns;
 };
-struct CircumstanceObservation {
-  domain::Action action = domain::Action::pause();
-  std::size_t occurrences = 0U;
-};
-struct CircumstanceModel {
-  std::vector<CircumstanceObservation> actions;
-};
+using CircumstanceModel = domain::CircumstanceModel;
 
 }  // namespace semaforr::spatial
 

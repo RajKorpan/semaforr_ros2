@@ -5,6 +5,7 @@
 #include <semaforr/decision/advisors/heuristic_advisor.hpp>
 #include <semaforr/decision/tier_registry.hpp>
 #include <semaforr/planning/reactive_planner.hpp>
+#include <semaforr/spatial/learners/circumstance_learner.hpp>
 
 namespace {
 
@@ -529,6 +530,58 @@ TEST(TierOneRules, VictoryForwardAndNotOppositeAreTyped) {
   ASSERT_EQ(vetoes.size(), 1U);
   EXPECT_EQ(vetoes.front().action.type(),
             semaforr::domain::ActionType::TurnRight);
+}
+
+TEST(Precedent, VetoesOnlyLowConfidenceActionsAfterEvidenceGate) {
+  using namespace semaforr;
+  const domain::ActionSpace actions({0.25}, {0.2});
+  auto world = worldWithTarget({4.0, 0.0});
+  world.robot.laser = laser();
+
+  spatial::CircumstanceLearningConfiguration learning;
+  learning.setting_radius_m = 5.0;
+  learning.minimum_cluster_size = 2U;
+  learning.reclustering_threshold = 2U;
+  learning.minimum_case_evidence = 10U;
+  const domain::SettingNormalizationConfiguration normalization{
+      learning.setting_resolution_m,
+      learning.setting_radius_m,
+      learning.assignment_confidence_threshold,
+      learning.similarity_l1_threshold,
+      learning.distance_bin_base_m,
+      learning.angle_bin_count};
+  const auto setting =
+      domain::normalizeSetting(*world.robot.laser, normalization);
+  auto& model = world.spatial.circumstances;
+  model.minimum_cluster_size = 2U;
+  model.minimum_case_evidence = 10U;
+  model.assignment_confidence_threshold = 0.95;
+  model.similarity_l1_threshold = 125.0;
+  model.accuracy_threshold = 0.75;
+  model.action_confidence_threshold = 0.25;
+  model.distance_bin_base_m = 2.0;
+  model.angle_bin_count = 8U;
+  model.clusters.push_back({0U, setting, 50U, 1.0});
+  const auto key = domain::circumstanceCaseKey(
+      0U, world.robot.pose, world.mission.active()->target, model);
+  const domain::Action forward(domain::ActionType::Forward, 1U);
+  const domain::Action left(domain::ActionType::TurnLeft, 1U);
+  model.cases.push_back(
+      {key, {{forward, forward, 9U}, {left, left, 1U}}, 10U, 1.0,
+       {{forward, 1.0}, {left, 0.2}}});
+
+  decision::PrecedentRule rule(actions, {10U, 0.75, 0.25});
+  const auto vetoes = rule.evaluate({world});
+  const auto vetoed = [&](domain::Action action) {
+    return std::any_of(vetoes.begin(), vetoes.end(),
+                       [&](const auto& veto) { return veto.action == action; });
+  };
+  EXPECT_FALSE(vetoed(forward));
+  EXPECT_TRUE(vetoed(left));
+  EXPECT_TRUE(vetoed(domain::Action(domain::ActionType::TurnRight, 1U)));
+
+  model.cases.front().evidence = 9U;
+  EXPECT_TRUE(rule.evaluate({world}).empty());
 }
 
 TEST(TierRegistries, DeclareAndConstructTierDependencies) {
