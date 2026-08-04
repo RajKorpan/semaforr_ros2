@@ -15,6 +15,7 @@ void clearRepresentation(domain::SpatialModel& model,
       break;
     case SpatialRepresentation::Conveyors:
       model.conveyor_flows.clear();
+      model.conveyor_traversals.clear();
       break;
     case SpatialRepresentation::Regions:
       model.learned_regions.clear();
@@ -267,8 +268,10 @@ void SpatialLearningCoordinator::applyTo(domain::SpatialModel& model) const {
             model.trails = payload.trails;
           } else if constexpr (std::is_same_v<Payload, ConveyorModel>) {
             model.conveyor_flows.clear();
+            model.conveyor_traversals.clear();
             for (const ConveyorFlow& flow : payload.flows) {
               model.conveyor_flows.push_back(flow.axis);
+              model.conveyor_traversals.push_back(flow.traversals);
             }
           } else if constexpr (std::is_same_v<Payload, RegionModel>) {
             model.learned_regions = payload.regions;

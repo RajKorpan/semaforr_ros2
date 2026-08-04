@@ -637,24 +637,30 @@ void validateConfiguration(const Configuration& configuration) {
                                "' has an invalid weight or parameter");
     }
     const bool missing_spatial_representation =
-        (advisor.name == "prefer_regions" || advisor.name == "exit" ||
-         advisor.name == "access" || advisor.name == "stay")
+        (advisor.name == "prefer_regions" || advisor.name == "exit")
             ? !configuration.navigation.regions_on
-        : (advisor.name == "prefer_highways" ||
-           advisor.name == "crossroads")
+        : advisor.name == "prefer_highways"
             ? !configuration.navigation.highways_on
-        : (advisor.name == "prefer_doors" || advisor.name == "enter")
+        : advisor.name == "prefer_doors"
             ? !configuration.navigation.doors_on
         : (advisor.name == "follow_trails" || advisor.name == "trailer")
             ? !configuration.navigation.trails_on
         : advisor.name == "convey"
             ? !configuration.navigation.conveyors_on
-        : advisor.name == "unlikely"
-            ? !configuration.navigation.barriers_on
-        : advisor.name == "follow"
+        : (advisor.name == "follow" || advisor.name == "crossroads" ||
+           advisor.name == "stay")
             ? !configuration.navigation.hallways_on
+        : advisor.name == "enter"
+            ? !configuration.navigation.regions_on
+        : (advisor.name == "access" || advisor.name == "unlikely")
+            ? (!configuration.navigation.regions_on ||
+               !configuration.navigation.doors_on)
+        : advisor.name == "least_angle"
+            ? !configuration.navigation.regions_on
         : advisor.name == "spatial_learner"
-            ? !configuration.navigation.inclusion_grid_on
+            ? (!configuration.navigation.inclusion_grid_on ||
+               !configuration.navigation.regions_on ||
+               !configuration.navigation.conveyors_on)
             : false;
     if (advisor.active && missing_spatial_representation)
       throw std::runtime_error("configuration: advisor '" + advisor.name +

@@ -126,6 +126,7 @@ struct SpatialModel {
   std::vector<Polygon> obstacle_polygons;
   std::vector<std::vector<Point2D>> trails;
   std::vector<Segment2D> conveyor_flows;
+  std::vector<std::size_t> conveyor_traversals;
   std::vector<Circle> learned_regions;
   std::vector<Segment2D> doorways;
   std::vector<Segment2D> hallways;

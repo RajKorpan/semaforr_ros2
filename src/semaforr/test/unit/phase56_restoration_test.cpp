@@ -36,6 +36,16 @@ double scoreFor(const semaforr::decision::AdvisorEvaluation& evaluation,
   return found == evaluation.scores.end() ? 0.0 : found->raw_score;
 }
 
+semaforr::decision::AdvisorEvaluation spatialEvaluation(
+    semaforr::decision::DissertationAdvisorObjective objective,
+    const semaforr::domain::WorldModel& world,
+    const semaforr::domain::ActionSpace& actions,
+    const std::vector<semaforr::domain::Action>& candidates) {
+  semaforr::decision::DissertationAdvisor advisor(
+      {"spatial_test", objective, actions, 1.0});
+  return advisor.evaluate({world}, candidates);
+}
+
 }  // namespace
 
 TEST(TierThreeCatalog, RestoresEveryDissertationAdvisorWithMetadata) {
@@ -208,6 +218,126 @@ TEST(CommonsenseAdvisors, EnfiladeReturnsAndVisualScanAvoidsSeenHeadings) {
   const auto scanning = scan.evaluate({world}, rotations);
   EXPECT_GT(scoreFor(scanning, {ActionType::TurnRight, 1U}),
             scoreFor(scanning, {ActionType::TurnLeft, 1U}));
+}
+
+TEST(SpatialAdvisors, ConveyEnterExitAndTrailerUseTheirStructures) {
+  using O = semaforr::decision::DissertationAdvisorObjective;
+  using semaforr::domain::Action;
+  using semaforr::domain::ActionType;
+  const semaforr::domain::ActionSpace actions({1.0}, {1.5707963267948966});
+  const std::vector<Action> candidates{
+      Action::pause(), {ActionType::Forward, 1U}};
+
+  auto convey_world = worldWithTarget({5.0, 0.0});
+  convey_world.spatial.conveyor_flows = {{{2.0, -1.0}, {2.0, 1.0}}};
+  convey_world.spatial.conveyor_traversals = {10U};
+  auto evaluation = spatialEvaluation(O::Convey, convey_world,
+                                      actions, candidates);
+  EXPECT_GT(scoreFor(evaluation, {ActionType::Forward, 1U}),
+            scoreFor(evaluation, Action::pause()));
+
+  auto enter_world = worldWithTarget({2.5, 0.0});
+  enter_world.spatial.learned_regions.push_back(
+      {{2.0, 0.0}, semaforr::domain::Distance(1.0)});
+  evaluation = spatialEvaluation(O::Enter, enter_world, actions, candidates);
+  EXPECT_GT(scoreFor(evaluation, {ActionType::Forward, 1U}),
+            scoreFor(evaluation, Action::pause()));
+
+  auto exit_world = worldWithTarget({5.0, 0.0});
+  exit_world.spatial.learned_regions.push_back(
+      {{0.0, 0.0}, semaforr::domain::Distance(1.0)});
+  evaluation = spatialEvaluation(O::Exit, exit_world, actions, candidates);
+  EXPECT_GT(scoreFor(evaluation, {ActionType::Forward, 1U}),
+            scoreFor(evaluation, Action::pause()));
+
+  auto trail_world = worldWithTarget({5.0, 0.0});
+  trail_world.spatial.trails = {{{1.0, 0.0}, {4.0, 0.0}}};
+  evaluation = spatialEvaluation(O::Trailer, trail_world, actions,
+                                 candidates);
+  EXPECT_GT(scoreFor(evaluation, {ActionType::Forward, 1U}),
+            scoreFor(evaluation, Action::pause()));
+}
+
+TEST(SpatialAdvisors, UnlikelyAccessAndCrossroadsUseConnectivity) {
+  using O = semaforr::decision::DissertationAdvisorObjective;
+  using semaforr::domain::Action;
+  using semaforr::domain::ActionType;
+  const semaforr::domain::ActionSpace actions({1.0}, {1.5707963267948966});
+  const std::vector<Action> candidates{
+      Action::pause(), {ActionType::Forward, 1U}};
+
+  auto unlikely_world = worldWithTarget({5.0, 0.0});
+  unlikely_world.spatial.learned_regions.push_back(
+      {{1.0, 0.0}, semaforr::domain::Distance(1.0)});
+  auto evaluation = spatialEvaluation(O::Unlikely, unlikely_world,
+                                      actions, candidates);
+  EXPECT_GT(scoreFor(evaluation, Action::pause()),
+            scoreFor(evaluation, {ActionType::Forward, 1U}));
+
+  auto access_world = worldWithTarget({5.0, 0.0});
+  access_world.spatial.learned_regions = {
+      {{2.0, 0.0}, semaforr::domain::Distance(1.0)},
+      {{-2.0, 0.0}, semaforr::domain::Distance(1.0)}};
+  access_world.spatial.doorways = {
+      {{2.5, -0.2}, {2.5, 0.2}}, {{2.0, 0.8}, {2.0, 1.0}},
+      {{1.5, -0.2}, {1.5, 0.2}}, {{-2.5, -0.2}, {-2.5, 0.2}}};
+  evaluation = spatialEvaluation(O::Access, access_world, actions,
+                                 candidates);
+  EXPECT_GT(scoreFor(evaluation, {ActionType::Forward, 1U}),
+            scoreFor(evaluation, Action::pause()));
+
+  auto crossroads_world = worldWithTarget({5.0, 0.0});
+  crossroads_world.spatial.hallways = {
+      {{1.0, 0.0}, {3.0, 0.0}}, {{2.0, -2.0}, {2.0, 2.0}},
+      {{2.0, -2.0}, {3.0, -1.0}}};
+  evaluation = spatialEvaluation(O::Crossroads, crossroads_world, actions,
+                                 candidates);
+  EXPECT_GT(scoreFor(evaluation, {ActionType::Forward, 1U}),
+            scoreFor(evaluation, Action::pause()));
+}
+
+TEST(SpatialAdvisors, FollowLeastAngleSpatialLearnerAndStayAreDirectional) {
+  using O = semaforr::decision::DissertationAdvisorObjective;
+  using semaforr::domain::Action;
+  using semaforr::domain::ActionType;
+  const semaforr::domain::ActionSpace actions({1.0}, {1.5707963267948966});
+  const std::vector<Action> candidates{
+      Action::pause(), {ActionType::Forward, 1U},
+      {ActionType::TurnLeft, 1U}};
+
+  auto hallway_world = worldWithTarget({5.0, 0.0});
+  hallway_world.spatial.hallways = {{{0.0, 0.0}, {4.0, 0.0}}};
+  auto evaluation = spatialEvaluation(O::Follow, hallway_world, actions,
+                                      candidates);
+  EXPECT_GT(scoreFor(evaluation, {ActionType::Forward, 1U}),
+            scoreFor(evaluation, {ActionType::TurnLeft, 1U}));
+
+  auto skeleton_world = worldWithTarget({5.0, 0.0});
+  skeleton_world.spatial.skeleton_nodes = {
+      {0.0, 0.0}, {1.0, 0.0}, {0.0, 1.0}};
+  skeleton_world.spatial.skeleton_edges = {{0U, 1U}, {0U, 2U}};
+  evaluation = spatialEvaluation(O::LeastAngle, skeleton_world, actions,
+                                 candidates);
+  EXPECT_GT(scoreFor(evaluation, {ActionType::Forward, 1U}),
+            scoreFor(evaluation, {ActionType::TurnLeft, 1U}));
+
+  auto learner_world = worldWithTarget({5.0, 0.0});
+  learner_world.robot.pose.position = {0.5, 0.5};
+  learner_world.spatial.inclusion_grid =
+      {3U, 1U, 1.0, {}, {2U, 0U, 0U}, 1U};
+  learner_world.spatial.learned_regions.push_back(
+      {{0.5, 0.5}, semaforr::domain::Distance(0.4)});
+  learner_world.spatial.conveyor_flows =
+      {{{0.0, 0.5}, {1.0, 0.5}}};
+  learner_world.spatial.conveyor_traversals = {5U};
+  evaluation = spatialEvaluation(O::SpatialLearner, learner_world, actions,
+                                 candidates);
+  EXPECT_GT(scoreFor(evaluation, {ActionType::Forward, 1U}),
+            scoreFor(evaluation, Action::pause()));
+
+  evaluation = spatialEvaluation(O::Stay, hallway_world, actions, candidates);
+  EXPECT_GT(scoreFor(evaluation, {ActionType::Forward, 1U}),
+            scoreFor(evaluation, {ActionType::TurnLeft, 1U}));
 }
 
 TEST(ReactivePlanners, ThruBehindAndOutHaveExplicitDependencies) {

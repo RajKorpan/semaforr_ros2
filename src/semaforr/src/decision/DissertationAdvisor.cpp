@@ -114,6 +114,74 @@ double visualNovelty(const domain::WorldModel& world,
   return static_cast<double>(unseen) / static_cast<double>(samples);
 }
 
+double segmentParameter(domain::Point2D point,
+                        const domain::Segment2D& segment) {
+  const double dx = segment.end.x_m - segment.start.x_m;
+  const double dy = segment.end.y_m - segment.start.y_m;
+  const double squared = dx * dx + dy * dy;
+  if (squared <= domain::geometry_tolerance_m) return 0.0;
+  return std::clamp(((point.x_m - segment.start.x_m) * dx +
+                     (point.y_m - segment.start.y_m) * dy) /
+                        squared,
+                    0.0, 1.0);
+}
+
+domain::Point2D closestPoint(domain::Point2D point,
+                             const domain::Segment2D& segment) {
+  const double parameter = segmentParameter(point, segment);
+  return {segment.start.x_m +
+              parameter * (segment.end.x_m - segment.start.x_m),
+          segment.start.y_m +
+              parameter * (segment.end.y_m - segment.start.y_m)};
+}
+
+double distanceToSegment(domain::Point2D point,
+                         const domain::Segment2D& segment) {
+  return domain::distance(point, closestPoint(point, segment)).meters();
+}
+
+double signedDistanceToRegion(domain::Point2D point,
+                              const domain::Circle& region) {
+  return domain::distance(point, region.center).meters() -
+         region.radius.meters();
+}
+
+std::size_t doorCount(const domain::Circle& region,
+                      const std::vector<domain::Segment2D>& doors) {
+  return static_cast<std::size_t>(std::count_if(
+      doors.begin(), doors.end(), [&](const auto& door) {
+        const auto midpoint = center(door);
+        return domain::distance(midpoint, region.center).meters() <=
+               region.radius.meters() + 0.75;
+      }));
+}
+
+bool overlaps(const domain::Segment2D& first,
+              const domain::Segment2D& second,
+              double tolerance_m = 0.75) {
+  return domain::intersects(first, second, tolerance_m) ||
+         distanceToSegment(first.start, second) <= tolerance_m ||
+         distanceToSegment(first.end, second) <= tolerance_m ||
+         distanceToSegment(second.start, first) <= tolerance_m ||
+         distanceToSegment(second.end, first) <= tolerance_m;
+}
+
+std::optional<std::size_t> gridIndex(const domain::FreespaceGrid& grid,
+                                     domain::Point2D point) {
+  if (grid.columns == 0U || grid.rows == 0U || grid.resolution_m <= 0.0)
+    return std::nullopt;
+  const int column = static_cast<int>(std::floor(
+      (point.x_m - grid.origin.x_m) / grid.resolution_m));
+  const int row = static_cast<int>(std::floor(
+      (point.y_m - grid.origin.y_m) / grid.resolution_m));
+  if (row < 0 || column < 0 ||
+      static_cast<std::size_t>(row) >= grid.rows ||
+      static_cast<std::size_t>(column) >= grid.columns)
+    return std::nullopt;
+  return static_cast<std::size_t>(row) * grid.columns +
+         static_cast<std::size_t>(column);
+}
+
 double targetProgress(const domain::WorldModel& world,
                       const domain::Pose2D& expected) {
   if (!world.mission.active()) return 0.0;
@@ -164,18 +232,19 @@ std::vector<std::string_view> DissertationAdvisor::dependencies() const {
     case O::Enfilade: return {"navigation_history"};
     case O::VisualScan: return {"laser", "navigation_history"};
     case O::Convey: return {"conveyors"};
-    case O::Enter: return {"doors"};
-    case O::Exit:
-    case O::Access:
-    case O::Stay: return {"regions"};
+    case O::Enter: return {"regions"};
+    case O::Exit: return {"regions"};
+    case O::Access: return {"regions", "doors"};
+    case O::Stay: return {"hallways"};
     case O::Trailer: return {"trails"};
-    case O::Unlikely: return {"barriers"};
-    case O::Crossroads: return {"highways"};
+    case O::Unlikely: return {"regions", "doors"};
+    case O::Crossroads: return {"hallways"};
     case O::Follow: return {"hallways"};
-    case O::SpatialLearner: return {"inclusion_grid"};
+    case O::SpatialLearner:
+      return {"inclusion_grid", "regions", "conveyors"};
     case O::BigStep:
     case O::Greedy:
-    case O::LeastAngle: return {"active_target"};
+    case O::LeastAngle: return {"active_target", "skeleton"};
   }
   return {};
 }
@@ -203,6 +272,17 @@ AdvisorMetadata DissertationAdvisor::metadata() const {
     case O::Curiosity: rationale = "avoid every location visited in the experiment"; break;
     case O::Enfilade: rationale = "return toward recently visited locations"; break;
     case O::VisualScan: rationale = "rotate toward previously unseen orientations"; break;
+    case O::Convey: rationale = "approach frequent, distant conveyor flows"; break;
+    case O::Enter: rationale = "enter the region containing the target"; break;
+    case O::Exit: rationale = "leave the current region when it lacks the target"; break;
+    case O::Trailer: rationale = "join a trail segment that approaches the target"; break;
+    case O::Unlikely: rationale = "avoid non-target regions with few exits"; break;
+    case O::Access: rationale = "approach regions with many doors"; break;
+    case O::Crossroads: rationale = "approach highly overlapping hallways"; break;
+    case O::Follow: rationale = "follow a target-relevant hallway"; break;
+    case O::LeastAngle: rationale = "take the skeleton branch best aligned with the target"; break;
+    case O::SpatialLearner: rationale = "approach locations absent from the spatial model"; break;
+    case O::Stay: rationale = "remain within the current hallway"; break;
     default: break;
   }
   return {dependencies(), std::move(actions), target_free,
@@ -232,6 +312,52 @@ bool DissertationAdvisor::applicable(
     case O::Curiosity: return !history.empty();
     case O::Enfilade:
       return history.size() >= 2U;
+    case O::Convey: return !world.spatial.conveyor_flows.empty();
+    case O::Enter:
+      return world.mission.active() &&
+             std::any_of(world.spatial.learned_regions.begin(),
+                         world.spatial.learned_regions.end(),
+                         [&](const auto& region) {
+                           return region.contains(
+                               world.mission.active()->target);
+                         });
+    case O::Exit:
+      return world.mission.active() &&
+             std::any_of(world.spatial.learned_regions.begin(),
+                         world.spatial.learned_regions.end(),
+                         [&](const auto& region) {
+                           return region.contains(world.robot.pose.position) &&
+                                  !region.contains(
+                                      world.mission.active()->target);
+                         });
+    case O::Trailer:
+      return std::any_of(world.spatial.trails.begin(),
+                         world.spatial.trails.end(),
+                         [](const auto& trail) { return trail.size() >= 2U; });
+    case O::Unlikely:
+      return !world.spatial.learned_regions.empty();
+    case O::Access:
+      return !world.spatial.learned_regions.empty() &&
+             !world.spatial.doorways.empty();
+    case O::Crossroads:
+      return world.spatial.hallways.size() >= 2U;
+    case O::Follow:
+      return world.mission.active() && !world.spatial.hallways.empty();
+    case O::LeastAngle:
+      return world.mission.active() &&
+             !world.spatial.skeleton_nodes.empty() &&
+             !world.spatial.skeleton_edges.empty();
+    case O::SpatialLearner:
+      return !world.spatial.inclusion_grid.cells.empty() ||
+             !world.spatial.learned_regions.empty() ||
+             !world.spatial.conveyor_flows.empty();
+    case O::Stay:
+      return std::any_of(world.spatial.hallways.begin(),
+                         world.spatial.hallways.end(), [&](const auto& hallway) {
+                           return distanceToSegment(
+                                      world.robot.pose.position, hallway) <=
+                                  0.75;
+                         });
     default: return true;
   }
 }
@@ -250,14 +376,45 @@ double DissertationAdvisor::score(const domain::WorldModel& world,
             action.magnitude_index() - 1U);
       return configuration_.action_space.move_distances_m().back() * 0.5;
     case O::Greedy: return progress;
-    case O::LeastAngle:
-      if (!world.mission.active()) return 0.0;
-      return -std::abs(domain::Angle::normalize(
-          std::atan2(world.mission.active()->target.y_m -
-                         expected.position.y_m,
-                     world.mission.active()->target.x_m -
-                         expected.position.x_m) -
-          expected.heading.radians()));
+    case O::LeastAngle: {
+      const auto current = static_cast<std::size_t>(std::distance(
+          world.spatial.skeleton_nodes.begin(),
+          std::min_element(
+              world.spatial.skeleton_nodes.begin(),
+              world.spatial.skeleton_nodes.end(), [&](const auto& left,
+                                                       const auto& right) {
+                return domain::distance(world.robot.pose.position,
+                                        left).meters() <
+                       domain::distance(world.robot.pose.position,
+                                        right).meters();
+              })));
+      const auto origin = world.spatial.skeleton_nodes[current];
+      const double target_angle = std::atan2(
+          world.mission.active()->target.y_m - origin.y_m,
+          world.mission.active()->target.x_m - origin.x_m);
+      double best_alignment = -std::numeric_limits<double>::infinity();
+      std::optional<domain::Point2D> selected;
+      for (const auto& edge : world.spatial.skeleton_edges) {
+        std::optional<std::size_t> neighbor;
+        if (edge.first == current) neighbor = edge.second;
+        if (edge.second == current) neighbor = edge.first;
+        if (!neighbor || *neighbor >= world.spatial.skeleton_nodes.size())
+          continue;
+        const auto point = world.spatial.skeleton_nodes[*neighbor];
+        const double branch_angle =
+            std::atan2(point.y_m - origin.y_m, point.x_m - origin.x_m);
+        const double alignment = std::cos(domain::Angle::normalize(
+            branch_angle - target_angle));
+        if (alignment > best_alignment) {
+          best_alignment = alignment;
+          selected = point;
+        }
+      }
+      return selected ? best_alignment -
+                            domain::distance(expected.position,
+                                             *selected).meters()
+                      : 0.0;
+    }
     case O::ElbowRoom: {
       const auto obstacles = obstaclePoints(world);
       return obstacles.empty()
@@ -304,79 +461,170 @@ double DissertationAdvisor::score(const domain::WorldModel& world,
       return recent.empty() ? 0.0 : -nearest(expected.position, recent);
     }
     case O::Convey: {
-      std::vector<domain::Point2D> points;
-      for (const auto& flow : world.spatial.conveyor_flows)
-        points.push_back(flow.end);
-      return -nearest(expected.position, points);
+      double best = -std::numeric_limits<double>::infinity();
+      for (std::size_t index = 0U;
+           index < world.spatial.conveyor_flows.size(); ++index) {
+        const auto& flow = world.spatial.conveyor_flows[index];
+        const std::size_t traversals =
+            index < world.spatial.conveyor_traversals.size()
+                ? world.spatial.conveyor_traversals[index]
+                : 1U;
+        const double frequency = std::log1p(
+            static_cast<double>(traversals));
+        const double distance_from_robot = distanceToSegment(
+            world.robot.pose.position, flow);
+        const double approach = -distanceToSegment(expected.position, flow);
+        best = std::max(best, frequency + 0.25 * distance_from_robot +
+                                  approach);
+      }
+      return best;
     }
     case O::Enter: {
-      std::vector<domain::Point2D> points;
-      for (const auto& door : world.spatial.doorways)
-        points.push_back(center(door));
-      return -nearest(expected.position, points);
+      double best = -std::numeric_limits<double>::infinity();
+      for (const auto& region : world.spatial.learned_regions)
+        if (region.contains(world.mission.active()->target))
+          best = std::max(best,
+                          -signedDistanceToRegion(expected.position, region));
+      return best;
     }
     case O::Exit: {
-      double score = 0.0;
+      double result = -std::numeric_limits<double>::infinity();
       for (const auto& region : world.spatial.learned_regions)
-        score = std::max(score,
-                         domain::distance(expected.position, region.center)
-                             .meters());
-      return score;
+        if (region.contains(world.robot.pose.position) &&
+            !region.contains(world.mission.active()->target))
+          result = std::max(
+              result, signedDistanceToRegion(expected.position, region));
+      return result;
     }
     case O::Trailer: {
-      std::vector<domain::Point2D> points;
-      for (const auto& trail : world.spatial.trails)
-        points.insert(points.end(), trail.begin(), trail.end());
-      return -nearest(expected.position, points);
+      const domain::Point2D target = world.mission.active()
+                                         ? world.mission.active()->target
+                                         : world.robot.pose.position;
+      double best_utility = -std::numeric_limits<double>::infinity();
+      std::optional<domain::Segment2D> selected;
+      domain::Point2D preferred;
+      for (const auto& trail : world.spatial.trails) {
+        for (std::size_t index = 1U; index < trail.size(); ++index) {
+          domain::Segment2D segment{trail[index - 1U], trail[index]};
+          const double first_target =
+              domain::distance(segment.start, target).meters();
+          const double second_target =
+              domain::distance(segment.end, target).meters();
+          const domain::Point2D endpoint =
+              first_target < second_target ? segment.start : segment.end;
+          const double target_gain = std::abs(first_target - second_target);
+          const double utility =
+              target_gain - distanceToSegment(
+                                world.robot.pose.position, segment);
+          if (utility > best_utility) {
+            best_utility = utility;
+            selected = segment;
+            preferred = endpoint;
+          }
+        }
+      }
+      return selected
+                 ? -distanceToSegment(expected.position, *selected) -
+                       0.5 * domain::distance(expected.position,
+                                              preferred).meters()
+                 : 0.0;
     }
     case O::Unlikely: {
-      std::vector<domain::Point2D> points;
-      for (const auto& barrier : world.spatial.barriers)
-        points.push_back(center(barrier));
-      return nearest(expected.position, points);
+      double risk = 0.0;
+      for (const auto& region : world.spatial.learned_regions) {
+        if (world.mission.active() &&
+            region.contains(world.mission.active()->target))
+          continue;
+        const auto exits = doorCount(region, world.spatial.doorways);
+        if (exits > 1U) continue;
+        const double influence = std::max(
+            0.0, 1.0 - signedDistanceToRegion(expected.position, region));
+        risk += static_cast<double>(2U - exits) * influence;
+      }
+      return -risk;
     }
     case O::Access: {
-      std::vector<domain::Point2D> points;
-      for (const auto& region : world.spatial.learned_regions)
-        points.push_back(region.center);
-      return -nearest(expected.position, points) + progress;
+      double best = -std::numeric_limits<double>::infinity();
+      for (const auto& region : world.spatial.learned_regions) {
+        const auto doors = doorCount(region, world.spatial.doorways);
+        best = std::max(
+            best, static_cast<double>(doors) -
+                      std::max(0.0,
+                               signedDistanceToRegion(expected.position,
+                                                      region)));
+      }
+      return best;
     }
     case O::Crossroads: {
-      std::vector<domain::Point2D> points;
-      for (const auto& intersection :
-           world.spatial.highways.graph.vertices)
-        points.push_back(intersection.position);
-      return -nearest(expected.position, points);
+      double best = -std::numeric_limits<double>::infinity();
+      for (std::size_t index = 0U; index < world.spatial.hallways.size();
+           ++index) {
+        std::size_t degree = 0U;
+        for (std::size_t other = 0U;
+             other < world.spatial.hallways.size(); ++other)
+          if (other != index &&
+              overlaps(world.spatial.hallways[index],
+                       world.spatial.hallways[other]))
+            ++degree;
+        best = std::max(
+            best, static_cast<double>(degree) -
+                      distanceToSegment(expected.position,
+                                        world.spatial.hallways[index]));
+      }
+      return best;
     }
     case O::Follow: {
-      std::vector<domain::Point2D> points;
-      for (const auto& hallway : world.spatial.hallways)
-        points.push_back(center(hallway));
-      return -nearest(expected.position, points);
+      const auto target = world.mission.active()->target;
+      const auto selected = std::min_element(
+          world.spatial.hallways.begin(), world.spatial.hallways.end(),
+          [&](const auto& left, const auto& right) {
+            return distanceToSegment(target, left) <
+                   distanceToSegment(target, right);
+          });
+      const auto preferred =
+          domain::distance(selected->start, target).meters() <
+                  domain::distance(selected->end, target).meters()
+              ? selected->start
+              : selected->end;
+      return -distanceToSegment(expected.position, *selected) -
+             0.5 * domain::distance(expected.position, preferred).meters();
     }
     case O::SpatialLearner: {
       const auto& grid = world.spatial.inclusion_grid;
-      if (grid.cells.empty() || grid.columns == 0U ||
-          grid.resolution_m <= 0.0)
-        return 0.0;
-      const int column = static_cast<int>(std::floor(
-          (expected.position.x_m - grid.origin.x_m) / grid.resolution_m));
-      const int row = static_cast<int>(std::floor(
-          (expected.position.y_m - grid.origin.y_m) / grid.resolution_m));
-      if (row < 0 || column < 0 ||
-          static_cast<std::size_t>(row) >= grid.rows ||
-          static_cast<std::size_t>(column) >= grid.columns)
-        return 1.0;
-      return -static_cast<double>(
-          grid.cells[static_cast<std::size_t>(row) * grid.columns +
-                     static_cast<std::size_t>(column)]);
+      double unknown = 0.0;
+      const auto index = gridIndex(grid, expected.position);
+      if (!index || grid.cells[*index] == 0U)
+        unknown += 1.0;
+      else
+        unknown -= std::log1p(static_cast<double>(grid.cells[*index]));
+      if (std::any_of(world.spatial.learned_regions.begin(),
+                      world.spatial.learned_regions.end(),
+                      [&](const auto& region) {
+                        return region.contains(expected.position);
+                      }))
+        unknown -= 1.0;
+      for (std::size_t flow = 0U;
+           flow < world.spatial.conveyor_flows.size(); ++flow) {
+        if (distanceToSegment(expected.position,
+                              world.spatial.conveyor_flows[flow]) > 0.75)
+          continue;
+        const std::size_t traversals =
+            flow < world.spatial.conveyor_traversals.size()
+                ? world.spatial.conveyor_traversals[flow]
+                : 1U;
+        unknown -= std::log1p(static_cast<double>(traversals));
+      }
+      return unknown;
     }
     case O::Stay: {
-      for (const auto& region : world.spatial.learned_regions)
-        if (domain::distance(expected.position, region.center).meters() <=
-            region.radius.meters())
-          return 1.0;
-      return 0.0;
+      const auto current = std::min_element(
+          world.spatial.hallways.begin(), world.spatial.hallways.end(),
+          [&](const auto& left, const auto& right) {
+            return distanceToSegment(world.robot.pose.position, left) <
+                   distanceToSegment(world.robot.pose.position, right);
+          });
+      const double distance = distanceToSegment(expected.position, *current);
+      return (distance <= 0.75 ? 1.0 : 0.0) - distance;
     }
   }
   return 0.0;
