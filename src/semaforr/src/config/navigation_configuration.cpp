@@ -285,6 +285,40 @@ std::string_view toString(AblationProfile profile) noexcept {
       return "no_spatial_model";
     case AblationProfile::NoSocial:
       return "no_social";
+    case AblationProfile::PurelyReactive:
+      return "purely_reactive";
+    case AblationProfile::Original:
+      return "original";
+    case AblationProfile::Doors:
+      return "doors";
+    case AblationProfile::LeastAngle:
+      return "least_angle";
+    case AblationProfile::Access:
+      return "access";
+    case AblationProfile::Tentative:
+      return "tentative";
+    case AblationProfile::Hallways:
+      return "hallways";
+    case AblationProfile::ShortestPath:
+      return "shortest_path";
+    case AblationProfile::CostGraph:
+      return "cost_graph";
+    case AblationProfile::Wander:
+      return "wander";
+    case AblationProfile::Deliberator:
+      return "deliberator";
+    case AblationProfile::ForwardOnly:
+      return "forward_only";
+    case AblationProfile::GlobalExploration:
+      return "global_exploration";
+    case AblationProfile::LocalExploration:
+      return "local_exploration";
+    case AblationProfile::Highway:
+      return "highway";
+    case AblationProfile::Circumstances:
+      return "circumstances";
+    case AblationProfile::Naive:
+      return "naive";
     case AblationProfile::Custom:
       return "custom";
   }
@@ -299,6 +333,15 @@ AblationProfile ablationProfileFromString(const std::string& value) {
         AblationProfile::NoInitialExploration,
         AblationProfile::NoOpportunisticExploration,
         AblationProfile::NoSpatialModel, AblationProfile::NoSocial,
+        AblationProfile::PurelyReactive, AblationProfile::Original,
+        AblationProfile::Doors, AblationProfile::LeastAngle,
+        AblationProfile::Access, AblationProfile::Tentative,
+        AblationProfile::Hallways, AblationProfile::ShortestPath,
+        AblationProfile::CostGraph, AblationProfile::Wander,
+        AblationProfile::Deliberator, AblationProfile::ForwardOnly,
+        AblationProfile::GlobalExploration,
+        AblationProfile::LocalExploration, AblationProfile::Highway,
+        AblationProfile::Circumstances, AblationProfile::Naive,
         AblationProfile::Custom}) {
     if (value == toString(profile)) return profile;
   }
@@ -307,6 +350,75 @@ AblationProfile ablationProfileFromString(const std::string& value) {
 
 void applyAblationProfile(Configuration& configuration) {
   auto& experiment = configuration.experiment;
+  const auto set_advisors = [&](std::initializer_list<std::string_view> names) {
+    for (auto& advisor : configuration.advisors) advisor.active = false;
+    for (const auto name : names) {
+      auto advisor = std::find_if(
+          configuration.advisors.begin(), configuration.advisors.end(),
+          [&](const auto& value) { return value.name == name; });
+      if (advisor == configuration.advisors.end())
+        configuration.advisors.push_back(
+            {std::string(name), std::string(name), true, 1.0, {}});
+      else
+        advisor->active = true;
+    }
+  };
+  const auto set_planners = [&](std::initializer_list<std::string_view> names) {
+    auto& planners = configuration.navigation.planners;
+    planners.distance = planners.density = planners.risk = planners.flow =
+        planners.region = planners.hallway = planners.trail =
+            planners.conveyor = planners.skeleton = planners.highway = false;
+    for (const auto name : names) {
+      if (name == "distance") planners.distance = true;
+      if (name == "region") planners.region = true;
+      if (name == "hallway") planners.hallway = true;
+      if (name == "trail") planners.trail = true;
+      if (name == "conveyor") planners.conveyor = true;
+      if (name == "skeleton") planners.skeleton = true;
+      if (name == "highway") planners.highway = true;
+    }
+  };
+  const auto original_advisors = [&] {
+    set_advisors({"big_step", "elbow_room", "novelty", "go_around",
+                  "greedy", "convey", "enter", "exit", "trailer",
+                  "unlikely"});
+  };
+  const auto disable_spatial_model = [&] {
+    configuration.navigation.trails_on = false;
+    configuration.navigation.conveyors_on = false;
+    configuration.navigation.regions_on = false;
+    configuration.navigation.doors_on = false;
+    configuration.navigation.hallways_on = false;
+    configuration.navigation.barriers_on = false;
+    configuration.navigation.known_grid_on = false;
+    configuration.navigation.inclusion_grid_on = false;
+    configuration.navigation.highways_on = false;
+    configuration.navigation.circumstances_on = false;
+  };
+  const auto evaluation_baseline = [&] {
+    experiment.tiers = {};
+    experiment.tiers.tier_one = true;
+    experiment.tiers.tier_two = false;
+    experiment.tiers.tier_three = true;
+    experiment.tiers.tier_one_rules = {"victory", "avoid_obstacles",
+                                       "not_opposite"};
+    experiment.tiers.reactive_planners.clear();
+    experiment.initial_exploration.enabled = false;
+    experiment.reactive_exploration_enabled = false;
+    experiment.opportunistic_exploration = false;
+    experiment.social_enabled = false;
+    experiment.social = {};
+    experiment.social.enabled = false;
+    configuration.navigation.crowd_learning.enabled = false;
+    configuration.navigation.trails_on = true;
+    configuration.navigation.conveyors_on = true;
+    configuration.navigation.regions_on = true;
+    configuration.navigation.doors_on = false;
+    configuration.navigation.hallways_on = false;
+    configuration.navigation.highways_on = false;
+    configuration.navigation.circumstances_on = false;
+    set_planners({});
+  };
   switch (experiment.profile) {
     case AblationProfile::Full:
     case AblationProfile::TierOneTierTwoTierThree:
@@ -388,6 +500,138 @@ void applyAblationProfile(Configuration& configuration) {
           advisor.active = false;
         }
       }
+      break;
+    case AblationProfile::PurelyReactive:
+      evaluation_baseline();
+      disable_spatial_model();
+      set_advisors({"random"});
+      break;
+    case AblationProfile::Original:
+      evaluation_baseline();
+      original_advisors();
+      break;
+    case AblationProfile::Doors:
+      evaluation_baseline();
+      original_advisors();
+      configuration.navigation.doors_on = true;
+      break;
+    case AblationProfile::LeastAngle:
+    case AblationProfile::Access:
+    case AblationProfile::Tentative:
+    case AblationProfile::Hallways: {
+      evaluation_baseline();
+      configuration.navigation.doors_on = true;
+      std::vector<std::string_view> names{
+          "big_step", "elbow_room", "novelty", "go_around", "greedy",
+          "convey", "enter", "exit", "trailer", "unlikely",
+          "least_angle"};
+      if (experiment.profile == AblationProfile::Access ||
+          experiment.profile == AblationProfile::Tentative ||
+          experiment.profile == AblationProfile::Hallways)
+        names.push_back("access");
+      if (experiment.profile == AblationProfile::Tentative ||
+          experiment.profile == AblationProfile::Hallways) {
+        names.insert(names.end(), {"curiosity", "enfilade", "visual_scan",
+                                   "spatial_learner"});
+      }
+      if (experiment.profile == AblationProfile::Hallways) {
+        configuration.navigation.hallways_on = true;
+        names.insert(names.end(), {"crossroads", "follow", "stay"});
+      }
+      for (auto& advisor : configuration.advisors) advisor.active = false;
+      for (const auto name : names) {
+        auto advisor = std::find_if(
+            configuration.advisors.begin(), configuration.advisors.end(),
+            [&](const auto& value) { return value.name == name; });
+        if (advisor == configuration.advisors.end())
+          configuration.advisors.push_back(
+              {std::string(name), std::string(name), true, 1.0, {}});
+        else
+          advisor->active = true;
+      }
+      break;
+    }
+    case AblationProfile::ShortestPath:
+    case AblationProfile::CostGraph:
+      evaluation_baseline();
+      configuration.navigation.doors_on = true;
+      configuration.navigation.hallways_on = true;
+      experiment.tiers.tier_one_rules.push_back("enforcer");
+      experiment.tiers.tier_two = true;
+      if (experiment.profile == AblationProfile::ShortestPath) {
+        set_planners({"distance"});
+        set_advisors({"big_step", "elbow_room", "novelty", "go_around",
+                      "greedy", "convey", "enter", "exit", "trailer",
+                      "unlikely", "curiosity", "enfilade", "visual_scan"});
+      } else {
+        set_planners(
+            {"distance", "conveyor", "hallway", "region", "trail"});
+        set_advisors({"big_step", "elbow_room", "novelty", "go_around",
+                      "greedy", "convey", "enter", "exit", "trailer",
+                      "unlikely", "curiosity", "enfilade", "visual_scan",
+                      "access", "crossroads", "follow", "least_angle",
+                      "spatial_learner", "stay"});
+      }
+      break;
+    case AblationProfile::Wander:
+    case AblationProfile::Deliberator:
+    case AblationProfile::ForwardOnly:
+    case AblationProfile::GlobalExploration:
+    case AblationProfile::LocalExploration:
+    case AblationProfile::Highway:
+      evaluation_baseline();
+      configuration.navigation.doors_on = true;
+      configuration.navigation.hallways_on = true;
+      original_advisors();
+      experiment.tiers.tier_one_rules.insert(
+          experiment.tiers.tier_one_rules.end(),
+          {"enforcer", "thru", "behind", "out", "forward"});
+      experiment.tiers.reactive_planners = {"thru", "behind", "out"};
+      if (experiment.profile == AblationProfile::ForwardOnly) {
+        experiment.tiers.tier_one_rules = {"victory", "avoid_obstacles",
+                                           "not_opposite", "enforcer",
+                                           "forward"};
+        experiment.tiers.reactive_planners.clear();
+      }
+      if (experiment.profile != AblationProfile::Wander) {
+        experiment.tiers.tier_two = true;
+        set_planners({"skeleton"});
+      }
+      if (experiment.profile != AblationProfile::Deliberator) {
+        experiment.initial_exploration.enabled = true;
+      }
+      if (experiment.profile == AblationProfile::LocalExploration ||
+          experiment.profile == AblationProfile::Highway) {
+        experiment.reactive_exploration_enabled = true;
+        const auto forward = std::find(
+            experiment.tiers.tier_one_rules.begin(),
+            experiment.tiers.tier_one_rules.end(), "forward");
+        experiment.tiers.tier_one_rules.insert(forward,
+                                               "low_level_exploration");
+        experiment.tiers.reactive_planners.push_back(
+            "low_level_exploration");
+      }
+      if (experiment.profile == AblationProfile::Highway) {
+        configuration.navigation.highways_on = true;
+        configuration.navigation.planners.highway = true;
+      }
+      break;
+    case AblationProfile::Circumstances:
+      evaluation_baseline();
+      configuration.navigation.doors_on = true;
+      configuration.navigation.circumstances_on = true;
+      experiment.tiers.tier_two = true;
+      experiment.tiers.tier_one_rules.push_back("enforcer");
+      experiment.tiers.tier_one_rules.push_back("precedent");
+      set_planners({"skeleton"});
+      set_advisors({"big_step", "elbow_room", "novelty", "go_around",
+                    "greedy", "convey", "enter", "exit", "trailer",
+                    "unlikely", "least_angle"});
+      break;
+    case AblationProfile::Naive:
+      evaluation_baseline();
+      disable_spatial_model();
+      set_advisors({"greedy"});
       break;
     case AblationProfile::Custom:
       break;
@@ -710,7 +954,8 @@ void validateConfiguration(const Configuration& configuration) {
         "configuration: at least one decision-producing advisor must be "
         "active");
   }
-  const std::set<std::string> registered_advisors{"goal_progress",
+  const std::set<std::string> registered_advisors{"random",
+                                                  "goal_progress",
                                                   "goal_progress_linear",
                                                   "clearance",
                                                   "clearance_rotation",

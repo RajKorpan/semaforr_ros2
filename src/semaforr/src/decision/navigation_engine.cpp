@@ -1,7 +1,10 @@
+#include <algorithm>
 #include <array>
+#include <chrono>
 #include <cmath>
 #include <semaforr/decision/navigation_engine.hpp>
 #include <semaforr/domain/motion_model.hpp>
+#include <semaforr/spatial/coverage.hpp>
 #include <stdexcept>
 #include <utility>
 
@@ -96,7 +99,8 @@ void NavigationEngine::observe(const domain::RobotObservation& observation) {
   if (world_.mission.active() &&
       domain::goalReached(observation.pose, world_.mission.active()->target,
                           goal_tolerance_)) {
-    mission_.completeActiveTask();
+    if (mission_.completeActiveTask())
+      pending_phase_events_.push_back("target_completed");
   } else {
     mission_.advanceWaypoint(observation.pose, goal_tolerance_);
   }
@@ -163,6 +167,15 @@ void NavigationEngine::finishInitialExploration() {
 }
 
 DecisionResult NavigationEngine::decide() {
+  const auto decision_started = std::chrono::steady_clock::now();
+  const auto finalize_measurements = [&](DecisionResult& result) {
+    result.decision_latency_s = std::chrono::duration<double>(
+                                    std::chrono::steady_clock::now() -
+                                    decision_started)
+                                    .count();
+    result.covered_cells = static_cast<std::uint64_t>(
+        spatial::representedCoverageCells(world_.spatial));
+  };
   if (!observation_) {
     throw std::logic_error("navigation decision requires an observation");
   }
@@ -188,6 +201,7 @@ DecisionResult NavigationEngine::decide() {
     result.source = DecisionSource::SafeStop;
     result.tier = DecisionTier::SafeStop;
     result.selected_policy = "mission_complete_safe_stop";
+    finalize_measurements(result);
     return result;
   }
   if (dispatch.phase == navigation::NavigationPhase::InitialExploration) {
@@ -218,6 +232,7 @@ DecisionResult NavigationEngine::decide() {
                                exploration.events.end());
     world_.navigation_history.record(
         {observation_->pose, observation_->laser, result.action, std::nullopt});
+    const auto model_update_started = std::chrono::steady_clock::now();
     learning_.observe({world_.navigation_history.entries().size(),
                        *observation_, result.action, std::nullopt, false, false,
                        true, true, std::nullopt, {},
@@ -231,9 +246,17 @@ DecisionResult NavigationEngine::decide() {
       result.phase_events.insert(result.phase_events.end(), completed.begin(),
                                  completed.end());
     }
+    result.model_update_cost_s = std::chrono::duration<double>(
+                                     std::chrono::steady_clock::now() -
+                                     model_update_started)
+                                     .count();
+    finalize_measurements(result);
     return result;
   }
+  const std::size_t skipped_before = world_.mission.skipped().size();
   const MissionStep mission_step = mission_.prepareDecision();
+  if (world_.mission.skipped().size() > skipped_before)
+    pending_phase_events_.push_back("target_skipped");
   if (mission_step == MissionStep::Complete) {
     phases_->completeMission();
     DecisionResult result;
@@ -241,6 +264,7 @@ DecisionResult NavigationEngine::decide() {
     result.configuration_fingerprint = configuration_fingerprint_;
     result.component_manifest = component_manifest_;
     result.phase_events.swap(pending_phase_events_);
+    finalize_measurements(result);
     return result;
   }
   const planning::ReactiveResult lle =
@@ -252,10 +276,15 @@ DecisionResult NavigationEngine::decide() {
     planning_.clearCache();
     world_.recovery.confined = true;
   }
+  const auto planning_started = std::chrono::steady_clock::now();
   const std::optional<std::string> selected_planner =
       lle.status == planning::ReactiveStatus::Action
           ? std::nullopt
           : preparePlan(mission_step);
+  const double planning_latency_s =
+      std::chrono::duration<double>(std::chrono::steady_clock::now() -
+                                    planning_started)
+          .count();
   const auto available = candidates();
   std::vector<domain::Action> decision_candidates = available;
   std::vector<Veto> hard_vetoes;
@@ -296,6 +325,7 @@ DecisionResult NavigationEngine::decide() {
   result.phase_events.swap(pending_phase_events_);
   result.candidates = decision_candidates;
   result.planner = selected_planner;
+  result.planning_latency_s = planning_latency_s;
   if (world_.mission.active()) {
     result.task = TaskDiagnostic{
         static_cast<std::uint64_t>(world_.mission.active()->id),
@@ -308,6 +338,7 @@ DecisionResult NavigationEngine::decide() {
           : std::nullopt;
   world_.navigation_history.record(
       {observation_->pose, observation_->laser, result.action, active_task});
+  const auto model_update_started = std::chrono::steady_clock::now();
   learning_.observe({world_.navigation_history.entries().size(), *observation_,
                      result.action, active_task,
                      mission_step == MissionStep::ActivatedTask ||
@@ -320,8 +351,13 @@ DecisionResult NavigationEngine::decide() {
                      decision_candidates, action_space_.move_distances_m(),
                      action_space_.rotation_angles_rad()});
   learning_.applyTo(world_.spatial);
+  result.model_update_cost_s = std::chrono::duration<double>(
+                                   std::chrono::steady_clock::now() -
+                                   model_update_started)
+                                   .count();
   mission_.recordDecision();
   (void)planning_;
+  finalize_measurements(result);
   return result;
 }
 

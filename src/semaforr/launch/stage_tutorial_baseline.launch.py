@@ -7,6 +7,7 @@ from launch.event_handlers import OnProcessExit
 from launch.events import Shutdown
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
+from launch_ros.parameter_descriptions import ParameterValue
 
 
 def generate_launch_description():
@@ -17,6 +18,10 @@ def generate_launch_description():
     output = LaunchConfiguration("output")
     duration = LaunchConfiguration("duration")
     sensor_cutoff = LaunchConfiguration("sensor_cutoff")
+    profile = LaunchConfiguration("profile")
+    random_seed = LaunchConfiguration("random_seed")
+    profile = LaunchConfiguration("profile")
+    random_seed = LaunchConfiguration("random_seed")
 
     semaforr = Node(
         package="semaforr",
@@ -28,6 +33,12 @@ def generate_launch_description():
             {
                 "map.path": str(tutorial_dir / "stage_tutorialS.xml"),
                 "mission.tasks_path": str(tutorial_dir / "target.conf"),
+                "experiment.mode": profile,
+                "experiment.random_seed": ParameterValue(
+                    random_seed, value_type=int
+                ),
+                "experiment.mode": profile,
+                "experiment.random_seed": random_seed,
             }
         ],
     )
@@ -62,6 +73,26 @@ def generate_launch_description():
 
     return LaunchDescription(
         [
+            DeclareLaunchArgument(
+                "profile",
+                default_value="full",
+                description="Named controller profile to evaluate",
+            ),
+            DeclareLaunchArgument(
+                "random_seed",
+                default_value="0",
+                description="Deterministic arbitration seed",
+            ),
+            DeclareLaunchArgument(
+                "profile",
+                default_value="full",
+                description="Named controller profile to evaluate",
+            ),
+            DeclareLaunchArgument(
+                "random_seed",
+                default_value="0",
+                description="Deterministic arbitration seed",
+            ),
             DeclareLaunchArgument(
                 "output",
                 default_value="baseline-results/stage_tutorial.actual.json",

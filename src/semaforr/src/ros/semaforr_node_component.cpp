@@ -18,6 +18,7 @@
 #include <semaforr/ros/command_executor.hpp>
 #include <semaforr/ros/navigation_engine_adapter.hpp>
 #include <semaforr/ros/semaforr_node.hpp>
+#include <semaforr/validation/allocation_probe.hpp>
 #include <semaforr/ros/sensor_synchronizer.hpp>
 #include <semaforr/ros/social_observation_buffer.hpp>
 #include <semaforr/ros/visualization_publisher.hpp>
@@ -631,11 +632,16 @@ class SemaFORRNode::Impl {
     }
 
     const rclcpp::Time computation_started = node_.now();
+    const auto allocations_before = validation::allocationSnapshot();
     pending_decision_ = navigation_engine_->decide();
+    const auto allocation_delta = validation::allocationDifference(
+        allocations_before, validation::allocationSnapshot());
     const rclcpp::Time computation_finished = node_.now();
     computation_time_s_ =
         std::max(0.0, (computation_finished - computation_started).seconds());
     pending_decision_->decision_latency_s = computation_time_s_;
+    pending_decision_->allocation_count = allocation_delta.count;
+    pending_decision_->allocation_bytes = allocation_delta.bytes;
 
     const domain::Action& action = pending_decision_->action;
     const ActionExecutionRequest request =

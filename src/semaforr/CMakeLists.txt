@@ -78,6 +78,7 @@ set(SEMAFORR_DOMAIN_SOURCES
   src/domain/motion_model.cpp
   src/decision/decision_result.cpp
   src/social/crowd_field_learner.cpp
+  src/spatial/coverage.cpp
 )
 
 set(SEMAFORR_NAVIGATION_SOURCES
@@ -169,6 +170,21 @@ target_link_libraries(semaforr_planning PUBLIC semaforr_domain)
 target_link_libraries(semaforr_advisors PUBLIC semaforr_domain semaforr_planning)
 target_link_libraries(semaforr_spatial PUBLIC semaforr_domain)
 
+add_library(semaforr_validation SHARED
+  src/validation/allocation_probe.cpp
+  src/validation/experiment_metrics.cpp
+)
+set_target_properties(semaforr_validation PROPERTIES EXPORT_NAME validation)
+add_library(semaforr::validation ALIAS semaforr_validation)
+target_include_directories(semaforr_validation
+  PUBLIC
+    "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>"
+    "$<INSTALL_INTERFACE:include>"
+)
+target_link_libraries(semaforr_validation PUBLIC semaforr_domain)
+semaforr_apply_project_options(semaforr_validation)
+semaforr_apply_strict_warnings(semaforr_validation)
+
 add_library(semaforr_exploration SHARED
   src/exploration/exploration_coordinator.cpp
   src/exploration/high_level_explorer.cpp
@@ -224,7 +240,8 @@ target_include_directories(semaforr_ros_adapters
     "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>"
     "$<INSTALL_INTERFACE:include>"
 )
-target_link_libraries(semaforr_ros_adapters semaforr_navigation)
+target_link_libraries(
+  semaforr_ros_adapters semaforr_navigation semaforr_validation)
 ament_target_dependencies(semaforr_ros_adapters
   geometry_msgs
   nav_msgs
@@ -262,6 +279,7 @@ install(
     semaforr_spatial
     semaforr_navigation
     semaforr_ros_adapters
+    semaforr_validation
   EXPORT export_${PROJECT_NAME}
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
@@ -285,6 +303,7 @@ install(
     scripts/check_coverage.py
     scripts/check_source_quality.py
     scripts/compare_decision_traces.py
+    scripts/run_experiment_matrix.py
   DESTINATION lib/${PROJECT_NAME}
 )
 install(
@@ -322,6 +341,14 @@ if(BUILD_TESTING)
   )
   target_link_libraries(semaforr_domain_types_test semaforr_domain)
   semaforr_apply_project_options(semaforr_domain_types_test)
+
+  ament_add_gtest(
+    semaforr_experiment_metrics_test
+    test/unit/experiment_metrics_test.cpp
+  )
+  target_link_libraries(
+    semaforr_experiment_metrics_test semaforr_validation)
+  semaforr_apply_project_options(semaforr_experiment_metrics_test)
 
   ament_add_gtest(
     semaforr_decision_coordinator_test

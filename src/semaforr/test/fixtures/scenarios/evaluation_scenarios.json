@@ -1,0 +1,98 @@
+{
+  "schema_version": 1,
+  "coordinate_units": "meters",
+  "scenario_families": [
+    {
+      "name": "compact_five_room",
+      "environment_class": "artificial",
+      "size": [20.2, 20.2],
+      "freespace_cells": 384,
+      "target_sequences": 5,
+      "targets_per_sequence": 40,
+      "runs_per_sequence": 2
+    },
+    {
+      "name": "compact_ten_room",
+      "environment_class": "artificial",
+      "size": [20.2, 20.2],
+      "freespace_cells": 380,
+      "target_sequences": 5,
+      "targets_per_sequence": 40,
+      "runs_per_sequence": 2
+    },
+    {
+      "name": "compact_twelve_room",
+      "environment_class": "artificial",
+      "size": [20.2, 20.2],
+      "freespace_cells": 378,
+      "target_sequences": 5,
+      "targets_per_sequence": 40,
+      "runs_per_sequence": 2
+    },
+    {
+      "name": "open_museum",
+      "environment_class": "museum",
+      "size": [54.0, 62.0],
+      "freespace_cells": 1585,
+      "target_sequences": 5,
+      "targets_per_sequence": 40,
+      "runs_per_sequence": 8
+    },
+    {
+      "name": "large_museum",
+      "environment_class": "museum",
+      "size": [314.0, 192.0],
+      "freespace_cells": 29707,
+      "target_sequences": 5,
+      "targets_per_sequence": 40,
+      "runs_per_sequence": 8
+    },
+    {
+      "name": "segmented_office",
+      "environment_class": "office",
+      "size": [89.0, 58.0],
+      "freespace_cells": 2627,
+      "target_sequences": 5,
+      "targets_per_sequence": 40,
+      "runs_per_sequence": 8
+    },
+    {
+      "name": "complex_office",
+      "environment_class": "office",
+      "size": [110.0, 70.0],
+      "freespace_cells": 4021,
+      "target_sequences": 5,
+      "targets_per_sequence": 40,
+      "runs_per_sequence": 8
+    },
+    {
+      "name": "nested_office",
+      "environment_class": "office",
+      "size": [130.0, 81.0],
+      "freespace_cells": 3921,
+      "target_sequences": 5,
+      "targets_per_sequence": 40,
+      "runs_per_sequence": 8
+    }
+  ],
+  "parameter_sweeps": {
+    "target_decision_limit": [50, 100, 200, 300, 400, 500, 750, 1000],
+    "initial_exploration_minutes": [5, 10, 20, 30, 40, 50, 60],
+    "long_target_sequence": 100,
+    "repeated_target_sequence": 40
+  },
+  "required_metrics": [
+    "success_rate",
+    "exploration_distance_m",
+    "target_distance_m",
+    "exploration_runtime_s",
+    "target_runtime_s",
+    "decision_latency_s",
+    "planning_latency_s",
+    "model_update_cost_s",
+    "allocation_count",
+    "allocation_bytes",
+    "coverage",
+    "intervention_frequency"
+  ]
+}

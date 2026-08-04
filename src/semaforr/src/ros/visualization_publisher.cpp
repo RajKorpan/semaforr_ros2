@@ -167,6 +167,11 @@ semaforr_msgs::msg::DecisionRecord toMessage(
   result.selected_planner = source.planner.value_or("");
   result.selected_action = toMessage(source.action);
   result.decision_latency_s = source.decision_latency_s;
+  result.planning_latency_s = source.planning_latency_s;
+  result.model_update_cost_s = source.model_update_cost_s;
+  result.allocation_count = source.allocation_count;
+  result.allocation_bytes = source.allocation_bytes;
+  result.covered_cells = source.covered_cells;
   result.action_outcome = toMessage(source.action_outcome);
   result.action_duration_s = source.action_duration_s;
   result.action_progress = source.action_progress;

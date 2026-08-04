@@ -7,12 +7,38 @@
 #include <unordered_map>
 
 namespace semaforr::decision {
+namespace {
+
+class RandomTieAdvisor final : public Advisor {
+ public:
+  std::string_view name() const noexcept override { return "random"; }
+  AdvisorMetadata metadata() const override {
+    return {{},
+            {domain::ActionType::Pause, domain::ActionType::Forward,
+             domain::ActionType::TurnLeft, domain::ActionType::TurnRight},
+            true, ScoreNormalization::None,
+            "leave all viable actions tied for seeded selection"};
+  }
+  AdvisorEvaluation evaluate(
+      const DecisionContext&,
+      std::span<const domain::Action> candidates) const override {
+    AdvisorEvaluation result;
+    result.participated = !candidates.empty();
+    result.explanation = "seeded random baseline";
+    for (const auto action : candidates) result.scores.push_back({action, 0.0});
+    return result;
+  }
+};
+
+}  // namespace
 
 void registerAdvisorCatalog(
     AdvisorRegistry& registry, const domain::ActionSpace& action_space,
     const std::vector<config::AdvisorConfiguration>& configured) {
   std::unordered_map<std::string, double> weights;
   for (const auto& advisor : configured) weights[advisor.name] = advisor.weight;
+  registry.registerFactory(
+      "random", [] { return std::make_unique<RandomTieAdvisor>(); });
   const auto weight = [&weights](const std::string& name) {
     const auto found = weights.find(name);
     return found == weights.end() ? 1.0 : found->second;

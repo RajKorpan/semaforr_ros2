@@ -44,6 +44,11 @@ bool has_planner
 string selected_planner
 semaforr_msgs/DecisionAction selected_action
 float64 decision_latency_s
+float64 planning_latency_s
+float64 model_update_cost_s
+uint64 allocation_count
+uint64 allocation_bytes
+uint64 covered_cells
 uint8 action_outcome
 float64 action_duration_s
 float64 action_progress

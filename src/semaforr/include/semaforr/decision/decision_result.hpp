@@ -88,6 +88,11 @@ struct DecisionResult {
   std::vector<AdvisorContribution> contributions;
   std::optional<std::string> planner;
   double decision_latency_s{0.0};
+  double planning_latency_s{0.0};
+  double model_update_cost_s{0.0};
+  std::uint64_t allocation_count{0U};
+  std::uint64_t allocation_bytes{0U};
+  std::uint64_t covered_cells{0U};
   ActionOutcome action_outcome{ActionOutcome::Pending};
   double action_duration_s{0.0};
   double action_progress{0.0};

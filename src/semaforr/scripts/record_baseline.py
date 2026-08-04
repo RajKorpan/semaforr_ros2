@@ -128,6 +128,12 @@ class BaselineRecorder(Node):
                 "task": task.task_index if task else None,
                 "decision": task.decision_count if task else None,
                 "computation_time_s": computation_time,
+                "planning_latency_s": message.planning_latency_s,
+                "model_update_cost_s": message.model_update_cost_s,
+                "allocation_count": message.allocation_count,
+                "allocation_bytes": message.allocation_bytes,
+                "covered_cells": message.covered_cells,
+                "phase_events": list(message.phase_events),
                 "target": (
                     [task.target.x, task.target.y] if task else None
                 ),
@@ -289,6 +295,59 @@ class BaselineRecorder(Node):
                 "mean": statistics.fmean(self._computation_times),
                 "maximum": max(self._computation_times),
             }
+        metrics["planning_latency_s"] = sum(
+            decision["planning_latency_s"] for decision in self._decisions
+        )
+        metrics["model_update_cost_s"] = sum(
+            decision["model_update_cost_s"] for decision in self._decisions
+        )
+        metrics["allocations"] = {
+            "count": sum(
+                decision["allocation_count"] for decision in self._decisions
+            ),
+            "bytes": sum(
+                decision["allocation_bytes"] for decision in self._decisions
+            ),
+        }
+        metrics["coverage_cells"] = max(
+            (decision["covered_cells"] for decision in self._decisions),
+            default=0,
+        )
+        attempted_tasks = {
+            decision["task"]
+            for decision in self._decisions
+            if decision["task"] is not None
+        }
+        completed_targets = sum(
+            event == "target_completed"
+            for decision in self._decisions
+            for event in decision["phase_events"]
+        )
+        metrics["targets"] = {
+            "attempted": len(attempted_tasks),
+            "succeeded": completed_targets,
+            "success_rate": (
+                completed_targets / len(attempted_tasks)
+                if attempted_tasks else 0.0
+            ),
+        }
+        metrics["distance_m"] = sum(
+            math.hypot(
+                current["pose"][0] - previous["pose"][0],
+                current["pose"][1] - previous["pose"][1],
+            )
+            for previous, current in zip(
+                self._pose_messages, self._pose_messages[1:]
+            )
+        )
+        interventions = {}
+        for decision in self._decisions:
+            name = decision["selected_policy"]
+            interventions[name] = interventions.get(name, 0) + 1
+        metrics["intervention_frequency"] = {
+            name: count / len(self._decisions)
+            for name, count in sorted(interventions.items())
+        } if self._decisions else {}
 
         task_transitions = []
         previous_task = None
@@ -303,7 +362,7 @@ class BaselineRecorder(Node):
                 previous_task = decision["task"]
 
         trace = {
-            "schema_version": 3,
+            "schema_version": 4,
             "scenario": {
                 "name": self._scenario_name,
                 "duration_s": self._duration,

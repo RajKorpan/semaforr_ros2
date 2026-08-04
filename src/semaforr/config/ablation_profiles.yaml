@@ -21,3 +21,70 @@ profiles:
     planners: []
   no_social:
     social: false
+  purely_reactive:
+    tiers: [tier1, tier3]
+    tier1_rules: [victory, avoid_obstacles, not_opposite]
+    tier3_advisors: [random]
+    planners: []
+    spatial_representations: []
+  original:
+    tiers: [tier1, tier3]
+    planners: []
+    initial_exploration: false
+  doors:
+    extends: original
+    spatial_representations: [trails, regions, conveyors, doors]
+  least_angle:
+    extends: doors
+    tier3_advisors_added: [least_angle]
+  access:
+    extends: least_angle
+    tier3_advisors_added: [access]
+  tentative:
+    extends: access
+    tier3_advisors_added: [curiosity, enfilade, visual_scan, spatial_learner]
+  hallways:
+    extends: tentative
+    tier3_advisors_added: [crossroads, follow, stay]
+    spatial_representations_added: [hallways]
+  shortest_path:
+    planners: [distance]
+    tier1_rules_added: [enforcer]
+  cost_graph:
+    planners: [distance, conveyor, hallway, region, trail]
+    tier1_rules_added: [enforcer]
+  wander:
+    initial_exploration: hle
+    planners: []
+    reactive_planners: [thru, behind, out, forward]
+  deliberator:
+    initial_exploration: false
+    planners: [skeleton]
+    reactive_planners: [thru, behind, out, forward]
+  forward_only:
+    initial_exploration: hle
+    planners: [skeleton]
+    tier1_rules_added: [forward]
+  global_exploration:
+    initial_exploration: hle
+    reactive_exploration: false
+    planners: [skeleton]
+  local_exploration:
+    initial_exploration: hle
+    reactive_exploration: lle
+    planners: [skeleton]
+  highway:
+    initial_exploration: hle
+    reactive_exploration: lle
+    planners: [skeleton, highway]
+  circumstances:
+    planners: [skeleton]
+    spatial_representations_added: [circumstances]
+    tier1_rules_added: [precedent]
+  naive:
+    tiers: [tier1, tier3]
+    tier1_rules: [victory, avoid_obstacles, not_opposite]
+    tier3_advisors: [greedy]
+    planners: []
+    spatial_representations: []
+  custom: {}

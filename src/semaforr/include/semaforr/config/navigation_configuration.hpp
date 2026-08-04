@@ -20,6 +20,23 @@ enum class AblationProfile {
   NoOpportunisticExploration,
   NoSpatialModel,
   NoSocial,
+  PurelyReactive,
+  Original,
+  Doors,
+  LeastAngle,
+  Access,
+  Tentative,
+  Hallways,
+  ShortestPath,
+  CostGraph,
+  Wander,
+  Deliberator,
+  ForwardOnly,
+  GlobalExploration,
+  LocalExploration,
+  Highway,
+  Circumstances,
+  Naive,
   Custom
 };
 

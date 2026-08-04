@@ -1,0 +1,39 @@
+# Experimental validation
+
+Experiments use named profiles that expand into the same validated configuration
+objects as custom runs. The evaluation profiles are `purely_reactive`,
+`original`, `doors`, `least_angle`, `access`, `tentative`, `hallways`,
+`shortest_path`, `cost_graph`, `wander`, `deliberator`, `forward_only`,
+`global_exploration`, `local_exploration`, `highway`, `circumstances`, and
+`naive`. The general component-ablation profiles remain available alongside
+them.
+
+The scenario catalog in
+`test/fixtures/scenarios/evaluation_scenarios.json` defines compact artificial,
+museum, and office families, repeated target-sequence counts, and parameter
+sweeps. Environment geometry and target files remain external inputs so a run
+cannot silently substitute one floor plan for another.
+
+Run the installed deterministic matrix with:
+
+```bash
+ros2 run semaforr run_experiment_matrix.py \
+  --output-directory results/profile-matrix \
+  --runs 2 --duration 20 --seed 0
+```
+
+Each trace includes the configuration fingerprint, selected policy, decision
+tier, planning and model-update latency, decision latency, process allocation
+count and requested bytes, covered cells, traveled distance, and intervention
+frequency. Allocation measurements count calls to the process-wide C++
+allocation operators during each decision; they are not resident-memory
+samples. Coverage counts the union of one-metre cells overlapped by learned
+regions and trails. Runtime traces report the numerator; the ROS-independent
+collector divides it by the scenario's freespace-cell count. Target success is
+derived from explicit `target_completed` events, while activated targets that
+do not complete remain failed attempts.
+
+For comparisons, retain the profile, random seed, map checksum, ordered target
+sequence, decision limit, exploration budget, configuration fingerprint, and
+component manifest. Report exploration and target time and distance separately,
+and aggregate repeated runs with both a mean and dispersion measure.

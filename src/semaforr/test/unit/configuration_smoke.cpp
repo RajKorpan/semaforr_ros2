@@ -53,10 +53,33 @@ int main() {
        {"full", "tier1_only", "tier1_tier3", "tier3_only",
         "tier1_tier2_tier3", "no_initial_exploration",
         "no_opportunistic_exploration", "no_spatial_model", "no_social",
+        "purely_reactive", "original", "doors", "least_angle", "access",
+        "tentative", "hallways", "shortest_path", "cost_graph", "wander",
+        "deliberator", "forward_only", "global_exploration",
+        "local_exploration", "highway", "circumstances", "naive",
         "custom"}) {
     assert(semaforr::config::toString(
                semaforr::config::ablationProfileFromString(profile)) ==
            profile);
+  }
+  {
+    auto profiled = valid;
+    profiled.experiment.profile =
+        semaforr::config::AblationProfile::PurelyReactive;
+    semaforr::config::applyAblationProfile(profiled);
+    semaforr::config::validateConfiguration(profiled);
+    assert(!profiled.experiment.tiers.tier_two);
+    assert(profiled.advisors.back().name == "random");
+  }
+  {
+    auto profiled = valid;
+    profiled.experiment.profile = semaforr::config::AblationProfile::Highway;
+    semaforr::config::applyAblationProfile(profiled);
+    semaforr::config::validateConfiguration(profiled);
+    assert(profiled.experiment.initial_exploration.enabled);
+    assert(profiled.experiment.reactive_exploration_enabled);
+    assert(profiled.navigation.planners.skeleton);
+    assert(profiled.navigation.planners.highway);
   }
   {
     auto profiled = valid;
