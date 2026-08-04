@@ -1,6 +1,8 @@
 #include <gtest/gtest.h>
 #include <algorithm>
+#include <limits>
 #include <semaforr/decision/advisor_catalog_registry.hpp>
+#include <semaforr/decision/dissertation_advisor.hpp>
 #include <semaforr/decision/restored_tiers.hpp>
 #include <semaforr/planning/reactive_planner.hpp>
 
@@ -23,6 +25,15 @@ semaforr::domain::LaserObservation laser() {
   result.angle_increment = semaforr::domain::Angle(0.1);
   result.ranges_m = {2.0, 2.0, 2.0};
   return result;
+}
+
+double scoreFor(const semaforr::decision::AdvisorEvaluation& evaluation,
+                const semaforr::domain::Action& action) {
+  const auto found = std::find_if(
+      evaluation.scores.begin(), evaluation.scores.end(),
+      [&](const auto& score) { return score.action == action; });
+  EXPECT_NE(found, evaluation.scores.end());
+  return found == evaluation.scores.end() ? 0.0 : found->raw_score;
 }
 
 }  // namespace
@@ -71,6 +82,132 @@ TEST(TierThreeCatalog, SpatialAdvisorReportsSourceRevision) {
   const auto dependencies = advisor->dependencies();
   EXPECT_NE(std::find(dependencies.begin(), dependencies.end(), "highways"),
             dependencies.end());
+}
+
+TEST(CommonsenseAdvisors, BigStepAndGreedyUseMetricLookahead) {
+  using semaforr::decision::DissertationAdvisor;
+  using semaforr::decision::DissertationAdvisorObjective;
+  using semaforr::domain::Action;
+  using semaforr::domain::ActionType;
+  const semaforr::domain::ActionSpace actions({1.0, 2.0}, {0.5});
+  auto world = worldWithTarget({5.0, 0.0});
+  auto view = laser();
+  view.angle_min = semaforr::domain::Angle(-0.5);
+  view.maximum_range = semaforr::domain::Distance(5.0);
+  view.ranges_m = {5.0, 5.0, 5.0};
+  world.robot.laser = view;
+  const std::vector<Action> candidates{
+      Action::pause(), {ActionType::Forward, 1U},
+      {ActionType::Forward, 2U}, {ActionType::TurnLeft, 1U}};
+
+  DissertationAdvisor big_step({"big_step",
+      DissertationAdvisorObjective::BigStep, actions, 1.0});
+  const auto big = big_step.evaluate({world}, candidates);
+  EXPECT_GT(scoreFor(big, {ActionType::Forward, 2U}),
+            scoreFor(big, {ActionType::Forward, 1U}));
+  EXPECT_GT(scoreFor(big, {ActionType::Forward, 1U}),
+            scoreFor(big, Action::pause()));
+
+  DissertationAdvisor greedy({"greedy",
+      DissertationAdvisorObjective::Greedy, actions, 1.0});
+  const auto goal = greedy.evaluate({world}, candidates);
+  EXPECT_GT(scoreFor(goal, {ActionType::Forward, 2U}),
+            scoreFor(goal, Action::pause()));
+}
+
+TEST(CommonsenseAdvisors, ElbowRoomAndGoAroundRespondToObstacleSide) {
+  using semaforr::decision::DissertationAdvisor;
+  using semaforr::decision::DissertationAdvisorObjective;
+  using semaforr::domain::Action;
+  using semaforr::domain::ActionType;
+  const semaforr::domain::ActionSpace actions({1.0}, {0.5});
+  auto world = worldWithTarget();
+  auto view = laser();
+  view.angle_min = semaforr::domain::Angle(0.3);
+  view.maximum_range = semaforr::domain::Distance(5.0);
+  view.ranges_m = {std::numeric_limits<double>::infinity(),
+                   std::numeric_limits<double>::infinity(), 1.0};
+  world.robot.laser = view;
+  const std::vector<Action> candidates{
+      {ActionType::TurnLeft, 1U}, {ActionType::TurnRight, 1U}};
+
+  DissertationAdvisor elbow({"elbow_room",
+      DissertationAdvisorObjective::ElbowRoom, actions, 1.0});
+  const auto clearance = elbow.evaluate({world}, candidates);
+  EXPECT_GT(scoreFor(clearance, {ActionType::TurnRight, 1U}),
+            scoreFor(clearance, {ActionType::TurnLeft, 1U}));
+
+  DissertationAdvisor around({"go_around",
+      DissertationAdvisorObjective::GoAround, actions, 1.0});
+  const auto avoidance = around.evaluate({world}, candidates);
+  EXPECT_GT(scoreFor(avoidance, {ActionType::TurnRight, 1U}),
+            scoreFor(avoidance, {ActionType::TurnLeft, 1U}));
+}
+
+TEST(CommonsenseAdvisors, NoveltyAndCuriosityUseDifferentHistoryScopes) {
+  using semaforr::decision::DissertationAdvisor;
+  using semaforr::decision::DissertationAdvisorObjective;
+  using semaforr::domain::Action;
+  using semaforr::domain::ActionType;
+  const semaforr::domain::ActionSpace actions({2.0}, {0.5});
+  auto world = worldWithTarget({5.0, 0.0});
+  world.navigation_history.record(
+      {{{0.0, 0.0}, semaforr::domain::Angle::zero()}, laser(),
+       Action::pause(), 0U});
+  world.navigation_history.record(
+      {{{2.0, 0.0}, semaforr::domain::Angle::zero()}, laser(),
+       Action::pause(), 99U});
+  const std::vector<Action> candidates{
+      Action::pause(), {ActionType::Forward, 1U}};
+
+  DissertationAdvisor novelty({"novelty",
+      DissertationAdvisorObjective::Novelty, actions, 1.0});
+  const auto current_target = novelty.evaluate({world}, candidates);
+  EXPECT_GT(scoreFor(current_target, {ActionType::Forward, 1U}),
+            scoreFor(current_target, Action::pause()));
+
+  DissertationAdvisor curiosity({"curiosity",
+      DissertationAdvisorObjective::Curiosity, actions, 1.0});
+  const auto lifetime = curiosity.evaluate({world}, candidates);
+  EXPECT_DOUBLE_EQ(scoreFor(lifetime, {ActionType::Forward, 1U}),
+                   scoreFor(lifetime, Action::pause()));
+}
+
+TEST(CommonsenseAdvisors, EnfiladeReturnsAndVisualScanAvoidsSeenHeadings) {
+  using semaforr::decision::DissertationAdvisor;
+  using semaforr::decision::DissertationAdvisorObjective;
+  using semaforr::domain::Action;
+  using semaforr::domain::ActionType;
+  const semaforr::domain::ActionSpace actions(
+      {2.0}, {1.5707963267948966});
+  auto world = worldWithTarget();
+  auto view = laser();
+  view.angle_min = semaforr::domain::Angle(-0.5);
+  view.ranges_m = std::vector<double>(11U, 5.0);
+  world.robot.laser = view;
+  auto historical_view = view;
+  world.navigation_history.record(
+      {{{1.0, 0.0}, semaforr::domain::Angle::zero()}, historical_view,
+       Action::pause(), 0U});
+  world.navigation_history.record(
+      {{{1.25, 0.0}, semaforr::domain::Angle(1.5707963267948966)},
+       historical_view, Action::pause(), 0U});
+
+  DissertationAdvisor enfilade({"enfilade",
+      DissertationAdvisorObjective::Enfilade, actions, 1.0});
+  const std::vector<Action> movement{
+      Action::pause(), {ActionType::Forward, 1U}};
+  const auto returning = enfilade.evaluate({world}, movement);
+  EXPECT_GT(scoreFor(returning, {ActionType::Forward, 1U}),
+            scoreFor(returning, Action::pause()));
+
+  DissertationAdvisor scan({"visual_scan",
+      DissertationAdvisorObjective::VisualScan, actions, 1.0});
+  const std::vector<Action> rotations{
+      {ActionType::TurnLeft, 1U}, {ActionType::TurnRight, 1U}};
+  const auto scanning = scan.evaluate({world}, rotations);
+  EXPECT_GT(scoreFor(scanning, {ActionType::TurnRight, 1U}),
+            scoreFor(scanning, {ActionType::TurnLeft, 1U}));
 }
 
 TEST(ReactivePlanners, ThruBehindAndOutHaveExplicitDependencies) {

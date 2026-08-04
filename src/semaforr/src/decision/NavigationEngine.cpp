@@ -286,12 +286,12 @@ DecisionResult NavigationEngine::decide() {
         static_cast<std::uint64_t>(world_.mission.decisions_for_active() + 1U),
         world_.mission.active()->target, world_.mission.active()->waypoint()};
   }
-  world_.navigation_history.record(
-      {observation_->pose, observation_->laser, result.action});
   const std::optional<domain::TaskId> active_task =
       world_.mission.active()
           ? std::optional<domain::TaskId>(world_.mission.active()->id)
           : std::nullopt;
+  world_.navigation_history.record(
+      {observation_->pose, observation_->laser, result.action, active_task});
   learning_.observe({world_.navigation_history.entries().size(), *observation_,
                      result.action, active_task,
                      mission_step == MissionStep::ActivatedTask ||

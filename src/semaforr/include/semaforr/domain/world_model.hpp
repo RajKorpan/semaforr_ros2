@@ -84,6 +84,7 @@ struct NavigationHistoryEntry {
   Pose2D pose;
   LaserObservation laser;
   Action action = Action::pause();
+  std::optional<TaskId> task_id;
 };
 
 class NavigationHistory {

@@ -32,6 +32,7 @@ class DissertationAdvisor final : public Advisor {
 
  private:
   bool accepts(domain::ActionType) const noexcept;
+  bool applicable(const domain::WorldModel&) const;
   double score(const domain::WorldModel&, const domain::Action&) const;
   DissertationAdvisorConfiguration configuration_;
 };
