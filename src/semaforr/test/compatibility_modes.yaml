@@ -1,0 +1,28 @@
+schema_version: 1
+
+# Test claims are explicit. A passing modernized test is not evidence of
+# dissertation-algorithm compatibility.
+suites:
+  modernized:
+    enabled: true
+    ctest_label: behavior_mode:modernized
+    scope:
+      - test/unit/*
+      - test/integration/*
+      - test/contracts/*
+    excludes:
+      - test/contracts/test_compatibility_contract.py
+
+  compatibility_contract:
+    enabled: true
+    ctest_label: behavior_mode:compatibility-contract
+    scope:
+      - test/contracts/test_compatibility_contract.py
+    claim: validates classification, configuration, and fail-closed semantics
+
+  compatibility:
+    enabled: false
+    ctest_label: behavior_mode:compatibility
+    scope: []
+    blockers_document: docs/compatibility-matrix.md
+

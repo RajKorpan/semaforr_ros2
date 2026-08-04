@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <cassert>
 #include <limits>
 #include <semaforr/config/navigation_configuration.hpp>
@@ -46,9 +47,15 @@ void assertThrowsContaining(Operation operation, const std::string& expected) {
 
 int main() {
   const auto valid = validConfiguration();
+  assert(semaforr::config::behaviorModeFromString("modernized") ==
+         semaforr::config::BehaviorMode::Modernized);
+  assert(semaforr::config::behaviorModeFromString("compatibility") ==
+         semaforr::config::BehaviorMode::Compatibility);
   semaforr::config::validateConfiguration(valid);
   assert(semaforr::config::configurationFingerprint(valid).size() == 16U);
-  assert(!semaforr::config::componentManifest(valid).empty());
+  const auto manifest = semaforr::config::componentManifest(valid);
+  assert(std::find(manifest.begin(), manifest.end(),
+                   "behavior_mode:modernized") != manifest.end());
   for (const std::string profile :
        {"full", "tier1_only", "tier1_tier3", "tier3_only",
         "tier1_tier2_tier3", "no_initial_exploration",
@@ -106,6 +113,16 @@ int main() {
       source_dir + "/config/example/mission.conf", valid.map_file);
   assert(loaded.tasks.size() == 3U);
 
+  {
+    auto unavailable = valid;
+    unavailable.experiment.behavior_mode =
+        semaforr::config::BehaviorMode::Compatibility;
+    assertThrowsContaining(
+        [&unavailable]() {
+          semaforr::config::validateConfiguration(unavailable);
+        },
+        "compatibility' is reserved but not operational");
+  }
   {
     auto invalid = valid;
     invalid.experiment.tiers.tier_one = false;

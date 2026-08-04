@@ -8,6 +8,11 @@ objects as custom runs. The evaluation profiles are `purely_reactive`,
 `naive`. The general component-ablation profiles remain available alongside
 them.
 
+All currently runnable profiles execute with
+`experiment.behavior_mode: modernized`. Profile names identify feature
+combinations and never imply dissertation-algorithm fidelity. Compatibility
+mode remains fail-closed until its acceptance suite exists.
+
 The scenario catalog in
 `test/fixtures/scenarios/evaluation_scenarios.json` defines compact artificial,
 museum, and office families, repeated target-sequence counts, and parameter
@@ -33,7 +38,8 @@ collector divides it by the scenario's freespace-cell count. Target success is
 derived from explicit `target_completed` events, while activated targets that
 do not complete remain failed attempts.
 
-For comparisons, retain the profile, random seed, map checksum, ordered target
-sequence, decision limit, exploration budget, configuration fingerprint, and
-component manifest. Report exploration and target time and distance separately,
-and aggregate repeated runs with both a mean and dispersion measure.
+For comparisons, retain the behavior mode, profile, random seed, source
+revision, test-suite revision, map checksum, ordered target sequence, decision
+limit, exploration budget, configuration fingerprint, and component manifest.
+Report exploration and target time and distance separately, and aggregate
+repeated runs with both a mean and dispersion measure.

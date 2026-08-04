@@ -11,6 +11,7 @@ durations are seconds.
 
 | Group | Purpose |
 |---|---|
+| `experiment.behavior_mode` | Behavioral claim: supported `modernized` runtime or reserved, fail-closed `compatibility` target. |
 | `experiment.mode`, `experiment.random_seed` | Named ablation expansion and the reproducible decision seed. `experiment.profile` is a deprecated alias for `mode`. |
 | `phases.*` | Independent initial-exploration and target-navigation lifecycle controls. |
 | `tiers.tier1.rules` | Ordered, individually enabled cognitive Tier-1 rules. |
@@ -38,12 +39,21 @@ durations are seconds.
 
 ## Named ablation modes
 
+Behavior mode and ablation mode are orthogonal. `experiment.behavior_mode`
+defaults to `modernized`. `compatibility` is intentionally rejected until the
+blockers and acceptance suite in `compatibility-matrix.md` are resolved. An
+ablation profile name never asserts algorithm fidelity.
+
 `experiment.mode` accepts `full`, `tier1_only`, `tier1_tier3`,
 `tier3_only`, `tier1_tier2_tier3`, `no_initial_exploration`,
 `no_opportunistic_exploration`, `no_spatial_model`, `no_social`, or `custom`.
 Modes expand into the same tier, phase, planner, advisor, social, and
 representation fields used by `custom`; they do not select alternate runtime
 code paths.
+
+The historical evaluation profile `original` means the feature combination
+used for that study comparison. It does not mean that every selected learner
+or decision procedure is the original algorithm.
 
 HLE is controlled only by `phases.initial_exploration.*`. LLE is controlled by
 `exploration.reactive.*` together with the

@@ -4,6 +4,21 @@ The test suite is split into unit, component, integration, regression, and
 quality gates. All random arbitration tests use explicit seeds, and integration
 fixtures use meters, radians, and the `map` frame.
 
+Every CTest is labeled with its behavioral claim. Current unit, component,
+integration, and regression tests carry `behavior_mode:modernized`. The matrix
+and fail-closed configuration test carries
+`behavior_mode:compatibility-contract`. No test currently carries the
+`behavior_mode:compatibility` label, so the repository does not claim exact
+reproduction. The machine-readable suite declaration is
+`test/compatibility_modes.yaml`.
+
+Run a claim-specific suite with:
+
+```sh
+ctest -L behavior_mode:modernized
+ctest -L behavior_mode:compatibility-contract
+```
+
 ## Coverage map
 
 | Requirement | Test |
@@ -31,6 +46,9 @@ Unchanged decisions are `exact_match`. Every changed decision must be annotated
 as `acceptable_intentional_improvement` or
 `regression_requiring_correction`, with a nonempty rationale. Unclassified
 differences and regressions make the command fail.
+
+A trace comparison must also reject or separately classify runs whose behavior
+mode, configuration fingerprint, or component manifest differs.
 
 ## Quality gates
 

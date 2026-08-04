@@ -53,6 +53,8 @@ void applyPlanner(config::PlannerConfiguration& planners,
 }  // namespace
 
 void declareConfigurationParameters(rclcpp::Node& node) {
+  node.declare_parameter("experiment.behavior_mode",
+                         std::string{"modernized"});
   node.declare_parameter("experiment.profile", std::string{"custom"});
   node.declare_parameter("experiment.mode", std::string{"custom"});
   node.declare_parameter("experiment.random_seed", 0);
@@ -293,6 +295,8 @@ config::Configuration configurationFromParameters(rclcpp::Node& node) {
   auto configuration = config::loadStructuredConfiguration(
       std::move(navigation), dimensions, std::move(advisors), tasks_file,
       map_file);
+  configuration.experiment.behavior_mode = config::behaviorModeFromString(
+      node.get_parameter("experiment.behavior_mode").as_string());
   const auto mode = node.get_parameter("experiment.mode").as_string();
   const auto legacy_profile =
       node.get_parameter("experiment.profile").as_string();

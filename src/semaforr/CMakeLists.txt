@@ -515,6 +515,21 @@ if(BUILD_TESTING)
     test/contracts/test_deployment.py
     ENV "SEMAFORR_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
   )
+  ament_add_pytest_test(semaforr_compatibility_contract_test
+    test/contracts/test_compatibility_contract.py
+    ENV "SEMAFORR_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
+  )
+
+  get_property(semaforr_registered_tests DIRECTORY PROPERTY TESTS)
+  foreach(semaforr_test_name IN LISTS semaforr_registered_tests)
+    if(semaforr_test_name STREQUAL "semaforr_compatibility_contract_test")
+      set_property(TEST ${semaforr_test_name} APPEND PROPERTY
+        LABELS "behavior_mode:compatibility-contract")
+    else()
+      set_property(TEST ${semaforr_test_name} APPEND PROPERTY
+        LABELS "behavior_mode:modernized")
+    endif()
+  endforeach()
 endif()
 
 ament_export_targets(export_${PROJECT_NAME} HAS_LIBRARY_TARGET)

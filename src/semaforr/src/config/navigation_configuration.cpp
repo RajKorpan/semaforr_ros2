@@ -265,6 +265,23 @@ void validateMap(const std::string& map_file, const MapDimensions& dimensions) {
 
 }  // namespace
 
+std::string_view toString(BehaviorMode mode) noexcept {
+  switch (mode) {
+    case BehaviorMode::Compatibility:
+      return "compatibility";
+    case BehaviorMode::Modernized:
+      return "modernized";
+  }
+  return "modernized";
+}
+
+BehaviorMode behaviorModeFromString(const std::string& value) {
+  if (value == "compatibility") return BehaviorMode::Compatibility;
+  if (value == "modernized") return BehaviorMode::Modernized;
+  throw std::invalid_argument(
+      "experiment.behavior_mode must be 'compatibility' or 'modernized'");
+}
+
 std::string_view toString(AblationProfile profile) noexcept {
   switch (profile) {
     case AblationProfile::Full:
@@ -659,7 +676,9 @@ void applyAblationProfile(Configuration& configuration) {
 std::string configurationFingerprint(const Configuration& configuration) {
   std::ostringstream canonical;
   canonical
-      << std::setprecision(17) << toString(configuration.experiment.profile)
+      << std::setprecision(17)
+      << toString(configuration.experiment.behavior_mode) << '|'
+      << toString(configuration.experiment.profile)
       << '|' << configuration.experiment.random_seed << '|'
       << configuration.experiment.tiers.tier_one << '|'
       << configuration.experiment.tiers.tier_two << '|'
@@ -760,8 +779,10 @@ std::string configurationFingerprint(const Configuration& configuration) {
 }
 
 std::vector<std::string> componentManifest(const Configuration& configuration) {
-  std::vector<std::string> result{"hard_safety:obstacle_clearance",
-                                  "phase:target_navigation"};
+  std::vector<std::string> result{
+      "behavior_mode:" +
+          std::string(toString(configuration.experiment.behavior_mode)),
+      "hard_safety:obstacle_clearance", "phase:target_navigation"};
   const auto& experiment = configuration.experiment;
   if (experiment.initial_exploration.enabled)
     result.push_back("phase:initial_exploration");
@@ -824,6 +845,14 @@ Configuration loadStructuredConfiguration(
 void validateConfiguration(const Configuration& configuration) {
   validateNavigation(configuration.navigation);
   const auto& experiment = configuration.experiment;
+  if (experiment.behavior_mode == BehaviorMode::Compatibility) {
+    throw std::runtime_error(
+        "configuration: experiment.behavior_mode 'compatibility' is reserved "
+        "but not operational; unresolved fidelity blockers include trail, "
+        "conveyor, region, door/exit, hallway, region-skeleton, HLE, exact "
+        "tier ordering, Enforcer action selection, and Why explanations. Use "
+        "'modernized' until the compatibility acceptance suite is enabled");
+  }
   if (experiment.initial_exploration.enabled &&
       (experiment.initial_exploration.strategy != "hle" ||
        !std::isfinite(experiment.initial_exploration.time_limit_s) ||

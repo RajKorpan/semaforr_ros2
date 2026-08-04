@@ -4,6 +4,10 @@ This document defines the required runtime behavior independently of its
 research history. A component satisfies the contract only when its acceptance
 tests pass; sharing a historical name is not sufficient.
 
+This is the modernized runtime contract. Algorithm-fidelity status, intentional
+deviations, and the unavailable compatibility target are defined in the
+[behavioral compatibility matrix](compatibility-matrix.md).
+
 ## Runtime lifecycle
 
 1. Construct an empty `domain::WorldModel` with no active target.

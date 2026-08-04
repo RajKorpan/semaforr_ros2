@@ -10,6 +10,11 @@
 namespace semaforr {
 namespace config {
 
+enum class BehaviorMode {
+  Compatibility,
+  Modernized
+};
+
 enum class AblationProfile {
   Full,
   TierOneOnly,
@@ -84,6 +89,7 @@ struct SocialConfiguration {
 };
 
 struct ExperimentConfiguration {
+  BehaviorMode behavior_mode = BehaviorMode::Modernized;
   AblationProfile profile = AblationProfile::Custom;
   unsigned int random_seed = 0U;
   TierConfiguration tiers;
@@ -205,6 +211,8 @@ struct Configuration {
 
 std::string_view toString(AblationProfile profile) noexcept;
 AblationProfile ablationProfileFromString(const std::string& value);
+std::string_view toString(BehaviorMode mode) noexcept;
+BehaviorMode behaviorModeFromString(const std::string& value);
 void applyAblationProfile(Configuration& configuration);
 std::string configurationFingerprint(const Configuration& configuration);
 std::vector<std::string> componentManifest(const Configuration& configuration);

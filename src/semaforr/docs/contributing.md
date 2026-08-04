@@ -32,6 +32,9 @@ The sanitizer, coverage, and regression commands are in
   validation.
 - Add components through registries and tests, not dispatch edits in the ROS
   node.
+- Classify every new or behaviorally changed component in
+  `compatibility-matrix.md`. A historically used name does not justify a
+  dissertation-faithful status.
 
 ## Tests required with changes
 
@@ -39,6 +42,11 @@ Add the narrowest ROS-independent unit test first. Add a component test when
 ownership or lifecycle spans classes, and a fixture-driven integration test
 when decisions or mission progression can change. Update a golden trace only
 after classifying and documenting every difference.
+
+Declare whether each new test validates `modernized`,
+`compatibility-contract`, or future `compatibility` behavior. Compatibility
+tests require algorithm-oracle fixtures and must not be inferred from ordinary
+component coverage.
 
 New or modified modern code is built with strict warnings. Coverage thresholds
 apply to files listed in `config/coverage_thresholds.json`; extend that

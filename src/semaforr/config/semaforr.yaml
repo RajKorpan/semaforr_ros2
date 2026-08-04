@@ -1,6 +1,10 @@
 semaforr:
   ros__parameters:
     experiment:
+      # "modernized" is the currently runnable implementation. The reserved
+      # "compatibility" mode is rejected until its fidelity blockers are
+      # resolved and validated.
+      behavior_mode: modernized
       mode: custom
       # Deprecated alias retained for launch-file compatibility.
       profile: custom

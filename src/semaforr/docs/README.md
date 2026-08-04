@@ -3,6 +3,7 @@
 - [Build and deployment](deployment.md)
 - [Architecture overview](architecture.md)
 - [Navigation behavioral contract](behavioral-contract.md)
+- [Behavioral compatibility matrix](compatibility-matrix.md)
 - [Decision-tier guide](decision-tiers.md)
 - [Advisor catalog](advisor-catalog.md)
 - [Planner catalog](planner-catalog.md)
