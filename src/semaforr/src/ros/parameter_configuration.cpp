@@ -91,7 +91,15 @@ void declareConfigurationParameters(rclcpp::Node& node) {
   node.declare_parameter("social.planners.enabled", true);
   node.declare_parameter("safety.command_envelope.enabled", true);
   node.declare_parameter("safety.sensor_freshness_timeout_s", 0.5);
+  node.declare_parameter("map.mode", std::string{"mapless"});
+  node.declare_parameter("map.on_load_failure", std::string{"fail_startup"});
   node.declare_parameter("map.path", std::string{});
+  node.declare_parameter("map.origin_x_m", 0.0);
+  node.declare_parameter("map.origin_y_m", 0.0);
+  node.declare_parameter("map.occupancy_resolution_m", 0.3);
+  node.declare_parameter("map.obstacle_inflation_m", 0.0);
+  node.declare_parameter("map.planning.enabled", true);
+  node.declare_parameter("map.visualizations.enabled", false);
   node.declare_parameter("mission.tasks_path", std::string{});
   node.declare_parameter("map.length_m", 200);
   node.declare_parameter("map.height_m", 200);
@@ -149,9 +157,6 @@ void declareConfigurationParameters(rclcpp::Node& node) {
 config::Configuration configurationFromParameters(rclcpp::Node& node) {
   std::string map_file = node.get_parameter("map.path").as_string();
   std::string tasks_file = node.get_parameter("mission.tasks_path").as_string();
-  if (map_file.empty()) {
-    throw std::runtime_error("map.path: required path is empty");
-  }
   if (tasks_file.empty()) {
     throw std::runtime_error("mission.tasks_path: required path is empty");
   }
@@ -295,6 +300,25 @@ config::Configuration configurationFromParameters(rclcpp::Node& node) {
   auto configuration = config::loadStructuredConfiguration(
       std::move(navigation), dimensions, std::move(advisors), tasks_file,
       map_file);
+  configuration.static_map.mode = config::mapOperatingModeFromString(
+      node.get_parameter("map.mode").as_string());
+  configuration.static_map.failure_policy =
+      config::mapLoadFailurePolicyFromString(
+          node.get_parameter("map.on_load_failure").as_string());
+  configuration.static_map.path = map_file;
+  configuration.map_file = map_file;
+  configuration.static_map.origin_x_m =
+      node.get_parameter("map.origin_x_m").as_double();
+  configuration.static_map.origin_y_m =
+      node.get_parameter("map.origin_y_m").as_double();
+  configuration.static_map.occupancy_resolution_m =
+      node.get_parameter("map.occupancy_resolution_m").as_double();
+  configuration.static_map.obstacle_inflation_m =
+      node.get_parameter("map.obstacle_inflation_m").as_double();
+  configuration.static_map.map_based_planning_enabled =
+      node.get_parameter("map.planning.enabled").as_bool();
+  configuration.static_map.visualizations_enabled =
+      node.get_parameter("map.visualizations.enabled").as_bool();
   configuration.experiment.behavior_mode = config::behaviorModeFromString(
       node.get_parameter("experiment.behavior_mode").as_string());
   const auto mode = node.get_parameter("experiment.mode").as_string();

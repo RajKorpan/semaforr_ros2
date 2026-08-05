@@ -30,8 +30,10 @@ UndefinedBehaviorSanitizer; leak detection is enabled through
 `SEMAFORR_ENABLE_COVERAGE=ON` enables the coverage profile.
 
 Configuration is loaded exclusively from ROS parameters backed by YAML.
-`map.path` and `mission.tasks_path` are resolved by launch files from the
-installed package share. The offline `semaforr_convert_legacy_config` utility
+`mission.tasks_path` is resolved by launch files from the installed package
+share. Optional maps use the resolver documented in
+[map-operation.md](map-operation.md), including the installed
+`semaforr_examples/core` tree. The offline `semaforr_convert_legacy_config` utility
 converts retained experiment files once; the node does not parse them.
 
 The Dockerfile builds the complete workspace from a Humble base. The

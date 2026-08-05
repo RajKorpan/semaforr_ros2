@@ -10,6 +10,7 @@
 #include <social_context_msgs/msg/crowd_field.hpp>
 #include <string>
 #include <utility>
+#include <visualization_msgs/msg/marker.hpp>
 
 namespace semaforr::ros {
 namespace {
@@ -204,6 +205,12 @@ class VisualizationPublisher::Impl {
                 "waypoint", rclcpp::QoS(1).transient_local().reliable())),
         plan_publisher_(node.create_publisher<nav_msgs::msg::Path>(
             "plan", rclcpp::QoS(1).transient_local().reliable())),
+        static_map_publisher_(
+            node.create_publisher<visualization_msgs::msg::Marker>(
+                "static_map_geometry",
+                rclcpp::QoS(1).transient_local().reliable())),
+        map_visualization_enabled_(
+            node.get_parameter("map.visualizations.enabled").as_bool()),
         pose_publisher_(node.create_publisher<geometry_msgs::msg::PoseStamped>(
             "decision_pose", rclcpp::QoS(10).reliable())) {}
 
@@ -301,6 +308,35 @@ class VisualizationPublisher::Impl {
     pose.pose.orientation.w = std::cos(half_heading);
     pose_publisher_->publish(pose);
 
+    if (map_visualization_enabled_ && !static_map_published_ &&
+        world_.static_map && world_.static_map->geometryAvailable()) {
+      visualization_msgs::msg::Marker marker;
+      marker.header = pose.header;
+      marker.ns = "semaforr_static_map";
+      marker.id = 0;
+      marker.type = visualization_msgs::msg::Marker::LINE_LIST;
+      marker.action = visualization_msgs::msg::Marker::ADD;
+      marker.pose.orientation.w = 1.0;
+      marker.scale.x = 0.04;
+      marker.color.r = 0.15F;
+      marker.color.g = 0.15F;
+      marker.color.b = 0.15F;
+      marker.color.a = 1.0F;
+      marker.points.reserve(world_.static_map->walls.size() * 2U);
+      for (const auto& wall : world_.static_map->walls) {
+        geometry_msgs::msg::Point start;
+        start.x = wall.start.x_m;
+        start.y = wall.start.y_m;
+        geometry_msgs::msg::Point end;
+        end.x = wall.end.x_m;
+        end.y = wall.end.y_m;
+        marker.points.push_back(start);
+        marker.points.push_back(end);
+      }
+      static_map_publisher_->publish(marker);
+      static_map_published_ = true;
+    }
+
     if (world_.mission.active()) {
       geometry_msgs::msg::PointStamped target;
       target.header = pose.header;
@@ -346,6 +382,10 @@ class VisualizationPublisher::Impl {
   rclcpp::Publisher<geometry_msgs::msg::PointStamped>::SharedPtr
       waypoint_publisher_;
   rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr plan_publisher_;
+  rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr
+      static_map_publisher_;
+  bool map_visualization_enabled_ = false;
+  bool static_map_published_ = false;
   rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr pose_publisher_;
   std::uint64_t last_crowd_version_{0U};
   std::optional<std::uint64_t> last_task_index_;

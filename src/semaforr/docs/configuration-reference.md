@@ -24,7 +24,14 @@ durations are seconds.
 | `timing.control_rate_hz` | Nonblocking command/state-machine timer rate. |
 | `timing.sensor_timeout_s` | Age after which the node publishes zero velocity. |
 | `timing.sensor_sync_tolerance_s` | Maximum pose/scan timestamp separation. |
-| `map.path` | XML map path; launch files should resolve it from package share. |
+| `map.mode` | `mapless` (default) or `map_enabled`. |
+| `map.path` | Absolute, `package://`, package-relative, or named example map. Required only in map-enabled mode. |
+| `map.on_load_failure` | `fail_startup` (default) or `disable_map`. |
+| `map.origin_x_m`, `map.origin_y_m` | Lower map bound; negative origins are supported. |
+| `map.occupancy_resolution_m` | Resolution of occupancy derived from static walls. |
+| `map.obstacle_inflation_m` | Nonnegative static obstacle inflation radius. |
+| `map.planning.enabled` | Enables the map-based-planning capability after a valid load. |
+| `map.visualizations.enabled` | Publishes static map geometry separately from learned models. |
 | `map.length_m`, `map.height_m`, `map.granularity_m` | Validated map extent and discretization. |
 | `mission.tasks_path` | Mission target file path resolved by launch. |
 | `mission.decision_limit` | Maximum decisions before the active task is skipped. |

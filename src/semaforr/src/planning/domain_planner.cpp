@@ -143,10 +143,17 @@ PlanResult DomainPlanner::plan(const PlanningRequest& request) {
   if (!request.start.position.finite() || !request.goal.finite())
     return {
         PlanStatus::InvalidRequest, {}, 0.0, "start and goal must be finite"};
+  if (!request.static_map || !request.static_map->occupancyAvailable())
+    return {PlanStatus::PlannerUnavailable, {}, 0.0,
+            "known-map occupancy is unavailable"};
+  if (!request.static_map->bounds.contains(request.start.position) ||
+      !request.static_map->bounds.contains(request.goal))
+    return {PlanStatus::InvalidRequest, {}, 0.0,
+            "start or goal lies outside static-map bounds"};
   std::vector<domain::Point2D> nodes;
   std::vector<std::pair<std::size_t, std::size_t>> edges;
-  if (request.spatial_model) {
-    const auto& grid = request.spatial_model->known_grid;
+  {
+    const auto& grid = request.static_map->occupancy;
     if (grid.columns > 0U && grid.rows > 0U &&
         grid.cells.size() == grid.columns * grid.rows &&
         grid.resolution_m > 0.0) {
@@ -155,17 +162,12 @@ PlanResult DomainPlanner::plan(const PlanningRequest& request) {
       for (std::size_t row = 0; row < grid.rows; ++row)
         for (std::size_t column = 0; column < grid.columns; ++column) {
           const std::size_t cell = row * grid.columns + column;
-          if (grid.cells[cell] == 0U) continue;
+          if (grid.cells[cell] != 0U) continue;
           const domain::Point2D point{
               grid.origin.x_m +
                   (static_cast<double>(column) + .5) * grid.resolution_m,
               grid.origin.y_m +
                   (static_cast<double>(row) + .5) * grid.resolution_m};
-          if (std::any_of(
-                  request.spatial_model->obstacle_polygons.begin(),
-                  request.spatial_model->obstacle_polygons.end(),
-                  [&](const auto& polygon) { return polygon.contains(point); }))
-            continue;
           node_for_cell[cell] = nodes.size();
           nodes.push_back(point);
         }
@@ -182,20 +184,10 @@ PlanResult DomainPlanner::plan(const PlanningRequest& request) {
                                node_for_cell[cell + grid.columns]);
         }
     }
-    if (nodes.empty()) {
-      nodes = request.spatial_model->skeleton_nodes;
-      edges = request.spatial_model->skeleton_edges;
-    }
   }
   if (nodes.empty()) {
-    PlanResult direct{
-        PlanStatus::Success,
-        {request.goal},
-        edgeCost(objective_, request, request.start.position, request.goal),
-        "direct fallback because the shared planning graph is unavailable"};
-    direct.primary_objective = objective_;
-    direct.objective_costs = evaluatePathObjectives(request, direct.path);
-    return direct;
+    return {PlanStatus::PlannerUnavailable, {}, 0.0,
+            "static-map occupancy contains no traversable cells"};
   }
   const std::size_t original = nodes.size(), start = nodes.size();
   nodes.push_back(request.start.position);
@@ -261,7 +253,8 @@ PlanResult DomainPlanner::plan(const PlanningRequest& request) {
   result.cost_m = distance[goal];
   result.primary_objective = objective_;
   result.objective_costs = evaluatePathObjectives(request, result.path);
-  result.explanation = "Dijkstra over the shared graph using the " +
+  result.explanation = "Dijkstra over immutable occupancy from static map '" +
+                       request.static_map->source + "' using the " +
                        std::string(toString(objective_)) + " objective";
   HierarchicalPlan hierarchy;
   hierarchy.planner = name_;
@@ -271,6 +264,8 @@ PlanResult DomainPlanner::plan(const PlanningRequest& request) {
   if (request.spatial_model)
     hierarchy.source_model_revisions["spatial"] =
         request.spatial_model->revision;
+  hierarchy.source_model_revisions["static_map"] =
+      request.static_map->revision;
   for (auto p : result.path) hierarchy.steps.emplace_back(WaypointStep{p});
   result.hierarchical = std::move(hierarchy);
   return result;

@@ -22,7 +22,8 @@ def test_runtime_configuration_is_parameter_only():
     ):
         assert obsolete not in adapter
         assert obsolete not in yaml
-    assert "map.path: required path is empty" in adapter
+    assert 'node.declare_parameter("map.mode"' in adapter
+    assert "mapOperatingModeFromString" in adapter
     assert "mission.tasks_path: required path is empty" in adapter
 
 

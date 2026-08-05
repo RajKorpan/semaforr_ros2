@@ -5,7 +5,6 @@
 #include <fstream>
 #include <iomanip>
 #include <iterator>
-#include <regex>
 #include <semaforr/config/navigation_configuration.hpp>
 #include <set>
 #include <sstream>
@@ -240,29 +239,6 @@ void validateNavigation(const NavigationConfiguration& configuration) {
   }
 }
 
-void validateMap(const std::string& map_file, const MapDimensions& dimensions) {
-  std::ifstream input(map_file);
-  if (!input.is_open()) {
-    throw std::runtime_error("cannot open map file '" + map_file + "'");
-  }
-  const std::string xml{std::istreambuf_iterator<char>(input),
-                        std::istreambuf_iterator<char>()};
-  const std::regex coordinate(
-      R"coordinate(p_([xy])\s*=\s*"([^"]+)")coordinate");
-  for (std::sregex_iterator iterator(xml.begin(), xml.end(), coordinate), end;
-       iterator != end; ++iterator) {
-    const double value = parseFiniteDouble((*iterator)[2].str(), map_file, 0U);
-    const double upper = (*iterator)[1].str() == "x"
-                             ? static_cast<double>(dimensions.length)
-                             : static_cast<double>(dimensions.height);
-    if (value < 0.0 || value > upper) {
-      throw std::runtime_error("map coordinate " + (*iterator)[1].str() + "=" +
-                               (*iterator)[2].str() +
-                               " lies outside configured dimensions");
-    }
-  }
-}
-
 }  // namespace
 
 std::string_view toString(BehaviorMode mode) noexcept {
@@ -280,6 +256,29 @@ BehaviorMode behaviorModeFromString(const std::string& value) {
   if (value == "modernized") return BehaviorMode::Modernized;
   throw std::invalid_argument(
       "experiment.behavior_mode must be 'compatibility' or 'modernized'");
+}
+
+std::string_view toString(MapOperatingMode mode) noexcept {
+  return mode == MapOperatingMode::MapEnabled ? "map_enabled" : "mapless";
+}
+
+MapOperatingMode mapOperatingModeFromString(const std::string& value) {
+  if (value == "mapless") return MapOperatingMode::Mapless;
+  if (value == "map_enabled") return MapOperatingMode::MapEnabled;
+  throw std::invalid_argument(
+      "map.mode must be 'mapless' or 'map_enabled'");
+}
+
+std::string_view toString(MapLoadFailurePolicy policy) noexcept {
+  return policy == MapLoadFailurePolicy::DisableMap ? "disable_map"
+                                                     : "fail_startup";
+}
+
+MapLoadFailurePolicy mapLoadFailurePolicyFromString(const std::string& value) {
+  if (value == "fail_startup") return MapLoadFailurePolicy::FailStartup;
+  if (value == "disable_map") return MapLoadFailurePolicy::DisableMap;
+  throw std::invalid_argument(
+      "map.on_load_failure must be 'fail_startup' or 'disable_map'");
 }
 
 std::string_view toString(AblationProfile profile) noexcept {
@@ -708,7 +707,14 @@ std::string configurationFingerprint(const Configuration& configuration) {
       << configuration.experiment.social.planners << '|'
       << configuration.experiment.safety_envelope.enabled << '|'
       << configuration.experiment.safety_envelope.sensor_freshness_timeout_s
-      << '|' << configuration.map_file << '|'
+      << '|' << toString(configuration.static_map.mode) << '|'
+      << toString(configuration.static_map.failure_policy) << '|'
+      << configuration.static_map.path << '|'
+      << configuration.static_map.origin_x_m << '|'
+      << configuration.static_map.origin_y_m << '|'
+      << configuration.static_map.occupancy_resolution_m << '|'
+      << configuration.static_map.obstacle_inflation_m << '|'
+      << configuration.static_map.map_based_planning_enabled << '|'
       << configuration.map_dimensions.length << '|'
       << configuration.map_dimensions.height << '|'
       << configuration.map_dimensions.granularity;
@@ -783,6 +789,10 @@ std::vector<std::string> componentManifest(const Configuration& configuration) {
       "behavior_mode:" +
           std::string(toString(configuration.experiment.behavior_mode)),
       "hard_safety:obstacle_clearance", "phase:target_navigation"};
+  result.push_back("map_mode:" +
+                   std::string(toString(configuration.static_map.mode)));
+  if (configuration.static_map.mode == MapOperatingMode::MapEnabled)
+    result.push_back("map:requested");
   const auto& experiment = configuration.experiment;
   if (experiment.initial_exploration.enabled)
     result.push_back("phase:initial_exploration");
@@ -837,6 +847,9 @@ Configuration loadStructuredConfiguration(
   configuration.advisors = std::move(advisors);
   configuration.tasks = parseTasks(tasks_file);
   configuration.map_file = map_file;
+  configuration.static_map.path = map_file;
+  configuration.static_map.mode = map_file.empty() ? MapOperatingMode::Mapless
+                                                    : MapOperatingMode::MapEnabled;
   applyAblationProfile(configuration);
   validateConfiguration(configuration);
   return configuration;
@@ -1081,18 +1094,50 @@ void validateConfiguration(const Configuration& configuration) {
         "configuration: crowd learning requires social.enabled and "
         "social.learning.enabled");
 
+  const auto& map = configuration.static_map;
+  if (!std::isfinite(map.origin_x_m) || !std::isfinite(map.origin_y_m) ||
+      !std::isfinite(map.occupancy_resolution_m) ||
+      map.occupancy_resolution_m <= 0.0 ||
+      !std::isfinite(map.obstacle_inflation_m) ||
+      map.obstacle_inflation_m < 0.0 ||
+      configuration.map_dimensions.length <= 0 ||
+      configuration.map_dimensions.height <= 0 ||
+      !std::isfinite(configuration.map_dimensions.granularity) ||
+      configuration.map_dimensions.granularity <= 0.0)
+    throw std::runtime_error(
+        "configuration: map bounds, origin, occupancy resolution, inflation, "
+        "and granularity are invalid");
+  if (map.mode == MapOperatingMode::MapEnabled && map.path.empty())
+    throw std::runtime_error(
+        "configuration: map-enabled operation requires map.path");
+  const bool map_planner = configuration.navigation.planners.distance ||
+                           configuration.navigation.planners.density ||
+                           configuration.navigation.planners.risk ||
+                           configuration.navigation.planners.flow ||
+                           configuration.navigation.planners.region ||
+                           configuration.navigation.planners.hallway ||
+                           configuration.navigation.planners.trail ||
+                           configuration.navigation.planners.conveyor;
+  if (map_planner &&
+      (map.mode != MapOperatingMode::MapEnabled ||
+       !map.map_based_planning_enabled))
+    throw std::runtime_error(
+        "configuration: grid and affordance-grid planners require "
+        "map.mode=map_enabled, map.planning.enabled=true, and successfully "
+        "loaded map occupancy");
+
   if (configuration.tasks.empty()) {
     throw std::runtime_error("configuration: at least one task is required");
   }
   for (const TaskConfiguration& task : configuration.tasks) {
-    if (!std::isfinite(task.x) || !std::isfinite(task.y) || task.x < 0.0 ||
-        task.y < 0.0 || task.x > configuration.map_dimensions.length ||
-        task.y > configuration.map_dimensions.height) {
+    if (!std::isfinite(task.x) || !std::isfinite(task.y) ||
+        task.x < map.origin_x_m || task.y < map.origin_y_m ||
+        task.x > map.origin_x_m + configuration.map_dimensions.length ||
+        task.y > map.origin_y_m + configuration.map_dimensions.height) {
       throw std::runtime_error(
           "configuration: task coordinate lies outside configured dimensions");
     }
   }
-  validateMap(configuration.map_file, configuration.map_dimensions);
 }
 
 }  // namespace semaforr::config

@@ -59,6 +59,7 @@ function(semaforr_apply_strict_warnings target)
 endfunction()
 
 find_package(ament_cmake REQUIRED)
+find_package(ament_index_cpp REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(rclcpp REQUIRED)
@@ -93,6 +94,7 @@ add_library(semaforr_planning SHARED
   src/planning/domain_planner.cpp
   src/planning/hierarchical_plan.cpp
   src/planning/map_parser.cpp
+  src/planning/static_map_loader.cpp
   src/planning/plan_types.cpp
   src/planning/planning_coordinator.cpp
   src/planning/planner_registry.cpp
@@ -243,6 +245,7 @@ target_include_directories(semaforr_ros_adapters
 target_link_libraries(
   semaforr_ros_adapters semaforr_navigation semaforr_validation)
 ament_target_dependencies(semaforr_ros_adapters
+  ament_index_cpp
   geometry_msgs
   nav_msgs
   rclcpp
@@ -376,7 +379,20 @@ if(BUILD_TESTING)
     test/unit/map_parser_test.cpp
   )
   target_link_libraries(semaforr_map_parser_test semaforr_planning)
+  target_compile_definitions(semaforr_map_parser_test PRIVATE
+    "SEMAFORR_TEST_WORKSPACE_SOURCE_DIR=\"${PROJECT_SOURCE_DIR}/../..\""
+  )
   semaforr_apply_project_options(semaforr_map_parser_test)
+
+  ament_add_gtest(
+    semaforr_map_runtime_test
+    test/integration/map_runtime_test.cpp
+  )
+  target_link_libraries(semaforr_map_runtime_test semaforr_ros_adapters)
+  target_compile_definitions(semaforr_map_runtime_test PRIVATE
+    "SEMAFORR_TEST_SOURCE_DIR=\"${PROJECT_SOURCE_DIR}\""
+  )
+  semaforr_apply_project_options(semaforr_map_runtime_test)
 
   ament_add_gtest(
     semaforr_spatial_learning_test
@@ -519,6 +535,14 @@ if(BUILD_TESTING)
     test/contracts/test_compatibility_contract.py
     ENV "SEMAFORR_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
   )
+  ament_add_pytest_test(semaforr_map_modes_contract_test
+    test/contracts/test_map_modes_contract.py
+    ENV "SEMAFORR_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
+  )
+  ament_add_pytest_test(semaforr_simulator_map_test
+    test/unit/test_simulator_map.py
+    ENV "SEMAFORR_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
+  )
 
   get_property(semaforr_registered_tests DIRECTORY PROPERTY TESTS)
   foreach(semaforr_test_name IN LISTS semaforr_registered_tests)
@@ -534,6 +558,7 @@ endif()
 
 ament_export_targets(export_${PROJECT_NAME} HAS_LIBRARY_TARGET)
 ament_export_dependencies(
+  ament_index_cpp
   geometry_msgs
   nav_msgs
   rclcpp

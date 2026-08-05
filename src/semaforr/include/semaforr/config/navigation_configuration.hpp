@@ -15,6 +15,21 @@ enum class BehaviorMode {
   Modernized
 };
 
+enum class MapOperatingMode { Mapless, MapEnabled };
+enum class MapLoadFailurePolicy { FailStartup, DisableMap };
+
+struct StaticMapConfiguration {
+  MapOperatingMode mode = MapOperatingMode::Mapless;
+  MapLoadFailurePolicy failure_policy = MapLoadFailurePolicy::FailStartup;
+  std::string path;
+  double origin_x_m = 0.0;
+  double origin_y_m = 0.0;
+  double occupancy_resolution_m = 0.3;
+  double obstacle_inflation_m = 0.0;
+  bool map_based_planning_enabled = true;
+  bool visualizations_enabled = false;
+};
+
 enum class AblationProfile {
   Full,
   TierOneOnly,
@@ -105,7 +120,7 @@ struct ExperimentConfiguration {
 };
 
 struct PlannerConfiguration {
-  bool distance = true;
+  bool distance = false;
   bool density = false;
   bool risk = false;
   bool flow = false;
@@ -207,12 +222,17 @@ struct Configuration {
   std::vector<AdvisorConfiguration> advisors;
   std::vector<TaskConfiguration> tasks;
   std::string map_file;
+  StaticMapConfiguration static_map;
 };
 
 std::string_view toString(AblationProfile profile) noexcept;
 AblationProfile ablationProfileFromString(const std::string& value);
 std::string_view toString(BehaviorMode mode) noexcept;
 BehaviorMode behaviorModeFromString(const std::string& value);
+std::string_view toString(MapOperatingMode mode) noexcept;
+MapOperatingMode mapOperatingModeFromString(const std::string& value);
+std::string_view toString(MapLoadFailurePolicy policy) noexcept;
+MapLoadFailurePolicy mapLoadFailurePolicyFromString(const std::string& value);
 void applyAblationProfile(Configuration& configuration);
 std::string configurationFingerprint(const Configuration& configuration);
 std::vector<std::string> componentManifest(const Configuration& configuration);

@@ -8,6 +8,51 @@ import math
 from pathlib import Path
 import statistics
 import time
+import xml.etree.ElementTree as ET
+
+
+def _load_environment_walls(path):
+    if path is None:
+        return []
+    try:
+        root = ET.parse(path).getroot()
+    except (OSError, ET.ParseError) as error:
+        raise ValueError(f"cannot load simulator environment map '{path}': {error}") from error
+    walls = []
+    for obstacle in root.iter("Obstacle"):
+        vertices = []
+        for vertex in obstacle.findall("Vertex"):
+            try:
+                point = (float(vertex.attrib["p_x"]), float(vertex.attrib["p_y"]))
+            except (KeyError, ValueError) as error:
+                raise ValueError(
+                    f"malformed simulator obstacle in '{path}'"
+                ) from error
+            if not all(math.isfinite(value) for value in point):
+                raise ValueError(f"non-finite simulator obstacle in '{path}'")
+            vertices.append(point)
+        walls.extend(zip(vertices, vertices[1:]))
+        if obstacle.attrib.get("closed") == "1" and len(vertices) > 2:
+            walls.append((vertices[-1], vertices[0]))
+    if not walls:
+        raise ValueError(f"simulator environment map '{path}' has no walls")
+    return walls
+
+
+def _segment_intersection_distance(origin, heading, maximum, wall):
+    direction = (math.cos(heading), math.sin(heading))
+    edge = (wall[1][0] - wall[0][0], wall[1][1] - wall[0][1])
+    denominator = direction[0] * edge[1] - direction[1] * edge[0]
+    if abs(denominator) < 1.0e-12:
+        return None
+    offset = (wall[0][0] - origin[0], wall[0][1] - origin[1])
+    ray_distance = (offset[0] * edge[1] - offset[1] * edge[0]) / denominator
+    wall_fraction = (
+        offset[0] * direction[1] - offset[1] * direction[0]
+    ) / denominator
+    if 0.0 <= ray_distance <= maximum and 0.0 <= wall_fraction <= 1.0:
+        return ray_distance
+    return None
 
 import rclpy
 from geometry_msgs.msg import PoseStamped, Twist
@@ -29,6 +74,7 @@ class BaselineRecorder(Node):
         initial_y=100.0,
         initial_yaw=0.0,
         scenario_name="stage_tutorial_open_space",
+        environment_map=None,
     ):
         super().__init__("semaforr_baseline_recorder")
         self._output_path = output_path
@@ -38,6 +84,8 @@ class BaselineRecorder(Node):
         self._tick_count = 0
         self._initial_pose = [initial_x, initial_y, initial_yaw]
         self._scenario_name = scenario_name
+        self._environment_map = environment_map
+        self._environment_walls = _load_environment_walls(environment_map)
         self._pose = list(self._initial_pose)
         self._command = Twist()
         self._last_command_signature = None
@@ -225,12 +273,24 @@ class BaselineRecorder(Node):
             math.sin(self._pose[2] + angular_z * self.TICK_PERIOD_S),
             math.cos(self._pose[2] + angular_z * self.TICK_PERIOD_S),
         )
-        self._pose[0] += (
+        proposed_x = self._pose[0] + (
             linear_x * math.cos(self._pose[2]) * self.TICK_PERIOD_S
         )
-        self._pose[1] += (
+        proposed_y = self._pose[1] + (
             linear_x * math.sin(self._pose[2]) * self.TICK_PERIOD_S
         )
+        motion_distance = math.hypot(
+            proposed_x - self._pose[0], proposed_y - self._pose[1]
+        )
+        blocked = any(
+            _segment_intersection_distance(
+                self._pose[:2], self._pose[2], motion_distance, wall
+            ) is not None
+            for wall in self._environment_walls
+        )
+        if not blocked:
+            self._pose[0] = proposed_x
+            self._pose[1] = proposed_y
         self._tick_count += 1
 
         sensors_enabled = (
@@ -266,7 +326,17 @@ class BaselineRecorder(Node):
         scan.angle_increment = math.pi / 540.0
         scan.range_min = 0.05
         scan.range_max = 5.0
-        scan.ranges = [5.0] * 1081
+        scan.ranges = []
+        for index in range(1081):
+            heading = self._pose[2] + scan.angle_min + index * scan.angle_increment
+            intersections = [
+                distance
+                for wall in self._environment_walls
+                if (distance := _segment_intersection_distance(
+                    self._pose[:2], heading, scan.range_max, wall
+                )) is not None
+            ]
+            scan.ranges.append(min(intersections, default=scan.range_max))
         self._scan_publisher.publish(scan)
 
         if self._elapsed() >= self._duration:
@@ -371,6 +441,9 @@ class BaselineRecorder(Node):
                 "laser_range_m": 5.0,
                 "laser_sample_count": 1081,
                 "sensor_cutoff_s": self._sensor_cutoff,
+                "simulator_environment_map": (
+                    str(self._environment_map) if self._environment_map else None
+                ),
                 "sensor_fixture": {
                     "pose_topic": "/pose",
                     "laser_topic": "/scan_raw",
@@ -421,6 +494,12 @@ def parse_arguments(arguments):
         default="stage_tutorial_open_space",
     )
     parser.add_argument(
+        "--environment-map",
+        type=Path,
+        default=None,
+        help="Simulator-only XML geometry; this is never sent to SemaFORR",
+    )
+    parser.add_argument(
         "--sensor-cutoff",
         type=float,
         default=-1.0,
@@ -453,6 +532,7 @@ def main(args=None):
         parsed.initial_y,
         parsed.initial_yaw,
         parsed.scenario_name,
+        parsed.environment_map,
     )
     try:
         while rclpy.ok() and not node.finished:

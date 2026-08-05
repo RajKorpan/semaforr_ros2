@@ -133,7 +133,8 @@ std::optional<std::string> NavigationEngine::preparePlan(MissionStep step) {
   }
   const auto selected =
       planning_.selectPlan({world_.robot.pose, world_.mission.active()->target,
-                            &world_.spatial, &world_.crowd});
+                            &world_.spatial, &world_.crowd,
+                            world_.static_map});
   if (!selected) {
     mission_.installPlan({world_.mission.active()->target});
     return std::nullopt;

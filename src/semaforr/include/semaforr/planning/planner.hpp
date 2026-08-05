@@ -81,6 +81,7 @@ struct PlanningRequest {
   domain::Point2D goal;
   const domain::SpatialModel* spatial_model{nullptr};
   const domain::CrowdModel* crowd_model{nullptr};
+  const domain::StaticMap* static_map{nullptr};
 };
 
 struct PlanResult {

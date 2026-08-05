@@ -116,10 +116,21 @@ semaforr:
 
     # The launch file resolves these data files from the installed package.
     map:
+      # Robot map access is independent of any simulator environment map.
+      mode: mapless
+      on_load_failure: fail_startup
       path: ""
       length_m: 200
       height_m: 200
       granularity_m: 0.3
+      origin_x_m: 0.0
+      origin_y_m: 0.0
+      occupancy_resolution_m: 0.3
+      obstacle_inflation_m: 0.0
+      planning:
+        enabled: true
+      visualizations:
+        enabled: false
 
     mission:
       tasks_path: ""
@@ -167,7 +178,9 @@ semaforr:
       distance_bin_base_m: 2.0
       angle_bin_count: 8
     planners:
-      enabled: [distance, region, hallway, trail, conveyor, skeleton, density, risk, flow]
+      # Skeleton and highway planning use learned representations and remain
+      # available in mapless mode. Grid planners require map.mode=map_enabled.
+      enabled: [skeleton]
       selection_policy: range_vote
 
     advisors:

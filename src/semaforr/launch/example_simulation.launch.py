@@ -1,4 +1,4 @@
-"""Run the installed deterministic SemaFORR tutorial with optional RViz."""
+"""Run the deterministic simulator with independent robot map access."""
 
 from pathlib import Path
 
@@ -7,6 +7,7 @@ from launch import LaunchDescription
 from launch.actions import (
     DeclareLaunchArgument,
     EmitEvent,
+    OpaqueFunction,
     RegisterEventHandler,
     TimerAction,
 )
@@ -15,6 +16,7 @@ from launch.event_handlers import OnProcessExit
 from launch.events import Shutdown
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
+from launch_ros.parameter_descriptions import ParameterValue
 
 
 def generate_launch_description():
@@ -30,29 +32,43 @@ def generate_launch_description():
     sensor_cutoff = LaunchConfiguration("sensor_cutoff")
     startup_delay = LaunchConfiguration("startup_delay")
     use_rviz = LaunchConfiguration("rviz")
+    simulator_map = LaunchConfiguration("simulator_environment_map")
+    robot_map_mode = LaunchConfiguration("semaforr_map_mode")
+    robot_map_path = LaunchConfiguration("semaforr_map_path")
+    robot_map_planning = LaunchConfiguration("map_based_planning")
+    robot_map_visualization = LaunchConfiguration("map_visualization")
+    map_planners = LaunchConfiguration("map_planners")
 
-    semaforr = Node(
-        package="semaforr",
-        executable="semaforr_node",
-        name="semaforr",
-        output="screen",
-        parameters=[
-            str(config_dir / "semaforr.yaml"),
-            {
-                "map.path": str(example_dir / "open_room.xml"),
-                "map.length_m": 12,
-                "map.height_m": 12,
-                "mission.tasks_path": str(example_dir / "mission.conf"),
-            },
-        ],
-    )
-
-    simulator = Node(
-        package="semaforr",
-        executable="semaforr_record_baseline",
-        name="semaforr_example_simulator",
-        output="screen",
-        arguments=[
+    def launch_nodes(context):
+        planner_names = [
+            value.strip()
+            for value in map_planners.perform(context).split(",")
+            if value.strip()
+        ]
+        semaforr = Node(
+            package="semaforr",
+            executable="semaforr_node",
+            name="semaforr",
+            output="screen",
+            parameters=[
+                str(config_dir / "semaforr.yaml"),
+                {
+                    "map.mode": robot_map_mode.perform(context),
+                    "map.path": robot_map_path.perform(context),
+                    "map.planning.enabled": ParameterValue(
+                        robot_map_planning, value_type=bool
+                    ),
+                    "map.visualizations.enabled": ParameterValue(
+                        robot_map_visualization, value_type=bool
+                    ),
+                    "map.length_m": 12,
+                    "map.height_m": 12,
+                    "mission.tasks_path": str(example_dir / "mission.conf"),
+                    "planners.enabled": planner_names,
+                },
+            ],
+        )
+        simulator_arguments = [
             "--output",
             output,
             "--duration",
@@ -65,12 +81,39 @@ def generate_launch_description():
             "2.0",
             "--scenario-name",
             "example_open_room",
-        ],
-    )
-    delayed_simulator = TimerAction(
-        period=startup_delay,
-        actions=[simulator],
-    )
+        ]
+        selected_simulator_map = simulator_map.perform(context)
+        if selected_simulator_map:
+            simulator_arguments.extend(
+                ["--environment-map", selected_simulator_map]
+            )
+        simulator = Node(
+            package="semaforr",
+            executable="semaforr_record_baseline",
+            name="semaforr_example_simulator",
+            output="screen",
+            arguments=simulator_arguments,
+        )
+        stop_when_complete = RegisterEventHandler(
+            OnProcessExit(
+                target_action=simulator,
+                on_exit=[
+                    EmitEvent(
+                        event=Shutdown(
+                            reason=(
+                                "The deterministic SemaFORR example "
+                                "completed"
+                            )
+                        )
+                    )
+                ],
+            )
+        )
+        return [
+            semaforr,
+            TimerAction(period=startup_delay, actions=[simulator]),
+            stop_when_complete,
+        ]
 
     rviz = Node(
         package="rviz2",
@@ -81,54 +124,48 @@ def generate_launch_description():
         condition=IfCondition(use_rviz),
     )
 
-    stop_when_complete = RegisterEventHandler(
-        OnProcessExit(
-            target_action=simulator,
-            on_exit=[
-                EmitEvent(
-                    event=Shutdown(
-                        reason="The deterministic SemaFORR example completed"
-                    )
-                )
-            ],
-        )
-    )
-
     return LaunchDescription(
         [
+            DeclareLaunchArgument("output", default_value=str(default_output)),
+            DeclareLaunchArgument("duration", default_value="20.0"),
+            DeclareLaunchArgument("sensor_cutoff", default_value="-1.0"),
+            DeclareLaunchArgument("startup_delay", default_value="3.0"),
             DeclareLaunchArgument(
-                "output",
-                default_value=str(default_output),
-                description="Destination for the structured decision trace",
+                "rviz", default_value="false", choices=["true", "false"]
             ),
             DeclareLaunchArgument(
-                "duration",
-                default_value="20.0",
-                description="Deterministic scenario duration in seconds",
+                "simulator_environment_map",
+                default_value=str(example_dir / "open_room.xml"),
+                description="Simulator-only geometry; never grants robot access",
             ),
             DeclareLaunchArgument(
-                "sensor_cutoff",
-                default_value="-1.0",
-                description=(
-                    "Stop sensors at this scenario time; negative disables it"
-                ),
+                "semaforr_map_mode",
+                default_value="mapless",
+                choices=["mapless", "map_enabled"],
             ),
             DeclareLaunchArgument(
-                "startup_delay",
-                default_value="3.0",
-                description=(
-                    "Delay fixture playback while navigation initializes"
-                ),
+                "semaforr_map_path",
+                default_value=str(example_dir / "open_room.xml"),
             ),
             DeclareLaunchArgument(
-                "rviz",
+                "map_based_planning",
                 default_value="false",
                 choices=["true", "false"],
-                description="Start RViz with the installed SemaFORR layout",
             ),
-            semaforr,
-            delayed_simulator,
+            DeclareLaunchArgument(
+                "map_visualization",
+                default_value="false",
+                choices=["true", "false"],
+            ),
+            DeclareLaunchArgument(
+                "map_planners",
+                default_value="skeleton",
+                description=(
+                    "Comma-separated planner catalog; use distance and other "
+                    "grid planners only with semaforr_map_mode=map_enabled"
+                ),
+            ),
+            OpaqueFunction(function=launch_nodes),
             rviz,
-            stop_when_complete,
         ]
     )

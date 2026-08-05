@@ -1,5 +1,6 @@
 #include <algorithm>
 #include <cassert>
+#include <iostream>
 #include <limits>
 #include <semaforr/config/navigation_configuration.hpp>
 #include <stdexcept>
@@ -24,6 +25,7 @@ semaforr::config::Configuration validConfiguration() {
   configuration.navigation.max_forward_action_sweep_angle = 0.5236;
   configuration.navigation.move_actions = {0.1, 0.2, 0.4};
   configuration.navigation.rotate_actions = {0.1, 0.5, 1.0};
+  configuration.navigation.planners.skeleton = true;
   configuration.map_dimensions = {200, 200, 0.3};
   configuration.advisors = {{"goal_progress", "goal progress", true, 1.0, {}},
                             {"clearance", "clearance", true, 1.0, {}}};
@@ -39,6 +41,9 @@ void assertThrowsContaining(Operation operation, const std::string& expected) {
     operation();
     assert(false && "expected configuration validation to fail");
   } catch (const std::runtime_error& error) {
+    if (std::string(error.what()).find(expected) == std::string::npos)
+      std::cerr << "expected error containing '" << expected << "', got '"
+                << error.what() << "'\n";
     assert(std::string(error.what()).find(expected) != std::string::npos);
   }
 }
@@ -51,6 +56,10 @@ int main() {
          semaforr::config::BehaviorMode::Modernized);
   assert(semaforr::config::behaviorModeFromString("compatibility") ==
          semaforr::config::BehaviorMode::Compatibility);
+  assert(semaforr::config::mapOperatingModeFromString("mapless") ==
+         semaforr::config::MapOperatingMode::Mapless);
+  assert(semaforr::config::mapOperatingModeFromString("map_enabled") ==
+         semaforr::config::MapOperatingMode::MapEnabled);
   semaforr::config::validateConfiguration(valid);
   assert(semaforr::config::configurationFingerprint(valid).size() == 16U);
   const auto manifest = semaforr::config::componentManifest(valid);
@@ -143,6 +152,7 @@ int main() {
     invalid.experiment.reactive_exploration_enabled = true;
     invalid.navigation.planners = {};
     invalid.navigation.planners.distance = false;
+    invalid.navigation.planners.skeleton = false;
     assertThrowsContaining(
         [&invalid]() { semaforr::config::validateConfiguration(invalid); },
         "global replanning strategy");
@@ -314,11 +324,31 @@ int main() {
         "at least one task");
   }
   {
+    auto mapless = valid;
+    mapless.map_file.clear();
+    mapless.static_map.path.clear();
+    mapless.static_map.mode = semaforr::config::MapOperatingMode::Mapless;
+    semaforr::config::validateConfiguration(mapless);
+    const auto mapless_manifest = semaforr::config::componentManifest(mapless);
+    assert(std::find(mapless_manifest.begin(), mapless_manifest.end(),
+                     "map_mode:mapless") != mapless_manifest.end());
+  }
+  {
     auto invalid = valid;
-    invalid.map_file = "does-not-exist.xml";
+    invalid.static_map.mode =
+        semaforr::config::MapOperatingMode::MapEnabled;
+    invalid.static_map.path.clear();
     assertThrowsContaining(
         [&invalid]() { semaforr::config::validateConfiguration(invalid); },
-        "cannot open map file");
+        "map-enabled operation requires map.path");
+  }
+  {
+    auto invalid = valid;
+    invalid.navigation.planners.distance = true;
+    invalid.static_map.mode = semaforr::config::MapOperatingMode::Mapless;
+    assertThrowsContaining(
+        [&invalid]() { semaforr::config::validateConfiguration(invalid); },
+        "grid and affordance-grid planners require");
   }
   for (const auto& fixture :
        {"empty_tasks.conf", "invalid_tasks.conf", "extra_task_token.conf"}) {

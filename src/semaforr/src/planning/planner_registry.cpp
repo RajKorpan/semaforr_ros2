@@ -5,13 +5,22 @@
 
 namespace semaforr::planning {
 void PlannerRegistry::add(std::string name, PlannerInputModel model,
-                          Factory factory) {
+                          Factory factory,
+                          StaticMapRequirement map_requirement) {
   if (name.empty() || !factory)
     throw std::invalid_argument(
         "planner registration requires a name and factory");
-  if (!entries_.emplace(std::move(name), Entry{model, std::move(factory)})
+  if (!entries_.emplace(std::move(name),
+                        Entry{model, std::move(factory), map_requirement})
            .second)
     throw std::invalid_argument("planner is already registered");
+}
+StaticMapRequirement PlannerRegistry::mapRequirement(
+    const std::string& name) const {
+  const auto found = entries_.find(name);
+  if (found == entries_.end())
+    throw std::invalid_argument("unknown planner '" + name + "'");
+  return found->second.map_requirement;
 }
 std::unique_ptr<Planner> PlannerRegistry::create(
     const std::string& name) const {
@@ -36,9 +45,12 @@ PlannerRegistry defaultPlannerRegistry() {
   PlannerRegistry registry;
   const auto domain = [&](std::string name, PlannerInputModel input,
                           PlanObjective objective) {
-    registry.add(name, input, [name, objective] {
-      return std::make_unique<DomainPlanner>(name, objective);
-    });
+    registry.add(
+        name, input,
+        [name, objective] {
+          return std::make_unique<DomainPlanner>(name, objective);
+        },
+        StaticMapRequirement::Required);
   };
   domain("distance", PlannerInputModel::Grid, PlanObjective::Distance);
   domain("density", PlannerInputModel::Grid, PlanObjective::CrowdDensity);

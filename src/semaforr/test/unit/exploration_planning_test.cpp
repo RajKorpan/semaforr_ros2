@@ -26,6 +26,16 @@ semaforr::domain::RobotObservation observation(double x,
   return result;
 }
 
+semaforr::domain::StaticMap planningMap() {
+  semaforr::domain::StaticMap map;
+  map.source = "planning-test";
+  map.bounds = {{0.0, -1.5}, {3.0, 1.5}};
+  map.walls = {{{0.0, -1.5}, {3.0, -1.5}}};
+  map.occupancy = {3U, 3U, 1.0, {0.0, -1.5},
+                   std::vector<std::uint8_t>(9U, 0U)};
+  return map;
+}
+
 }  // namespace
 
 TEST(HighwayExplore, PassageSelectionAndStateTransitionsAreDeterministic) {
@@ -187,11 +197,13 @@ TEST(PlanCache, ReusesExactRevisionAndInvalidatesOnModelRevision) {
       std::make_unique<semaforr::planning::DomainPlanner>(
           "distance", semaforr::planning::PlannerObjective::Distance));
   semaforr::domain::SpatialModel spatial;
+  const auto map = planningMap();
   semaforr::planning::PlanningRequest request{
-      {{0.0, 0.0}, semaforr::domain::Angle::zero()},
-      {2.0, 0.0},
+      {{0.5, 0.0}, semaforr::domain::Angle::zero()},
+      {2.5, 0.0},
       &spatial,
-      nullptr};
+      nullptr,
+      &map};
   ASSERT_TRUE(coordinator.selectPlan(request));
   ASSERT_TRUE(coordinator.selectPlan(request));
   EXPECT_EQ(coordinator.cacheHits(), 1U);
@@ -208,6 +220,10 @@ TEST(PlannerRegistry, ClassifiesGridAffordanceAndFreespacePlanners) {
             semaforr::planning::PlannerInputModel::AffordanceModifiedGrid);
   EXPECT_EQ(registry.inputModel("highway"),
             semaforr::planning::PlannerInputModel::Freespace);
+  EXPECT_EQ(registry.mapRequirement("region"),
+            semaforr::planning::StaticMapRequirement::Required);
+  EXPECT_EQ(registry.mapRequirement("highway"),
+            semaforr::planning::StaticMapRequirement::Independent);
   EXPECT_EQ(registry.create("flow")->objective(),
             semaforr::planning::PlanObjective::FlowOpposition);
   EXPECT_THROW(registry.create("unknown"), std::invalid_argument);
@@ -215,17 +231,18 @@ TEST(PlannerRegistry, ClassifiesGridAffordanceAndFreespacePlanners) {
 
 TEST(AffordancePlanner, RegionCostModificationChangesTheChosenRoute) {
   semaforr::domain::SpatialModel spatial;
-  spatial.skeleton_nodes = {{0.0, 0.0}, {1.0, 1.0}, {1.0, -1.0}, {2.0, 0.0}};
-  spatial.skeleton_edges = {{0U, 1U}, {1U, 3U}, {0U, 2U}, {2U, 3U}};
+  auto map = planningMap();
+  map.occupancy.cells[4U] = 1U;
   spatial.learned_regions.push_back(
-      {{1.0, 1.0}, semaforr::domain::Distance(0.4)});
+      {{1.5, 1.0}, semaforr::domain::Distance(0.6)});
   semaforr::planning::DomainPlanner planner(
       "region", semaforr::planning::PlanObjective::RegionPreference);
   const auto result =
-      planner.plan({{{0.0, 0.0}, semaforr::domain::Angle::zero()},
-                    {2.0, 0.0},
+      planner.plan({{{0.5, 0.0}, semaforr::domain::Angle::zero()},
+                    {2.5, 0.0},
                     &spatial,
-                    nullptr});
+                    nullptr,
+                    &map});
   ASSERT_TRUE(result.succeeded());
   EXPECT_TRUE(std::any_of(result.path.begin(), result.path.end(),
                           [](const auto& point) { return point.y_m > 0.5; }));

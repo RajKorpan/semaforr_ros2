@@ -11,6 +11,7 @@ namespace semaforr::planning {
 
 struct MapRepresentation {
   std::vector<domain::Segment2D> walls;
+  std::vector<domain::Polygon> obstacle_polygons;
 };
 
 MapRepresentation parseMapXml(std::istream& input,

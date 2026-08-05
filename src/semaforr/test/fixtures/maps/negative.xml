@@ -1,0 +1,6 @@
+<?xml version="1.0"?>
+<Experiment><ObstacleSet>
+  <Obstacle closed="0">
+    <Vertex p_x="0" p_y="-4"/><Vertex p_x="0" p_y="4"/>
+  </Obstacle>
+</ObstacleSet></Experiment>

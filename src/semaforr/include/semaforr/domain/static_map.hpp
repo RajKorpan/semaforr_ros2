@@ -1,0 +1,74 @@
+#ifndef SEMAFORR_DOMAIN_STATIC_MAP_HPP
+#define SEMAFORR_DOMAIN_STATIC_MAP_HPP
+
+#include <algorithm>
+#include <cstdint>
+#include <semaforr/domain/geometry.hpp>
+#include <string>
+#include <vector>
+
+namespace semaforr::domain {
+
+enum class GeometryProvenance { StaticMap, LiveSensor, LearnedModel };
+
+struct MapBounds {
+  Point2D minimum;
+  Point2D maximum;
+
+  bool valid() const noexcept {
+    return minimum.finite() && maximum.finite() &&
+           maximum.x_m > minimum.x_m && maximum.y_m > minimum.y_m;
+  }
+  bool contains(Point2D point) const noexcept {
+    return point.x_m >= minimum.x_m && point.x_m <= maximum.x_m &&
+           point.y_m >= minimum.y_m && point.y_m <= maximum.y_m;
+  }
+};
+
+struct StaticOccupancyGrid {
+  std::size_t columns = 0U;
+  std::size_t rows = 0U;
+  double resolution_m = 0.0;
+  Point2D origin;
+  // Zero is traversable and one is occupied.
+  std::vector<std::uint8_t> cells;
+
+  bool valid() const noexcept {
+    return columns > 0U && rows > 0U && resolution_m > 0.0 &&
+           cells.size() == columns * rows;
+  }
+};
+
+// Constructed once during startup and thereafter shared read-only.
+struct StaticMap {
+  std::string source;
+  std::string format;
+  MapBounds bounds;
+  std::vector<Segment2D> walls;
+  std::vector<Polygon> obstacle_polygons;
+  StaticOccupancyGrid occupancy;
+  GeometryProvenance provenance = GeometryProvenance::StaticMap;
+  std::size_t revision = 1U;
+
+  bool geometryAvailable() const noexcept {
+    return bounds.valid() && !walls.empty();
+  }
+  bool occupancyAvailable() const noexcept { return occupancy.valid(); }
+  bool lineOfSight(const Segment2D& ray) const noexcept {
+    if (!bounds.contains(ray.start) || !bounds.contains(ray.end)) return false;
+    return std::none_of(walls.begin(), walls.end(), [&](const auto& wall) {
+      return intersects(ray, wall);
+    });
+  }
+};
+
+struct MapCapabilities {
+  bool map_available = false;
+  bool map_geometry_available = false;
+  bool map_occupancy_available = false;
+  bool map_based_planning_available = false;
+};
+
+}  // namespace semaforr::domain
+
+#endif  // SEMAFORR_DOMAIN_STATIC_MAP_HPP

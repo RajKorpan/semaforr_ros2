@@ -253,13 +253,18 @@ TEST(CrowdConsumers, TypedPlannerIncludesLearnedCrowdCost) {
   model.setLearned(learner.snapshot());
 
   semaforr::domain::SpatialModel spatial;
-  spatial.skeleton_nodes = {{1.7, 1.5}, {2.7, 1.5}};
-  spatial.skeleton_edges = {{0U, 1U}};
+  semaforr::domain::StaticMap map;
+  map.source = "crowd-test";
+  map.bounds = {{0.0, 0.0}, {4.0, 4.0}};
+  map.walls = {{{0.0, 0.0}, {4.0, 0.0}}};
+  map.occupancy = {4U, 4U, 1.0, {0.0, 0.0},
+                   std::vector<std::uint8_t>(16U, 0U)};
   const semaforr::planning::PlanningRequest request{
       {{1.7, 1.5}, semaforr::domain::Angle::zero()},
       {2.7, 1.5},
       &spatial,
-      &model};
+      &model,
+      &map};
   semaforr::planning::DomainPlanner planner(
       "density", semaforr::planning::PlannerObjective::CrowdDensity);
   const auto result = planner.plan(request);

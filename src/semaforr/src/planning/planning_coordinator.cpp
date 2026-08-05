@@ -71,6 +71,8 @@ std::optional<SelectedPlan> PlanningCoordinator::selectPlan(
                   gy = surrogate(request.goal.y_m, resolution);
   const std::size_t spatial =
       request.spatial_model ? request.spatial_model->revision : 0U;
+  const std::size_t static_map =
+      request.static_map ? request.static_map->revision : 0U;
   const std::uint64_t crowd =
       request.crowd_model ? request.crowd_model->learned().version : 0U;
   struct Candidate {
@@ -91,7 +93,7 @@ std::optional<SelectedPlan> PlanningCoordinator::selectPlan(
     const std::size_t relevant_spatial =
         objective == PlanObjective::HighwayDistance && request.spatial_model
             ? spatial ^ (request.spatial_model->highways.revision + 0x9e3779b9U)
-            : spatial;
+            : spatial ^ (static_map + 0x85ebca6bU);
     auto found =
         std::find_if(cache_.begin(), cache_.end(), [&](const CacheEntry& e) {
           return e.planner == name && e.start_x == sx && e.start_y == sy &&

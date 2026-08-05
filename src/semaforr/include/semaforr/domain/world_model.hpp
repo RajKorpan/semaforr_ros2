@@ -11,6 +11,7 @@
 #include <semaforr/domain/highway.hpp>
 #include <semaforr/domain/mission.hpp>
 #include <semaforr/domain/observation.hpp>
+#include <semaforr/domain/static_map.hpp>
 #include <stdexcept>
 #include <string>
 #include <utility>
@@ -149,6 +150,10 @@ struct WorldModel {
   RecoveryState recovery;
   CrowdModel crowd;
   SpatialModel spatial;
+  // Non-owning read-only view. The composition root owns this startup-lifetime
+  // prior; spatial learners never mutate or replace it.
+  const StaticMap* static_map = nullptr;
+  MapCapabilities map_capabilities;
 };
 
 }  // namespace semaforr::domain

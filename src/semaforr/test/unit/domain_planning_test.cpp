@@ -17,6 +17,17 @@ semaforr::planning::Graph lineGraph() {
   return graph;
 }
 
+semaforr::domain::StaticMap openMap() {
+  semaforr::domain::StaticMap map;
+  map.source = "unit-test";
+  map.format = "test";
+  map.bounds = {{0.0, 0.0}, {3.0, 2.0}};
+  map.walls = {{{0.0, 0.0}, {3.0, 0.0}}};
+  map.occupancy = {3U, 2U, 1.0, {0.0, 0.0},
+                   std::vector<std::uint8_t>(6U, 0U)};
+  return map;
+}
+
 TEST(DomainAStar, RepeatedSearchDoesNotMutateGraphState) {
   const auto graph = lineGraph();
   semaforr::planning::AStar search;
@@ -52,48 +63,49 @@ TEST(DomainAStar, InvalidVertexIsReportedWithoutThrowing) {
   EXPECT_EQ(result.status, semaforr::planning::PathStatus::InvalidVertex);
 }
 
-TEST(DomainPlanner, ReturnsTypedDirectAndUnavailableResults) {
+TEST(DomainPlanner, RequiresStaticMapAndReturnsTypedResults) {
   semaforr::planning::DomainPlanner direct(
       "distance", semaforr::planning::PlannerObjective::Distance);
-  const auto direct_result =
-      direct.plan({{{0.0, 0.0}, semaforr::domain::Angle::zero()}, {2.0, 0.0}});
+  const auto unavailable =
+      direct.plan({{{0.5, 0.5}, semaforr::domain::Angle::zero()}, {2.5, 0.5}});
+  EXPECT_EQ(unavailable.status,
+            semaforr::planning::PlanStatus::PlannerUnavailable);
+  const auto map = openMap();
+  const auto direct_result = direct.plan(
+      {{{0.5, 0.5}, semaforr::domain::Angle::zero()}, {2.5, 0.5}, nullptr,
+       nullptr, &map});
   ASSERT_TRUE(direct_result.succeeded());
   EXPECT_DOUBLE_EQ(direct_result.cost_m, 2.0);
 
   const auto invalid =
       direct.plan({{{std::numeric_limits<double>::quiet_NaN(), 0.0},
                     semaforr::domain::Angle::zero()},
-                   {2.0, 0.0}});
+                   {2.0, 0.0}, nullptr, nullptr, &map});
   EXPECT_EQ(invalid.status, semaforr::planning::PlanStatus::InvalidRequest);
-
-  semaforr::planning::DomainPlanner skeleton(
-      "skeleton", semaforr::planning::PlannerObjective::SkeletonDistance);
-  const auto unavailable = skeleton.plan(
-      {{{0.0, 0.0}, semaforr::domain::Angle::zero()}, {2.0, 0.0}});
-  EXPECT_EQ(unavailable.status,
-            semaforr::planning::PlanStatus::PlannerUnavailable);
   EXPECT_THROW(semaforr::planning::DomainPlanner(
                    "", semaforr::planning::PlannerObjective::Distance),
                std::invalid_argument);
 }
 
-TEST(DomainPlanner, SearchesValidatedSpatialSkeleton) {
-  semaforr::domain::SpatialModel spatial;
-  spatial.skeleton_nodes = {{0.0, 0.0}, {1.0, 0.0}, {2.0, 0.0}};
-  spatial.skeleton_edges = {{0U, 1U}, {1U, 2U}};
+TEST(DomainPlanner, SearchesValidatedStaticOccupancy) {
+  const auto map = openMap();
   semaforr::planning::DomainPlanner planner(
-      "skeleton", semaforr::planning::PlannerObjective::SkeletonDistance);
+      "distance", semaforr::planning::PlannerObjective::Distance);
   const auto result = planner.plan(
-      {{{0.0, 0.0}, semaforr::domain::Angle::zero()}, {2.0, 0.0}, &spatial});
+      {{{0.5, 0.5}, semaforr::domain::Angle::zero()}, {2.5, 0.5}, nullptr,
+       nullptr, &map});
   ASSERT_TRUE(result.succeeded());
   EXPECT_DOUBLE_EQ(result.cost_m, 2.0);
   ASSERT_FALSE(result.path.empty());
-  EXPECT_EQ(result.path.back(), (semaforr::domain::Point2D{2.0, 0.0}));
+  EXPECT_EQ(result.path.back(), (semaforr::domain::Point2D{2.5, 0.5}));
 
-  spatial.skeleton_edges.push_back({2U, 99U});
-  const auto invalid = planner.plan(
-      {{{0.0, 0.0}, semaforr::domain::Angle::zero()}, {2.0, 0.0}, &spatial});
-  EXPECT_EQ(invalid.status, semaforr::planning::PlanStatus::InvalidRequest);
+  auto invalid_map = map;
+  invalid_map.occupancy.cells.clear();
+  const auto invalid = planner.plan({
+      {{0.5, 0.5}, semaforr::domain::Angle::zero()}, {2.5, 0.5}, nullptr,
+      nullptr, &invalid_map});
+  EXPECT_EQ(invalid.status,
+            semaforr::planning::PlanStatus::PlannerUnavailable);
 }
 
 }  // namespace

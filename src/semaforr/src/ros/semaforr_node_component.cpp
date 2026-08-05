@@ -358,6 +358,9 @@ class SemaFORRNode::Impl {
         configurationFromParameters(node_);
     navigation_engine_ = std::make_unique<NavigationEngineAdapter>(
         std::move(navigation_configuration));
+    for (const auto& diagnostic : navigation_engine_->startupDiagnostics())
+      RCLCPP_INFO(node_.get_logger(), "SemaFORR startup: %s",
+                  diagnostic.c_str());
     synchronizer_ = std::make_unique<SensorSynchronizer>(runtime_.sensors);
     social_buffer_ = std::make_unique<SocialObservationBuffer>(runtime_.social);
     executor_ = std::make_unique<CommandExecutor>(runtime_.commands);

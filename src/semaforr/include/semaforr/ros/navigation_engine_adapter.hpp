@@ -7,6 +7,10 @@
 #include <semaforr/domain/world_model.hpp>
 #include <semaforr/ros/command_executor.hpp>
 #include <semaforr/ros/sensor_synchronizer.hpp>
+#include <string>
+#include <vector>
+#include <string>
+#include <vector>
 
 namespace semaforr::ros {
 
@@ -29,6 +33,7 @@ class NavigationEngineAdapter {
   decision::DecisionResult decide();
   ActionExecutionRequest executionRequest(const domain::Action& action) const;
   const domain::WorldModel& worldModel() const noexcept;
+  const std::vector<std::string>& startupDiagnostics() const noexcept;
 
  private:
   class Impl;

@@ -1,7 +1,9 @@
 #include <algorithm>
+#include <ament_index_cpp/get_package_share_directory.hpp>
 #include <chrono>
 #include <cmath>
 #include <cstdint>
+#include <filesystem>
 #include <memory>
 #include <semaforr/decision/advisors/catalog_registry.hpp>
 #include <semaforr/decision/hard_safety_filter.hpp>
@@ -12,6 +14,8 @@
 #include <semaforr/planning/domain_planner.hpp>
 #include <semaforr/planning/hierarchical_plan.hpp>
 #include <semaforr/planning/planner_registry.hpp>
+#include <semaforr/planning/static_map_loader.hpp>
+#include <stdexcept>
 #include <semaforr/ros/navigation_engine_adapter.hpp>
 #include <string>
 #include <utility>
@@ -80,6 +84,28 @@ decision::PrecedentConfiguration precedentConfiguration(
           source.action_confidence_threshold};
 }
 
+planning::MapSearchPaths mapSearchPaths() {
+  planning::MapSearchPaths paths;
+  paths.working_directory = std::filesystem::current_path();
+  for (const std::string package : {"semaforr", "semaforr_examples"}) {
+    try {
+      paths.package_shares.emplace(
+          package, ament_index_cpp::get_package_share_directory(package));
+    } catch (const std::exception&) {
+      // Source-only tests may not have every workspace package installed.
+    }
+  }
+  const auto examples = paths.package_shares.find("semaforr_examples");
+  if (examples != paths.package_shares.end()) {
+    paths.example_core = examples->second / "core";
+  } else {
+    const auto source_examples = paths.working_directory / "src/examples/core";
+    if (std::filesystem::exists(source_examples))
+      paths.example_core = source_examples;
+  }
+  return paths;
+}
+
 }  // namespace
 
 class NavigationEngineAdapter::Impl {
@@ -105,6 +131,7 @@ class NavigationEngineAdapter::Impl {
             {configuration_.experiment.initial_exploration.enabled,
              configuration_.experiment.initial_exploration.observation_budget,
              configuration_.experiment.initial_exploration.time_limit_s}) {
+    configureStaticMap();
     configureLearning();
     configurePlanning();
     configureDecisions();
@@ -145,11 +172,27 @@ class NavigationEngineAdapter::Impl {
         has_tier_one_rule("enforcer")
             ? tier_one_registry.createOperationalizer("enforcer")
             : nullptr;
+    auto manifest = config::componentManifest(configuration_);
+    for (const auto& diagnostic : map_diagnostics_) {
+      constexpr std::string_view prefix = "planner_disabled_no_map:";
+      if (!diagnostic.starts_with(prefix)) continue;
+      const std::string configured =
+          "planner:" + diagnostic.substr(prefix.size());
+      std::erase(manifest, configured);
+    }
+    manifest.push_back(world_.map_capabilities.map_available
+                           ? "map:loaded"
+                           : "map:not_available");
+    manifest.push_back(world_.map_capabilities.map_based_planning_available
+                           ? "capability:map_based_planning"
+                           : "capability:no_map_based_planning");
+    manifest.insert(manifest.end(), map_diagnostics_.begin(),
+                    map_diagnostics_.end());
     engine_ = std::make_unique<decision::NavigationEngine>(
         world_, action_space_, decisions_, mission_, planning_, learning_,
         crowd_learning_.get(), domain::Distance(0.5), &hard_safety_, &phases_,
         config::configurationFingerprint(configuration_),
-        config::componentManifest(configuration_), std::move(enabled_reactive),
+        std::move(manifest), std::move(enabled_reactive),
         configuration_.experiment.reactive_exploration_enabled &&
             has_tier_one_rule("low_level_exploration"),
         has_tier_one_rule("enforcer"),
@@ -169,6 +212,46 @@ class NavigationEngineAdapter::Impl {
                 configuration_.experiment.initial_exploration.time_limit_s),
             configuration_.experiment.initial_exploration.decision_budget},
         std::move(lle_component), std::move(enforcer_component));
+  }
+
+  void configureStaticMap() {
+    if (configuration_.static_map.mode == config::MapOperatingMode::Mapless) {
+      map_diagnostics_.push_back("map_mode:mapless");
+      map_diagnostics_.push_back("map_status:mapless_parser_not_invoked");
+      map_diagnostics_.push_back("map_capabilities:geometry=false,occupancy=false,planning=false");
+      return;
+    }
+    map_diagnostics_.push_back("map_mode:map_enabled");
+    try {
+      const auto resolved = planning::resolveMapPath(
+          configuration_.static_map.path, mapSearchPaths());
+      auto loaded = planning::loadStaticMap(
+          resolved, configuration_.map_dimensions, configuration_.static_map);
+      static_map_owner_ =
+          std::make_unique<const domain::StaticMap>(std::move(loaded));
+      world_.static_map = static_map_owner_.get();
+      world_.map_capabilities = {
+          true, true, true,
+          configuration_.static_map.map_based_planning_enabled};
+      map_diagnostics_.push_back("map_status:loaded");
+      map_diagnostics_.push_back("map_source:" + world_.static_map->source);
+      map_diagnostics_.push_back(
+          std::string("map_capabilities:geometry=true,occupancy=true,planning=") +
+          (world_.map_capabilities.map_based_planning_available ? "true"
+                                                                : "false"));
+    } catch (const std::exception& error) {
+      world_.static_map = nullptr;
+      static_map_owner_.reset();
+      world_.map_capabilities = {};
+      if (configuration_.static_map.failure_policy ==
+          config::MapLoadFailurePolicy::FailStartup)
+        throw std::runtime_error(
+            "failed to initialize requested SemaFORR map '" +
+            configuration_.static_map.path + "': " + error.what());
+      map_diagnostics_.push_back("map_status:load_failed_map_disabled");
+      map_diagnostics_.push_back("map_capabilities:geometry=false,occupancy=false,planning=false");
+      map_diagnostics_.push_back("map_error:" + std::string(error.what()));
+    }
   }
 
   void configureLearning() {
@@ -209,8 +292,17 @@ class NavigationEngineAdapter::Impl {
         {"region", planners.region},     {"hallway", planners.hallway},
         {"trail", planners.trail},       {"conveyor", planners.conveyor},
         {"skeleton", planners.skeleton}, {"highway", planners.highway}};
-    for (const auto& [name, on] : enabled)
-      if (on) planning_.registerPlanner(registry.create(name));
+    for (const auto& [name, on] : enabled) {
+      if (!on) continue;
+      if (registry.mapRequirement(name) ==
+              planning::StaticMapRequirement::Required &&
+          !world_.map_capabilities.map_based_planning_available) {
+        map_diagnostics_.push_back("planner_disabled_no_map:" + name);
+        continue;
+      }
+      planning_.registerPlanner(registry.create(name));
+      map_diagnostics_.push_back("planner_enabled:" + name);
+    }
   }
 
   void configureDecisions() {
@@ -258,6 +350,8 @@ class NavigationEngineAdapter::Impl {
   decision::HardSafetyFilter hard_safety_;
   navigation::NavigationPhaseCoordinator phases_;
   std::unique_ptr<social::CrowdFieldLearner> crowd_learning_;
+  std::unique_ptr<const domain::StaticMap> static_map_owner_;
+  std::vector<std::string> map_diagnostics_;
   std::unique_ptr<decision::NavigationEngine> engine_;
 };
 
@@ -306,6 +400,11 @@ ActionExecutionRequest NavigationEngineAdapter::executionRequest(
 
 const domain::WorldModel& NavigationEngineAdapter::worldModel() const noexcept {
   return impl_->world_;
+}
+
+const std::vector<std::string>& NavigationEngineAdapter::startupDiagnostics()
+    const noexcept {
+  return impl_->map_diagnostics_;
 }
 
 }  // namespace semaforr::ros

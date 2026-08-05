@@ -8,6 +8,7 @@
 - [Advisor catalog](advisor-catalog.md)
 - [Planner catalog](planner-catalog.md)
 - [Configuration reference](configuration-reference.md)
+- [Optional static maps](map-operation.md)
 - [Topic and frame contract](topics-and-frames.md)
 - [Spatial learning](spatial-learning.md)
 - [Social navigation](social-navigation.md)

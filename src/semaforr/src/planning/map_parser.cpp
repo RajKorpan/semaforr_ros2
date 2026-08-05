@@ -41,6 +41,10 @@ MapRepresentation parseMapXml(std::istream& input,
   if (xml.find("<ObstacleSet") == std::string::npos) {
     throw std::runtime_error(source_name + ": missing ObstacleSet element");
   }
+  if (xml.find("</ObstacleSet>") == std::string::npos &&
+      !std::regex_search(xml, std::regex(R"re(<ObstacleSet\b[^>]*/>)re")))
+    throw std::runtime_error(source_name +
+                             ": malformed or unclosed ObstacleSet element");
 
   const std::regex obstacle_expression(
       R"re(<Obstacle\b([^>]*)>([\s\S]*?)</Obstacle>)re");
@@ -71,6 +75,11 @@ MapRepresentation parseMapXml(std::istream& input,
         std::regex_search(attributes, std::regex(R"re(\bclosed\s*=\s*"1")re"));
     if (closed && vertices.size() > 2U && vertices.front() != vertices.back()) {
       result.walls.push_back({vertices.back(), vertices.front()});
+    }
+    if (closed && vertices.size() >= 3U) {
+      if (vertices.front() == vertices.back()) vertices.pop_back();
+      if (vertices.size() >= 3U)
+        result.obstacle_polygons.emplace_back(std::move(vertices));
     }
   }
   if (result.walls.empty()) {
