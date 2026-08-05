@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <cstdint>
 #include <semaforr/domain/geometry.hpp>
+#include <semaforr/domain/grid_layers.hpp>
 #include <string>
 #include <vector>
 
@@ -30,8 +31,8 @@ struct StaticOccupancyGrid {
   std::size_t rows = 0U;
   double resolution_m = 0.0;
   Point2D origin;
-  // Zero is traversable and one is occupied.
-  std::vector<std::uint8_t> cells;
+  // Immutable prior occupancy. Inflation belongs to derived traversability.
+  std::vector<StaticOccupancyState> cells;
 
   bool valid() const noexcept {
     return columns > 0U && rows > 0U && resolution_m > 0.0 &&

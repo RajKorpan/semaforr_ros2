@@ -134,7 +134,12 @@ ObjectiveCosts evaluatePathObjectives(
 }
 
 DomainPlanner::DomainPlanner(std::string name, PlannerObjective objective)
-    : name_(std::move(name)), objective_(objective) {
+    : DomainPlanner(std::move(name), objective,
+                    OccupancySourceMode::StaticMapWithSensors) {}
+
+DomainPlanner::DomainPlanner(std::string name, PlannerObjective objective,
+                             OccupancySourceMode source_mode)
+    : name_(std::move(name)), objective_(objective), source_mode_(source_mode) {
   if (name_.empty())
     throw std::invalid_argument("planner name must not be empty");
 }
@@ -143,56 +148,85 @@ PlanResult DomainPlanner::plan(const PlanningRequest& request) {
   if (!request.start.position.finite() || !request.goal.finite())
     return {
         PlanStatus::InvalidRequest, {}, 0.0, "start and goal must be finite"};
-  if (!request.static_map || !request.static_map->occupancyAvailable())
-    return {PlanStatus::PlannerUnavailable, {}, 0.0,
-            "known-map occupancy is unavailable"};
-  if (!request.static_map->bounds.contains(request.start.position) ||
-      !request.static_map->bounds.contains(request.goal))
-    return {PlanStatus::InvalidRequest, {}, 0.0,
-            "start or goal lies outside static-map bounds"};
+  std::optional<TraversabilityBuildResult> traversability;
+  if (source_mode_ !=
+      OccupancySourceMode::LearnedFreespaceWithOptionalOccupancy) {
+    auto traversal_configuration = request.traversability;
+    if (source_mode_ == OccupancySourceMode::SensorDerivedPartial)
+      traversal_configuration.unknown_policy =
+          traversal_configuration.sensor_unknown_policy;
+    traversability = deriveTraversability(
+        source_mode_, request.static_map,
+        request.spatial_model ? &request.spatial_model->sensed_occupancy
+                              : nullptr,
+        traversal_configuration);
+    if (!traversability->grid.valid())
+      return {PlanStatus::PlannerUnavailable, {}, 0.0,
+              traversability->diagnostic};
+    if (source_mode_ == OccupancySourceMode::StaticMapWithSensors &&
+        (!request.static_map->bounds.contains(request.start.position) ||
+         !request.static_map->bounds.contains(request.goal)))
+      return {PlanStatus::InvalidRequest, {}, 0.0,
+              "start or goal lies outside static-map bounds"};
+    const auto start_cell =
+        traversability->grid.geometry.index(request.start.position);
+    const auto goal_cell = traversability->grid.geometry.index(request.goal);
+    if (!start_cell || !goal_cell)
+      return {PlanStatus::InvalidRequest, {}, 0.0,
+              "start or goal lies outside the planning extent"};
+    if (!traversability->grid.cells[*start_cell].permitsTraversal() ||
+        !traversability->grid.cells[*goal_cell].permitsTraversal())
+      return {PlanStatus::NoPath, {}, 0.0,
+              "start or goal is not traversable under the selected occupancy "
+              "policy"};
+  }
   std::vector<domain::Point2D> nodes;
+  std::vector<float> node_costs;
   std::vector<std::pair<std::size_t, std::size_t>> edges;
-  {
-    const auto& grid = request.static_map->occupancy;
-    if (grid.columns > 0U && grid.rows > 0U &&
-        grid.cells.size() == grid.columns * grid.rows &&
-        grid.resolution_m > 0.0) {
+  if (traversability) {
+    const auto& grid = traversability->grid;
+    if (grid.valid()) {
       std::vector<std::size_t> node_for_cell(grid.cells.size(),
                                              grid.cells.size());
-      for (std::size_t row = 0; row < grid.rows; ++row)
-        for (std::size_t column = 0; column < grid.columns; ++column) {
-          const std::size_t cell = row * grid.columns + column;
-          if (grid.cells[cell] != 0U) continue;
-          const domain::Point2D point{
-              grid.origin.x_m +
-                  (static_cast<double>(column) + .5) * grid.resolution_m,
-              grid.origin.y_m +
-                  (static_cast<double>(row) + .5) * grid.resolution_m};
+      for (std::size_t row = 0; row < grid.geometry.rows; ++row)
+        for (std::size_t column = 0; column < grid.geometry.columns; ++column) {
+          const std::size_t cell = row * grid.geometry.columns + column;
+          if (!grid.cells[cell].permitsTraversal()) continue;
+          const domain::Point2D point = grid.geometry.center(cell);
           node_for_cell[cell] = nodes.size();
           nodes.push_back(point);
+          node_costs.push_back(grid.cells[cell].cost_multiplier);
         }
-      for (std::size_t row = 0; row < grid.rows; ++row)
-        for (std::size_t column = 0; column < grid.columns; ++column) {
-          const std::size_t cell = row * grid.columns + column;
+      for (std::size_t row = 0; row < grid.geometry.rows; ++row)
+        for (std::size_t column = 0; column < grid.geometry.columns; ++column) {
+          const std::size_t cell = row * grid.geometry.columns + column;
           if (node_for_cell[cell] >= nodes.size()) continue;
-          if (column + 1U < grid.columns &&
+          if (column + 1U < grid.geometry.columns &&
               node_for_cell[cell + 1U] < nodes.size())
             edges.emplace_back(node_for_cell[cell], node_for_cell[cell + 1U]);
-          if (row + 1U < grid.rows &&
-              node_for_cell[cell + grid.columns] < nodes.size())
+          if (row + 1U < grid.geometry.rows &&
+              node_for_cell[cell + grid.geometry.columns] < nodes.size())
             edges.emplace_back(node_for_cell[cell],
-                               node_for_cell[cell + grid.columns]);
+                               node_for_cell[cell + grid.geometry.columns]);
         }
     }
+  } else if (request.spatial_model) {
+    nodes = request.spatial_model->skeleton_nodes;
+    node_costs.assign(nodes.size(), 1.0F);
+    edges = request.spatial_model->skeleton_edges;
   }
   if (nodes.empty()) {
     return {PlanStatus::PlannerUnavailable, {}, 0.0,
-            "static-map occupancy contains no traversable cells"};
+            traversability
+                ? "derived traversability contains no permitted cells"
+                : "learned freespace graph is unavailable"};
   }
   const std::size_t original = nodes.size(), start = nodes.size();
   nodes.push_back(request.start.position);
+  node_costs.push_back(1.0F);
   const std::size_t goal = nodes.size();
   nodes.push_back(request.goal);
+  node_costs.push_back(1.0F);
   auto attach = [&](std::size_t id) {
     std::size_t nearest = 0;
     double best = std::numeric_limits<double>::infinity();
@@ -215,7 +249,10 @@ PlanResult DomainPlanner::plan(const PlanningRequest& request) {
               {},
               0.0,
               "planning graph contains an invalid edge"};
-    const double c = edgeCost(objective_, request, nodes[a], nodes[b]);
+    const double c = edgeCost(objective_, request, nodes[a], nodes[b]) *
+                     (static_cast<double>(node_costs[a]) +
+                      static_cast<double>(node_costs[b])) /
+                     2.0;
     adjacency[a].push_back({b, c});
     adjacency[b].push_back({a, c});
   }
@@ -253,9 +290,11 @@ PlanResult DomainPlanner::plan(const PlanningRequest& request) {
   result.cost_m = distance[goal];
   result.primary_objective = objective_;
   result.objective_costs = evaluatePathObjectives(request, result.path);
-  result.explanation = "Dijkstra over immutable occupancy from static map '" +
-                       request.static_map->source + "' using the " +
-                       std::string(toString(objective_)) + " objective";
+  result.explanation = "Dijkstra over " +
+                       (traversability ? traversability->diagnostic
+                                       : "learned freespace representation") +
+                       " using the " + std::string(toString(objective_)) +
+                       " objective";
   HierarchicalPlan hierarchy;
   hierarchy.planner = name_;
   hierarchy.objective = objective_;
@@ -264,8 +303,12 @@ PlanResult DomainPlanner::plan(const PlanningRequest& request) {
   if (request.spatial_model)
     hierarchy.source_model_revisions["spatial"] =
         request.spatial_model->revision;
-  hierarchy.source_model_revisions["static_map"] =
-      request.static_map->revision;
+  if (request.static_map)
+    hierarchy.source_model_revisions["static_map"] =
+        request.static_map->revision;
+  if (request.spatial_model)
+    hierarchy.source_model_revisions["sensed_occupancy"] =
+        request.spatial_model->sensed_occupancy.revision;
   for (auto p : result.path) hierarchy.steps.emplace_back(WaypointStep{p});
   result.hierarchical = std::move(hierarchy);
   return result;

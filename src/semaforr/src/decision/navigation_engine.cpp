@@ -24,7 +24,8 @@ NavigationEngine::NavigationEngine(
     bool low_level_exploration_enabled, bool enforcer_enabled,
     exploration::HighLevelExplorationConfiguration hle_configuration,
     std::unique_ptr<planning::ReactivePlanner> low_level_explorer,
-    std::unique_ptr<PlanOperationalizer> plan_operationalizer)
+    std::unique_ptr<PlanOperationalizer> plan_operationalizer,
+    planning::TraversabilityConfiguration traversability)
     : world_(world),
       action_space_(action_space),
       decisions_(decisions),
@@ -44,6 +45,7 @@ NavigationEngine::NavigationEngine(
                               : std::make_unique<planning::LowLevelExplorer>()),
       low_level_exploration_enabled_(low_level_exploration_enabled),
       enforcer_enabled_(enforcer_enabled),
+      traversability_(std::move(traversability)),
       goal_tolerance_(goal_tolerance) {
   exploration_.setModelFinalizer([this] {
     learning_.finalizeInitialExploration();
@@ -131,10 +133,13 @@ std::optional<std::string> NavigationEngine::preparePlan(MissionStep step) {
     active_hierarchy_.reset();
     hierarchy_task_.reset();
   }
-  const auto selected =
-      planning_.selectPlan({world_.robot.pose, world_.mission.active()->target,
-                            &world_.spatial, &world_.crowd,
-                            world_.static_map});
+  auto traversal = traversability_;
+  traversal.current_sensor_origin = world_.robot.pose.position;
+  traversal.current_sensor_range_m =
+      world_.robot.laser ? world_.robot.laser->maximum_range.meters() : 0.0;
+  const auto selected = planning_.selectPlan(
+      {world_.robot.pose, world_.mission.active()->target, &world_.spatial,
+       &world_.crowd, world_.static_map, traversal});
   if (!selected) {
     mission_.installPlan({world_.mission.active()->target});
     return std::nullopt;

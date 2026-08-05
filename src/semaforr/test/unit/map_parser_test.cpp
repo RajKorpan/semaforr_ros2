@@ -146,7 +146,9 @@ TEST(ComponentGating, RegistryDeclaresKnownMapRequirementsExplicitly) {
   EXPECT_EQ(registry.mapRequirement("density"),
             semaforr::planning::StaticMapRequirement::Required);
   EXPECT_EQ(registry.mapRequirement("region"),
-            semaforr::planning::StaticMapRequirement::Required);
+            semaforr::planning::StaticMapRequirement::Optional);
+  EXPECT_EQ(registry.occupancyRequirement("sensor_distance"),
+            semaforr::planning::OccupancyRequirement::SensedPartial);
   EXPECT_EQ(registry.mapRequirement("skeleton"),
             semaforr::planning::StaticMapRequirement::Independent);
   EXPECT_EQ(registry.mapRequirement("highway"),

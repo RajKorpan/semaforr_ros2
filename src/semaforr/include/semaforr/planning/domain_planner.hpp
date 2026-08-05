@@ -14,6 +14,8 @@ ObjectiveCosts evaluatePathObjectives(const PlanningRequest& request,
 class DomainPlanner final : public Planner {
  public:
   DomainPlanner(std::string name, PlannerObjective objective);
+  DomainPlanner(std::string name, PlannerObjective objective,
+                OccupancySourceMode source_mode);
   PlanResult plan(const PlanningRequest& request) override;
   std::string_view name() const noexcept override { return name_; }
   PlanObjective objective() const noexcept override { return objective_; }
@@ -21,6 +23,7 @@ class DomainPlanner final : public Planner {
  private:
   std::string name_;
   PlannerObjective objective_;
+  OccupancySourceMode source_mode_ = OccupancySourceMode::StaticMapWithSensors;
 };
 
 }  // namespace semaforr::planning

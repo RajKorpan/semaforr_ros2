@@ -62,9 +62,13 @@ void PlanningCoordinator::registerPlanner(std::unique_ptr<Planner> planner) {
 
 std::optional<SelectedPlan> PlanningCoordinator::selectPlan(
     const PlanningRequest& request) {
-  const double resolution = request.spatial_model
-                                ? request.spatial_model->known_grid.resolution_m
-                                : .25;
+  const double resolution =
+      request.static_map && request.static_map->occupancyAvailable()
+          ? request.static_map->occupancy.resolution_m
+          : request.spatial_model &&
+                    request.spatial_model->sensed_occupancy.valid()
+                ? request.spatial_model->sensed_occupancy.geometry.resolution_m
+                : .25;
   const long long sx = surrogate(request.start.position.x_m, resolution),
                   sy = surrogate(request.start.position.y_m, resolution),
                   gx = surrogate(request.goal.x_m, resolution),
@@ -90,10 +94,16 @@ std::optional<SelectedPlan> PlanningCoordinator::selectPlan(
                         objective == PlanObjective::EncounterRisk ||
                         objective == PlanObjective::FlowOpposition;
     const std::uint64_t relevant_crowd = social ? crowd : 0U;
-    const std::size_t relevant_spatial =
+    std::size_t relevant_spatial =
         objective == PlanObjective::HighwayDistance && request.spatial_model
             ? spatial ^ (request.spatial_model->highways.revision + 0x9e3779b9U)
             : spatial ^ (static_map + 0x85ebca6bU);
+    const bool occupancy_based =
+        name == "distance" || name == "sensor_distance" ||
+        name == "density" || name == "risk" || name == "flow";
+    if (occupancy_based && request.spatial_model)
+      relevant_spatial ^=
+          request.spatial_model->sensed_occupancy.revision + 0xc2b2ae35U;
     auto found =
         std::find_if(cache_.begin(), cache_.end(), [&](const CacheEntry& e) {
           return e.planner == name && e.start_x == sx && e.start_y == sy &&

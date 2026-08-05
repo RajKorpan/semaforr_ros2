@@ -73,10 +73,10 @@ TEST(SpatialLearning, DefaultModulesDeclareLifecycleAndConsumers) {
   using namespace semaforr::spatial;
   auto coordinator = SpatialLearningCoordinator::defaults(100U);
 
-  EXPECT_EQ(coordinator.learnerCount(), 11U);
-  EXPECT_EQ(coordinator.enabledCount(), 11U);
+  EXPECT_EQ(coordinator.learnerCount(), 12U);
+  EXPECT_EQ(coordinator.enabledCount(), 12U);
   const auto inspection = coordinator.inspect();
-  ASSERT_EQ(inspection.size(), 11U);
+  ASSERT_EQ(inspection.size(), 12U);
   for (const LearnerInspection& learner : inspection) {
     EXPECT_FALSE(learner.name.empty());
     EXPECT_FALSE(learner.contract.update_trigger.empty());
@@ -202,6 +202,8 @@ TEST(SpatialLearning, EveryRepresentationRebuildsAndSerializesIndependently) {
           ->payload));
   EXPECT_TRUE(std::holds_alternative<KnownGridModel>(
       coordinator.snapshot(SpatialRepresentation::KnownGrid)->payload));
+  EXPECT_TRUE(std::holds_alternative<SensedOccupancyModel>(
+      coordinator.snapshot(SpatialRepresentation::SensedOccupancy)->payload));
   EXPECT_TRUE(std::holds_alternative<InclusionGridModel>(
       coordinator.snapshot(SpatialRepresentation::InclusionGrid)->payload));
   EXPECT_TRUE(std::holds_alternative<CircumstanceModel>(

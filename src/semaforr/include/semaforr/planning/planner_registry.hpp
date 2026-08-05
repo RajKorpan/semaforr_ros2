@@ -11,15 +11,19 @@
 namespace semaforr::planning {
 enum class PlannerInputModel { Grid, AffordanceModifiedGrid, Freespace };
 enum class StaticMapRequirement { Required, Optional, Independent };
+enum class OccupancyRequirement { None, StaticMap, SensedPartial };
 class PlannerRegistry {
  public:
   using Factory = std::function<std::unique_ptr<Planner>()>;
   void add(std::string name, PlannerInputModel model, Factory factory,
            StaticMapRequirement map_requirement =
-               StaticMapRequirement::Independent);
+               StaticMapRequirement::Independent,
+           OccupancyRequirement occupancy_requirement =
+               OccupancyRequirement::None);
   std::unique_ptr<Planner> create(const std::string& name) const;
   PlannerInputModel inputModel(const std::string& name) const;
   StaticMapRequirement mapRequirement(const std::string& name) const;
+  OccupancyRequirement occupancyRequirement(const std::string& name) const;
   std::vector<std::string> names(PlannerInputModel model) const;
 
  private:
@@ -27,6 +31,7 @@ class PlannerRegistry {
     PlannerInputModel model;
     Factory factory;
     StaticMapRequirement map_requirement;
+    OccupancyRequirement occupancy_requirement;
   };
   std::map<std::string, Entry> entries_;
 };

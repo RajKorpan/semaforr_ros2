@@ -82,9 +82,15 @@ narrower ablations when the master switch is enabled.
 
 Spatial representations are individually controlled by `features.trails`,
 `conveyors`, `regions`, `doors`, `hallways`, `barriers`, `known_grid`,
-`inclusion_grid`, `highways`, and `circumstances`. Global planners are
-individually selected in `planners.enabled`, including `distance`, `skeleton`,
-`highway`, `density`, `risk`, and `flow`.
+`sensed_occupancy`, `inclusion_grid`, `highways`, and `circumstances`. Global
+planners are individually selected in `planners.enabled`, including
+`distance`, `sensor_distance`, `skeleton`, `highway`, `density`, `risk`, and
+`flow`.
+
+`grids.extent_policy` is `expand` or `fixed`. `grids.sensed` controls evidence
+needed to clear and expire sensed obstacles. `grids.planning` controls separate
+map and partial-sensor unknown-space policies, footprint inflation margins, and
+the unknown-cell cost multiplier. See [Grid layers](grid-layers.md).
 
 ## Invariant safety boundary
 

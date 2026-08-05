@@ -22,12 +22,11 @@ std::filesystem::path canonicalFile(const std::filesystem::path& path) {
 }
 
 void markWall(domain::StaticOccupancyGrid& grid,
-              const domain::Segment2D& wall, double inflation_m) {
+              const domain::Segment2D& wall) {
   const double length = wall.length().meters();
   const std::size_t samples = std::max<std::size_t>(
       1U, static_cast<std::size_t>(std::ceil(length / (grid.resolution_m / 2.0))));
-  const int inflation_cells =
-      static_cast<int>(std::ceil(inflation_m / grid.resolution_m));
+  constexpr int inflation_cells = 0;
   for (std::size_t sample = 0U; sample <= samples; ++sample) {
     const double t = static_cast<double>(sample) / static_cast<double>(samples);
     const double x = wall.start.x_m + t * (wall.end.x_m - wall.start.x_m);
@@ -46,7 +45,8 @@ void markWall(domain::StaticOccupancyGrid& grid,
             occupied_row >= static_cast<int>(grid.rows))
           continue;
         grid.cells[static_cast<std::size_t>(occupied_row) * grid.columns +
-                   static_cast<std::size_t>(occupied_column)] = 1U;
+                   static_cast<std::size_t>(occupied_column)] =
+            domain::StaticOccupancyState::StaticOccupied;
       }
     }
   }
@@ -152,9 +152,10 @@ domain::StaticMap loadStaticMap(
       std::ceil(static_cast<double>(dimensions.length) / grid.resolution_m));
   grid.rows = static_cast<std::size_t>(
       std::ceil(static_cast<double>(dimensions.height) / grid.resolution_m));
-  grid.cells.assign(grid.columns * grid.rows, 0U);
+  grid.cells.assign(grid.columns * grid.rows,
+                    domain::StaticOccupancyState::StaticFree);
   for (const auto& wall : result.walls)
-    markWall(grid, wall, configuration.obstacle_inflation_m);
+    markWall(grid, wall);
   if (!result.geometryAvailable() || !result.occupancyAvailable())
     throw std::runtime_error("map-derived geometry or occupancy is empty for '" +
                              result.source + "'");

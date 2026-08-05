@@ -7,6 +7,7 @@
 #include <semaforr/domain/world_model.hpp>
 #include <semaforr/spatial/learner.hpp>
 #include <semaforr/spatial/learners/circumstance_learner.hpp>
+#include <semaforr/spatial/learners/grid_learners.hpp>
 #include <string>
 #include <vector>
 
@@ -30,7 +31,15 @@ class SpatialLearningCoordinator {
   static SpatialLearningCoordinator defaults(
       std::size_t automatic_rebuild_interval,
       CircumstanceLearningConfiguration circumstance_configuration);
-
+  static SpatialLearningCoordinator defaults(
+      std::size_t automatic_rebuild_interval,
+      CircumstanceLearningConfiguration circumstance_configuration,
+      SensedOccupancyLearningConfiguration occupancy_configuration);
+  static SpatialLearningCoordinator defaults(
+      std::size_t automatic_rebuild_interval,
+      CircumstanceLearningConfiguration circumstance_configuration,
+      SensedOccupancyLearningConfiguration occupancy_configuration,
+      GridExtentPolicy extent_policy);
   void addLearner(std::unique_ptr<SpatialLearner> learner, bool enabled = true);
   void setEnabled(SpatialRepresentation representation, bool enabled);
   bool enabled(SpatialRepresentation representation) const;

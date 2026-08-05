@@ -28,6 +28,8 @@ void applyPlanner(config::PlannerConfiguration& planners,
                   const std::string& name) {
   if (name == "distance")
     planners.distance = true;
+  else if (name == "sensor_distance")
+    planners.sensor_distance = true;
   else if (name == "density")
     planners.density = true;
   else if (name == "risk")
@@ -121,15 +123,29 @@ void declareConfigurationParameters(rclcpp::Node& node) {
   node.declare_parameter("safety.max_forward_sweep_rad", 0.5236);
   for (const std::string feature :
        {"trails", "conveyors", "regions", "doors", "hallways", "barriers",
-        "astar", "known_grid", "inclusion_grid", "highways", "circumstances"}) {
+        "astar", "known_grid", "sensed_occupancy", "inclusion_grid",
+        "highways", "circumstances"}) {
     const bool default_value = feature == "trails" || feature == "conveyors" ||
                                feature == "regions" || feature == "doors" ||
                                feature == "circumstances" ||
                                feature == "known_grid" ||
+                               feature == "sensed_occupancy" ||
                                feature == "inclusion_grid";
     node.declare_parameter("features." + feature, default_value);
   }
   node.declare_parameter("features.loaded_highway_model", std::string{});
+  node.declare_parameter("grids.extent_policy", std::string{"expand"});
+  node.declare_parameter("grids.visualizations.enabled", false);
+  node.declare_parameter("grids.sensed.free_observations_to_clear", 3);
+  node.declare_parameter("grids.sensed.dynamic_expiry_observations", 30);
+  node.declare_parameter("grids.planning.map_unknown_policy",
+                         std::string{"prohibited"});
+  node.declare_parameter("grids.planning.sensor_unknown_policy",
+                         std::string{"prohibited"});
+  node.declare_parameter("grids.planning.localization_uncertainty_m", 0.05);
+  node.declare_parameter("grids.planning.turning_footprint_margin_m", 0.0);
+  node.declare_parameter("grids.planning.dynamic_obstacle_margin_m", 0.10);
+  node.declare_parameter("grids.planning.unknown_cost_multiplier", 8.0);
   node.declare_parameter("circumstances.setting_resolution_m", 1.0);
   node.declare_parameter("circumstances.setting_radius_m", 10.0);
   node.declare_parameter("circumstances.minimum_cluster_size", 50);
@@ -226,6 +242,8 @@ config::Configuration configurationFromParameters(rclcpp::Node& node) {
   navigation.a_star_on = node.get_parameter("features.astar").as_bool();
   navigation.known_grid_on =
       node.get_parameter("features.known_grid").as_bool();
+  navigation.sensed_occupancy_on =
+      node.get_parameter("features.sensed_occupancy").as_bool();
   navigation.inclusion_grid_on =
       node.get_parameter("features.inclusion_grid").as_bool();
   navigation.highways_on = node.get_parameter("features.highways").as_bool();
@@ -233,6 +251,24 @@ config::Configuration configurationFromParameters(rclcpp::Node& node) {
       node.get_parameter("features.circumstances").as_bool();
   navigation.loaded_highway_model =
       node.get_parameter("features.loaded_highway_model").as_string();
+  navigation.grids.extent_policy =
+      node.get_parameter("grids.extent_policy").as_string();
+  navigation.grids.free_observations_to_clear = static_cast<std::size_t>(
+      node.get_parameter("grids.sensed.free_observations_to_clear").as_int());
+  navigation.grids.dynamic_expiry_observations = static_cast<std::size_t>(
+      node.get_parameter("grids.sensed.dynamic_expiry_observations").as_int());
+  navigation.grids.map_unknown_policy =
+      node.get_parameter("grids.planning.map_unknown_policy").as_string();
+  navigation.grids.sensor_unknown_policy =
+      node.get_parameter("grids.planning.sensor_unknown_policy").as_string();
+  navigation.grids.localization_uncertainty_m = node.get_parameter(
+      "grids.planning.localization_uncertainty_m").as_double();
+  navigation.grids.turning_footprint_margin_m = node.get_parameter(
+      "grids.planning.turning_footprint_margin_m").as_double();
+  navigation.grids.dynamic_obstacle_margin_m = node.get_parameter(
+      "grids.planning.dynamic_obstacle_margin_m").as_double();
+  navigation.grids.unknown_cost_multiplier = node.get_parameter(
+      "grids.planning.unknown_cost_multiplier").as_double();
   auto& circumstances = navigation.circumstances;
   circumstances.setting_resolution_m =
       node.get_parameter("circumstances.setting_resolution_m").as_double();

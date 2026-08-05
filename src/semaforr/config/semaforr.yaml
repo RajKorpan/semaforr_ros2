@@ -160,10 +160,26 @@ semaforr:
       barriers: false
       astar: false
       known_grid: true
+      sensed_occupancy: true
       inclusion_grid: true
       highways: false
       circumstances: true
       loaded_highway_model: ""
+
+    grids:
+      extent_policy: expand
+      visualizations:
+        enabled: false
+      sensed:
+        free_observations_to_clear: 3
+        dynamic_expiry_observations: 30
+      planning:
+        map_unknown_policy: prohibited
+        sensor_unknown_policy: prohibited
+        localization_uncertainty_m: 0.05
+        turning_footprint_margin_m: 0.0
+        dynamic_obstacle_margin_m: 0.10
+        unknown_cost_multiplier: 8.0
 
     circumstances:
       setting_resolution_m: 1.0
@@ -179,7 +195,8 @@ semaforr:
       angle_bin_count: 8
     planners:
       # Skeleton and highway planning use learned representations and remain
-      # available in mapless mode. Grid planners require map.mode=map_enabled.
+      # available in mapless mode. Static grid planners require a map;
+      # sensor_distance is partial and stays within observed free space.
       enabled: [skeleton]
       selection_policy: range_vote
 

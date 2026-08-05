@@ -23,8 +23,10 @@ semaforr::domain::StaticMap openMap() {
   map.format = "test";
   map.bounds = {{0.0, 0.0}, {3.0, 2.0}};
   map.walls = {{{0.0, 0.0}, {3.0, 0.0}}};
-  map.occupancy = {3U, 2U, 1.0, {0.0, 0.0},
-                   std::vector<std::uint8_t>(6U, 0U)};
+  map.occupancy = {
+      3U, 2U, 1.0, {0.0, 0.0},
+      std::vector<semaforr::domain::StaticOccupancyState>(
+          6U, semaforr::domain::StaticOccupancyState::StaticFree)};
   return map;
 }
 
@@ -106,6 +108,22 @@ TEST(DomainPlanner, SearchesValidatedStaticOccupancy) {
       nullptr, &invalid_map});
   EXPECT_EQ(invalid.status,
             semaforr::planning::PlanStatus::PlannerUnavailable);
+}
+
+TEST(DomainPlanner, LearnedAffordancePlannerWorksWithoutStaticOccupancy) {
+  semaforr::domain::SpatialModel spatial;
+  spatial.skeleton_nodes = {{0.5, 0.5}, {1.5, 0.5}, {2.5, 0.5}};
+  spatial.skeleton_edges = {{0U, 1U}, {1U, 2U}};
+  spatial.learned_regions = {
+      {{1.5, 0.5}, semaforr::domain::Distance(1.0)}};
+  semaforr::planning::DomainPlanner planner(
+      "region", semaforr::planning::PlanObjective::RegionPreference,
+      semaforr::planning::OccupancySourceMode::
+          LearnedFreespaceWithOptionalOccupancy);
+  const auto result = planner.plan(
+      {{{0.5, 0.5}, semaforr::domain::Angle::zero()}, {2.5, 0.5}, &spatial});
+  ASSERT_TRUE(result.succeeded());
+  EXPECT_NE(result.explanation.find("learned freespace"), std::string::npos);
 }
 
 }  // namespace

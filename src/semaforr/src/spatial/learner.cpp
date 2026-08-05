@@ -136,6 +136,37 @@ void payload(std::ostream& output, const SpatialPayload& value) {
                   stream << "{\"index\":" << cell.index
                          << ",\"value\":" << cell.value << '}';
                 });
+          output << ",\"sparse_metadata\":";
+          array(output, model.sparse_metadata,
+                [](std::ostream& stream, const auto& cell) {
+                  stream << "{\"index\":" << cell.index
+                         << ",\"last_observed_sequence\":"
+                         << cell.last_observed_sequence
+                         << ",\"confidence\":" << cell.confidence << '}';
+                });
+          output << '}';
+        } else if constexpr (std::is_same_v<Model, SensedOccupancyModel>) {
+          output << "{\"geometry\":{\"columns\":"
+                 << model.geometry.columns << ",\"rows\":"
+                 << model.geometry.rows << ",\"resolution_m\":"
+                 << model.geometry.resolution_m << ",\"origin\":";
+          point(output, model.geometry.origin);
+          output << "},\"cells\":";
+          array(output, model.cells,
+                [](std::ostream& stream, const auto& cell) {
+                  stream << "{\"state\":" << static_cast<int>(cell.state)
+                         << ",\"free_evidence\":" << cell.free_evidence
+                         << ",\"occupied_evidence\":"
+                         << cell.occupied_evidence << ",\"confidence\":"
+                         << cell.confidence << ",\"last_update_sequence\":"
+                         << cell.last_update_sequence
+                         << ",\"conflicting\":"
+                         << (cell.conflicting ? "true" : "false")
+                         << ",\"dynamic\":"
+                         << (cell.dynamic ? "true" : "false")
+                         << ",\"provenance\":"
+                         << static_cast<int>(cell.source) << '}';
+                });
           output << '}';
         } else if constexpr (std::is_same_v<Model, InclusionGridModel>) {
           output << "{\"geometry\":{\"columns\":" << model.geometry.columns
@@ -310,6 +341,8 @@ std::string_view toString(SpatialRepresentation representation) noexcept {
       return "passages_and_skeleton";
     case SpatialRepresentation::KnownGrid:
       return "known_grid";
+    case SpatialRepresentation::SensedOccupancy:
+      return "sensed_occupancy";
     case SpatialRepresentation::InclusionGrid:
       return "inclusion_grid";
     case SpatialRepresentation::Highways:

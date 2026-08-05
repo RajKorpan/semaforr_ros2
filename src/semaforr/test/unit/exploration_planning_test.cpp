@@ -31,8 +31,10 @@ semaforr::domain::StaticMap planningMap() {
   map.source = "planning-test";
   map.bounds = {{0.0, -1.5}, {3.0, 1.5}};
   map.walls = {{{0.0, -1.5}, {3.0, -1.5}}};
-  map.occupancy = {3U, 3U, 1.0, {0.0, -1.5},
-                   std::vector<std::uint8_t>(9U, 0U)};
+  map.occupancy = {
+      3U, 3U, 1.0, {0.0, -1.5},
+      std::vector<semaforr::domain::StaticOccupancyState>(
+          9U, semaforr::domain::StaticOccupancyState::StaticFree)};
   return map;
 }
 
@@ -221,7 +223,7 @@ TEST(PlannerRegistry, ClassifiesGridAffordanceAndFreespacePlanners) {
   EXPECT_EQ(registry.inputModel("highway"),
             semaforr::planning::PlannerInputModel::Freespace);
   EXPECT_EQ(registry.mapRequirement("region"),
-            semaforr::planning::StaticMapRequirement::Required);
+            semaforr::planning::StaticMapRequirement::Optional);
   EXPECT_EQ(registry.mapRequirement("highway"),
             semaforr::planning::StaticMapRequirement::Independent);
   EXPECT_EQ(registry.create("flow")->objective(),
@@ -232,7 +234,8 @@ TEST(PlannerRegistry, ClassifiesGridAffordanceAndFreespacePlanners) {
 TEST(AffordancePlanner, RegionCostModificationChangesTheChosenRoute) {
   semaforr::domain::SpatialModel spatial;
   auto map = planningMap();
-  map.occupancy.cells[4U] = 1U;
+  map.occupancy.cells[4U] =
+      semaforr::domain::StaticOccupancyState::StaticOccupied;
   spatial.learned_regions.push_back(
       {{1.5, 1.0}, semaforr::domain::Distance(0.6)});
   semaforr::planning::DomainPlanner planner(

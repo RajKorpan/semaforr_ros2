@@ -121,6 +121,7 @@ struct ExperimentConfiguration {
 
 struct PlannerConfiguration {
   bool distance = false;
+  bool sensor_distance = false;
   bool density = false;
   bool risk = false;
   bool flow = false;
@@ -131,6 +132,18 @@ struct PlannerConfiguration {
   bool skeleton = false;
   bool highway = false;
   std::string selection_policy = "range_vote";
+};
+
+struct GridLayerConfiguration {
+  std::string extent_policy = "expand";
+  std::size_t free_observations_to_clear = 3U;
+  std::size_t dynamic_expiry_observations = 30U;
+  std::string map_unknown_policy = "prohibited";
+  std::string sensor_unknown_policy = "prohibited";
+  double localization_uncertainty_m = 0.05;
+  double turning_footprint_margin_m = 0.0;
+  double dynamic_obstacle_margin_m = 0.10;
+  double unknown_cost_multiplier = 8.0;
 };
 
 struct CrowdLearningConfiguration {
@@ -186,12 +199,14 @@ struct NavigationConfiguration {
   bool barriers_on = false;
   bool a_star_on = false;
   bool known_grid_on = true;
+  bool sensed_occupancy_on = true;
   bool inclusion_grid_on = true;
   bool highways_on = false;
   bool circumstances_on = true;
   std::string loaded_highway_model;
 
   PlannerConfiguration planners;
+  GridLayerConfiguration grids;
   CrowdLearningConfiguration crowd_learning;
   CircumstanceConfiguration circumstances;
 };

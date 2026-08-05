@@ -92,7 +92,8 @@ bool forwardBlocked(const domain::LaserObservation& laser,
   return actions.move_distances_m().front() + clearance_m >= nearest;
 }
 
-std::optional<std::size_t> gridIndex(const domain::FreespaceGrid& grid,
+template <typename Grid>
+std::optional<std::size_t> gridIndex(const Grid& grid,
                                      domain::Point2D point) {
   if (grid.columns == 0U || grid.rows == 0U || grid.resolution_m <= 0.0)
     return std::nullopt;

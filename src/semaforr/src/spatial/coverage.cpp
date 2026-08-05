@@ -15,14 +15,21 @@ struct CoverageGrid {
 };
 
 CoverageGrid gridFor(const domain::SpatialModel& model) {
-  const auto& source = model.inclusion_grid.columns != 0U
-                           ? model.inclusion_grid
-                           : model.known_grid;
+  if (model.inclusion_grid.columns != 0U)
+    return {static_cast<std::size_t>(std::ceil(
+                static_cast<double>(model.inclusion_grid.columns) *
+                model.inclusion_grid.resolution_m)),
+            static_cast<std::size_t>(std::ceil(
+                static_cast<double>(model.inclusion_grid.rows) *
+                model.inclusion_grid.resolution_m)),
+            model.inclusion_grid.origin};
   return {static_cast<std::size_t>(std::ceil(
-              static_cast<double>(source.columns) * source.resolution_m)),
+              static_cast<double>(model.known_grid.columns) *
+              model.known_grid.resolution_m)),
           static_cast<std::size_t>(std::ceil(
-              static_cast<double>(source.rows) * source.resolution_m)),
-          source.origin};
+              static_cast<double>(model.known_grid.rows) *
+              model.known_grid.resolution_m)),
+          model.known_grid.origin};
 }
 
 void mark(const CoverageGrid& grid, domain::Point2D point,

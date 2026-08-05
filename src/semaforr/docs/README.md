@@ -9,6 +9,7 @@
 - [Planner catalog](planner-catalog.md)
 - [Configuration reference](configuration-reference.md)
 - [Optional static maps](map-operation.md)
+- [Grid layers and traversability](grid-layers.md)
 - [Topic and frame contract](topics-and-frames.md)
 - [Spatial learning](spatial-learning.md)
 - [Social navigation](social-navigation.md)

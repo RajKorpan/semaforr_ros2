@@ -348,7 +348,22 @@ int main() {
     invalid.static_map.mode = semaforr::config::MapOperatingMode::Mapless;
     assertThrowsContaining(
         [&invalid]() { semaforr::config::validateConfiguration(invalid); },
-        "grid and affordance-grid planners require");
+        "static-map grid and crowd planners require");
+  }
+  {
+    auto invalid = valid;
+    invalid.navigation.planners.sensor_distance = true;
+    invalid.navigation.sensed_occupancy_on = false;
+    assertThrowsContaining(
+        [&invalid]() { semaforr::config::validateConfiguration(invalid); },
+        "sensor_distance requires features.sensed_occupancy");
+  }
+  {
+    auto invalid = valid;
+    invalid.navigation.grids.extent_policy = "elastic";
+    assertThrowsContaining(
+        [&invalid]() { semaforr::config::validateConfiguration(invalid); },
+        "grid evidence thresholds");
   }
   for (const auto& fixture :
        {"empty_tasks.conf", "invalid_tasks.conf", "extra_task_token.conf"}) {

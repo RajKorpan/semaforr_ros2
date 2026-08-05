@@ -106,6 +106,23 @@ planning::MapSearchPaths mapSearchPaths() {
   return paths;
 }
 
+domain::UnknownSpacePolicy unknownPolicy(const std::string& value) {
+  if (value == "prohibited") return domain::UnknownSpacePolicy::Prohibited;
+  if (value == "high_cost") return domain::UnknownSpacePolicy::HighCost;
+  if (value == "within_sensor_range")
+    return domain::UnknownSpacePolicy::WithinSensorRange;
+  if (value == "exploration_only")
+    return domain::UnknownSpacePolicy::ExplorationOnly;
+  throw std::runtime_error("unknown grid unknown-space policy '" + value +
+                           "'");
+}
+
+spatial::GridExtentPolicy gridExtentPolicy(const std::string& value) {
+  if (value == "expand") return spatial::GridExtentPolicy::Expand;
+  if (value == "fixed") return spatial::GridExtentPolicy::Fixed;
+  throw std::runtime_error("unknown grid extent policy '" + value + "'");
+}
+
 }  // namespace
 
 class NavigationEngineAdapter::Impl {
@@ -120,7 +137,12 @@ class NavigationEngineAdapter::Impl {
                     configuration_.experiment.random_seed}),
         mission_(world_.mission),
         learning_(spatial::SpatialLearningCoordinator::defaults(
-            10U, circumstanceConfiguration(configuration_))),
+            10U, circumstanceConfiguration(configuration_),
+            {static_cast<std::uint16_t>(
+                 configuration_.navigation.grids.free_observations_to_clear),
+             configuration_.navigation.grids.dynamic_expiry_observations,
+             true},
+            gridExtentPolicy(configuration_.navigation.grids.extent_policy))),
         hard_safety_(action_space_.move_distances_m(),
                      action_space_.rotation_angles_rad(),
                      configuration_.navigation.robot_footprint,
@@ -211,7 +233,18 @@ class NavigationEngineAdapter::Impl {
             std::chrono::duration<double>(
                 configuration_.experiment.initial_exploration.time_limit_s),
             configuration_.experiment.initial_exploration.decision_budget},
-        std::move(lle_component), std::move(enforcer_component));
+        std::move(lle_component), std::move(enforcer_component),
+        planning::TraversabilityConfiguration{
+            unknownPolicy(configuration_.navigation.grids.map_unknown_policy),
+            unknownPolicy(
+                configuration_.navigation.grids.sensor_unknown_policy),
+            configuration_.navigation.robot_footprint,
+            configuration_.navigation.robot_footprint_buffer,
+            configuration_.navigation.grids.localization_uncertainty_m,
+            configuration_.navigation.grids.turning_footprint_margin_m,
+            configuration_.navigation.grids.dynamic_obstacle_margin_m,
+            static_cast<float>(
+                configuration_.navigation.grids.unknown_cost_multiplier)});
   }
 
   void configureStaticMap() {
@@ -269,9 +302,15 @@ class NavigationEngineAdapter::Impl {
     learning_.setEnabled(spatial::SpatialRepresentation::Barriers,
                          features.barriers_on);
     learning_.setEnabled(spatial::SpatialRepresentation::PassagesAndSkeleton,
-                         features.a_star_on || features.planners.skeleton);
+                         features.a_star_on || features.planners.skeleton ||
+                             features.planners.region ||
+                             features.planners.hallway ||
+                             features.planners.trail ||
+                             features.planners.conveyor);
     learning_.setEnabled(spatial::SpatialRepresentation::KnownGrid,
                          features.known_grid_on);
+    learning_.setEnabled(spatial::SpatialRepresentation::SensedOccupancy,
+                         features.sensed_occupancy_on);
     learning_.setEnabled(spatial::SpatialRepresentation::InclusionGrid,
                          features.inclusion_grid_on);
     learning_.setEnabled(spatial::SpatialRepresentation::Highways,
@@ -287,7 +326,9 @@ class NavigationEngineAdapter::Impl {
         planning::planSelectionPolicyFromString(planners.selection_policy));
     const auto registry = planning::defaultPlannerRegistry();
     const std::vector<std::pair<std::string, bool>> enabled = {
-        {"distance", planners.distance}, {"density", planners.density},
+        {"distance", planners.distance},
+        {"sensor_distance", planners.sensor_distance},
+        {"density", planners.density},
         {"risk", planners.risk},         {"flow", planners.flow},
         {"region", planners.region},     {"hallway", planners.hallway},
         {"trail", planners.trail},       {"conveyor", planners.conveyor},
@@ -301,7 +342,11 @@ class NavigationEngineAdapter::Impl {
         continue;
       }
       planning_.registerPlanner(registry.create(name));
-      map_diagnostics_.push_back("planner_enabled:" + name);
+      map_diagnostics_.push_back(
+          registry.occupancyRequirement(name) ==
+                  planning::OccupancyRequirement::SensedPartial
+              ? "planner_registered_dormant_until_sensed_occupancy:" + name
+              : "planner_enabled:" + name);
     }
   }
 

@@ -25,6 +25,7 @@ enum class SpatialRepresentation {
   Barriers,
   PassagesAndSkeleton,
   KnownGrid,
+  SensedOccupancy,
   InclusionGrid,
   Highways,
   Circumstances
@@ -69,7 +70,8 @@ struct NavigationEpisode {
 using SpatialPayload = std::variant<std::monostate, TrailModel, ConveyorModel,
                                     RegionModel, DoorExitModel, HallwayModel,
                                     BarrierModel, PassageSkeletonModel,
-                                    KnownGridModel, InclusionGridModel,
+                                    KnownGridModel, SensedOccupancyModel,
+                                    InclusionGridModel,
                                     HighwayModel, CircumstanceModel>;
 
 struct SpatialModelUpdate {

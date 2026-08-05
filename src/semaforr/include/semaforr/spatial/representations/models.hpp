@@ -7,6 +7,7 @@
 #include <semaforr/domain/circumstance.hpp>
 #include <semaforr/domain/geometry.hpp>
 #include <semaforr/domain/highway.hpp>
+#include <semaforr/domain/grid_layers.hpp>
 #include <vector>
 
 namespace semaforr::spatial {
@@ -41,11 +42,18 @@ struct SparseGridCell {
   std::size_t index = 0U;
   std::uint32_t value = 0U;
 };
+struct FamiliarityCellMetadata {
+  std::size_t index = 0U;
+  std::size_t last_observed_sequence = 0U;
+  float confidence = 0.0F;
+};
 struct KnownGridModel {
   GridGeometry geometry;
   std::vector<std::uint32_t> observations;
   std::vector<SparseGridCell> sparse_observations;
+  std::vector<FamiliarityCellMetadata> sparse_metadata;
 };
+using SensedOccupancyModel = domain::SensedOccupancyGrid;
 struct InclusionGridModel {
   GridGeometry geometry;
   std::vector<std::uint32_t> included;

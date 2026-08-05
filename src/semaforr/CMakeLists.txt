@@ -95,6 +95,7 @@ add_library(semaforr_planning SHARED
   src/planning/hierarchical_plan.cpp
   src/planning/map_parser.cpp
   src/planning/static_map_loader.cpp
+  src/planning/traversability.cpp
   src/planning/plan_types.cpp
   src/planning/planning_coordinator.cpp
   src/planning/planner_registry.cpp
@@ -401,6 +402,15 @@ if(BUILD_TESTING)
   target_link_libraries(
     semaforr_spatial_learning_test semaforr_navigation)
   semaforr_apply_project_options(semaforr_spatial_learning_test)
+
+  ament_add_gtest(
+    semaforr_grid_layers_test
+    test/unit/grid_layers_test.cpp
+  )
+  target_link_libraries(
+    semaforr_grid_layers_test
+    semaforr_exploration semaforr_spatial semaforr_planning)
+  semaforr_apply_project_options(semaforr_grid_layers_test)
 
   ament_add_gtest(
     semaforr_ros_execution_test

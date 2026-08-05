@@ -209,8 +209,26 @@ class VisualizationPublisher::Impl {
             node.create_publisher<visualization_msgs::msg::Marker>(
                 "static_map_geometry",
                 rclcpp::QoS(1).transient_local().reliable())),
+        familiarity_publisher_(
+            node.create_publisher<visualization_msgs::msg::Marker>(
+                "familiarity_grid",
+                rclcpp::QoS(1).transient_local().reliable())),
+        sensed_free_publisher_(
+            node.create_publisher<visualization_msgs::msg::Marker>(
+                "sensed_occupancy_free",
+                rclcpp::QoS(1).transient_local().reliable())),
+        sensed_occupied_publisher_(
+            node.create_publisher<visualization_msgs::msg::Marker>(
+                "sensed_occupancy_occupied",
+                rclcpp::QoS(1).transient_local().reliable())),
+        static_occupancy_publisher_(
+            node.create_publisher<visualization_msgs::msg::Marker>(
+                "static_map_occupancy",
+                rclcpp::QoS(1).transient_local().reliable())),
         map_visualization_enabled_(
             node.get_parameter("map.visualizations.enabled").as_bool()),
+        grid_visualization_enabled_(
+            node.get_parameter("grids.visualizations.enabled").as_bool()),
         pose_publisher_(node.create_publisher<geometry_msgs::msg::PoseStamped>(
             "decision_pose", rclcpp::QoS(10).reliable())) {}
 
@@ -337,6 +355,8 @@ class VisualizationPublisher::Impl {
       static_map_published_ = true;
     }
 
+    if (grid_visualization_enabled_) publishGridLayers(pose.header);
+
     if (world_.mission.active()) {
       geometry_msgs::msg::PointStamped target;
       target.header = pose.header;
@@ -370,6 +390,87 @@ class VisualizationPublisher::Impl {
     publishCrowdField();
   }
 
+  visualization_msgs::msg::Marker gridMarker(
+      const std_msgs::msg::Header& header, const std::string& name,
+      double resolution, float red, float green, float blue) const {
+    visualization_msgs::msg::Marker marker;
+    marker.header = header;
+    marker.ns = name;
+    marker.id = 0;
+    marker.type = visualization_msgs::msg::Marker::POINTS;
+    marker.action = visualization_msgs::msg::Marker::ADD;
+    marker.pose.orientation.w = 1.0;
+    marker.scale.x = resolution;
+    marker.scale.y = resolution;
+    marker.color.r = red;
+    marker.color.g = green;
+    marker.color.b = blue;
+    marker.color.a = 0.75F;
+    return marker;
+  }
+
+  void publishGridLayers(const std_msgs::msg::Header& header) {
+    const auto& familiarity = world_.spatial.known_grid;
+    if (familiarity.valid() &&
+        familiarity.revision != last_familiarity_revision_) {
+      auto marker = gridMarker(header, "familiarity", familiarity.resolution_m,
+                               0.1F, 0.35F, 1.0F);
+      for (std::size_t index = 0U; index < familiarity.cells.size(); ++index) {
+        if (familiarity.cells[index] == 0U) continue;
+        const auto center = familiarity.extent().center(index);
+        geometry_msgs::msg::Point point;
+        point.x = center.x_m;
+        point.y = center.y_m;
+        marker.points.push_back(point);
+      }
+      familiarity_publisher_->publish(marker);
+      last_familiarity_revision_ = familiarity.revision;
+    }
+
+    const auto& sensed = world_.spatial.sensed_occupancy;
+    if (sensed.valid() && sensed.revision != last_sensed_revision_) {
+      auto free = gridMarker(header, "sensed_free", sensed.geometry.resolution_m,
+                             0.1F, 0.8F, 0.25F);
+      auto occupied = gridMarker(header, "sensed_occupied",
+                                 sensed.geometry.resolution_m, 0.9F, 0.1F,
+                                 0.1F);
+      for (std::size_t index = 0U; index < sensed.cells.size(); ++index) {
+        const auto state = sensed.cells[index].state;
+        if (state == domain::SensedOccupancyState::Unknown) continue;
+        const auto center = sensed.geometry.center(index);
+        geometry_msgs::msg::Point point;
+        point.x = center.x_m;
+        point.y = center.y_m;
+        (state == domain::SensedOccupancyState::ObservedOccupied ? occupied
+                                                                 : free)
+            .points.push_back(point);
+      }
+      sensed_free_publisher_->publish(free);
+      sensed_occupied_publisher_->publish(occupied);
+      last_sensed_revision_ = sensed.revision;
+    }
+
+    if (!static_occupancy_published_ && world_.static_map &&
+        world_.static_map->occupancyAvailable()) {
+      const auto& grid = world_.static_map->occupancy;
+      auto marker = gridMarker(header, "static_occupancy", grid.resolution_m,
+                               0.2F, 0.2F, 0.2F);
+      const domain::GridExtent geometry{grid.columns, grid.rows,
+                                        grid.resolution_m, grid.origin};
+      for (std::size_t index = 0U; index < grid.cells.size(); ++index) {
+        if (grid.cells[index] != domain::StaticOccupancyState::StaticOccupied)
+          continue;
+        const auto center = geometry.center(index);
+        geometry_msgs::msg::Point point;
+        point.x = center.x_m;
+        point.y = center.y_m;
+        marker.points.push_back(point);
+      }
+      static_occupancy_publisher_->publish(marker);
+      static_occupancy_published_ = true;
+    }
+  }
+
   rclcpp::Node& node_;
   const domain::WorldModel& world_;
   std::string frame_id_;
@@ -384,8 +485,20 @@ class VisualizationPublisher::Impl {
   rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr plan_publisher_;
   rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr
       static_map_publisher_;
+  rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr
+      familiarity_publisher_;
+  rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr
+      sensed_free_publisher_;
+  rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr
+      sensed_occupied_publisher_;
+  rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr
+      static_occupancy_publisher_;
   bool map_visualization_enabled_ = false;
+  bool grid_visualization_enabled_ = false;
   bool static_map_published_ = false;
+  bool static_occupancy_published_ = false;
+  std::size_t last_familiarity_revision_ = 0U;
+  std::size_t last_sensed_revision_ = 0U;
   rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr pose_publisher_;
   std::uint64_t last_crowd_version_{0U};
   std::optional<std::uint64_t> last_task_index_;

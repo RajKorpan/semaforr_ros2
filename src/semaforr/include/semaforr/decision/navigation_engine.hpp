@@ -39,7 +39,8 @@ class NavigationEngine {
       bool low_level_exploration_enabled = true, bool enforcer_enabled = true,
       exploration::HighLevelExplorationConfiguration hle_configuration = {},
       std::unique_ptr<planning::ReactivePlanner> low_level_explorer = nullptr,
-      std::unique_ptr<PlanOperationalizer> plan_operationalizer = nullptr);
+      std::unique_ptr<PlanOperationalizer> plan_operationalizer = nullptr,
+      planning::TraversabilityConfiguration traversability = {});
 
   void observe(const domain::RobotObservation& observation);
   DecisionResult decide();
@@ -70,6 +71,7 @@ class NavigationEngine {
   std::unique_ptr<planning::ReactivePlanner> lle_;
   bool low_level_exploration_enabled_;
   bool enforcer_enabled_;
+  planning::TraversabilityConfiguration traversability_;
   domain::Distance goal_tolerance_;
   std::optional<domain::RobotObservation> observation_;
   std::optional<planning::HierarchicalPlan> active_hierarchy_;

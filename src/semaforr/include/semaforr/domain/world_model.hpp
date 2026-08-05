@@ -9,6 +9,7 @@
 #include <semaforr/domain/crowd_model.hpp>
 #include <semaforr/domain/circumstance.hpp>
 #include <semaforr/domain/highway.hpp>
+#include <semaforr/domain/grid_layers.hpp>
 #include <semaforr/domain/mission.hpp>
 #include <semaforr/domain/observation.hpp>
 #include <semaforr/domain/static_map.hpp>
@@ -135,7 +136,8 @@ struct SpatialModel {
   std::vector<Segment2D> barriers;
   std::vector<Point2D> skeleton_nodes;
   std::vector<std::pair<std::size_t, std::size_t>> skeleton_edges;
-  FreespaceGrid known_grid;
+  FamiliarityGrid known_grid;
+  SensedOccupancyGrid sensed_occupancy;
   FreespaceGrid inclusion_grid;
   std::vector<ExplorationCue> unfinished_hle_candidates;
   HighwayGraph highways;

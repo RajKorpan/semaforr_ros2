@@ -23,16 +23,9 @@ struct LaserObservation {
       throw std::invalid_argument(
           "laser maximum range must not be below minimum range");
     }
-    for (const double range : ranges_m) {
-      // Positive infinity is the conventional LaserScan representation for
-      // a beam with no return inside range_max.
-      if (std::isnan(range) || range < minimum_range.meters() ||
-          (std::isfinite(range) && range > maximum_range.meters())) {
-        throw std::invalid_argument(
-            "laser ranges must be within configured bounds or positive "
-            "infinity for no return");
-      }
-    }
+    // Individual beams may legally be NaN, infinite, below range_min, or
+    // above range_max. Consumers classify each beam rather than rejecting an
+    // otherwise coherent scan; occupancy integration ignores invalid beams.
   }
 };
 

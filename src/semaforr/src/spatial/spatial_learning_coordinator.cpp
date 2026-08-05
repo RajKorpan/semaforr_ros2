@@ -36,6 +36,9 @@ void clearRepresentation(domain::SpatialModel& model,
     case SpatialRepresentation::KnownGrid:
       model.known_grid = {};
       break;
+    case SpatialRepresentation::SensedOccupancy:
+      model.sensed_occupancy = {};
+      break;
     case SpatialRepresentation::InclusionGrid:
       model.inclusion_grid = {};
       break;
@@ -67,6 +70,24 @@ SpatialLearningCoordinator SpatialLearningCoordinator::defaults(
 SpatialLearningCoordinator SpatialLearningCoordinator::defaults(
     std::size_t automatic_rebuild_interval,
     CircumstanceLearningConfiguration circumstance_configuration) {
+  return defaults(automatic_rebuild_interval,
+                  std::move(circumstance_configuration), {});
+}
+
+SpatialLearningCoordinator SpatialLearningCoordinator::defaults(
+    std::size_t automatic_rebuild_interval,
+    CircumstanceLearningConfiguration circumstance_configuration,
+    SensedOccupancyLearningConfiguration occupancy_configuration) {
+  return defaults(automatic_rebuild_interval,
+                  std::move(circumstance_configuration),
+                  occupancy_configuration, GridExtentPolicy::Expand);
+}
+
+SpatialLearningCoordinator SpatialLearningCoordinator::defaults(
+    std::size_t automatic_rebuild_interval,
+    CircumstanceLearningConfiguration circumstance_configuration,
+    SensedOccupancyLearningConfiguration occupancy_configuration,
+    GridExtentPolicy extent_policy) {
   SpatialLearningCoordinator coordinator(automatic_rebuild_interval);
   coordinator.addLearner(std::make_unique<TrailLearner>());
   coordinator.addLearner(std::make_unique<ConveyorLearner>());
@@ -75,8 +96,15 @@ SpatialLearningCoordinator SpatialLearningCoordinator::defaults(
   coordinator.addLearner(std::make_unique<HallwayLearner>());
   coordinator.addLearner(std::make_unique<BarrierLearner>());
   coordinator.addLearner(std::make_unique<PassageSkeletonLearner>());
-  coordinator.addLearner(std::make_unique<KnownGridLearner>());
-  coordinator.addLearner(std::make_unique<InclusionGridLearner>());
+  coordinator.addLearner(std::make_unique<KnownGridLearner>(
+      200U, 200U, 1.0, domain::Point2D{}, extent_policy));
+  coordinator.addLearner(
+      std::make_unique<SensedOccupancyLearner>(200U, 200U, 1.0,
+                                               domain::Point2D{},
+                                               occupancy_configuration,
+                                               extent_policy));
+  coordinator.addLearner(std::make_unique<InclusionGridLearner>(
+      200U, 200U, 1.0, domain::Point2D{}, extent_policy));
   coordinator.addLearner(std::make_unique<HighwayLearner>());
   coordinator.addLearner(std::make_unique<CircumstanceLearner>(
       std::move(circumstance_configuration)));
@@ -307,6 +335,20 @@ void SpatialLearningCoordinator::applyTo(domain::SpatialModel& model) const {
                 payload.geometry.columns, payload.geometry.rows,
                 payload.geometry.resolution_m, payload.geometry.origin,
                 std::move(cells), update.revision};
+            model.known_grid.last_observed_sequence.assign(
+                model.known_grid.cells.size(), 0U);
+            model.known_grid.confidence.assign(model.known_grid.cells.size(),
+                                               0.0F);
+            for (const auto& metadata : payload.sparse_metadata) {
+              if (metadata.index >= model.known_grid.cells.size()) continue;
+              model.known_grid.last_observed_sequence[metadata.index] =
+                  metadata.last_observed_sequence;
+              model.known_grid.confidence[metadata.index] = metadata.confidence;
+            }
+          } else if constexpr (std::is_same_v<Payload,
+                                               SensedOccupancyModel>) {
+            model.sensed_occupancy = payload;
+            model.sensed_occupancy.revision = update.revision;
           } else if constexpr (std::is_same_v<Payload,
                                                InclusionGridModel>) {
             auto cells = payload.included;

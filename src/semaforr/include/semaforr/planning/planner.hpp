@@ -5,6 +5,7 @@
 #include <optional>
 #include <semaforr/domain/highway.hpp>
 #include <semaforr/domain/world_model.hpp>
+#include <semaforr/planning/traversability.hpp>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -82,6 +83,20 @@ struct PlanningRequest {
   const domain::SpatialModel* spatial_model{nullptr};
   const domain::CrowdModel* crowd_model{nullptr};
   const domain::StaticMap* static_map{nullptr};
+  TraversabilityConfiguration traversability;
+
+  PlanningRequest() = default;
+  PlanningRequest(domain::Pose2D request_start, domain::Point2D request_goal,
+                  const domain::SpatialModel* request_spatial = nullptr,
+                  const domain::CrowdModel* request_crowd = nullptr,
+                  const domain::StaticMap* request_map = nullptr,
+                  TraversabilityConfiguration traversal_configuration = {})
+      : start(request_start),
+        goal(request_goal),
+        spatial_model(request_spatial),
+        crowd_model(request_crowd),
+        static_map(request_map),
+        traversability(std::move(traversal_configuration)) {}
 };
 
 struct PlanResult {

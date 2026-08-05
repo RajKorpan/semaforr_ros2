@@ -5,6 +5,7 @@
 #include <fstream>
 #include <iomanip>
 #include <iterator>
+#include <limits>
 #include <semaforr/config/navigation_configuration.hpp>
 #include <set>
 #include <sstream>
@@ -187,6 +188,7 @@ void validateNavigation(const NavigationConfiguration& configuration) {
         "shortest_valid");
   const std::size_t enabled_planner_count =
       static_cast<std::size_t>(configuration.planners.distance) +
+      configuration.planners.sensor_distance +
       configuration.planners.density + configuration.planners.risk +
       configuration.planners.flow + configuration.planners.region +
       configuration.planners.hallway + configuration.planners.trail +
@@ -734,6 +736,7 @@ std::string configurationFingerprint(const Configuration& configuration) {
             << configuration.navigation.barriers_on << '|'
             << configuration.navigation.a_star_on << '|'
             << configuration.navigation.known_grid_on << '|'
+            << configuration.navigation.sensed_occupancy_on << '|'
             << configuration.navigation.inclusion_grid_on << '|'
             << configuration.navigation.highways_on << '|'
             << configuration.navigation.circumstances_on << '|'
@@ -761,7 +764,14 @@ std::string configurationFingerprint(const Configuration& configuration) {
             << configuration.navigation.circumstances.distance_bin_base_m
             << '|'
             << configuration.navigation.circumstances.angle_bin_count << '|'
+            << configuration.navigation.grids.extent_policy << '|'
+            << configuration.navigation.grids.free_observations_to_clear
+            << '|'
+            << configuration.navigation.grids.dynamic_expiry_observations
+            << '|' << configuration.navigation.grids.map_unknown_policy << '|'
+            << configuration.navigation.grids.sensor_unknown_policy << '|'
             << configuration.navigation.planners.distance << '|'
+            << configuration.navigation.planners.sensor_distance << '|'
             << configuration.navigation.planners.skeleton << '|'
             << configuration.navigation.planners.highway << '|'
             << configuration.navigation.planners.density << '|'
@@ -815,6 +825,8 @@ std::vector<std::string> componentManifest(const Configuration& configuration) {
   add_feature(configuration.navigation.hallways_on, "hallways");
   add_feature(configuration.navigation.barriers_on, "barriers");
   add_feature(configuration.navigation.known_grid_on, "known_grid");
+  add_feature(configuration.navigation.sensed_occupancy_on,
+              "sensed_occupancy");
   add_feature(configuration.navigation.inclusion_grid_on, "inclusion_grid");
   add_feature(configuration.navigation.highways_on, "highways");
   add_feature(configuration.navigation.circumstances_on, "circumstances");
@@ -822,6 +834,8 @@ std::vector<std::string> componentManifest(const Configuration& configuration) {
     if (enabled) result.push_back("planner:" + std::move(name));
   };
   add_planner(configuration.navigation.planners.distance, "distance");
+  add_planner(configuration.navigation.planners.sensor_distance,
+              "sensor_distance");
   add_planner(configuration.navigation.planners.skeleton, "skeleton");
   add_planner(configuration.navigation.planners.highway, "highway");
   add_planner(configuration.navigation.planners.density, "density");
@@ -1113,16 +1127,37 @@ void validateConfiguration(const Configuration& configuration) {
   const bool map_planner = configuration.navigation.planners.distance ||
                            configuration.navigation.planners.density ||
                            configuration.navigation.planners.risk ||
-                           configuration.navigation.planners.flow ||
-                           configuration.navigation.planners.region ||
-                           configuration.navigation.planners.hallway ||
-                           configuration.navigation.planners.trail ||
-                           configuration.navigation.planners.conveyor;
+                           configuration.navigation.planners.flow;
+  const std::set<std::string> unknown_policies{
+      "prohibited", "high_cost", "within_sensor_range", "exploration_only"};
+  const auto& grids = configuration.navigation.grids;
+  if ((grids.extent_policy != "fixed" && grids.extent_policy != "expand") ||
+      grids.free_observations_to_clear == 0U ||
+      grids.free_observations_to_clear >
+          std::numeric_limits<std::uint16_t>::max() ||
+      grids.dynamic_expiry_observations == 0U ||
+      !unknown_policies.contains(grids.map_unknown_policy) ||
+      !unknown_policies.contains(grids.sensor_unknown_policy) ||
+      !std::isfinite(grids.localization_uncertainty_m) ||
+      grids.localization_uncertainty_m < 0.0 ||
+      !std::isfinite(grids.turning_footprint_margin_m) ||
+      grids.turning_footprint_margin_m < 0.0 ||
+      !std::isfinite(grids.dynamic_obstacle_margin_m) ||
+      grids.dynamic_obstacle_margin_m < 0.0 ||
+      !std::isfinite(grids.unknown_cost_multiplier) ||
+      grids.unknown_cost_multiplier < 1.0)
+    throw std::runtime_error(
+        "configuration: grid evidence thresholds, unknown-space policies, "
+        "inflation margins, and unknown cost are invalid");
+  if (configuration.navigation.planners.sensor_distance &&
+      !configuration.navigation.sensed_occupancy_on)
+    throw std::runtime_error(
+        "configuration: sensor_distance requires features.sensed_occupancy");
   if (map_planner &&
       (map.mode != MapOperatingMode::MapEnabled ||
        !map.map_based_planning_enabled))
     throw std::runtime_error(
-        "configuration: grid and affordance-grid planners require "
+        "configuration: static-map grid and crowd planners require "
         "map.mode=map_enabled, map.planning.enabled=true, and successfully "
         "loaded map occupancy");
 

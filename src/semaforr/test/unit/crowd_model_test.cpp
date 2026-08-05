@@ -257,8 +257,10 @@ TEST(CrowdConsumers, TypedPlannerIncludesLearnedCrowdCost) {
   map.source = "crowd-test";
   map.bounds = {{0.0, 0.0}, {4.0, 4.0}};
   map.walls = {{{0.0, 0.0}, {4.0, 0.0}}};
-  map.occupancy = {4U, 4U, 1.0, {0.0, 0.0},
-                   std::vector<std::uint8_t>(16U, 0U)};
+  map.occupancy = {
+      4U, 4U, 1.0, {0.0, 0.0},
+      std::vector<semaforr::domain::StaticOccupancyState>(
+          16U, semaforr::domain::StaticOccupancyState::StaticFree)};
   const semaforr::planning::PlanningRequest request{
       {{1.7, 1.5}, semaforr::domain::Angle::zero()},
       {2.7, 1.5},
