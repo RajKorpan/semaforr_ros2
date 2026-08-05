@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <cmath>
 #include <semaforr/spatial/learners/all.hpp>
 #include <semaforr/spatial/spatial_learning_coordinator.hpp>
 #include <stdexcept>
@@ -88,6 +89,23 @@ SpatialLearningCoordinator SpatialLearningCoordinator::defaults(
     CircumstanceLearningConfiguration circumstance_configuration,
     SensedOccupancyLearningConfiguration occupancy_configuration,
     GridExtentPolicy extent_policy) {
+  LearnedGridConfiguration grids;
+  grids.extent_policy = extent_policy;
+  grids.initialize_around_first_pose = false;
+  grids.initial_width_m = 200.0;
+  grids.initial_height_m = 200.0;
+  grids.resolution_m = 1.0;
+  grids.expansion.margin_m = 0.0;
+  return defaults(automatic_rebuild_interval,
+                  std::move(circumstance_configuration),
+                  occupancy_configuration, grids);
+}
+
+SpatialLearningCoordinator SpatialLearningCoordinator::defaults(
+    std::size_t automatic_rebuild_interval,
+    CircumstanceLearningConfiguration circumstance_configuration,
+    SensedOccupancyLearningConfiguration occupancy_configuration,
+    LearnedGridConfiguration grid_configuration) {
   SpatialLearningCoordinator coordinator(automatic_rebuild_interval);
   coordinator.addLearner(std::make_unique<TrailLearner>());
   coordinator.addLearner(std::make_unique<ConveyorLearner>());
@@ -96,15 +114,27 @@ SpatialLearningCoordinator SpatialLearningCoordinator::defaults(
   coordinator.addLearner(std::make_unique<HallwayLearner>());
   coordinator.addLearner(std::make_unique<BarrierLearner>());
   coordinator.addLearner(std::make_unique<PassageSkeletonLearner>());
+  const auto columns = static_cast<std::size_t>(std::ceil(
+      grid_configuration.initial_width_m / grid_configuration.resolution_m));
+  const auto rows = static_cast<std::size_t>(std::ceil(
+      grid_configuration.initial_height_m / grid_configuration.resolution_m));
   coordinator.addLearner(std::make_unique<KnownGridLearner>(
-      200U, 200U, 1.0, domain::Point2D{}, extent_policy));
+      columns, rows, grid_configuration.resolution_m, domain::Point2D{},
+      grid_configuration.extent_policy, grid_configuration.expansion,
+      grid_configuration.initialize_around_first_pose,
+      grid_configuration.frame_id));
   coordinator.addLearner(
-      std::make_unique<SensedOccupancyLearner>(200U, 200U, 1.0,
-                                               domain::Point2D{},
-                                               occupancy_configuration,
-                                               extent_policy));
+      std::make_unique<SensedOccupancyLearner>(
+          columns, rows, grid_configuration.resolution_m, domain::Point2D{},
+          occupancy_configuration, grid_configuration.extent_policy,
+          grid_configuration.expansion,
+          grid_configuration.initialize_around_first_pose,
+          grid_configuration.frame_id));
   coordinator.addLearner(std::make_unique<InclusionGridLearner>(
-      200U, 200U, 1.0, domain::Point2D{}, extent_policy));
+      columns, rows, grid_configuration.resolution_m, domain::Point2D{},
+      grid_configuration.extent_policy, grid_configuration.expansion,
+      grid_configuration.initialize_around_first_pose,
+      grid_configuration.frame_id));
   coordinator.addLearner(std::make_unique<HighwayLearner>());
   coordinator.addLearner(std::make_unique<CircumstanceLearner>(
       std::move(circumstance_configuration)));
@@ -335,6 +365,11 @@ void SpatialLearningCoordinator::applyTo(domain::SpatialModel& model) const {
                 payload.geometry.columns, payload.geometry.rows,
                 payload.geometry.resolution_m, payload.geometry.origin,
                 std::move(cells), update.revision};
+            model.known_grid.frame_id = payload.geometry.frame_id;
+            model.known_grid.geometry_revision =
+                payload.geometry.geometry_revision;
+            model.known_grid.extent_mode = payload.geometry.extent_mode;
+            model.known_grid.extent_source = payload.geometry.extent_source;
             model.known_grid.last_observed_sequence.assign(
                 model.known_grid.cells.size(), 0U);
             model.known_grid.confidence.assign(model.known_grid.cells.size(),

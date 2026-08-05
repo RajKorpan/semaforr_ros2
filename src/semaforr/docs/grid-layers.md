@@ -14,6 +14,9 @@ Inclusion, highway evidence, hallways, conveyors, regions, crowd fields and
 planner costs are separate representations. A positive familiarity count is
 never interpreted as a free cell.
 
+The layers share the coordinate and extent contract documented in
+[grid geometry and expansion](grid-geometry.md), without sharing cell meaning.
+
 ## Range integration
 
 Each scan is transformed using the observed world pose. NaN, negative

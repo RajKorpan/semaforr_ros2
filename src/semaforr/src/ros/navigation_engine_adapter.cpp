@@ -39,15 +39,20 @@ domain::WorldModel makeWorld(const config::Configuration& configuration) {
 }
 
 social::CrowdFieldLearnerConfiguration crowdConfiguration(
-    const config::Configuration& configuration) {
+    const config::Configuration& configuration,
+    const domain::StaticMap* static_map) {
   const auto& source = configuration.navigation.crowd_learning;
   social::CrowdFieldLearnerConfiguration result;
-  result.geometry = {source.frame,
-                     static_cast<double>(configuration.map_dimensions.length),
-                     static_cast<double>(configuration.map_dimensions.height),
-                     source.resolution_m,
-                     source.origin_x_m,
-                     source.origin_y_m};
+  result.geometry = static_map && static_map->occupancyAvailable()
+                        ? static_map->occupancy.geometry
+                        : domain::GridGeometry{
+                              source.frame,
+                              static_cast<double>(
+                                  configuration.map_dimensions.length),
+                              static_cast<double>(
+                                  configuration.map_dimensions.height),
+                              source.resolution_m, source.origin_x_m,
+                              source.origin_y_m};
   result.strategy = social::crowdEstimatorStrategyFromString(source.estimator);
   result.discount_factor = source.discount_factor;
   result.minimum_update_period_s = source.minimum_update_period_s;
@@ -123,6 +128,24 @@ spatial::GridExtentPolicy gridExtentPolicy(const std::string& value) {
   throw std::runtime_error("unknown grid extent policy '" + value + "'");
 }
 
+spatial::LearnedGridConfiguration learnedGridConfiguration(
+    const config::Configuration& configuration) {
+  const auto& source = configuration.navigation.grids;
+  spatial::LearnedGridConfiguration result;
+  result.frame_id = source.frame_id;
+  result.initial_width_m = source.mapless_initial_width_m;
+  result.initial_height_m = source.mapless_initial_height_m;
+  result.resolution_m = source.resolution_m;
+  result.extent_policy = gridExtentPolicy(source.extent_policy);
+  result.expansion = {source.expansion_margin_m,
+                      source.expansion_increment_cells,
+                      source.maximum_width_m,
+                      source.maximum_height_m,
+                      source.memory_limit_cells};
+  result.initialize_around_first_pose = true;
+  return result;
+}
+
 }  // namespace
 
 class NavigationEngineAdapter::Impl {
@@ -142,7 +165,7 @@ class NavigationEngineAdapter::Impl {
                  configuration_.navigation.grids.free_observations_to_clear),
              configuration_.navigation.grids.dynamic_expiry_observations,
              true},
-            gridExtentPolicy(configuration_.navigation.grids.extent_policy))),
+            learnedGridConfiguration(configuration_))),
         hard_safety_(action_space_.move_distances_m(),
                      action_space_.rotation_angles_rad(),
                      configuration_.navigation.robot_footprint,
@@ -159,7 +182,7 @@ class NavigationEngineAdapter::Impl {
     configureDecisions();
     if (configuration_.navigation.crowd_learning.enabled) {
       crowd_learning_ = std::make_unique<social::CrowdFieldLearner>(
-          crowdConfiguration(configuration_));
+          crowdConfiguration(configuration_, world_.static_map));
     }
     decision::TierOneRegistry tier_one_registry;
     decision::AdvisorRegistry unused_advisors;
@@ -260,6 +283,11 @@ class NavigationEngineAdapter::Impl {
           configuration_.static_map.path, mapSearchPaths());
       auto loaded = planning::loadStaticMap(
           resolved, configuration_.map_dimensions, configuration_.static_map);
+      for (const auto& task : configuration_.tasks) {
+        if (!loaded.bounds.contains({task.x, task.y}))
+          throw std::runtime_error(
+              "mission target lies outside resolved static-map bounds");
+      }
       static_map_owner_ =
           std::make_unique<const domain::StaticMap>(std::move(loaded));
       world_.static_map = static_map_owner_.get();
@@ -268,6 +296,16 @@ class NavigationEngineAdapter::Impl {
           configuration_.static_map.map_based_planning_enabled};
       map_diagnostics_.push_back("map_status:loaded");
       map_diagnostics_.push_back("map_source:" + world_.static_map->source);
+      map_diagnostics_.push_back("map_checksum:" +
+                                 world_.static_map->checksum);
+      map_diagnostics_.push_back(
+          std::string("map_grid_extent_source:") +
+          domain::toString(
+              world_.static_map->occupancy.geometry.extent_source));
+      map_diagnostics_.push_back(
+          "map_grid_geometry_revision:" +
+          std::to_string(
+              world_.static_map->occupancy.geometry.geometry_revision));
       map_diagnostics_.push_back(
           std::string("map_capabilities:geometry=true,occupancy=true,planning=") +
           (world_.map_capabilities.map_based_planning_available ? "true"

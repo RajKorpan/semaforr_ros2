@@ -21,6 +21,16 @@ struct LearnerInspection {
   SpatialModelUpdate update;
 };
 
+struct LearnedGridConfiguration {
+  std::string frame_id{"map"};
+  double initial_width_m{20.0};
+  double initial_height_m{20.0};
+  double resolution_m{0.5};
+  GridExtentPolicy extent_policy = GridExtentPolicy::Expand;
+  domain::GridExpansionPolicy expansion;
+  bool initialize_around_first_pose{true};
+};
+
 class SpatialLearningCoordinator {
  public:
   explicit SpatialLearningCoordinator(
@@ -40,6 +50,11 @@ class SpatialLearningCoordinator {
       CircumstanceLearningConfiguration circumstance_configuration,
       SensedOccupancyLearningConfiguration occupancy_configuration,
       GridExtentPolicy extent_policy);
+  static SpatialLearningCoordinator defaults(
+      std::size_t automatic_rebuild_interval,
+      CircumstanceLearningConfiguration circumstance_configuration,
+      SensedOccupancyLearningConfiguration occupancy_configuration,
+      LearnedGridConfiguration grid_configuration);
   void addLearner(std::unique_ptr<SpatialLearner> learner, bool enabled = true);
   void setEnabled(SpatialRepresentation representation, bool enabled);
   bool enabled(SpatialRepresentation representation) const;

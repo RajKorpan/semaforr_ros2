@@ -95,18 +95,7 @@ bool forwardBlocked(const domain::LaserObservation& laser,
 template <typename Grid>
 std::optional<std::size_t> gridIndex(const Grid& grid,
                                      domain::Point2D point) {
-  if (grid.columns == 0U || grid.rows == 0U || grid.resolution_m <= 0.0)
-    return std::nullopt;
-  const int column = static_cast<int>(std::floor(
-      (point.x_m - grid.origin.x_m) / grid.resolution_m));
-  const int row = static_cast<int>(std::floor(
-      (point.y_m - grid.origin.y_m) / grid.resolution_m));
-  if (row < 0 || column < 0 ||
-      static_cast<std::size_t>(row) >= grid.rows ||
-      static_cast<std::size_t>(column) >= grid.columns)
-    return std::nullopt;
-  return static_cast<std::size_t>(row) * grid.columns +
-         static_cast<std::size_t>(column);
+  return grid.extent().index(point);
 }
 
 domain::Action stepToward(const domain::Pose2D& pose,

@@ -1,10 +1,14 @@
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
 #include <filesystem>
+#include <fstream>
+#include <iomanip>
 #include <semaforr/planning/map_parser.hpp>
 #include <semaforr/planning/static_map_loader.hpp>
 #include <stdexcept>
 #include <string>
+#include <sstream>
 #include <vector>
 
 namespace semaforr::planning {
@@ -21,30 +25,46 @@ std::filesystem::path canonicalFile(const std::filesystem::path& path) {
   return error ? path.lexically_normal() : canonical;
 }
 
+std::string fileChecksum(const std::filesystem::path& path) {
+  std::ifstream input(path, std::ios::binary);
+  if (!input) throw std::runtime_error("cannot checksum map file");
+  std::uint64_t hash = 1469598103934665603ULL;
+  char byte = 0;
+  while (input.get(byte)) {
+    hash ^= static_cast<unsigned char>(byte);
+    hash *= 1099511628211ULL;
+  }
+  std::ostringstream output;
+  output << std::hex << std::setfill('0') << std::setw(16) << hash;
+  return output.str();
+}
+
 void markWall(domain::StaticOccupancyGrid& grid,
               const domain::Segment2D& wall) {
   const double length = wall.length().meters();
   const std::size_t samples = std::max<std::size_t>(
-      1U, static_cast<std::size_t>(std::ceil(length / (grid.resolution_m / 2.0))));
+      1U, static_cast<std::size_t>(
+              std::ceil(length / (grid.geometry.resolution_m / 2.0))));
   constexpr int inflation_cells = 0;
   for (std::size_t sample = 0U; sample <= samples; ++sample) {
     const double t = static_cast<double>(sample) / static_cast<double>(samples);
     const double x = wall.start.x_m + t * (wall.end.x_m - wall.start.x_m);
     const double y = wall.start.y_m + t * (wall.end.y_m - wall.start.y_m);
-    const int column = static_cast<int>(std::floor((x - grid.origin.x_m) /
-                                                   grid.resolution_m));
-    const int row = static_cast<int>(std::floor((y - grid.origin.y_m) /
-                                                grid.resolution_m));
+    const int column = static_cast<int>(std::floor(
+        (x - grid.geometry.origin.x_m) / grid.geometry.resolution_m));
+    const int row = static_cast<int>(std::floor(
+        (y - grid.geometry.origin.y_m) / grid.geometry.resolution_m));
     for (int dy = -inflation_cells; dy <= inflation_cells; ++dy) {
       for (int dx = -inflation_cells; dx <= inflation_cells; ++dx) {
         if (dx * dx + dy * dy > inflation_cells * inflation_cells) continue;
         const int occupied_column = column + dx;
         const int occupied_row = row + dy;
         if (occupied_column < 0 || occupied_row < 0 ||
-            occupied_column >= static_cast<int>(grid.columns) ||
-            occupied_row >= static_cast<int>(grid.rows))
+            occupied_column >= static_cast<int>(grid.geometry.columns) ||
+            occupied_row >= static_cast<int>(grid.geometry.rows))
           continue;
-        grid.cells[static_cast<std::size_t>(occupied_row) * grid.columns +
+        grid.cells[static_cast<std::size_t>(occupied_row) *
+                       grid.geometry.columns +
                    static_cast<std::size_t>(occupied_column)] =
             domain::StaticOccupancyState::StaticOccupied;
       }
@@ -116,7 +136,10 @@ domain::StaticMap loadStaticMap(
                              resolved_path.extension().string() +
                              "' for '" + resolved_path.string() +
                              "'; supported format: XML ObstacleSet");
-  if (dimensions.length <= 0 || dimensions.height <= 0 ||
+  const bool infer_bounds = configuration.bounds_policy == "infer" ||
+                            configuration.bounds_policy == "infer_expandable";
+  if ((!infer_bounds &&
+       (dimensions.length <= 0 || dimensions.height <= 0)) ||
       !std::isfinite(configuration.origin_x_m) ||
       !std::isfinite(configuration.origin_y_m) ||
       !std::isfinite(configuration.occupancy_resolution_m) ||
@@ -130,10 +153,32 @@ domain::StaticMap loadStaticMap(
   auto parsed = parseMapXmlFile(resolved_path);
   domain::StaticMap result;
   result.source = canonicalFile(resolved_path).string();
+  result.checksum = fileChecksum(resolved_path);
   result.format = "menge_obstacle_set_xml";
-  result.bounds = {{configuration.origin_x_m, configuration.origin_y_m},
-                   {configuration.origin_x_m + dimensions.length,
-                    configuration.origin_y_m + dimensions.height}};
+  if (infer_bounds) {
+    if (parsed.walls.empty())
+      throw std::runtime_error(
+          "cannot infer map bounds from a map without obstacle geometry");
+    double minimum_x = parsed.walls.front().start.x_m;
+    double maximum_x = minimum_x;
+    double minimum_y = parsed.walls.front().start.y_m;
+    double maximum_y = minimum_y;
+    for (const auto& wall : parsed.walls) {
+      for (const auto point : {wall.start, wall.end}) {
+        minimum_x = std::min(minimum_x, point.x_m);
+        maximum_x = std::max(maximum_x, point.x_m);
+        minimum_y = std::min(minimum_y, point.y_m);
+        maximum_y = std::max(maximum_y, point.y_m);
+      }
+    }
+    const double padding = configuration.inferred_bounds_padding_m;
+    result.bounds = {{minimum_x - padding, minimum_y - padding},
+                     {maximum_x + padding, maximum_y + padding}};
+  } else {
+    result.bounds = {{configuration.origin_x_m, configuration.origin_y_m},
+                     {configuration.origin_x_m + dimensions.length,
+                      configuration.origin_y_m + dimensions.height}};
+  }
   for (const auto& wall : parsed.walls) {
     if (!result.bounds.contains(wall.start) ||
         !result.bounds.contains(wall.end))
@@ -146,13 +191,14 @@ domain::StaticMap loadStaticMap(
   result.walls = std::move(parsed.walls);
   result.obstacle_polygons = std::move(parsed.obstacle_polygons);
   auto& grid = result.occupancy;
-  grid.resolution_m = configuration.occupancy_resolution_m;
-  grid.origin = result.bounds.minimum;
-  grid.columns = static_cast<std::size_t>(
-      std::ceil(static_cast<double>(dimensions.length) / grid.resolution_m));
-  grid.rows = static_cast<std::size_t>(
-      std::ceil(static_cast<double>(dimensions.height) / grid.resolution_m));
-  grid.cells.assign(grid.columns * grid.rows,
+  grid.geometry = domain::GridGeometry::fromBounds(
+      "map", result.bounds.minimum, result.bounds.maximum,
+      configuration.occupancy_resolution_m, domain::GridExtentMode::Fixed,
+      infer_bounds ? domain::GridExtentSource::InferredMapBounds
+                   : domain::GridExtentSource::StaticMapBounds,
+      domain::GridOutOfBoundsBehavior::NonTraversable, result.revision,
+      result.source + "#" + result.checksum);
+  grid.cells.assign(grid.geometry.cellCount(),
                     domain::StaticOccupancyState::StaticFree);
   for (const auto& wall : result.walls)
     markWall(grid, wall);

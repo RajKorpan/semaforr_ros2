@@ -2,6 +2,7 @@
 #define SEMAFORR_SPATIAL_GRID_LEARNERS_HPP
 
 #include <semaforr/spatial/learner_base.hpp>
+#include <string>
 #include <unordered_map>
 
 namespace semaforr::spatial {
@@ -13,7 +14,10 @@ class KnownGridLearner final : public SpatialLearnerBase {
   KnownGridLearner(std::size_t columns = 200U, std::size_t rows = 200U,
                    double resolution_m = 1.0,
                    domain::Point2D origin = {},
-                   GridExtentPolicy extent_policy = GridExtentPolicy::Expand);
+                   GridExtentPolicy extent_policy = GridExtentPolicy::Expand,
+                   domain::GridExpansionPolicy expansion_policy = {},
+                   bool initialize_around_first_pose = false,
+                   std::string frame_id = "map");
 
  private:
   void onObserve(const NavigationEpisode& episode) override;
@@ -22,6 +26,9 @@ class KnownGridLearner final : public SpatialLearnerBase {
   std::unordered_map<std::size_t, std::uint32_t> observations_;
   std::unordered_map<std::size_t, std::size_t> last_observed_sequence_;
   GridExtentPolicy extent_policy_;
+  domain::GridExpansionPolicy expansion_policy_;
+  bool initialize_around_first_pose_ = false;
+  std::size_t out_of_bounds_evidence_ = 0U;
 };
 
 struct SensedOccupancyLearningConfiguration {
@@ -36,7 +43,10 @@ class SensedOccupancyLearner final : public SpatialLearnerBase {
       std::size_t columns = 200U, std::size_t rows = 200U,
       double resolution_m = 1.0, domain::Point2D origin = {},
       SensedOccupancyLearningConfiguration configuration = {},
-      GridExtentPolicy extent_policy = GridExtentPolicy::Expand);
+      GridExtentPolicy extent_policy = GridExtentPolicy::Expand,
+      domain::GridExpansionPolicy expansion_policy = {},
+      bool initialize_around_first_pose = false,
+      std::string frame_id = "map");
 
  private:
   void onObserve(const NavigationEpisode& episode) override;
@@ -50,6 +60,9 @@ class SensedOccupancyLearner final : public SpatialLearnerBase {
   SensedOccupancyLearningConfiguration configuration_;
   std::unordered_map<std::size_t, domain::SensedOccupancyCell> cells_;
   GridExtentPolicy extent_policy_;
+  domain::GridExpansionPolicy expansion_policy_;
+  bool initialize_around_first_pose_ = false;
+  std::size_t out_of_bounds_evidence_ = 0U;
 };
 
 class InclusionGridLearner final : public SpatialLearnerBase {
@@ -57,7 +70,10 @@ class InclusionGridLearner final : public SpatialLearnerBase {
   InclusionGridLearner(std::size_t columns = 200U, std::size_t rows = 200U,
                        double resolution_m = 1.0,
                        domain::Point2D origin = {},
-                       GridExtentPolicy extent_policy = GridExtentPolicy::Expand);
+                       GridExtentPolicy extent_policy = GridExtentPolicy::Expand,
+                       domain::GridExpansionPolicy expansion_policy = {},
+                       bool initialize_around_first_pose = false,
+                       std::string frame_id = "map");
 
  private:
   void onObserve(const NavigationEpisode& episode) override;
@@ -65,6 +81,9 @@ class InclusionGridLearner final : public SpatialLearnerBase {
   GridGeometry geometry_;
   std::unordered_map<std::size_t, std::uint32_t> included_;
   GridExtentPolicy extent_policy_;
+  domain::GridExpansionPolicy expansion_policy_;
+  bool initialize_around_first_pose_ = false;
+  std::size_t out_of_bounds_evidence_ = 0U;
 };
 
 }  // namespace semaforr::spatial

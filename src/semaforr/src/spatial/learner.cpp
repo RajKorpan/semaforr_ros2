@@ -47,6 +47,30 @@ void segment(std::ostream& output, const domain::Segment2D& value) {
   output << '}';
 }
 
+void gridGeometry(std::ostream& output,
+                  const domain::GridGeometry& geometry) {
+  output << "{\"schema_version\":1,\"frame_id\":"
+         << quote(geometry.frame_id) << ",\"minimum\":";
+  point(output, geometry.minimum);
+  output << ",\"maximum\":";
+  point(output, geometry.maximum);
+  output << ",\"origin\":";
+  point(output, geometry.origin);
+  output << ",\"resolution_m\":" << geometry.resolution_m
+         << ",\"columns\":" << geometry.columns << ",\"rows\":"
+         << geometry.rows << ",\"boundary_convention\":\"half_open\""
+         << ",\"out_of_bounds\":"
+         << static_cast<int>(geometry.out_of_bounds)
+         << ",\"expandable\":"
+         << (geometry.extent_mode == domain::GridExtentMode::Expandable
+                 ? "true"
+                 : "false")
+         << ",\"geometry_revision\":" << geometry.geometry_revision
+         << ",\"extent_source\":"
+         << quote(domain::toString(geometry.extent_source))
+         << ",\"map_identifier\":" << quote(geometry.map_identifier) << '}';
+}
+
 template <typename Range, typename Writer>
 void array(std::ostream& output, const Range& values, Writer writer) {
   output << '[';
@@ -122,12 +146,9 @@ void payload(std::ostream& output, const SpatialPayload& value) {
                  << model.connectivity_revision;
           output << '}';
         } else if constexpr (std::is_same_v<Model, KnownGridModel>) {
-          output << "{\"geometry\":{\"columns\":" << model.geometry.columns
-                 << ",\"rows\":" << model.geometry.rows
-                 << ",\"resolution_m\":" << model.geometry.resolution_m
-                 << ",\"origin\":";
-          point(output, model.geometry.origin);
-          output << "},\"observations\":";
+          output << "{\"geometry\":";
+          gridGeometry(output, model.geometry);
+          output << ",\"observations\":";
           array(output, model.observations,
                 [](std::ostream& stream, auto cell) { stream << cell; });
           output << ",\"sparse_observations\":";
@@ -146,12 +167,9 @@ void payload(std::ostream& output, const SpatialPayload& value) {
                 });
           output << '}';
         } else if constexpr (std::is_same_v<Model, SensedOccupancyModel>) {
-          output << "{\"geometry\":{\"columns\":"
-                 << model.geometry.columns << ",\"rows\":"
-                 << model.geometry.rows << ",\"resolution_m\":"
-                 << model.geometry.resolution_m << ",\"origin\":";
-          point(output, model.geometry.origin);
-          output << "},\"cells\":";
+          output << "{\"geometry\":";
+          gridGeometry(output, model.geometry);
+          output << ",\"cells\":";
           array(output, model.cells,
                 [](std::ostream& stream, const auto& cell) {
                   stream << "{\"state\":" << static_cast<int>(cell.state)
@@ -169,12 +187,9 @@ void payload(std::ostream& output, const SpatialPayload& value) {
                 });
           output << '}';
         } else if constexpr (std::is_same_v<Model, InclusionGridModel>) {
-          output << "{\"geometry\":{\"columns\":" << model.geometry.columns
-                 << ",\"rows\":" << model.geometry.rows
-                 << ",\"resolution_m\":" << model.geometry.resolution_m
-                 << ",\"origin\":";
-          point(output, model.geometry.origin);
-          output << "},\"included\":";
+          output << "{\"geometry\":";
+          gridGeometry(output, model.geometry);
+          output << ",\"included\":";
           array(output, model.included,
                 [](std::ostream& stream, auto cell) { stream << cell; });
           output << ",\"sparse_included\":";

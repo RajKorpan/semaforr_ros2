@@ -117,6 +117,10 @@ struct FreespaceGrid {
   Point2D origin;
   std::vector<std::uint32_t> cells;
   std::size_t revision = 0U;
+
+  GridExtent extent() const {
+    return {columns, rows, resolution_m, origin};
+  }
 };
 
 struct ExplorationCue {

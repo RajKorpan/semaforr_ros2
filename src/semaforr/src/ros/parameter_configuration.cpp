@@ -102,6 +102,8 @@ void declareConfigurationParameters(rclcpp::Node& node) {
   node.declare_parameter("map.obstacle_inflation_m", 0.0);
   node.declare_parameter("map.planning.enabled", true);
   node.declare_parameter("map.visualizations.enabled", false);
+  node.declare_parameter("map.bounds_policy", std::string{"require_declared"});
+  node.declare_parameter("map.inferred_bounds_padding_m", 1.0);
   node.declare_parameter("mission.tasks_path", std::string{});
   node.declare_parameter("map.length_m", 200);
   node.declare_parameter("map.height_m", 200);
@@ -135,6 +137,15 @@ void declareConfigurationParameters(rclcpp::Node& node) {
   }
   node.declare_parameter("features.loaded_highway_model", std::string{});
   node.declare_parameter("grids.extent_policy", std::string{"expand"});
+  node.declare_parameter("grids.frame_id", std::string{"map"});
+  node.declare_parameter("grids.mapless.initial_width_m", 20.0);
+  node.declare_parameter("grids.mapless.initial_height_m", 20.0);
+  node.declare_parameter("grids.resolution_m", 0.5);
+  node.declare_parameter("grids.expansion.margin_m", 2.0);
+  node.declare_parameter("grids.expansion.increment_cells", 32);
+  node.declare_parameter("grids.expansion.maximum_width_m", 0.0);
+  node.declare_parameter("grids.expansion.maximum_height_m", 0.0);
+  node.declare_parameter("grids.expansion.memory_limit_cells", 10000000);
   node.declare_parameter("grids.visualizations.enabled", false);
   node.declare_parameter("grids.sensed.free_observations_to_clear", 3);
   node.declare_parameter("grids.sensed.dynamic_expiry_observations", 30);
@@ -253,6 +264,23 @@ config::Configuration configurationFromParameters(rclcpp::Node& node) {
       node.get_parameter("features.loaded_highway_model").as_string();
   navigation.grids.extent_policy =
       node.get_parameter("grids.extent_policy").as_string();
+  navigation.grids.frame_id = node.get_parameter("grids.frame_id").as_string();
+  navigation.grids.mapless_initial_width_m =
+      node.get_parameter("grids.mapless.initial_width_m").as_double();
+  navigation.grids.mapless_initial_height_m =
+      node.get_parameter("grids.mapless.initial_height_m").as_double();
+  navigation.grids.resolution_m =
+      node.get_parameter("grids.resolution_m").as_double();
+  navigation.grids.expansion_margin_m =
+      node.get_parameter("grids.expansion.margin_m").as_double();
+  navigation.grids.expansion_increment_cells = static_cast<std::size_t>(
+      node.get_parameter("grids.expansion.increment_cells").as_int());
+  navigation.grids.maximum_width_m =
+      node.get_parameter("grids.expansion.maximum_width_m").as_double();
+  navigation.grids.maximum_height_m =
+      node.get_parameter("grids.expansion.maximum_height_m").as_double();
+  navigation.grids.memory_limit_cells = static_cast<std::size_t>(
+      node.get_parameter("grids.expansion.memory_limit_cells").as_int());
   navigation.grids.free_observations_to_clear = static_cast<std::size_t>(
       node.get_parameter("grids.sensed.free_observations_to_clear").as_int());
   navigation.grids.dynamic_expiry_observations = static_cast<std::size_t>(
@@ -355,6 +383,10 @@ config::Configuration configurationFromParameters(rclcpp::Node& node) {
       node.get_parameter("map.planning.enabled").as_bool();
   configuration.static_map.visualizations_enabled =
       node.get_parameter("map.visualizations.enabled").as_bool();
+  configuration.static_map.bounds_policy =
+      node.get_parameter("map.bounds_policy").as_string();
+  configuration.static_map.inferred_bounds_padding_m =
+      node.get_parameter("map.inferred_bounds_padding_m").as_double();
   configuration.experiment.behavior_mode = config::behaviorModeFromString(
       node.get_parameter("experiment.behavior_mode").as_string());
   const auto mode = node.get_parameter("experiment.mode").as_string();

@@ -20,70 +20,6 @@ bool finiteNonnegative(double value) noexcept {
 
 }  // namespace
 
-void GridGeometry::validate() const {
-  if (frame_id.empty()) {
-    throw std::invalid_argument("crowd grid frame must not be empty");
-  }
-  if (!std::isfinite(width_m) || width_m <= 0.0 || !std::isfinite(height_m) ||
-      height_m <= 0.0 || !std::isfinite(resolution_m) || resolution_m <= 0.0 ||
-      !std::isfinite(origin_x_m) || !std::isfinite(origin_y_m)) {
-    throw std::invalid_argument(
-        "crowd grid dimensions, resolution, and origin must be finite; "
-        "dimensions and resolution must be positive");
-  }
-  if (cellCount() > 10'000'000U) {
-    throw std::invalid_argument("crowd grid contains too many cells");
-  }
-}
-
-std::size_t GridGeometry::columns() const {
-  return static_cast<std::size_t>(std::ceil(width_m / resolution_m));
-}
-
-std::size_t GridGeometry::rows() const {
-  return static_cast<std::size_t>(std::ceil(height_m / resolution_m));
-}
-
-std::size_t GridGeometry::cellCount() const {
-  const auto column_count = columns();
-  const auto row_count = rows();
-  if (column_count != 0U &&
-      row_count > std::numeric_limits<std::size_t>::max() / column_count) {
-    throw std::overflow_error("crowd grid cell count overflow");
-  }
-  return column_count * row_count;
-}
-
-std::optional<std::size_t> GridGeometry::index(Point2D point) const noexcept {
-  if (!point.finite() || !std::isfinite(resolution_m) || resolution_m <= 0.0) {
-    return std::nullopt;
-  }
-  const double relative_x = point.x_m - origin_x_m;
-  const double relative_y = point.y_m - origin_y_m;
-  if (relative_x < 0.0 || relative_y < 0.0 || relative_x >= width_m ||
-      relative_y >= height_m) {
-    return std::nullopt;
-  }
-  const auto column =
-      static_cast<std::size_t>(std::floor(relative_x / resolution_m));
-  const auto row =
-      static_cast<std::size_t>(std::floor(relative_y / resolution_m));
-  if (column >= columns() || row >= rows()) {
-    return std::nullopt;
-  }
-  return row * columns() + column;
-}
-
-Point2D GridGeometry::center(std::size_t index_value) const {
-  if (index_value >= cellCount()) {
-    throw std::out_of_range("crowd grid cell index is out of range");
-  }
-  const std::size_t column = index_value % columns();
-  const std::size_t row = index_value / columns();
-  return {origin_x_m + (static_cast<double>(column) + 0.5) * resolution_m,
-          origin_y_m + (static_cast<double>(row) + 0.5) * resolution_m};
-}
-
 double crowdFlowDirectionAngle(CrowdFlowDirection direction) noexcept {
   return static_cast<double>(static_cast<std::size_t>(direction)) * (kPi / 4.0);
 }
@@ -150,9 +86,9 @@ void CrowdFieldSnapshot::save(std::ostream& output) const {
   validate();
   output << kSerializationMagic << '\n'
          << std::quoted(geometry.frame_id) << ' ' << std::setprecision(17)
-         << geometry.width_m << ' ' << geometry.height_m << ' '
-         << geometry.resolution_m << ' ' << geometry.origin_x_m << ' '
-         << geometry.origin_y_m << '\n'
+         << geometry.widthMeters() << ' ' << geometry.heightMeters() << ' '
+         << geometry.resolution_m << ' ' << geometry.origin.x_m << ' '
+         << geometry.origin.y_m << '\n'
          << generated_at.count() << ' ' << version << ' '
          << std::quoted(estimator) << ' ' << cells.size() << '\n';
   for (const auto& cell : cells) {
@@ -178,10 +114,14 @@ CrowdFieldSnapshot CrowdFieldSnapshot::load(std::istream& input) {
   CrowdFieldSnapshot result;
   std::size_t cell_count = 0U;
   std::int64_t generated = 0;
-  input >> std::quoted(result.geometry.frame_id) >> result.geometry.width_m >>
-      result.geometry.height_m >> result.geometry.resolution_m >>
-      result.geometry.origin_x_m >> result.geometry.origin_y_m >> generated >>
-      result.version >> std::quoted(result.estimator) >> cell_count;
+  std::string frame;
+  double width_m = 0.0, height_m = 0.0, resolution_m = 0.0;
+  double origin_x_m = 0.0, origin_y_m = 0.0;
+  input >> std::quoted(frame) >> width_m >> height_m >> resolution_m >>
+      origin_x_m >> origin_y_m >> generated >> result.version >>
+      std::quoted(result.estimator) >> cell_count;
+  result.geometry = {std::move(frame), width_m, height_m, resolution_m,
+                     origin_x_m, origin_y_m};
   result.generated_at = SocialTimestamp(generated);
   result.cells.resize(cell_count);
   for (auto& cell : result.cells) {

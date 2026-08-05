@@ -124,6 +124,26 @@ TEST(StaticMapLoader, BuildsGeometryOccupancyAndSupportsNegativeOrigin) {
   EXPECT_FALSE(map.lineOfSight({{-4.0, 0.0}, {4.0, 0.0}}));
 }
 
+TEST(StaticMapLoader, InfersPaddedBoundsWhenTheFormatHasNoBounds) {
+  namespace fs = std::filesystem;
+  const fs::path workspace(SEMAFORR_TEST_WORKSPACE_SOURCE_DIR);
+  semaforr::config::StaticMapConfiguration configuration;
+  configuration.mode = semaforr::config::MapOperatingMode::MapEnabled;
+  configuration.bounds_policy = "infer";
+  configuration.inferred_bounds_padding_m = 2.0;
+  configuration.occupancy_resolution_m = 0.5;
+  const auto map = semaforr::planning::loadStaticMap(
+      workspace / "src/semaforr/test/fixtures/maps/negative.xml",
+      {0, 0, 0.5}, configuration);
+  EXPECT_TRUE(map.occupancyAvailable());
+  EXPECT_EQ(map.occupancy.geometry.extent_source,
+            semaforr::domain::GridExtentSource::InferredMapBounds);
+  EXPECT_EQ(map.occupancy.geometry.extent_mode,
+            semaforr::domain::GridExtentMode::Fixed);
+  EXPECT_LT(map.bounds.minimum.x_m, -1.0);
+  EXPECT_GT(map.bounds.maximum.x_m, 1.0);
+}
+
 TEST(StaticMapLoader, RejectsUnsupportedFormatAndOutOfBoundsGeometry) {
   namespace fs = std::filesystem;
   const fs::path workspace(SEMAFORR_TEST_WORKSPACE_SOURCE_DIR);

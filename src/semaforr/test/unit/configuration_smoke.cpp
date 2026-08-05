@@ -312,6 +312,8 @@ int main() {
   {
     auto invalid = valid;
     invalid.tasks.front().x = 500.0;
+    invalid.static_map.mode = semaforr::config::MapOperatingMode::MapEnabled;
+    invalid.static_map.path = invalid.map_file;
     assertThrowsContaining(
         [&invalid]() { semaforr::config::validateConfiguration(invalid); },
         "outside configured dimensions");
@@ -363,7 +365,7 @@ int main() {
     invalid.navigation.grids.extent_policy = "elastic";
     assertThrowsContaining(
         [&invalid]() { semaforr::config::validateConfiguration(invalid); },
-        "grid evidence thresholds");
+        "grid geometry");
   }
   for (const auto& fixture :
        {"empty_tasks.conf", "invalid_tasks.conf", "extra_task_token.conf"}) {

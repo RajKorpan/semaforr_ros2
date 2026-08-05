@@ -9,27 +9,23 @@ namespace semaforr::spatial {
 namespace {
 
 GridGeometry geometry(std::size_t columns, std::size_t rows,
-                      double resolution_m, domain::Point2D origin) {
+                      double resolution_m, domain::Point2D origin,
+                      GridExtentPolicy policy, std::string frame_id) {
   if (columns == 0U || rows == 0U || !std::isfinite(resolution_m) ||
       resolution_m <= 0.0 || !origin.finite())
     throw std::invalid_argument("grid geometry must be finite and positive");
-  return {columns, rows, resolution_m, origin};
+  GridGeometry result{
+      columns, rows, resolution_m, origin,
+      policy == GridExtentPolicy::Expand ? domain::GridExtentMode::Expandable
+                                         : domain::GridExtentMode::Fixed,
+      domain::GridExtentSource::ConfiguredMaplessInitialBounds};
+  result.frame_id = std::move(frame_id);
+  return result;
 }
 
 std::optional<std::size_t> indexOf(const GridGeometry& grid,
                                    domain::Point2D point) {
-  const auto column =
-      static_cast<long long>(std::floor((point.x_m - grid.origin.x_m) /
-                                        grid.resolution_m));
-  const auto row =
-      static_cast<long long>(std::floor((point.y_m - grid.origin.y_m) /
-                                        grid.resolution_m));
-  if (column < 0 || row < 0 ||
-      column >= static_cast<long long>(grid.columns) ||
-      row >= static_cast<long long>(grid.rows))
-    return std::nullopt;
-  return static_cast<std::size_t>(row) * grid.columns +
-         static_cast<std::size_t>(column);
+  return grid.index(point);
 }
 
 void increment(std::unordered_map<std::size_t, std::uint32_t>& cells,
@@ -75,40 +71,25 @@ std::uint16_t saturatingIncrement(std::uint16_t value) {
 
 GridGeometry expandedGeometry(const GridGeometry& grid,
                               const std::vector<domain::Point2D>& points,
-                              GridExtentPolicy policy) {
+                              GridExtentPolicy policy,
+                              const domain::GridExpansionPolicy& expansion) {
   if (policy == GridExtentPolicy::Fixed || points.empty()) return grid;
-  long long min_column = 0, min_row = 0;
-  long long max_column = static_cast<long long>(grid.columns) - 1;
-  long long max_row = static_cast<long long>(grid.rows) - 1;
+  auto result = grid;
   for (const auto point : points) {
-    const auto column = static_cast<long long>(std::floor(
-        (point.x_m - grid.origin.x_m) / grid.resolution_m));
-    const auto row = static_cast<long long>(std::floor(
-        (point.y_m - grid.origin.y_m) / grid.resolution_m));
-    min_column = std::min(min_column, column);
-    min_row = std::min(min_row, row);
-    max_column = std::max(max_column, column);
-    max_row = std::max(max_row, row);
+    auto update = domain::expandToInclude(result, point, expansion);
+    if (update.resource_limited) throw std::runtime_error(update.diagnostic);
+    result = std::move(update.geometry);
   }
-  constexpr long long chunk = 32;
-  const auto chunks = [=](long long cells) {
-    return ((cells + chunk - 1) / chunk) * chunk;
-  };
-  const long long left = min_column < 0 ? chunks(-min_column) : 0;
-  const long long bottom = min_row < 0 ? chunks(-min_row) : 0;
-  const long long right =
-      max_column >= static_cast<long long>(grid.columns)
-          ? chunks(max_column - static_cast<long long>(grid.columns) + 1)
-          : 0;
-  const long long top = max_row >= static_cast<long long>(grid.rows)
-                            ? chunks(max_row -
-                                     static_cast<long long>(grid.rows) + 1)
-                            : 0;
-  return {grid.columns + static_cast<std::size_t>(left + right),
-          grid.rows + static_cast<std::size_t>(bottom + top),
-          grid.resolution_m,
-          {grid.origin.x_m - static_cast<double>(left) * grid.resolution_m,
-           grid.origin.y_m - static_cast<double>(bottom) * grid.resolution_m}};
+  return result;
+}
+
+void initializeAround(GridGeometry& grid, domain::Point2D pose) {
+  const double width = grid.widthMeters();
+  const double height = grid.heightMeters();
+  grid.minimum = {pose.x_m - width * 0.5, pose.y_m - height * 0.5};
+  grid.origin = grid.minimum;
+  grid.maximum = {grid.minimum.x_m + width, grid.minimum.y_m + height};
+  ++grid.geometry_revision;
 }
 
 template <typename Value>
@@ -120,13 +101,7 @@ void remap(std::unordered_map<std::size_t, Value>& cells,
   std::unordered_map<std::size_t, Value> result;
   result.reserve(cells.size());
   for (auto& [old_index, value] : cells) {
-    const auto row = old_index / old_grid.columns;
-    const auto column = old_index % old_grid.columns;
-    const domain::Point2D center{
-        old_grid.origin.x_m +
-            (static_cast<double>(column) + 0.5) * old_grid.resolution_m,
-        old_grid.origin.y_m +
-            (static_cast<double>(row) + 0.5) * old_grid.resolution_m};
+    const domain::Point2D center = old_grid.center(old_index);
     if (const auto index = indexOf(new_grid, center))
       result.emplace(*index, std::move(value));
   }
@@ -156,19 +131,34 @@ std::vector<domain::Point2D> observedExtentPoints(
 KnownGridLearner::KnownGridLearner(std::size_t columns, std::size_t rows,
                                    double resolution_m,
                                    domain::Point2D origin,
-                                   GridExtentPolicy extent_policy)
+                                   GridExtentPolicy extent_policy,
+                                   domain::GridExpansionPolicy expansion_policy,
+                                   bool initialize_around_first_pose,
+                                   std::string frame_id)
     : SpatialLearnerBase(
           SpatialRepresentation::KnownGrid, "known_grid",
           UpdateMode::Incremental,
           {true, true, false, false, "integrate every coherent laser view",
            {"Out", "low-level exploration"},
            UpdateSchedule::EveryObservation}),
-      geometry_(geometry(columns, rows, resolution_m, origin)),
-      extent_policy_(extent_policy) {}
+      geometry_(geometry(columns, rows, resolution_m, origin, extent_policy,
+                         std::move(frame_id))),
+      extent_policy_(extent_policy),
+      expansion_policy_(expansion_policy),
+      initialize_around_first_pose_(initialize_around_first_pose) {}
 
 void KnownGridLearner::onObserve(const NavigationEpisode& episode) {
-  const auto expanded =
-      expandedGeometry(geometry_, observedExtentPoints(episode), extent_policy_);
+  if (initialize_around_first_pose_) {
+    initializeAround(geometry_, episode.observation.pose.position);
+    initialize_around_first_pose_ = false;
+  }
+  const auto extent_points = observedExtentPoints(episode);
+  if (extent_policy_ == GridExtentPolicy::Fixed)
+    out_of_bounds_evidence_ += static_cast<std::size_t>(std::count_if(
+        extent_points.begin(), extent_points.end(),
+        [this](const auto point) { return !geometry_.index(point); }));
+  const auto expanded = expandedGeometry(geometry_, extent_points,
+                                         extent_policy_, expansion_policy_);
   remap(observations_, geometry_, expanded);
   remap(last_observed_sequence_, geometry_, expanded);
   geometry_ = expanded;
@@ -212,7 +202,9 @@ void KnownGridLearner::onObserve(const NavigationEpisode& episode) {
   publish(KnownGridModel{geometry_, {}, sparseSnapshot(observations_),
                          std::move(metadata)},
           ModelStatus::Fresh,
-          "familiarity integrated independently from occupancy");
+          "familiarity integrated independently from occupancy; " +
+              std::to_string(out_of_bounds_evidence_) +
+              " fixed-extent observations rejected");
 }
 
 void KnownGridLearner::onRebuild() {
@@ -234,7 +226,9 @@ void KnownGridLearner::onRebuild() {
 SensedOccupancyLearner::SensedOccupancyLearner(
     std::size_t columns, std::size_t rows, double resolution_m,
     domain::Point2D origin, SensedOccupancyLearningConfiguration configuration,
-    GridExtentPolicy extent_policy)
+    GridExtentPolicy extent_policy,
+    domain::GridExpansionPolicy expansion_policy,
+    bool initialize_around_first_pose, std::string frame_id)
     : SpatialLearnerBase(
           SpatialRepresentation::SensedOccupancy, "sensed_occupancy",
           UpdateMode::Incremental,
@@ -242,9 +236,12 @@ SensedOccupancyLearner::SensedOccupancyLearner(
            "integrate valid range rays as separate free and occupied evidence",
            {"sensor-grid planning", "occupancy fusion", "diagnostics"},
            UpdateSchedule::EveryObservation}),
-      geometry_(geometry(columns, rows, resolution_m, origin)),
+      geometry_(geometry(columns, rows, resolution_m, origin, extent_policy,
+                         std::move(frame_id))),
       configuration_(configuration),
-      extent_policy_(extent_policy) {
+      extent_policy_(extent_policy),
+      expansion_policy_(expansion_policy),
+      initialize_around_first_pose_(initialize_around_first_pose) {
   if (configuration_.free_observations_to_clear == 0U ||
       configuration_.dynamic_expiry_observations == 0U)
     throw std::invalid_argument("sensed occupancy thresholds must be positive");
@@ -311,8 +308,7 @@ void SensedOccupancyLearner::expireDynamic(std::size_t sequence) {
 
 SensedOccupancyModel SensedOccupancyLearner::snapshotModel() const {
   SensedOccupancyModel model;
-  model.geometry = {geometry_.columns, geometry_.rows, geometry_.resolution_m,
-                    geometry_.origin};
+  model.geometry = geometry_;
   model.cells.resize(geometry_.columns * geometry_.rows);
   for (const auto& [index, cell] : cells_)
     if (index < model.cells.size()) model.cells[index] = cell;
@@ -320,8 +316,17 @@ SensedOccupancyModel SensedOccupancyLearner::snapshotModel() const {
 }
 
 void SensedOccupancyLearner::onObserve(const NavigationEpisode& episode) {
-  const auto expanded =
-      expandedGeometry(geometry_, observedExtentPoints(episode), extent_policy_);
+  if (initialize_around_first_pose_) {
+    initializeAround(geometry_, episode.observation.pose.position);
+    initialize_around_first_pose_ = false;
+  }
+  const auto extent_points = observedExtentPoints(episode);
+  if (extent_policy_ == GridExtentPolicy::Fixed)
+    out_of_bounds_evidence_ += static_cast<std::size_t>(std::count_if(
+        extent_points.begin(), extent_points.end(),
+        [this](const auto point) { return !geometry_.index(point); }));
+  const auto expanded = expandedGeometry(geometry_, extent_points,
+                                         extent_policy_, expansion_policy_);
   remap(cells_, geometry_, expanded);
   geometry_ = expanded;
   expireDynamic(episode.sequence);
@@ -353,7 +358,9 @@ void SensedOccupancyLearner::onObserve(const NavigationEpisode& episode) {
     if (hit && endpoint_index) integrateOccupied(*endpoint_index, episode.sequence);
   }
   publish(snapshotModel(), ModelStatus::Fresh,
-          "valid rays integrated; hit endpoints remain occupied");
+          "valid rays integrated; hit endpoints remain occupied; " +
+              std::to_string(out_of_bounds_evidence_) +
+              " fixed-extent observations rejected");
 }
 
 void SensedOccupancyLearner::onRebuild() {
@@ -363,7 +370,9 @@ void SensedOccupancyLearner::onRebuild() {
 
 InclusionGridLearner::InclusionGridLearner(
     std::size_t columns, std::size_t rows, double resolution_m,
-    domain::Point2D origin, GridExtentPolicy extent_policy)
+    domain::Point2D origin, GridExtentPolicy extent_policy,
+    domain::GridExpansionPolicy expansion_policy,
+    bool initialize_around_first_pose, std::string frame_id)
     : SpatialLearnerBase(
           SpatialRepresentation::InclusionGrid, "inclusion_grid",
           UpdateMode::Incremental,
@@ -371,12 +380,23 @@ InclusionGridLearner::InclusionGridLearner(
            "mark cells represented by accepted navigation episodes",
            {"low-level exploration", "coverage diagnostics"},
            UpdateSchedule::EveryObservation}),
-      geometry_(geometry(columns, rows, resolution_m, origin)),
-      extent_policy_(extent_policy) {}
+      geometry_(geometry(columns, rows, resolution_m, origin, extent_policy,
+                         std::move(frame_id))),
+      extent_policy_(extent_policy),
+      expansion_policy_(expansion_policy),
+      initialize_around_first_pose_(initialize_around_first_pose) {}
 
 void InclusionGridLearner::onObserve(const NavigationEpisode& episode) {
+  if (initialize_around_first_pose_) {
+    initializeAround(geometry_, episode.observation.pose.position);
+    initialize_around_first_pose_ = false;
+  }
+  if (extent_policy_ == GridExtentPolicy::Fixed &&
+      !geometry_.index(episode.observation.pose.position))
+    ++out_of_bounds_evidence_;
   const auto expanded = expandedGeometry(
-      geometry_, {episode.observation.pose.position}, extent_policy_);
+      geometry_, {episode.observation.pose.position}, extent_policy_,
+      expansion_policy_);
   remap(included_, geometry_, expanded);
   geometry_ = expanded;
   if (const auto index =
@@ -384,7 +404,9 @@ void InclusionGridLearner::onObserve(const NavigationEpisode& episode) {
     included_[*index] = 1U;
   publish(InclusionGridModel{geometry_, {}, sparseSnapshot(included_)},
           ModelStatus::Fresh,
-          "visited decision cell included incrementally");
+          "visited decision cell included incrementally; " +
+              std::to_string(out_of_bounds_evidence_) +
+              " fixed-extent observations rejected");
 }
 
 void InclusionGridLearner::onRebuild() {

@@ -76,6 +76,7 @@ set(SEMAFORR_DOMAIN_SOURCES
   src/config/navigation_configuration.cpp
   src/domain/circumstance.cpp
   src/domain/crowd_model.cpp
+  src/domain/grid_geometry.cpp
   src/domain/motion_model.cpp
   src/decision/decision_result.cpp
   src/social/crowd_field_learner.cpp
@@ -411,6 +412,13 @@ if(BUILD_TESTING)
     semaforr_grid_layers_test
     semaforr_exploration semaforr_spatial semaforr_planning)
   semaforr_apply_project_options(semaforr_grid_layers_test)
+
+  ament_add_gtest(
+    semaforr_grid_geometry_test
+    test/unit/grid_geometry_test.cpp
+  )
+  target_link_libraries(semaforr_grid_geometry_test semaforr_domain)
+  semaforr_apply_project_options(semaforr_grid_geometry_test)
 
   ament_add_gtest(
     semaforr_ros_execution_test

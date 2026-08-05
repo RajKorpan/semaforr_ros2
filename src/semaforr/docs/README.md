@@ -10,6 +10,7 @@
 - [Configuration reference](configuration-reference.md)
 - [Optional static maps](map-operation.md)
 - [Grid layers and traversability](grid-layers.md)
+- [Grid geometry and expansion](grid-geometry.md)
 - [Topic and frame contract](topics-and-frames.md)
 - [Spatial learning](spatial-learning.md)
 - [Social navigation](social-navigation.md)

@@ -27,22 +27,27 @@ struct MapBounds {
 };
 
 struct StaticOccupancyGrid {
-  std::size_t columns = 0U;
-  std::size_t rows = 0U;
-  double resolution_m = 0.0;
-  Point2D origin;
+  GridGeometry geometry;
   // Immutable prior occupancy. Inflation belongs to derived traversability.
   std::vector<StaticOccupancyState> cells;
 
+  StaticOccupancyGrid() = default;
+  StaticOccupancyGrid(std::size_t columns, std::size_t rows,
+                      double resolution_m, Point2D origin,
+                      std::vector<StaticOccupancyState> occupancy_cells)
+      : geometry(columns, rows, resolution_m, origin, GridExtentMode::Fixed,
+                 GridExtentSource::StaticMapBounds),
+        cells(std::move(occupancy_cells)) {}
+
   bool valid() const noexcept {
-    return columns > 0U && rows > 0U && resolution_m > 0.0 &&
-           cells.size() == columns * rows;
+    return geometry.valid() && cells.size() == geometry.cellCount();
   }
 };
 
 // Constructed once during startup and thereafter shared read-only.
 struct StaticMap {
   std::string source;
+  std::string checksum;
   std::string format;
   MapBounds bounds;
   std::vector<Segment2D> walls;

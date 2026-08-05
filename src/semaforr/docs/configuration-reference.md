@@ -90,7 +90,17 @@ planners are individually selected in `planners.enabled`, including
 `grids.extent_policy` is `expand` or `fixed`. `grids.sensed` controls evidence
 needed to clear and expire sensed obstacles. `grids.planning` controls separate
 map and partial-sensor unknown-space policies, footprint inflation margins, and
-the unknown-cell cost multiplier. See [Grid layers](grid-layers.md).
+the unknown-cell cost multiplier. `grids.frame_id`, `resolution_m`,
+`mapless.initial_width_m`, and `mapless.initial_height_m` define the initial
+mapless allocation. `grids.expansion` defines its trigger margin, aligned cell
+increment, optional maximum dimensions (zero means unbounded), and hard memory
+limit. Learned grids are centered on the first robot pose.
+
+`map.bounds_policy` is `require_declared`, `infer`, or `infer_expandable`.
+Inference uses obstacle geometry and `map.inferred_bounds_padding_m`; static
+occupancy remains fixed, while `infer_expandable` permits the separate sensed
+overlay to extend beyond that prior. See [Grid layers](grid-layers.md) and
+[Grid geometry](grid-geometry.md).
 
 ## Invariant safety boundary
 

@@ -28,6 +28,8 @@ struct StaticMapConfiguration {
   double obstacle_inflation_m = 0.0;
   bool map_based_planning_enabled = true;
   bool visualizations_enabled = false;
+  std::string bounds_policy = "require_declared";
+  double inferred_bounds_padding_m = 1.0;
 };
 
 enum class AblationProfile {
@@ -136,6 +138,15 @@ struct PlannerConfiguration {
 
 struct GridLayerConfiguration {
   std::string extent_policy = "expand";
+  std::string frame_id = "map";
+  double mapless_initial_width_m = 20.0;
+  double mapless_initial_height_m = 20.0;
+  double resolution_m = 0.5;
+  double expansion_margin_m = 2.0;
+  std::size_t expansion_increment_cells = 32U;
+  double maximum_width_m = 0.0;
+  double maximum_height_m = 0.0;
+  std::size_t memory_limit_cells = 10'000'000U;
   std::size_t free_observations_to_clear = 3U;
   std::size_t dynamic_expiry_observations = 30U;
   std::string map_unknown_policy = "prohibited";

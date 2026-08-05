@@ -765,6 +765,15 @@ std::string configurationFingerprint(const Configuration& configuration) {
             << '|'
             << configuration.navigation.circumstances.angle_bin_count << '|'
             << configuration.navigation.grids.extent_policy << '|'
+            << configuration.navigation.grids.frame_id << '|'
+            << configuration.navigation.grids.mapless_initial_width_m << '|'
+            << configuration.navigation.grids.mapless_initial_height_m << '|'
+            << configuration.navigation.grids.resolution_m << '|'
+            << configuration.navigation.grids.expansion_margin_m << '|'
+            << configuration.navigation.grids.expansion_increment_cells << '|'
+            << configuration.navigation.grids.maximum_width_m << '|'
+            << configuration.navigation.grids.maximum_height_m << '|'
+            << configuration.navigation.grids.memory_limit_cells << '|'
             << configuration.navigation.grids.free_observations_to_clear
             << '|'
             << configuration.navigation.grids.dynamic_expiry_observations
@@ -1114,13 +1123,23 @@ void validateConfiguration(const Configuration& configuration) {
       map.occupancy_resolution_m <= 0.0 ||
       !std::isfinite(map.obstacle_inflation_m) ||
       map.obstacle_inflation_m < 0.0 ||
-      configuration.map_dimensions.length <= 0 ||
-      configuration.map_dimensions.height <= 0 ||
       !std::isfinite(configuration.map_dimensions.granularity) ||
       configuration.map_dimensions.granularity <= 0.0)
     throw std::runtime_error(
         "configuration: map bounds, origin, occupancy resolution, inflation, "
         "and granularity are invalid");
+  const std::set<std::string> bounds_policies{
+      "require_declared", "infer", "infer_expandable"};
+  if (!bounds_policies.contains(map.bounds_policy) ||
+      !std::isfinite(map.inferred_bounds_padding_m) ||
+      map.inferred_bounds_padding_m < 0.0 ||
+      (map.mode == MapOperatingMode::MapEnabled &&
+       map.bounds_policy == "require_declared" &&
+       (configuration.map_dimensions.length <= 0 ||
+        configuration.map_dimensions.height <= 0)))
+    throw std::runtime_error(
+        "configuration: map bounds policy requires declared positive bounds "
+        "or a valid inference policy and nonnegative padding");
   if (map.mode == MapOperatingMode::MapEnabled && map.path.empty())
     throw std::runtime_error(
         "configuration: map-enabled operation requires map.path");
@@ -1132,6 +1151,18 @@ void validateConfiguration(const Configuration& configuration) {
       "prohibited", "high_cost", "within_sensor_range", "exploration_only"};
   const auto& grids = configuration.navigation.grids;
   if ((grids.extent_policy != "fixed" && grids.extent_policy != "expand") ||
+      grids.frame_id.empty() ||
+      !std::isfinite(grids.mapless_initial_width_m) ||
+      grids.mapless_initial_width_m <= 0.0 ||
+      !std::isfinite(grids.mapless_initial_height_m) ||
+      grids.mapless_initial_height_m <= 0.0 ||
+      !std::isfinite(grids.resolution_m) || grids.resolution_m <= 0.0 ||
+      !std::isfinite(grids.expansion_margin_m) ||
+      grids.expansion_margin_m < 0.0 ||
+      grids.expansion_increment_cells == 0U ||
+      !std::isfinite(grids.maximum_width_m) || grids.maximum_width_m < 0.0 ||
+      !std::isfinite(grids.maximum_height_m) || grids.maximum_height_m < 0.0 ||
+      grids.memory_limit_cells == 0U ||
       grids.free_observations_to_clear == 0U ||
       grids.free_observations_to_clear >
           std::numeric_limits<std::uint16_t>::max() ||
@@ -1147,8 +1178,8 @@ void validateConfiguration(const Configuration& configuration) {
       !std::isfinite(grids.unknown_cost_multiplier) ||
       grids.unknown_cost_multiplier < 1.0)
     throw std::runtime_error(
-        "configuration: grid evidence thresholds, unknown-space policies, "
-        "inflation margins, and unknown cost are invalid");
+        "configuration: grid geometry, expansion limits, evidence thresholds, "
+        "unknown-space policies, inflation margins, or unknown cost are invalid");
   if (configuration.navigation.planners.sensor_distance &&
       !configuration.navigation.sensed_occupancy_on)
     throw std::runtime_error(
@@ -1164,11 +1195,15 @@ void validateConfiguration(const Configuration& configuration) {
   if (configuration.tasks.empty()) {
     throw std::runtime_error("configuration: at least one task is required");
   }
+  const bool validate_declared_task_bounds =
+      map.mode == MapOperatingMode::MapEnabled &&
+      map.bounds_policy == "require_declared";
   for (const TaskConfiguration& task : configuration.tasks) {
     if (!std::isfinite(task.x) || !std::isfinite(task.y) ||
-        task.x < map.origin_x_m || task.y < map.origin_y_m ||
-        task.x > map.origin_x_m + configuration.map_dimensions.length ||
-        task.y > map.origin_y_m + configuration.map_dimensions.height) {
+        (validate_declared_task_bounds &&
+         (task.x < map.origin_x_m || task.y < map.origin_y_m ||
+          task.x > map.origin_x_m + configuration.map_dimensions.length ||
+          task.y > map.origin_y_m + configuration.map_dimensions.height))) {
       throw std::runtime_error(
           "configuration: task coordinate lies outside configured dimensions");
     }

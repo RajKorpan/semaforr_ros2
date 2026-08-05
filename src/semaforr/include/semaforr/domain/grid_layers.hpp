@@ -7,41 +7,14 @@
 #include <cstdint>
 #include <optional>
 #include <semaforr/domain/geometry.hpp>
+#include <semaforr/domain/grid_geometry.hpp>
+#include <string>
 #include <vector>
 #include <utility>
 
 namespace semaforr::domain {
 
-struct GridExtent {
-  std::size_t columns = 0U;
-  std::size_t rows = 0U;
-  double resolution_m = 1.0;
-  Point2D origin;
-
-  bool valid() const noexcept {
-    return columns > 0U && rows > 0U && std::isfinite(resolution_m) &&
-           resolution_m > 0.0 && origin.finite();
-  }
-  std::optional<std::size_t> index(Point2D point) const noexcept {
-    if (!valid()) return std::nullopt;
-    const auto column = static_cast<long long>(
-        std::floor((point.x_m - origin.x_m) / resolution_m));
-    const auto row = static_cast<long long>(
-        std::floor((point.y_m - origin.y_m) / resolution_m));
-    if (column < 0 || row < 0 ||
-        column >= static_cast<long long>(columns) ||
-        row >= static_cast<long long>(rows))
-      return std::nullopt;
-    return static_cast<std::size_t>(row) * columns +
-           static_cast<std::size_t>(column);
-  }
-  Point2D center(std::size_t index) const noexcept {
-    const auto row = index / columns;
-    const auto column = index % columns;
-    return {origin.x_m + (static_cast<double>(column) + 0.5) * resolution_m,
-            origin.y_m + (static_cast<double>(row) + 0.5) * resolution_m};
-  }
-};
+using GridExtent = GridGeometry;
 
 // Observation history only. A positive count means familiar, never free.
 struct FamiliarityGrid {
@@ -53,6 +26,11 @@ struct FamiliarityGrid {
   std::size_t revision = 0U;
   std::vector<std::size_t> last_observed_sequence;
   std::vector<float> confidence;
+  std::string frame_id{"map"};
+  std::size_t geometry_revision{0U};
+  GridExtentMode extent_mode = GridExtentMode::Expandable;
+  GridExtentSource extent_source =
+      GridExtentSource::ConfiguredMaplessInitialBounds;
 
   FamiliarityGrid() = default;
   FamiliarityGrid(std::size_t grid_columns, std::size_t grid_rows,
@@ -71,7 +49,11 @@ struct FamiliarityGrid {
         confidence(std::move(observation_confidence)) {}
 
   GridExtent extent() const noexcept {
-    return {columns, rows, resolution_m, origin};
+    GridExtent result{columns, rows, resolution_m, origin, extent_mode,
+                      extent_source};
+    result.frame_id = frame_id;
+    result.geometry_revision = geometry_revision;
+    return result;
   }
   bool valid() const noexcept {
     return extent().valid() && cells.size() == columns * rows;

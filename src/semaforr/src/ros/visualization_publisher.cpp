@@ -287,13 +287,13 @@ class VisualizationPublisher::Impl {
     social_context_msgs::msg::CrowdField message;
     message.header.frame_id = snapshot.geometry.frame_id;
     message.header.stamp = toRosTime(snapshot.generated_at.count());
-    message.width_m = snapshot.geometry.width_m;
-    message.height_m = snapshot.geometry.height_m;
+    message.width_m = snapshot.geometry.widthMeters();
+    message.height_m = snapshot.geometry.heightMeters();
     message.resolution_m = snapshot.geometry.resolution_m;
-    message.origin_x_m = snapshot.geometry.origin_x_m;
-    message.origin_y_m = snapshot.geometry.origin_y_m;
-    message.columns = static_cast<std::uint32_t>(snapshot.geometry.columns());
-    message.rows = static_cast<std::uint32_t>(snapshot.geometry.rows());
+    message.origin_x_m = snapshot.geometry.origin.x_m;
+    message.origin_y_m = snapshot.geometry.origin.y_m;
+    message.columns = static_cast<std::uint32_t>(snapshot.geometry.columns);
+    message.rows = static_cast<std::uint32_t>(snapshot.geometry.rows);
     message.estimator = snapshot.estimator;
     message.version = snapshot.version;
     message.cells.reserve(snapshot.cells.size());
@@ -453,10 +453,10 @@ class VisualizationPublisher::Impl {
     if (!static_occupancy_published_ && world_.static_map &&
         world_.static_map->occupancyAvailable()) {
       const auto& grid = world_.static_map->occupancy;
-      auto marker = gridMarker(header, "static_occupancy", grid.resolution_m,
+      auto marker = gridMarker(header, "static_occupancy",
+                               grid.geometry.resolution_m,
                                0.2F, 0.2F, 0.2F);
-      const domain::GridExtent geometry{grid.columns, grid.rows,
-                                        grid.resolution_m, grid.origin};
+      const auto& geometry = grid.geometry;
       for (std::size_t index = 0U; index < grid.cells.size(); ++index) {
         if (grid.cells[index] != domain::StaticOccupancyState::StaticOccupied)
           continue;

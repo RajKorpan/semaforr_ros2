@@ -37,23 +37,23 @@ void HighwayLearner::rebuildIntersections() {
 }
 
 void HighwayLearner::smoothTouchedGrid() {
-  std::set<std::pair<std::size_t, std::size_t>> cells;
+  std::set<std::pair<int, int>> cells;
   for (const auto& label : model_.grid_labels)
     if (label.label != 0U) cells.emplace(label.row, label.column);
   std::vector<HighwayGridLabel> additions;
   for (const auto row : model_.touched_rows) {
     for (const auto column : model_.touched_columns) {
       if (!cells.contains({row, column}) &&
-          cells.contains({row, column > 0U ? column - 1U : column}) &&
-          cells.contains({row, column + 1U}))
+          cells.contains({row, column - 1}) &&
+          cells.contains({row, column + 1}))
         additions.push_back({row, column, 1U});
     }
   }
   for (const auto column : model_.touched_columns) {
     for (const auto row : model_.touched_rows) {
       if (!cells.contains({row, column}) &&
-          cells.contains({row > 0U ? row - 1U : row, column}) &&
-          cells.contains({row + 1U, column}))
+          cells.contains({row - 1, column}) &&
+          cells.contains({row + 1, column}))
         additions.push_back({row, column, 1U});
     }
   }
@@ -63,8 +63,8 @@ void HighwayLearner::smoothTouchedGrid() {
 }
 
 void HighwayLearner::extractHighways() {
-  std::map<std::size_t, std::vector<std::size_t>> rows;
-  std::map<std::size_t, std::vector<std::size_t>> columns;
+  std::map<int, std::vector<int>> rows;
+  std::map<int, std::vector<int>> columns;
   for (const auto& label : model_.grid_labels) {
     if (label.label == 0U) continue;
     rows[label.row].push_back(label.column);
@@ -79,7 +79,7 @@ void HighwayLearner::extractHighways() {
       while (begin < values.size()) {
         std::size_t end = begin;
         while (end + 1U < values.size() &&
-               values[end + 1U] == values[end] + 1U)
+               values[end + 1U] == values[end] + 1)
           ++end;
         if (end - begin + 1U >= minimum_extent_cells_) {
           domain::Highway highway;
@@ -88,10 +88,8 @@ void HighwayLearner::extractHighways() {
           for (std::size_t index = begin; index <= end; ++index)
             highway.cells.push_back(
                 axis == domain::Axis::Horizontal
-                    ? domain::GridCell{static_cast<int>(fixed),
-                                       static_cast<int>(values[index])}
-                    : domain::GridCell{static_cast<int>(values[index]),
-                                       static_cast<int>(fixed)});
+                    ? domain::GridCell{fixed, values[index]}
+                    : domain::GridCell{values[index], fixed});
           model_.highways.push_back(std::move(highway));
         }
         begin = end + 1U;
@@ -250,9 +248,8 @@ void HighwayLearner::onObserve(const NavigationEpisode& episode) {
     model_.nodes.push_back(point);
     if (node > 0U) model_.edges.push_back({node - 1U, node});
     const auto labelPoint = [this](const domain::Point2D& sample) {
-      if (sample.x_m < 0.0 || sample.y_m < 0.0) return;
-      const auto column = static_cast<std::size_t>(std::floor(sample.x_m));
-      const auto row = static_cast<std::size_t>(std::floor(sample.y_m));
+      const auto column = static_cast<int>(std::floor(sample.x_m));
+      const auto row = static_cast<int>(std::floor(sample.y_m));
       const auto duplicate = std::find_if(
           model_.grid_labels.begin(), model_.grid_labels.end(),
           [row, column](const HighwayGridLabel& label) {

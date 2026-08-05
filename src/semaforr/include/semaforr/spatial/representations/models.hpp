@@ -32,12 +32,7 @@ struct PassageSkeletonModel {
   std::vector<std::size_t> component_by_node;
   std::size_t connectivity_revision = 0U;
 };
-struct GridGeometry {
-  std::size_t columns = 0U;
-  std::size_t rows = 0U;
-  double resolution_m = 1.0;
-  domain::Point2D origin;
-};
+using GridGeometry = domain::GridGeometry;
 struct SparseGridCell {
   std::size_t index = 0U;
   std::uint32_t value = 0U;
@@ -61,8 +56,8 @@ struct InclusionGridModel {
 };
 using HighwayIntersection = domain::HighwayIntersection;
 struct HighwayGridLabel {
-  std::size_t row = 0U;
-  std::size_t column = 0U;
+  int row = 0;
+  int column = 0;
   std::uint32_t label = 0U;
 };
 struct HighwayModel {
@@ -74,8 +69,8 @@ struct HighwayModel {
   std::vector<SkeletonEdge> edges;
   std::vector<HighwayIntersection> intersections;
   std::vector<HighwayGridLabel> grid_labels;
-  std::vector<std::size_t> touched_rows;
-  std::vector<std::size_t> touched_columns;
+  std::vector<int> touched_rows;
+  std::vector<int> touched_columns;
 };
 using CircumstanceModel = domain::CircumstanceModel;
 

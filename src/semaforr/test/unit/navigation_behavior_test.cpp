@@ -121,7 +121,7 @@ TEST(NavigationAdvisor, ScoresGoalClearanceAndExplorationObjectives) {
   world.mission = semaforr::domain::Mission({{1U, {3.0, 0.0}}}, 10U);
   ASSERT_TRUE(world.mission.activate_next());
   world.navigation_history.record(
-      {world.robot.pose, LaserObservation{}, Action::pause()});
+      {world.robot.pose, LaserObservation{}, Action::pause(), std::nullopt});
   const std::vector<Action> actions{Action::pause(),
                                     Action(ActionType::Forward, 1U),
                                     Action(ActionType::TurnLeft, 1U)};

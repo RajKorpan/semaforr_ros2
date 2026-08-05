@@ -64,7 +64,7 @@ std::optional<SelectedPlan> PlanningCoordinator::selectPlan(
     const PlanningRequest& request) {
   const double resolution =
       request.static_map && request.static_map->occupancyAvailable()
-          ? request.static_map->occupancy.resolution_m
+          ? request.static_map->occupancy.geometry.resolution_m
           : request.spatial_model &&
                     request.spatial_model->sensed_occupancy.valid()
                 ? request.spatial_model->sensed_occupancy.geometry.resolution_m

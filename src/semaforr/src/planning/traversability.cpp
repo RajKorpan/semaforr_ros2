@@ -51,7 +51,7 @@ TraversabilityBuildResult deriveTraversability(
       return result;
     }
     prior = &static_map->occupancy;
-    extent = {prior->columns, prior->rows, prior->resolution_m, prior->origin};
+    extent = prior->geometry;
     result.grid.complete_prior_bounds = true;
     result.grid.source_static_revision = static_map->revision;
   } else {

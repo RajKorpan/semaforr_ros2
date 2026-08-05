@@ -115,6 +115,26 @@ TEST(GridLayers, ExtentPolicyExpandsOrClipsExplicitly) {
   EXPECT_FALSE(clipped.geometry.index({4.5, 0.5}));
 }
 
+TEST(GridLayers, MaplessGeometryInitializesAroundFirstPoseWithoutFabricatingFreeSpace) {
+  using namespace semaforr;
+  domain::GridExpansionPolicy expansion;
+  expansion.margin_m = 0.0;
+  expansion.increment_cells = 4U;
+  spatial::SensedOccupancyLearner learner(
+      4U, 4U, 1.0, {}, {}, spatial::GridExtentPolicy::Expand, expansion, true,
+      "odom");
+  auto episode = scan(1U, std::numeric_limits<double>::quiet_NaN());
+  episode.observation.pose.position = {10.0, -5.0};
+  learner.observe(episode);
+  const auto model = std::get<spatial::SensedOccupancyModel>(
+      learner.snapshot().payload);
+  EXPECT_EQ(model.geometry.frame_id, "odom");
+  EXPECT_DOUBLE_EQ(model.geometry.minimum.x_m, 8.0);
+  EXPECT_DOUBLE_EQ(model.geometry.minimum.y_m, -7.0);
+  EXPECT_EQ(model.geometry.geometry_revision, 2U);
+  EXPECT_EQ(model.observedCellCount(), 0U);
+}
+
 TEST(GridLayers, RepeatedFreeEvidenceClearsDynamicOccupancyAndStaleHitsExpire) {
   using namespace semaforr;
   spatial::SensedOccupancyLearningConfiguration configuration;

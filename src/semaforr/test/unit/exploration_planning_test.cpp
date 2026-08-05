@@ -137,6 +137,23 @@ TEST(HighwayLearning, BuildsVersionedGraphIncrementally) {
   EXPECT_FALSE(model.touched_columns.empty());
 }
 
+TEST(HighwayLearning, LabelsNegativeWorldCoordinatesWithoutDiscardingThem) {
+  semaforr::spatial::HighwayLearner learner(0.5, 0.8);
+  semaforr::spatial::NavigationEpisode episode;
+  episode.sequence = 1U;
+  episode.observation = observation(-2.25);
+  episode.observation.pose.position.y_m = -3.25;
+  episode.initial_exploration = true;
+  learner.observe(episode);
+  learner.rebuild();
+  const auto update = learner.snapshot();
+  const auto& model = std::get<semaforr::spatial::HighwayModel>(
+      update.payload);
+  ASSERT_FALSE(model.grid_labels.empty());
+  EXPECT_LT(model.grid_labels.front().row, 0);
+  EXPECT_LT(model.grid_labels.front().column, 0);
+}
+
 TEST(HierarchicalPlans, HighwayPlanProducesTypedOperationalSteps) {
   semaforr::domain::SpatialModel spatial;
   spatial.highways.nodes = {{0.0, 0.0}, {1.0, 0.0}, {2.0, 0.0}};

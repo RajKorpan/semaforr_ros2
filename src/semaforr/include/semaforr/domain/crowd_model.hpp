@@ -8,29 +8,12 @@
 #include <iosfwd>
 #include <optional>
 #include <semaforr/domain/geometry.hpp>
+#include <semaforr/domain/grid_geometry.hpp>
 #include <semaforr/domain/social.hpp>
 #include <string>
 #include <vector>
 
 namespace semaforr::domain {
-
-struct GridGeometry {
-  std::string frame_id{"map"};
-  double width_m{0.0};
-  double height_m{0.0};
-  double resolution_m{1.0};
-  double origin_x_m{0.0};
-  double origin_y_m{0.0};
-
-  void validate() const;
-  std::size_t columns() const;
-  std::size_t rows() const;
-  std::size_t cellCount() const;
-  std::optional<std::size_t> index(Point2D point) const noexcept;
-  Point2D center(std::size_t index) const;
-
-  bool operator==(const GridGeometry&) const = default;
-};
 
 enum class CrowdFlowDirection : std::size_t {
   Right = 0U,
