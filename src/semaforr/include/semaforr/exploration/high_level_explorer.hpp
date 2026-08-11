@@ -17,13 +17,24 @@ class HighLevelExplorer final : public ExplorationStrategy {
   void finish() noexcept override;
   HleState state() const noexcept { return state_; }
   PassageGridSnapshot passageGrid() const;
+  void restorePassageGrid(const PassageGridSnapshot&);
   std::vector<ExplorationCandidate> unfinishedCandidates() const;
   const std::vector<domain::Point2D>& explorationPath() const noexcept {
     return exploration_path_;
   }
+  const std::vector<CandidateDiagnostic>& candidateDiagnostics() const noexcept {
+    return candidate_diagnostics_;
+  }
+  const std::vector<HleTraceEntry>& trace() const noexcept { return trace_; }
+  static std::vector<ExplorationResult> replay(
+      const std::vector<HleTraceEntry>&);
 
   static std::vector<ExplorationCandidate> discoverCandidates(
       const domain::RobotObservation&, const HighLevelExplorationConfiguration&);
+  CueValidation evaluateCue(const ExplorationCandidate&,
+                            const domain::RobotObservation&) const;
+  static bool cuesSimilar(const ExplorationCandidate&,
+                          const ExplorationCandidate&, double tolerance_m);
 
  private:
   using CandidateQueue =
@@ -33,9 +44,21 @@ class HighLevelExplorer final : public ExplorationStrategy {
   std::int64_t cueKey(const domain::Point2D&) const noexcept;
   std::vector<ExplorationCandidate> discover(
       const domain::RobotObservation&);
+  std::optional<ExplorationCandidateId> mergeTarget(
+      const ExplorationCandidate&) const;
+  void mergeCandidate(ExplorationCandidateId,
+                      const ExplorationCandidate&);
+  void recordDiagnostic(ExplorationCandidateId, CandidateDiagnosticKind,
+                        std::string);
+  void recordTrace(const domain::RobotObservation&, const ExplorationResult&);
+  void updateCandidateExtension(const domain::RobotObservation&);
+  PursuitTerminationReason pursuitTermination(
+      const domain::RobotObservation&) const;
   void updatePassageGrid(const domain::RobotObservation&,
                          ExplorationCandidateId passage_id,
-                         domain::Point2D passage_start);
+                         std::uint64_t passage_number,
+                         domain::Point2D passage_start,
+                         PassageCompletionState completion_state);
   domain::Action pursue(const ExplorationInput&) const;
 
   HighLevelExplorationConfiguration configuration_;
@@ -44,14 +67,23 @@ class HighLevelExplorer final : public ExplorationStrategy {
       ExplorationCompletionReason::None;
   CandidateQueue candidates_;
   std::unordered_set<std::int64_t> cue_cells_;
+  std::unordered_map<ExplorationCandidateId, ExplorationCandidate>
+      candidate_registry_;
   std::unordered_map<std::int64_t, PassageCell> passage_cells_;
   std::optional<domain::Point2D> passage_grid_reference_;
   std::vector<domain::Point2D> exploration_path_;
   std::optional<ExplorationCandidate> active_;
   ExplorationCandidateId next_candidate_id_ = 1U;
+  std::uint64_t next_passage_id_ = 1U;
   std::uint64_t passage_revision_ = 0U;
+  std::uint64_t observation_sequence_ = 0U;
+  std::uint64_t diagnostic_sequence_ = 0U;
   std::size_t decisions_ = 0U;
   bool pursuit_started_ = false;
+  PursuitTerminationReason active_termination_reason_ =
+      PursuitTerminationReason::None;
+  std::vector<CandidateDiagnostic> candidate_diagnostics_;
+  std::vector<HleTraceEntry> trace_;
 };
 
 }  // namespace semaforr::exploration

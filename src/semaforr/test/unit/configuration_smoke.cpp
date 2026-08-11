@@ -206,6 +206,24 @@ int main() {
   }
   {
     auto changed = valid;
+    changed.experiment.initial_exploration.behavior_policy = "compatibility";
+    changed.experiment.initial_exploration.hard_turn_threshold_rad = 0.6;
+    assert(semaforr::config::configurationFingerprint(changed) !=
+           semaforr::config::configurationFingerprint(valid));
+    const auto manifest = semaforr::config::componentManifest(changed);
+    assert(std::find(manifest.begin(), manifest.end(),
+                     "hle_behavior_policy:compatibility") != manifest.end());
+  }
+  {
+    auto invalid = valid;
+    invalid.experiment.initial_exploration.enabled = true;
+    invalid.experiment.initial_exploration.behavior_policy = "approximate";
+    assertThrowsContaining(
+        [&invalid]() { semaforr::config::validateConfiguration(invalid); },
+        "behavior_policy");
+  }
+  {
+    auto changed = valid;
     changed.navigation.grids.highway_smoothing_policy =
         "von_neumann_three_of_four";
     changed.navigation.grids.highway_component_selection_policy =

@@ -6,8 +6,9 @@ stable exploration-candidate ID that produced it. `evidence_count` records
 support for the state but is never interpreted as a passage identity. A valid
 laser return marks the cells before its endpoint free and the endpoint
 obstructed. A maximum-range return marks only free cells. Obstruction takes
-precedence over passage and free evidence; passage takes precedence over free
-evidence.
+precedence over free evidence. An execution-confirmed passage centerline takes
+precedence when an obstacle endpoint is quantized into the same coarse cell;
+it does not clear obstruction outside the traversed centerline.
 
 The highway learner uses the shared `GridGeometry` transform. Its frame,
 resolution, and origin come from `grids.frame_id`, `grids.resolution_m`, and

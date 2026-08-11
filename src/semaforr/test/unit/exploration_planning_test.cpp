@@ -26,6 +26,23 @@ semaforr::domain::RobotObservation observation(double x,
   return result;
 }
 
+semaforr::domain::RobotObservation compatibilityObservation(
+    double x = 0.0, double y = 0.0, double heading = 0.0,
+    double right_range = 4.0, double left_range = 4.0) {
+  semaforr::domain::RobotObservation result;
+  result.pose = {{x, y}, semaforr::domain::Angle(heading)};
+  result.laser.angle_min = semaforr::domain::Angle(-0.61);
+  result.laser.angle_increment = semaforr::domain::Angle(0.01);
+  result.laser.minimum_range = semaforr::domain::Distance(0.1);
+  result.laser.maximum_range = semaforr::domain::Distance(10.0);
+  result.laser.ranges_m.assign(123U, 0.3);
+  std::fill(result.laser.ranges_m.begin(),
+            result.laser.ranges_m.begin() + 41, right_range);
+  std::fill(result.laser.ranges_m.end() - 41,
+            result.laser.ranges_m.end(), left_range);
+  return result;
+}
+
 semaforr::domain::StaticMap planningMap() {
   semaforr::domain::StaticMap map;
   map.source = "planning-test";
@@ -123,6 +140,271 @@ TEST(HighLevelExplore, ReportsBudgetCompletionAndFinalizesExactlyOnce) {
   coordinator.finish();
   coordinator.finish();
   EXPECT_EQ(finalizations, 1U);
+}
+
+TEST(HighLevelExplore,
+     CompatibilityCuesUseFixedBundlesAndExplicitGeometricValidation) {
+  using namespace semaforr;
+  exploration::HighLevelExplorationConfiguration configuration;
+  configuration.behavior_policy = exploration::HleBehaviorPolicy::Compatibility;
+  configuration.large_room_width = domain::Distance(20.0);
+  const auto view = compatibilityObservation(10.0, -2.0, 0.7);
+  const auto candidates =
+      exploration::HighLevelExplorer::discoverCandidates(view, configuration);
+  ASSERT_EQ(candidates.size(), 2U);
+  EXPECT_EQ(candidates[0].cue_type,
+            exploration::PassageCueType::RightOpen);
+  EXPECT_EQ(candidates[0].first_beam, 0U);
+  EXPECT_EQ(candidates[0].last_beam, 40U);
+  EXPECT_EQ(candidates[1].cue_type,
+            exploration::PassageCueType::LeftOpen);
+  EXPECT_EQ(candidates[1].first_beam, 82U);
+  EXPECT_EQ(candidates[1].last_beam, 122U);
+  for (const auto& candidate : candidates) {
+    EXPECT_GT(candidate.length.meters(), candidate.width.meters());
+    EXPECT_GT(candidate.confidence, 0.0);
+    EXPECT_GT(domain::distance(candidate.start, candidate.endpoint).meters(),
+              0.0);
+  }
+  auto narrow_policy = configuration;
+  narrow_policy.minimum_length_to_width_ratio = 10.0;
+  EXPECT_TRUE(exploration::HighLevelExplorer::discoverCandidates(
+                  view, narrow_policy)
+                  .empty());
+  auto room_policy = configuration;
+  room_policy.large_room_width = domain::Distance(3.0);
+  const auto rooms = exploration::HighLevelExplorer::discoverCandidates(
+      compatibilityObservation(10.0, -2.0, 0.7, 8.0, 8.0), room_policy);
+  ASSERT_EQ(rooms.size(), 2U);
+  EXPECT_TRUE(std::all_of(rooms.begin(), rooms.end(), [](const auto& cue) {
+    return cue.kind == exploration::PassageKind::LargeRoom;
+  }));
+
+  exploration::HighLevelExplorer explorer(configuration);
+  const auto validation = explorer.evaluateCue(candidates.front(), view);
+  EXPECT_TRUE(validation.start_clear);
+  EXPECT_TRUE(validation.midpoint_clear);
+  EXPECT_TRUE(validation.endpoint_clear);
+  EXPECT_TRUE(validation.geometrically_reachable);
+  EXPECT_EQ(validation.passage_identities, 0U);
+  EXPECT_TRUE(validation.accepted);
+
+  auto blocked = view;
+  blocked.laser.ranges_m[20] = 0.5;
+  const auto blocked_validation =
+      explorer.evaluateCue(candidates.front(), blocked);
+  EXPECT_FALSE(blocked_validation.endpoint_clear);
+  EXPECT_FALSE(blocked_validation.accepted);
+
+  exploration::PassageGridSnapshot prior;
+  prior.geometry = domain::GridGeometry::fromBounds(
+      "map", {5.0, -7.0}, {15.0, 3.0}, 0.5,
+      domain::GridExtentMode::Expandable,
+      domain::GridExtentSource::SensorDerivedExpansion,
+      domain::GridOutOfBoundsBehavior::ExpandBeforeInsert);
+  prior.revision = 4U;
+  for (const auto& [fraction, passage] :
+       {std::pair{0.25, 7U}, std::pair{0.75, 8U}}) {
+    const domain::Point2D point{
+        candidates.front().start.x_m +
+            fraction * (candidates.front().endpoint.x_m -
+                        candidates.front().start.x_m),
+        candidates.front().start.y_m +
+            fraction * (candidates.front().endpoint.y_m -
+                        candidates.front().start.y_m)};
+    const auto cell = prior.geometry.cell(point);
+    ASSERT_TRUE(cell);
+    exploration::PassageCell evidence;
+    evidence.row = static_cast<int>(cell->second);
+    evidence.column = static_cast<int>(cell->first);
+    evidence.state = exploration::PassageCellState::Passage;
+    evidence.passage_id = passage;
+    evidence.completion_state =
+        exploration::PassageCompletionState::Completed;
+    evidence.evidence_count = 1U;
+    prior.cells.push_back(evidence);
+  }
+  exploration::HighLevelExplorer intersecting(configuration);
+  intersecting.restorePassageGrid(prior);
+  const auto conflict = intersecting.evaluateCue(candidates.front(), view);
+  EXPECT_EQ(conflict.passage_identities, 2U);
+  EXPECT_FALSE(conflict.accepted);
+  EXPECT_EQ(conflict.reason, "cue_intersects_multiple_passages");
+
+  auto overlapping = candidates.front();
+  overlapping.start.x_m += 0.1;
+  overlapping.endpoint.x_m += 0.1;
+  EXPECT_TRUE(exploration::HighLevelExplorer::cuesSimilar(
+      candidates.front(), overlapping, 0.5));
+  overlapping.start.y_m += 5.0;
+  overlapping.endpoint.y_m += 5.0;
+  EXPECT_FALSE(exploration::HighLevelExplorer::cuesSimilar(
+      candidates.front(), overlapping, 0.5));
+}
+
+TEST(HighLevelExplore,
+     CompatibilityPursuitUsesGlobalHeadingExtendsAndReplaysExactly) {
+  using namespace semaforr;
+  exploration::HighLevelExplorationConfiguration configuration;
+  configuration.behavior_policy = exploration::HleBehaviorPolicy::Compatibility;
+  configuration.large_room_width = domain::Distance(20.0);
+  configuration.maximum_width_change_ratio = 10.0;
+  exploration::HighLevelExplorer explorer(configuration);
+  const domain::ActionSpace actions({0.1, 0.4}, {0.2, 0.5, 1.0});
+  auto view = compatibilityObservation();
+  static_cast<void>(explorer.update({view, actions, {}}));
+  const auto selected = explorer.update({view, actions, {}});
+  ASSERT_TRUE(selected.candidate_id);
+  const auto candidate = *std::find_if(
+      selected.discovered.begin(), selected.discovered.end(),
+      [&](const auto& value) { return value.id == *selected.candidate_id; });
+  static_cast<void>(explorer.update({view, actions, {}}));
+
+  view.pose.position =
+      {0.5 * std::cos(candidate.direction.radians()),
+       0.5 * std::sin(candidate.direction.radians())};
+  std::fill(view.laser.ranges_m.begin(),
+            view.laser.ranges_m.begin() + 41, 5.0);
+  const auto extended = explorer.update({view, actions, {}});
+  EXPECT_EQ(extended.state, exploration::HleState::PursueCandidate);
+  const auto unfinished = explorer.unfinishedCandidates();
+  const auto active = std::find_if(unfinished.begin(), unfinished.end(),
+                                   [&](const auto& value) {
+                                     return value.id == *selected.candidate_id;
+                                   });
+  ASSERT_NE(active, unfinished.end());
+  EXPECT_GT(active->current_extension.meters(),
+            candidate.current_extension.meters());
+
+  view.pose.heading = candidate.direction;
+  const auto aligned_after_movement = explorer.update({view, actions, {}});
+  EXPECT_EQ(aligned_after_movement.action.type(), domain::ActionType::Forward);
+  EXPECT_EQ(active->direction, candidate.direction);
+
+  const auto replay = exploration::HighLevelExplorer::replay(explorer.trace());
+  ASSERT_EQ(replay.size(), explorer.trace().size());
+  ASSERT_FALSE(replay.empty());
+  for (std::size_t index = 0U; index < replay.size(); ++index) {
+    EXPECT_EQ(replay[index].action, explorer.trace()[index].result.action);
+    EXPECT_EQ(replay[index].state, explorer.trace()[index].result.state);
+    EXPECT_EQ(replay[index].event, explorer.trace()[index].result.event);
+    EXPECT_EQ(replay[index].pursuit_termination_reason,
+              explorer.trace()[index].result.pursuit_termination_reason);
+  }
+}
+
+TEST(HighLevelExplore,
+     CompatibilityTerminationAndPassageAssociationsAreExplicit) {
+  using namespace semaforr;
+  const domain::ActionSpace actions({0.1, 0.4}, {0.2, 0.5, 1.0});
+  const auto run = [&](domain::RobotObservation terminal_view,
+                       exploration::PursuitTerminationReason expected,
+                       exploration::PassageCompletionState completion) {
+    exploration::HighLevelExplorationConfiguration configuration;
+    configuration.behavior_policy =
+        exploration::HleBehaviorPolicy::Compatibility;
+    configuration.large_room_width = domain::Distance(3.0);
+    exploration::HighLevelExplorer explorer(configuration);
+    auto initial = compatibilityObservation();
+    static_cast<void>(explorer.update({initial, actions, {}}));
+    const auto selected = explorer.update({initial, actions, {}});
+    ASSERT_TRUE(selected.candidate_id);
+    static_cast<void>(explorer.update({initial, actions, {}}));
+    const auto terminal = explorer.update({terminal_view, actions, {}});
+    EXPECT_EQ(terminal.pursuit_termination_reason, expected);
+    EXPECT_TRUE(terminal.event == exploration::CandidateLifecycleEvent::Completed ||
+                terminal.event == exploration::CandidateLifecycleEvent::Suspended);
+    EXPECT_TRUE(std::any_of(
+        terminal.diagnostics.begin(), terminal.diagnostics.end(),
+        [&](const auto& diagnostic) {
+          return diagnostic.kind ==
+                 (completion == exploration::PassageCompletionState::Suspended
+                      ? exploration::CandidateDiagnosticKind::Suspended
+                      : exploration::CandidateDiagnosticKind::Completed);
+        }));
+    const auto grid = explorer.passageGrid();
+    EXPECT_TRUE(std::any_of(grid.cells.begin(), grid.cells.end(),
+                            [&](const auto& cell) {
+                              return cell.state ==
+                                         exploration::PassageCellState::Passage &&
+                                     cell.candidate_id == selected.candidate_id &&
+                                     cell.passage_id.has_value() &&
+                                     cell.completion_state == completion;
+                            }));
+  };
+
+  auto width_change = compatibilityObservation(0.2, 0.0, 0.0, 2.0, 4.0);
+  run(width_change, exploration::PursuitTerminationReason::WidthChanged,
+      exploration::PassageCompletionState::Suspended);
+  auto hard_turn = compatibilityObservation(0.2, 0.0, 1.0);
+  run(hard_turn, exploration::PursuitTerminationReason::HardTurn,
+      exploration::PassageCompletionState::Suspended);
+  auto large_room = compatibilityObservation(0.2, 0.0, 0.0, 8.0, 4.0);
+  run(large_room, exploration::PursuitTerminationReason::LargeRoom,
+      exploration::PassageCompletionState::Completed);
+  auto ended = compatibilityObservation(0.2, 0.0);
+  std::fill(ended.laser.ranges_m.begin(), ended.laser.ranges_m.end(), 0.3);
+  run(ended, exploration::PursuitTerminationReason::EndOfPassageClearance,
+      exploration::PassageCompletionState::Completed);
+}
+
+TEST(HighLevelExplore,
+     CompatibilityDiagnosticsExplainMergeRejectionAndLifecycle) {
+  using namespace semaforr;
+  exploration::HighLevelExplorationConfiguration configuration;
+  configuration.behavior_policy = exploration::HleBehaviorPolicy::Compatibility;
+  configuration.large_room_width = domain::Distance(20.0);
+  exploration::HighLevelExplorer explorer(configuration);
+  const domain::ActionSpace actions({0.1, 0.4}, {0.2, 0.5, 1.0});
+  auto view = compatibilityObservation();
+  static_cast<void>(explorer.update({view, actions, {}}));
+  const auto selected = explorer.update({view, actions, {}});
+  ASSERT_TRUE(selected.candidate_id);
+  static_cast<void>(explorer.update({view, actions, {}}));
+  auto ended = view;
+  ended.pose.position.x_m = 0.2;
+  std::fill(ended.laser.ranges_m.begin(), ended.laser.ranges_m.end(), 0.3);
+  static_cast<void>(explorer.update({ended, actions, {}}));
+  auto repeated = compatibilityObservation(0.2, 0.0);
+  const auto rediscovery = explorer.update({repeated, actions, {}});
+  EXPECT_TRUE(std::any_of(rediscovery.diagnostics.begin(),
+                          rediscovery.diagnostics.end(), [](const auto& item) {
+                            return item.kind ==
+                                   exploration::CandidateDiagnosticKind::Merged;
+                          }));
+
+  exploration::HighLevelExplorationConfiguration bounded = configuration;
+  bounded.passage_grid_geometry = domain::GridGeometry::fromBounds(
+      "map", {-1.0, -1.0}, {1.0, 1.0}, 0.5,
+      domain::GridExtentMode::Fixed,
+      domain::GridExtentSource::RepresentationLocalBounds,
+      domain::GridOutOfBoundsBehavior::Reject);
+  exploration::HighLevelExplorer rejecting(bounded);
+  static_cast<void>(rejecting.update({view, actions, {}}));
+  const auto rejection = rejecting.update({view, actions, {}});
+  EXPECT_TRUE(std::any_of(rejection.diagnostics.begin(),
+                          rejection.diagnostics.end(), [](const auto& item) {
+                            return item.kind ==
+                                       exploration::CandidateDiagnosticKind::Rejected &&
+                                   item.reason == "cue_outside_fixed_grid";
+                          }));
+
+  const auto& all = explorer.candidateDiagnostics();
+  for (const auto kind : {exploration::CandidateDiagnosticKind::Created,
+                          exploration::CandidateDiagnosticKind::Selected,
+                          exploration::CandidateDiagnosticKind::Completed,
+                          exploration::CandidateDiagnosticKind::Merged})
+    EXPECT_TRUE(std::any_of(all.begin(), all.end(), [&](const auto& item) {
+      return item.kind == kind;
+    }));
+
+  explorer.finish();
+  EXPECT_TRUE(std::any_of(
+      explorer.candidateDiagnostics().begin(),
+      explorer.candidateDiagnostics().end(), [](const auto& item) {
+        return item.kind ==
+               exploration::CandidateDiagnosticKind::Abandoned;
+      }));
 }
 
 TEST(HighwayLearning, BuildsVersionedGraphIncrementally) {

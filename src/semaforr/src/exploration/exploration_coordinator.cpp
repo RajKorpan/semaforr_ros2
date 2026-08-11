@@ -26,6 +26,10 @@ ExplorationUpdate ExplorationCoordinator::decide(
       {}};
   if (update.decision.event != CandidateLifecycleEvent::None)
     update.events.emplace_back(toString(update.decision.event));
+  for (const auto& diagnostic : update.decision.diagnostics)
+    update.events.push_back(
+        "candidate_" + std::string(toString(diagnostic.kind)) + ":" +
+        std::to_string(diagnostic.candidate_id) + ":" + diagnostic.reason);
   if (update.decision.state == HleState::FinalizeModel && !finalized_) {
     if (model_finalizer_) model_finalizer_();
     finalized_ = true;

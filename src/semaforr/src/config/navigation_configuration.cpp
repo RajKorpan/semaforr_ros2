@@ -703,6 +703,7 @@ std::string configurationFingerprint(const Configuration& configuration) {
       << configuration.experiment.initial_exploration.enabled << '|'
       << configuration.experiment.initial_exploration.observation_budget << '|'
       << configuration.experiment.initial_exploration.strategy << '|'
+      << configuration.experiment.initial_exploration.behavior_policy << '|'
       << configuration.experiment.initial_exploration.time_limit_s << '|'
       << configuration.experiment.initial_exploration.decision_budget << '|'
       << configuration.experiment.initial_exploration.minimum_clearance_m << '|'
@@ -716,6 +717,29 @@ std::string configurationFingerprint(const Configuration& configuration) {
       << configuration.experiment.initial_exploration.passage_grid_resolution_m
       << '|'
       << configuration.experiment.initial_exploration.minimum_bundle_beams
+      << '|'
+      << configuration.experiment.initial_exploration
+             .compatibility_focus_bundle_beams
+      << '|'
+      << configuration.experiment.initial_exploration
+             .minimum_length_to_width_ratio
+      << '|'
+      << configuration.experiment.initial_exploration.minimum_passage_length_m
+      << '|'
+      << configuration.experiment.initial_exploration.large_room_width_m << '|'
+      << configuration.experiment.initial_exploration.large_room_length_m
+      << '|'
+      << configuration.experiment.initial_exploration.cue_clearance_margin_m
+      << '|'
+      << configuration.experiment.initial_exploration
+             .maximum_width_change_ratio
+      << '|'
+      << configuration.experiment.initial_exploration.hard_turn_threshold_rad
+      << '|'
+      << configuration.experiment.initial_exploration
+             .end_of_passage_clearance_m
+      << '|'
+      << configuration.experiment.initial_exploration.minimum_extension_m
       << '|' << configuration.experiment.reactive_exploration_enabled << '|'
       << configuration.experiment.opportunistic_exploration << '|'
       << configuration.experiment.social.enabled << '|'
@@ -846,6 +870,8 @@ std::vector<std::string> componentManifest(const Configuration& configuration) {
   const auto& experiment = configuration.experiment;
   if (experiment.initial_exploration.enabled)
     result.push_back("phase:initial_exploration");
+  result.push_back("hle_behavior_policy:" +
+                   experiment.initial_exploration.behavior_policy);
   if (experiment.tiers.tier_one) result.push_back("tier:tier_one");
   if (experiment.tiers.tier_two) result.push_back("tier:tier_two");
   if (experiment.tiers.tier_three) result.push_back("tier:tier_three");
@@ -916,12 +942,16 @@ void validateConfiguration(const Configuration& configuration) {
     throw std::runtime_error(
         "configuration: experiment.behavior_mode 'compatibility' is reserved "
         "but not operational; unresolved fidelity blockers include trail, "
-        "conveyor, region, door/exit, hallway, region-skeleton, HLE, exact "
+        "conveyor, region, door/exit, hallway, region-skeleton, exact "
         "tier ordering, Enforcer action selection, and Why explanations. Use "
         "'modernized' until the compatibility acceptance suite is enabled");
   }
+  const std::set<std::string> hle_policies{
+      "profile", "modernized", "compatibility"};
   if (experiment.initial_exploration.enabled &&
       (experiment.initial_exploration.strategy != "hle" ||
+       !hle_policies.contains(
+           experiment.initial_exploration.behavior_policy) ||
        !std::isfinite(experiment.initial_exploration.time_limit_s) ||
        experiment.initial_exploration.time_limit_s <= 0.0 ||
        experiment.initial_exploration.decision_budget == 0U ||
@@ -931,11 +961,23 @@ void validateConfiguration(const Configuration& configuration) {
          0.0) ||
        !(experiment.initial_exploration.cue_similarity_radius_m > 0.0) ||
        !(experiment.initial_exploration.passage_grid_resolution_m > 0.0) ||
-       experiment.initial_exploration.minimum_bundle_beams == 0U)) {
+       experiment.initial_exploration.minimum_bundle_beams == 0U ||
+       experiment.initial_exploration.compatibility_focus_bundle_beams != 41U ||
+       !(experiment.initial_exploration.minimum_length_to_width_ratio > 0.0) ||
+       !(experiment.initial_exploration.minimum_passage_length_m > 0.0) ||
+       !(experiment.initial_exploration.large_room_width_m > 0.0) ||
+       !(experiment.initial_exploration.large_room_length_m > 0.0) ||
+       !(experiment.initial_exploration.cue_clearance_margin_m >= 0.0) ||
+       !(experiment.initial_exploration.maximum_width_change_ratio > 0.0) ||
+       !(experiment.initial_exploration.hard_turn_threshold_rad > 0.0) ||
+       !(experiment.initial_exploration.end_of_passage_clearance_m > 0.0) ||
+       !(experiment.initial_exploration.minimum_extension_m > 0.0))) {
     throw std::runtime_error(
         "configuration: HLE requires strategy 'hle' and positive typed "
-        "clearance, heading, candidate, grid, bundle, time, and decision "
-        "parameters; observation_budget may be zero");
+        "clearance, heading, candidate, grid, fixed 41-ray focus bundle, "
+        "passage geometry, pursuit, time, and decision parameters; "
+        "behavior_policy must be profile, modernized, or compatibility and "
+        "observation_budget may be zero");
   }
   if (!experiment.target_navigation.enabled && !configuration.tasks.empty())
     throw std::runtime_error(

@@ -4,7 +4,9 @@
 #include <optional>
 #include <semaforr/domain/action.hpp>
 #include <semaforr/domain/geometry.hpp>
+#include <semaforr/domain/observation.hpp>
 #include <semaforr/exploration/exploration_candidate.hpp>
+#include <string>
 #include <string_view>
 #include <vector>
 
@@ -24,10 +26,45 @@ enum class HleState {
 enum class CandidateLifecycleEvent {
   None,
   Discovered,
+  Merged,
+  Rejected,
   Selected,
   PursuitStarted,
+  Suspended,
   Completed,
+  Abandoned,
   Exhausted
+};
+
+enum class PursuitTerminationReason {
+  None,
+  EndpointReached,
+  EndOfPassageClearance,
+  WidthChanged,
+  HardTurn,
+  LargeRoom,
+  CandidateUnreachable,
+  TimeBudgetExceeded,
+  DecisionBudgetExceeded,
+  ExplicitlyFinished
+};
+
+enum class CandidateDiagnosticKind {
+  Created,
+  Merged,
+  Rejected,
+  Selected,
+  Suspended,
+  Completed,
+  Abandoned
+};
+
+struct CandidateDiagnostic {
+  std::uint64_t sequence = 0U;
+  ExplorationCandidateId candidate_id = 0U;
+  CandidateDiagnosticKind kind = CandidateDiagnosticKind::Created;
+  std::string reason;
+  ExplorationCandidate candidate;
 };
 
 enum class ExplorationCompletionReason {
@@ -52,13 +89,24 @@ struct ExplorationResult {
   std::uint64_t passage_grid_revision = 0U;
   ExplorationCompletionReason completion_reason =
       ExplorationCompletionReason::None;
+  PursuitTerminationReason pursuit_termination_reason =
+      PursuitTerminationReason::None;
   std::vector<ExplorationCandidate> discovered;
+  std::vector<CandidateDiagnostic> diagnostics;
   std::string_view rationale;
+};
+
+struct HleTraceEntry {
+  std::uint64_t decision_id = 0U;
+  domain::RobotObservation observation;
+  ExplorationResult result;
 };
 
 std::string_view toString(HleState state) noexcept;
 std::string_view toString(CandidateLifecycleEvent event) noexcept;
 std::string_view toString(ExplorationCompletionReason reason) noexcept;
+std::string_view toString(PursuitTerminationReason reason) noexcept;
+std::string_view toString(CandidateDiagnosticKind kind) noexcept;
 
 }  // namespace semaforr::exploration
 

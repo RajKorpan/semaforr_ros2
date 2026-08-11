@@ -157,6 +157,50 @@ spatial::LearnedGridConfiguration learnedGridConfiguration(
   return result;
 }
 
+exploration::HighLevelExplorationConfiguration hleConfiguration(
+    const config::Configuration& configuration) {
+  const auto& source = configuration.experiment.initial_exploration;
+  exploration::HighLevelExplorationConfiguration result;
+  if (source.behavior_policy == "compatibility" ||
+      (source.behavior_policy == "profile" &&
+       configuration.experiment.behavior_mode ==
+           config::BehaviorMode::Compatibility))
+    result.behavior_policy = exploration::HleBehaviorPolicy::Compatibility;
+  else if (source.behavior_policy == "modernized" ||
+           source.behavior_policy == "profile")
+    result.behavior_policy = exploration::HleBehaviorPolicy::Modernized;
+  else
+    throw std::runtime_error("unknown HLE behavior policy '" +
+                             source.behavior_policy + "'");
+  result.minimum_clearance = domain::Distance(source.minimum_clearance_m);
+  result.heading_tolerance = domain::Angle(source.heading_tolerance_rad);
+  result.candidate_completion_distance =
+      domain::Distance(source.candidate_completion_distance_m);
+  result.cue_similarity_radius =
+      domain::Distance(source.cue_similarity_radius_m);
+  result.passage_grid_resolution =
+      domain::Distance(source.passage_grid_resolution_m);
+  result.minimum_bundle_beams = source.minimum_bundle_beams;
+  result.compatibility_focus_bundle_beams =
+      source.compatibility_focus_bundle_beams;
+  result.minimum_length_to_width_ratio =
+      source.minimum_length_to_width_ratio;
+  result.minimum_passage_length =
+      domain::Distance(source.minimum_passage_length_m);
+  result.large_room_width = domain::Distance(source.large_room_width_m);
+  result.large_room_length = domain::Distance(source.large_room_length_m);
+  result.cue_clearance_margin =
+      domain::Distance(source.cue_clearance_margin_m);
+  result.maximum_width_change_ratio = source.maximum_width_change_ratio;
+  result.hard_turn_threshold = domain::Angle(source.hard_turn_threshold_rad);
+  result.end_of_passage_clearance =
+      domain::Distance(source.end_of_passage_clearance_m);
+  result.minimum_extension = domain::Distance(source.minimum_extension_m);
+  result.time_budget = std::chrono::duration<double>(source.time_limit_s);
+  result.decision_budget = source.decision_budget;
+  return result;
+}
+
 }  // namespace
 
 class NavigationEngineAdapter::Impl {
@@ -252,22 +296,7 @@ class NavigationEngineAdapter::Impl {
         configuration_.experiment.reactive_exploration_enabled &&
             has_tier_one_rule("low_level_exploration"),
         has_tier_one_rule("enforcer"),
-        exploration::HighLevelExplorationConfiguration{
-            domain::Distance(configuration_.experiment.initial_exploration
-                                 .minimum_clearance_m),
-            domain::Angle(configuration_.experiment.initial_exploration
-                              .heading_tolerance_rad),
-            domain::Distance(configuration_.experiment.initial_exploration
-                                 .candidate_completion_distance_m),
-            domain::Distance(configuration_.experiment.initial_exploration
-                                 .cue_similarity_radius_m),
-            domain::Distance(configuration_.experiment.initial_exploration
-                                 .passage_grid_resolution_m),
-            configuration_.experiment.initial_exploration.minimum_bundle_beams,
-            std::chrono::duration<double>(
-                configuration_.experiment.initial_exploration.time_limit_s),
-            configuration_.experiment.initial_exploration.decision_budget,
-            {}},
+        hleConfiguration(configuration_),
         std::move(lle_component), std::move(enforcer_component),
         planning::TraversabilityConfiguration{
             unknownPolicy(configuration_.navigation.grids.map_unknown_policy),

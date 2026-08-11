@@ -204,13 +204,8 @@ std::optional<std::string> NavigationEngine::preparePlan(MissionStep step) {
 void NavigationEngine::finishInitialExploration() {
   world_.spatial.unfinished_hle_candidates.clear();
   for (const auto& candidate : exploration_.unfinishedCandidates()) {
-    const double heading = candidate.heading.radians();
-    const double distance = candidate.clearance.meters();
     world_.spatial.unfinished_hle_candidates.push_back(
-        {candidate.id,
-         candidate.start,
-         {candidate.start.x_m + distance * std::cos(heading),
-          candidate.start.y_m + distance * std::sin(heading)}});
+        {candidate.id, candidate.start, candidate.endpoint});
   }
   exploration_.finish();
 }

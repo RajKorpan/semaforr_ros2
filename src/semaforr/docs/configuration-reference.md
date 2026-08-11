@@ -74,6 +74,13 @@ HLE policy thresholds are typed parameters rather than embedded constants:
 `time_limit_s` and `decision_budget`; `observation_budget` remains the outer
 phase-coordinator safeguard.
 
+`phases.initial_exploration.behavior_policy` accepts `profile`, `modernized`,
+or `compatibility`. Compatibility uses the fixed 41-ray left/right focus
+bundles and the configured length-to-width, large-room, cue-clearance,
+extension, width-change, hard-turn, and end-clearance thresholds. The focus
+bundle is validated as exactly 41 rays. See [High-level
+exploration](high-level-exploration.md).
+
 `social.enabled: false` disables social observation subscription, learning,
 advisors, and crowd planners. The subordinate
 `social.observations.enabled`, `social.learning.enabled`,

@@ -5,17 +5,28 @@
 #include <cstdint>
 #include <optional>
 #include <semaforr/domain/grid_geometry.hpp>
+#include <semaforr/exploration/exploration_candidate.hpp>
 #include <vector>
 
 namespace semaforr::exploration {
 
 enum class PassageCellState { Free, Obstructed, Passage };
+enum class PassageCompletionState {
+  Unassigned,
+  InProgress,
+  Suspended,
+  Completed,
+  Abandoned
+};
 
 struct PassageCell {
   int row = 0;
   int column = 0;
   PassageCellState state = PassageCellState::Free;
   std::optional<std::uint64_t> passage_id;
+  std::optional<ExplorationCandidateId> candidate_id;
+  PassageCompletionState completion_state =
+      PassageCompletionState::Unassigned;
   std::uint32_t evidence_count = 0U;
 };
 
@@ -26,6 +37,7 @@ struct PassageGridSnapshot {
 };
 
 const char* toString(PassageCellState state) noexcept;
+const char* toString(PassageCompletionState state) noexcept;
 
 }  // namespace semaforr::exploration
 

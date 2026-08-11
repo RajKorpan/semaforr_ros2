@@ -71,6 +71,8 @@ void declareConfigurationParameters(rclcpp::Node& node) {
   node.declare_parameter("phases.initial_exploration.observation_budget", 0);
   node.declare_parameter("phases.initial_exploration.strategy",
                          std::string{"hle"});
+  node.declare_parameter("phases.initial_exploration.behavior_policy",
+                         std::string{"profile"});
   node.declare_parameter("phases.initial_exploration.time_limit_s", 1200.0);
   node.declare_parameter("phases.initial_exploration.decision_budget", 10000);
   node.declare_parameter("phases.initial_exploration.minimum_clearance_m", 0.8);
@@ -83,6 +85,25 @@ void declareConfigurationParameters(rclcpp::Node& node) {
   node.declare_parameter("phases.initial_exploration.passage_grid_resolution_m",
                          0.5);
   node.declare_parameter("phases.initial_exploration.minimum_bundle_beams", 1);
+  node.declare_parameter(
+      "phases.initial_exploration.compatibility_focus_bundle_beams", 41);
+  node.declare_parameter(
+      "phases.initial_exploration.minimum_length_to_width_ratio", 1.5);
+  node.declare_parameter(
+      "phases.initial_exploration.minimum_passage_length_m", 1.0);
+  node.declare_parameter("phases.initial_exploration.large_room_width_m", 3.0);
+  node.declare_parameter("phases.initial_exploration.large_room_length_m", 3.0);
+  node.declare_parameter(
+      "phases.initial_exploration.cue_clearance_margin_m", 0.05);
+  node.declare_parameter(
+      "phases.initial_exploration.maximum_width_change_ratio", 0.35);
+  node.declare_parameter(
+      "phases.initial_exploration.hard_turn_threshold_rad",
+      0.7853981633974483);
+  node.declare_parameter(
+      "phases.initial_exploration.end_of_passage_clearance_m", 0.8);
+  node.declare_parameter("phases.initial_exploration.minimum_extension_m",
+                         0.25);
   node.declare_parameter("phases.target_navigation.enabled", true);
   node.declare_parameter("exploration.reactive.enabled", true);
   node.declare_parameter("exploration.reactive.strategy", std::string{"lle"});
@@ -445,6 +466,9 @@ config::Configuration configurationFromParameters(rclcpp::Node& node) {
       static_cast<std::size_t>(observation_budget);
   configuration.experiment.initial_exploration.strategy =
       node.get_parameter("phases.initial_exploration.strategy").as_string();
+  configuration.experiment.initial_exploration.behavior_policy =
+      node.get_parameter("phases.initial_exploration.behavior_policy")
+          .as_string();
   configuration.experiment.initial_exploration.time_limit_s =
       node.get_parameter("phases.initial_exploration.time_limit_s").as_double();
   const auto decision_budget =
@@ -478,6 +502,32 @@ config::Configuration configurationFromParameters(rclcpp::Node& node) {
     throw std::runtime_error(
         "phases.initial_exploration.minimum_bundle_beams must be positive");
   hle.minimum_bundle_beams = static_cast<std::size_t>(minimum_bundle_beams);
+  const auto focus_bundle = node.get_parameter(
+      "phases.initial_exploration.compatibility_focus_bundle_beams").as_int();
+  if (focus_bundle <= 0)
+    throw std::runtime_error(
+        "phases.initial_exploration.compatibility_focus_bundle_beams must be "
+        "positive");
+  hle.compatibility_focus_bundle_beams =
+      static_cast<std::size_t>(focus_bundle);
+  hle.minimum_length_to_width_ratio = node.get_parameter(
+      "phases.initial_exploration.minimum_length_to_width_ratio").as_double();
+  hle.minimum_passage_length_m = node.get_parameter(
+      "phases.initial_exploration.minimum_passage_length_m").as_double();
+  hle.large_room_width_m = node.get_parameter(
+      "phases.initial_exploration.large_room_width_m").as_double();
+  hle.large_room_length_m = node.get_parameter(
+      "phases.initial_exploration.large_room_length_m").as_double();
+  hle.cue_clearance_margin_m = node.get_parameter(
+      "phases.initial_exploration.cue_clearance_margin_m").as_double();
+  hle.maximum_width_change_ratio = node.get_parameter(
+      "phases.initial_exploration.maximum_width_change_ratio").as_double();
+  hle.hard_turn_threshold_rad = node.get_parameter(
+      "phases.initial_exploration.hard_turn_threshold_rad").as_double();
+  hle.end_of_passage_clearance_m = node.get_parameter(
+      "phases.initial_exploration.end_of_passage_clearance_m").as_double();
+  hle.minimum_extension_m = node.get_parameter(
+      "phases.initial_exploration.minimum_extension_m").as_double();
   configuration.experiment.target_navigation.enabled =
       node.get_parameter("phases.target_navigation.enabled").as_bool();
   configuration.experiment.reactive_exploration_enabled =

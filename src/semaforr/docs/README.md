@@ -14,6 +14,7 @@
 - [Topic and frame contract](topics-and-frames.md)
 - [Spatial learning](spatial-learning.md)
 - [Highway and passage models](highway-model.md)
+- [High-level exploration](high-level-exploration.md)
 - [Chapter 3 spatial representation profiles](chapter3-spatial-representations.md)
 - [Action execution and learning lifecycle](action-execution-lifecycle.md)
 - [Representation revisions and dependency tracking](revision-dependencies.md)

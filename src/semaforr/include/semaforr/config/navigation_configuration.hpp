@@ -88,6 +88,7 @@ struct InitialExplorationConfiguration {
   bool enabled = false;
   std::size_t observation_budget = 0U;
   std::string strategy = "hle";
+  std::string behavior_policy = "profile";
   double time_limit_s = 1200.0;
   std::size_t decision_budget = 10000U;
   double minimum_clearance_m = 0.8;
@@ -96,6 +97,16 @@ struct InitialExplorationConfiguration {
   double cue_similarity_radius_m = 0.5;
   double passage_grid_resolution_m = 0.5;
   std::size_t minimum_bundle_beams = 1U;
+  std::size_t compatibility_focus_bundle_beams = 41U;
+  double minimum_length_to_width_ratio = 1.5;
+  double minimum_passage_length_m = 1.0;
+  double large_room_width_m = 3.0;
+  double large_room_length_m = 3.0;
+  double cue_clearance_margin_m = 0.05;
+  double maximum_width_change_ratio = 0.35;
+  double hard_turn_threshold_rad = 0.7853981633974483;
+  double end_of_passage_clearance_m = 0.8;
+  double minimum_extension_m = 0.25;
 };
 
 struct TargetNavigationConfiguration {
