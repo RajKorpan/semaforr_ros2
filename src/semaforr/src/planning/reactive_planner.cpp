@@ -327,20 +327,26 @@ TriggerEvaluation Out::evaluateTrigger(
     const decision::DecisionContext& context) const {
   if (state_ != State::Idle) return {true, "Out recovery is active"};
   const auto& grid = context.world.spatial.known_grid;
-  const auto nonzero = static_cast<std::size_t>(std::count_if(
-      grid.cells.begin(), grid.cells.end(),
-      [](std::uint32_t value) { return value > 0U; }));
-  const auto well_covered = static_cast<std::size_t>(std::count_if(
-      grid.cells.begin(), grid.cells.end(), [&](std::uint32_t value) {
-        return value >= coverage_threshold_;
-      }));
+  const auto nonzero = grid.observedCellCount();
+  const auto well_covered = grid.cells.empty()
+                                ? static_cast<std::size_t>(std::count_if(
+                                      grid.sparseCells().begin(),
+                                      grid.sparseCells().end(),
+                                      [&](const auto& cell) {
+                                        return cell.value >= coverage_threshold_;
+                                      }))
+                                : static_cast<std::size_t>(std::count_if(
+                                      grid.cells.begin(), grid.cells.end(),
+                                      [&](std::uint32_t value) {
+                                        return value >= coverage_threshold_;
+                                      }));
   std::size_t new_cells = 0U;
   std::vector<std::size_t> observed_new_cells;
   if (context.world.robot.laser) {
     for (const auto& endpoint : domain::laserEndpoints(
              context.world.robot.pose, *context.world.robot.laser)) {
       const auto index = gridIndex(grid, endpoint);
-      if (index && grid.cells[*index] == 0U &&
+      if (index && grid.valueAt(*index) == 0U &&
           std::find(observed_new_cells.begin(), observed_new_cells.end(),
                     *index) == observed_new_cells.end())
         observed_new_cells.push_back(*index);
@@ -372,14 +378,10 @@ ReactivePlanUpdate Out::update(
     mission_id_ = context.world.mission.active()->id;
     state_ = State::Survey;
     rotations_ = 0U;
-    baseline_known_cells_ = static_cast<std::size_t>(std::count_if(
-        grid.cells.begin(), grid.cells.end(),
-        [](std::uint32_t value) { return value > 0U; }));
+    baseline_known_cells_ = grid.observedCellCount();
   }
   if (state_ == State::Survey) {
-    const auto known = static_cast<std::size_t>(std::count_if(
-        grid.cells.begin(), grid.cells.end(),
-        [](std::uint32_t value) { return value > 0U; }));
+    const auto known = grid.observedCellCount();
     if (rotations_ > 0U &&
         known > baseline_known_cells_ + maximum_new_cells_) {
       reset();
@@ -429,7 +431,7 @@ void Out::buildEscape(const domain::WorldModel& world) {
             0.75)
       escape_points_.push_back(entry->pose.position);
     const auto index = gridIndex(grid, entry->pose.position);
-    if (!index || grid.cells[*index] < coverage_threshold_) break;
+    if (!index || grid.valueAt(*index) < coverage_threshold_) break;
   }
 }
 
@@ -581,7 +583,7 @@ void LowLevelExplorer::assembleCandidates(const domain::WorldModel& world) {
           endpoint);
       const auto inclusion_index = gridIndex(grid, endpoint);
       const bool uncovered =
-          !inclusion_index || grid.cells[*inclusion_index] == 0U;
+          !inclusion_index || grid.valueAt(*inclusion_index) == 0U;
       if (!valid_cue && uncovered)
         fallback_rays.push_back(
             {next_candidate_id_++,
@@ -687,10 +689,7 @@ bool LowLevelExplorer::appendCurrentViewCandidates(
 
 std::size_t LowLevelExplorer::includedCellCount(
     const domain::WorldModel& world) const noexcept {
-  return static_cast<std::size_t>(std::count_if(
-      world.spatial.inclusion_grid.cells.begin(),
-      world.spatial.inclusion_grid.cells.end(),
-      [](std::uint32_t value) { return value != 0U; }));
+  return world.spatial.inclusion_grid.observedCellCount();
 }
 
 domain::Action LowLevelExplorer::actionToward(

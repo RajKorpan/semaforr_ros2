@@ -79,6 +79,7 @@ set(SEMAFORR_DOMAIN_SOURCES
   src/domain/model_revision.cpp
   src/domain/crowd_model.cpp
   src/domain/grid_geometry.cpp
+  src/domain/grid_layers.cpp
   src/domain/motion_model.cpp
   src/decision/decision_result.cpp
   src/social/crowd_field_learner.cpp
@@ -493,6 +494,15 @@ if(BUILD_TESTING)
   target_link_libraries(
     semaforr_revision_dependency_test semaforr_navigation)
   semaforr_apply_project_options(semaforr_revision_dependency_test)
+
+  ament_add_gtest(
+    semaforr_snapshot_projection_test
+    test/unit/snapshot_projection_test.cpp
+  )
+  target_link_libraries(
+    semaforr_snapshot_projection_test
+    semaforr_navigation semaforr_validation)
+  semaforr_apply_project_options(semaforr_snapshot_projection_test)
 
   ament_add_gtest(
     semaforr_tier_advisor_test

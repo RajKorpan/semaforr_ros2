@@ -33,15 +33,8 @@ struct PassageSkeletonModel {
   std::size_t connectivity_revision = 0U;
 };
 using GridGeometry = domain::GridGeometry;
-struct SparseGridCell {
-  std::size_t index = 0U;
-  std::uint32_t value = 0U;
-};
-struct FamiliarityCellMetadata {
-  std::size_t index = 0U;
-  std::size_t last_observed_sequence = 0U;
-  float confidence = 0.0F;
-};
+using SparseGridCell = domain::SparseCountCell;
+using FamiliarityCellMetadata = domain::SparseFamiliarityMetadata;
 struct KnownGridModel {
   GridGeometry geometry;
   std::vector<std::uint32_t> observations;

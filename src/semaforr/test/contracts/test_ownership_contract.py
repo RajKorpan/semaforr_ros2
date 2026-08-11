@@ -36,12 +36,26 @@ def test_polymorphic_owners_use_unique_ptr_and_virtual_destructors():
         assert "virtual ~" in (SOURCE_DIR / header).read_text(encoding="utf-8")
 
 
-def test_no_shared_ptr_outside_ros_adapter_layer():
+def test_shared_ptr_is_limited_to_snapshot_infrastructure_and_ros_adapters():
+    # Shared ownership is intentional only where immutable spatial
+    # publications or their lazy views must outlive the publishing learner.
+    # Polymorphic components remain uniquely owned.
+    snapshot_infrastructure = {
+        "include/semaforr/domain/grid_layers.hpp",
+        "include/semaforr/domain/world_model.hpp",
+        "include/semaforr/spatial/learner.hpp",
+        "include/semaforr/spatial/learner_base.hpp",
+        "src/spatial/spatial_learning_coordinator.cpp",
+    }
     violations = []
     for root in (SOURCE_DIR / "include/semaforr", SOURCE_DIR / "src"):
         for path in root.rglob("*"):
             if path.suffix not in {".hpp", ".cpp"} or "/ros/" in path.as_posix():
                 continue
-            if "shared_ptr" in path.read_text(encoding="utf-8"):
-                violations.append(path.relative_to(SOURCE_DIR).as_posix())
+            relative = path.relative_to(SOURCE_DIR).as_posix()
+            if (
+                "shared_ptr" in path.read_text(encoding="utf-8")
+                and relative not in snapshot_infrastructure
+            ):
+                violations.append(relative)
     assert not violations

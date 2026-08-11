@@ -28,6 +28,82 @@ domain::ModelDependency dependencyFor(SpatialRepresentation representation) {
   return D::Trails;
 }
 
+struct ProjectionEstimate {
+  std::size_t dense_cells = 0U;
+  std::size_t sparse_cells = 0U;
+  std::size_t entities = 0U;
+  std::size_t allocations = 0U;
+  std::size_t bytes = 0U;
+  std::size_t shared_bytes = 0U;
+};
+
+ProjectionEstimate estimateProjection(const SpatialPayload& value) {
+  ProjectionEstimate result;
+  std::visit(
+      [&](const auto& payload) {
+        using Payload = std::decay_t<decltype(payload)>;
+        const auto add = [&](const auto& entries) {
+          result.entities += entries.size();
+          result.allocations += entries.empty() ? 0U : 1U;
+          result.bytes += entries.size() *
+                          sizeof(typename std::decay_t<
+                              decltype(entries)>::value_type);
+        };
+        if constexpr (std::is_same_v<Payload, KnownGridModel>) {
+          result.dense_cells = payload.observations.size();
+          result.sparse_cells = payload.sparse_observations.size();
+          result.bytes = payload.observations.size() * sizeof(std::uint32_t);
+          result.shared_bytes = payload.sparse_observations.size() *
+                                    sizeof(SparseGridCell) +
+                                payload.sparse_metadata.size() *
+                                    sizeof(FamiliarityCellMetadata);
+          result.allocations = payload.observations.empty() ? 0U : 1U;
+        } else if constexpr (std::is_same_v<Payload,
+                                             SensedOccupancyModel>) {
+          result.dense_cells = payload.cells.size();
+          result.sparse_cells = payload.sparse_cells.size();
+          result.bytes = payload.cells.size() *
+                         sizeof(domain::SensedOccupancyCell);
+          result.shared_bytes = payload.sparse_cells.size() *
+                                sizeof(domain::SparseSensedOccupancyCell);
+          result.allocations = payload.cells.empty() ? 0U : 1U;
+        } else if constexpr (std::is_same_v<Payload, InclusionGridModel>) {
+          result.dense_cells = payload.included.size();
+          result.sparse_cells = payload.sparse_included.size();
+          result.bytes = payload.included.size() * sizeof(std::uint32_t);
+          result.shared_bytes =
+              payload.sparse_included.size() * sizeof(SparseGridCell);
+          result.allocations = payload.included.empty() ? 0U : 1U;
+        } else if constexpr (std::is_same_v<Payload, TrailModel>) {
+          add(payload.trails);
+          for (const auto& trail : payload.trails) add(trail);
+        } else if constexpr (std::is_same_v<Payload, ConveyorModel>) {
+          add(payload.flows);
+        } else if constexpr (std::is_same_v<Payload, RegionModel>) {
+          add(payload.regions);
+        } else if constexpr (std::is_same_v<Payload, DoorExitModel>) {
+          add(payload.openings);
+        } else if constexpr (std::is_same_v<Payload, HallwayModel>) {
+          add(payload.centerlines);
+        } else if constexpr (std::is_same_v<Payload, BarrierModel>) {
+          add(payload.barriers);
+        } else if constexpr (std::is_same_v<Payload,
+                                             PassageSkeletonModel>) {
+          add(payload.nodes);
+          add(payload.edges);
+        } else if constexpr (std::is_same_v<Payload, HighwayModel>) {
+          add(payload.highways);
+          add(payload.graph.vertices);
+          add(payload.graph.edges);
+        } else if constexpr (std::is_same_v<Payload, CircumstanceModel>) {
+          add(payload.clusters);
+          add(payload.cases);
+        }
+      },
+      value);
+  return result;
+}
+
 void clearRepresentation(domain::SpatialModel& model,
                          SpatialRepresentation representation) {
   switch (representation) {
@@ -70,6 +146,13 @@ void clearRepresentation(domain::SpatialModel& model,
       model.circumstances = {};
       break;
   }
+  const auto dependency = dependencyFor(representation);
+  model.snapshot_handles.erase(dependency);
+  model.revisions.erase(dependency);
+  if (dependency == domain::ModelDependency::Highways)
+    model.revisions.erase(domain::ModelDependency::HighwayGraph);
+  if (dependency == domain::ModelDependency::Barriers)
+    model.revisions.erase(domain::ModelDependency::VisibilityGeometry);
 }
 
 }  // namespace
@@ -428,19 +511,39 @@ std::string SpatialLearningCoordinator::serializeAll() const {
 }
 
 void SpatialLearningCoordinator::applyTo(domain::SpatialModel& model) const {
+  const auto started = std::chrono::steady_clock::now();
+  SnapshotProjectionMetrics metrics;
   for (const Entry& entry : learners_) {
     if (!entry.enabled) {
       clearRepresentation(model, entry.learner->representation());
       continue;
     }
-    const SpatialModelUpdate update = entry.learner->snapshot();
+    const auto snapshot = entry.learner->sharedSnapshot();
+    ++metrics.snapshots_examined;
+    if (!snapshot) continue;
+    const SpatialModelUpdate& update = *snapshot;
     if (!update.usable()) {
       continue;
     }
     const auto dependency = dependencyFor(update.representation);
-    if (model.revisionOf(dependency) == update.revision) continue;
+    if (model.revisionOf(dependency) == update.revision) {
+      ++metrics.unchanged_snapshots_reused;
+      continue;
+    }
+    ++metrics.representations_projected;
+    const auto estimate = estimateProjection(update.payload);
+    metrics.dense_cells_copied += estimate.dense_cells;
+    metrics.sparse_cells_shared += estimate.sparse_cells;
+    metrics.entities_copied += estimate.entities;
+    metrics.estimated_allocations += estimate.allocations;
+    metrics.estimated_bytes_copied += estimate.bytes;
+    metrics.estimated_bytes_shared += estimate.shared_bytes;
+    // Shared immutable storage remains resident in the world model even when
+    // projection performs no cell copy. Include it in the high-water mark.
+    metrics.peak_projection_bytes = std::max(
+        metrics.peak_projection_bytes, estimate.bytes + estimate.shared_bytes);
     std::visit(
-        [&model, &update](const auto& payload) {
+        [&model, &update, &snapshot](const auto& payload) {
           using Payload = std::decay_t<decltype(payload)>;
           if constexpr (std::is_same_v<Payload, TrailModel>) {
             model.trails = payload.trails;
@@ -466,49 +569,39 @@ void SpatialLearningCoordinator::applyTo(domain::SpatialModel& model) const {
               model.skeleton_edges.emplace_back(edge.from, edge.to);
             }
           } else if constexpr (std::is_same_v<Payload, KnownGridModel>) {
-            auto cells = payload.observations;
-            if (cells.empty()) {
-              cells.assign(payload.geometry.columns * payload.geometry.rows,
-                           0U);
-              for (const auto& cell : payload.sparse_observations)
-                if (cell.index < cells.size()) cells[cell.index] = cell.value;
-            }
             model.known_grid = {
                 payload.geometry.columns, payload.geometry.rows,
                 payload.geometry.resolution_m, payload.geometry.origin,
-                std::move(cells), update.revision};
+                payload.observations, update.revision};
+            model.known_grid.sparse_snapshot =
+                std::shared_ptr<const std::vector<domain::SparseCountCell>>(
+                    snapshot, &payload.sparse_observations);
+            model.known_grid.sparse_metadata_snapshot = std::shared_ptr<
+                const std::vector<domain::SparseFamiliarityMetadata>>(
+                snapshot, &payload.sparse_metadata);
             model.known_grid.frame_id = payload.geometry.frame_id;
             model.known_grid.geometry_revision =
                 payload.geometry.geometry_revision;
             model.known_grid.extent_mode = payload.geometry.extent_mode;
             model.known_grid.extent_source = payload.geometry.extent_source;
-            model.known_grid.last_observed_sequence.assign(
-                model.known_grid.cells.size(), 0U);
-            model.known_grid.confidence.assign(model.known_grid.cells.size(),
-                                               0.0F);
-            for (const auto& metadata : payload.sparse_metadata) {
-              if (metadata.index >= model.known_grid.cells.size()) continue;
-              model.known_grid.last_observed_sequence[metadata.index] =
-                  metadata.last_observed_sequence;
-              model.known_grid.confidence[metadata.index] = metadata.confidence;
-            }
           } else if constexpr (std::is_same_v<Payload,
                                                SensedOccupancyModel>) {
-            model.sensed_occupancy = payload;
+            model.sensed_occupancy = {};
+            model.sensed_occupancy.geometry = payload.geometry;
+            model.sensed_occupancy.cells = payload.cells;
+            model.sensed_occupancy.sparse_snapshot = std::shared_ptr<
+                const std::vector<domain::SparseSensedOccupancyCell>>(
+                snapshot, &payload.sparse_cells);
             model.sensed_occupancy.revision = update.revision;
           } else if constexpr (std::is_same_v<Payload,
                                                InclusionGridModel>) {
-            auto cells = payload.included;
-            if (cells.empty()) {
-              cells.assign(payload.geometry.columns * payload.geometry.rows,
-                           0U);
-              for (const auto& cell : payload.sparse_included)
-                if (cell.index < cells.size()) cells[cell.index] = cell.value;
-            }
-            model.inclusion_grid = {
+            model.inclusion_grid = domain::SparseCountGrid(
                 payload.geometry.columns, payload.geometry.rows,
                 payload.geometry.resolution_m, payload.geometry.origin,
-                std::move(cells), update.revision};
+                payload.included, update.revision);
+            model.inclusion_grid.sparse_snapshot =
+                std::shared_ptr<const std::vector<domain::SparseCountCell>>(
+                    snapshot, &payload.sparse_included);
           } else if constexpr (std::is_same_v<Payload, HighwayModel>) {
             model.highways.graph = payload.graph;
             model.highways.highways = payload.highways;
@@ -531,6 +624,7 @@ void SpatialLearningCoordinator::applyTo(domain::SpatialModel& model) const {
         },
         update.payload);
     model.revisions[dependency] = update.revision;
+    model.snapshot_handles[dependency] = snapshot;
     ++model.mutation_sequence;
     model.revision = static_cast<std::size_t>(model.mutation_sequence);
     model.mutation_history.push_back(
@@ -545,6 +639,25 @@ void SpatialLearningCoordinator::applyTo(domain::SpatialModel& model) const {
       model.revisions[domain::ModelDependency::VisibilityGeometry] =
           update.revision;
   }
+  metrics.projection_time_s = std::chrono::duration<double>(
+                                  std::chrono::steady_clock::now() - started)
+                                  .count();
+  last_projection_metrics_ = metrics;
+  auto& total = cumulative_projection_metrics_;
+  total.snapshots_examined += metrics.snapshots_examined;
+  total.unchanged_snapshots_reused += metrics.unchanged_snapshots_reused;
+  total.representations_projected += metrics.representations_projected;
+  total.dense_cells_copied += metrics.dense_cells_copied;
+  total.sparse_cells_copied += metrics.sparse_cells_copied;
+  total.sparse_cells_shared += metrics.sparse_cells_shared;
+  total.entities_copied += metrics.entities_copied;
+  total.estimated_allocations += metrics.estimated_allocations;
+  total.estimated_bytes_copied += metrics.estimated_bytes_copied;
+  total.estimated_bytes_shared += metrics.estimated_bytes_shared;
+  total.peak_projection_bytes =
+      std::max(total.peak_projection_bytes, metrics.peak_projection_bytes);
+  total.projection_time_s += metrics.projection_time_s;
+  total.lock_duration_s += metrics.lock_duration_s;
 }
 
 std::size_t SpatialLearningCoordinator::enabledCount() const noexcept {

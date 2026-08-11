@@ -53,12 +53,12 @@ TEST(GridLayers, HitEndpointIsOccupiedWhileFamiliarityOnlyRecordsObservation) {
 
   const auto sensed = std::get<spatial::SensedOccupancyModel>(
       occupancy.snapshot().payload);
-  ASSERT_EQ(sensed.cells.size(), 6U);
-  EXPECT_EQ(sensed.cells[0].state,
+  EXPECT_TRUE(sensed.cells.empty());
+  EXPECT_EQ(sensed.valueAt(0U).state,
             domain::SensedOccupancyState::ObservedFree);
-  EXPECT_EQ(sensed.cells[1].state,
+  EXPECT_EQ(sensed.valueAt(1U).state,
             domain::SensedOccupancyState::ObservedFree);
-  EXPECT_EQ(sensed.cells[2].state,
+  EXPECT_EQ(sensed.valueAt(2U).state,
             domain::SensedOccupancyState::ObservedOccupied);
   const auto known =
       std::get<spatial::KnownGridModel>(familiarity.snapshot().payload);
@@ -73,11 +73,12 @@ TEST(GridLayers, MaximumRangeIsFreeAndInvalidBeamsAreIgnored) {
   maximum.observe(scan(1U, 4.0));
   const auto max_model = std::get<spatial::SensedOccupancyModel>(
       maximum.snapshot().payload);
-  EXPECT_EQ(max_model.cells[4].state,
+  EXPECT_EQ(max_model.valueAt(4U).state,
             domain::SensedOccupancyState::ObservedFree);
-  EXPECT_EQ(std::count_if(max_model.cells.begin(), max_model.cells.end(),
-                          [](const auto& cell) {
-                            return cell.state ==
+  EXPECT_EQ(std::count_if(max_model.sparseCells().begin(),
+                          max_model.sparseCells().end(),
+                          [](const auto& sparse) {
+                            return sparse.value.state ==
                                    domain::SensedOccupancyState::ObservedOccupied;
                           }),
             0);
@@ -103,7 +104,7 @@ TEST(GridLayers, ExtentPolicyExpandsOrClipsExplicitly) {
   EXPECT_GT(expanded.geometry.columns, 2U);
   const auto endpoint = expanded.geometry.index({4.5, 0.5});
   ASSERT_TRUE(endpoint);
-  EXPECT_EQ(expanded.cells[*endpoint].state,
+  EXPECT_EQ(expanded.valueAt(*endpoint).state,
             domain::SensedOccupancyState::ObservedFree);
 
   spatial::SensedOccupancyLearner fixed(
@@ -147,9 +148,9 @@ TEST(GridLayers, RepeatedFreeEvidenceClearsDynamicOccupancyAndStaleHitsExpire) {
   learner.observe(scan(4U, 4.0));
   const auto cleared =
       std::get<spatial::SensedOccupancyModel>(learner.snapshot().payload);
-  EXPECT_EQ(cleared.cells[2].state,
+  EXPECT_EQ(cleared.valueAt(2U).state,
             domain::SensedOccupancyState::ObservedFree);
-  EXPECT_TRUE(cleared.cells[2].conflicting);
+  EXPECT_TRUE(cleared.valueAt(2U).conflicting);
 
   spatial::SensedOccupancyLearner expiry(6U, 1U, 1.0, {}, configuration);
   expiry.observe(scan(1U, 2.0));
@@ -157,7 +158,7 @@ TEST(GridLayers, RepeatedFreeEvidenceClearsDynamicOccupancyAndStaleHitsExpire) {
     expiry.observe(scan(sequence,
                        std::numeric_limits<double>::quiet_NaN()));
   EXPECT_EQ(std::get<spatial::SensedOccupancyModel>(expiry.snapshot().payload)
-                .cells[2]
+                .valueAt(2U)
                 .state,
             domain::SensedOccupancyState::Unknown);
 }

@@ -309,9 +309,13 @@ void SensedOccupancyLearner::expireDynamic(std::size_t sequence) {
 SensedOccupancyModel SensedOccupancyLearner::snapshotModel() const {
   SensedOccupancyModel model;
   model.geometry = geometry_;
-  model.cells.resize(geometry_.columns * geometry_.rows);
+  model.sparse_cells.reserve(cells_.size());
   for (const auto& [index, cell] : cells_)
-    if (index < model.cells.size()) model.cells[index] = cell;
+    if (index < geometry_.cellCount()) model.sparse_cells.push_back({index, cell});
+  std::sort(model.sparse_cells.begin(), model.sparse_cells.end(),
+            [](const auto& left, const auto& right) {
+              return left.index < right.index;
+            });
   return model;
 }
 

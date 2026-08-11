@@ -13,7 +13,7 @@ std::optional<domain::SensedOccupancyCell> sensedAt(
   if (!sensed || !sensed->valid()) return std::nullopt;
   const auto index = sensed->geometry.index(point);
   if (!index) return std::nullopt;
-  return sensed->cells[*index];
+  return sensed->valueAt(*index);
 }
 
 bool permitUnknown(domain::UnknownSpacePolicy policy, domain::Point2D point,

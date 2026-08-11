@@ -338,7 +338,7 @@ bool HeuristicAdvisor::applicable(
              !world.spatial.skeleton_nodes.empty() &&
              !world.spatial.skeleton_edges.empty();
     case O::SpatialLearner:
-      return !world.spatial.inclusion_grid.cells.empty() ||
+      return world.spatial.inclusion_grid.observedCellCount() != 0U ||
              !world.spatial.learned_regions.empty() ||
              !world.spatial.conveyor_flows.empty();
     case O::Stay:
@@ -583,10 +583,11 @@ double HeuristicAdvisor::score(const domain::WorldModel& world,
       const auto& grid = world.spatial.inclusion_grid;
       double unknown = 0.0;
       const auto index = gridIndex(grid, expected.position);
-      if (!index || grid.cells[*index] == 0U)
+      const auto inclusion = index ? grid.valueAt(*index) : 0U;
+      if (inclusion == 0U)
         unknown += 1.0;
       else
-        unknown -= std::log1p(static_cast<double>(grid.cells[*index]));
+        unknown -= std::log1p(static_cast<double>(inclusion));
       if (std::any_of(world.spatial.learned_regions.begin(),
                       world.spatial.learned_regions.end(),
                       [&](const auto& region) {

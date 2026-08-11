@@ -136,6 +136,12 @@ TEST(SpatialLearning, DisablingALearnerRemovesOnlyItsProjectedModel) {
   coordinator.setEnabled(SpatialRepresentation::Trails, false);
   coordinator.applyTo(projected);
   EXPECT_TRUE(projected.trails.empty());
+
+  // Clearing a projection also releases its retained snapshot and revision so
+  // re-enabling can project the learner's unchanged immutable publication.
+  coordinator.setEnabled(SpatialRepresentation::Trails, true);
+  coordinator.applyTo(projected);
+  EXPECT_FALSE(projected.trails.empty());
 }
 
 TEST(SpatialLearning, AutomaticRebuildUsesAcceptedEpisodeCount) {

@@ -4,6 +4,8 @@
 #include <algorithm>
 #include <chrono>
 #include <cstdint>
+#include <map>
+#include <memory>
 #include <optional>
 #include <semaforr/domain/action.hpp>
 #include <semaforr/domain/action_execution.hpp>
@@ -148,18 +150,7 @@ struct RecoveryState {
   std::size_t reposition_attempts = 0U;
 };
 
-struct FreespaceGrid {
-  std::size_t columns = 0U;
-  std::size_t rows = 0U;
-  double resolution_m = 1.0;
-  Point2D origin;
-  std::vector<std::uint32_t> cells;
-  std::size_t revision = 0U;
-
-  GridExtent extent() const {
-    return {columns, rows, resolution_m, origin};
-  }
-};
+using FreespaceGrid = SparseCountGrid;
 
 struct ExplorationCue {
   std::uint64_t id = 0U;
@@ -185,6 +176,7 @@ struct SpatialModel {
   HighwayGraph highways;
   CircumstanceModel circumstances;
   DependencyRevisions revisions;
+  std::map<ModelDependency, std::shared_ptr<const void>> snapshot_handles;
   Revision mutation_sequence = 0U;
   std::vector<ModelMutation> mutation_history;
   // Compatibility diagnostic sequence. This is never used as a dependency.

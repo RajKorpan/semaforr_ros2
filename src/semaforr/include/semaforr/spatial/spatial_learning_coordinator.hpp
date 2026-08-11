@@ -31,6 +31,22 @@ struct LearnedGridConfiguration {
   bool initialize_around_first_pose{true};
 };
 
+struct SnapshotProjectionMetrics {
+  std::size_t snapshots_examined = 0U;
+  std::size_t unchanged_snapshots_reused = 0U;
+  std::size_t representations_projected = 0U;
+  std::size_t dense_cells_copied = 0U;
+  std::size_t sparse_cells_copied = 0U;
+  std::size_t sparse_cells_shared = 0U;
+  std::size_t entities_copied = 0U;
+  std::size_t estimated_allocations = 0U;
+  std::size_t estimated_bytes_copied = 0U;
+  std::size_t estimated_bytes_shared = 0U;
+  std::size_t peak_projection_bytes = 0U;
+  double projection_time_s = 0.0;
+  double lock_duration_s = 0.0;
+};
+
 class SpatialLearningCoordinator {
  public:
   explicit SpatialLearningCoordinator(
@@ -79,6 +95,12 @@ class SpatialLearningCoordinator {
   std::string serializeAll() const;
 
   void applyTo(domain::SpatialModel& model) const;
+  const SnapshotProjectionMetrics& lastProjectionMetrics() const noexcept {
+    return last_projection_metrics_;
+  }
+  const SnapshotProjectionMetrics& cumulativeProjectionMetrics() const noexcept {
+    return cumulative_projection_metrics_;
+  }
   std::size_t learnerCount() const noexcept { return learners_.size(); }
   std::size_t enabledCount() const noexcept;
 
@@ -95,6 +117,8 @@ class SpatialLearningCoordinator {
   std::size_t automatic_rebuild_interval_;
   std::size_t observed_episodes_ = 0U;
   std::vector<Entry> learners_;
+  mutable SnapshotProjectionMetrics last_projection_metrics_;
+  mutable SnapshotProjectionMetrics cumulative_projection_metrics_;
 };
 
 }  // namespace semaforr::spatial

@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <optional>
+#include <memory>
 #include <semaforr/domain/action.hpp>
 #include <semaforr/domain/action_execution.hpp>
 #include <semaforr/domain/mission.hpp>
@@ -107,6 +108,33 @@ using SpatialPayload = std::variant<std::monostate, TrailModel, ConveyorModel,
                                     InclusionGridModel,
                                     HighwayModel, CircumstanceModel>;
 
+struct ChangedCellRange {
+  std::size_t first = 0U;
+  std::size_t last = 0U;
+};
+
+struct RepresentationChangeSet {
+  std::size_t revision = 0U;
+  std::vector<ChangedCellRange> changed_cell_ranges;
+  std::size_t added_entities = 0U;
+  std::size_t removed_entities = 0U;
+  std::size_t updated_entities = 0U;
+  std::size_t added_graph_nodes = 0U;
+  std::size_t removed_graph_nodes = 0U;
+  std::size_t updated_graph_nodes = 0U;
+  std::size_t added_graph_edges = 0U;
+  std::size_t removed_graph_edges = 0U;
+  std::size_t updated_graph_edges = 0U;
+
+  bool empty() const noexcept {
+    return changed_cell_ranges.empty() && added_entities == 0U &&
+           removed_entities == 0U && updated_entities == 0U &&
+           added_graph_nodes == 0U && removed_graph_nodes == 0U &&
+           updated_graph_nodes == 0U && added_graph_edges == 0U &&
+           removed_graph_edges == 0U && updated_graph_edges == 0U;
+  }
+};
+
 struct SpatialModelUpdate {
   SpatialRepresentation representation = SpatialRepresentation::Trails;
   std::string learner;
@@ -119,9 +147,12 @@ struct SpatialModelUpdate {
   SpatialPayload payload;
   std::vector<std::string> consumers;
   std::string diagnostic;
+  RepresentationChangeSet changes;
 
   bool usable() const noexcept { return status == ModelStatus::Fresh; }
 };
+
+using SharedSpatialSnapshot = std::shared_ptr<const SpatialModelUpdate>;
 
 std::string_view toString(SpatialRepresentation representation) noexcept;
 std::string_view toString(UpdateMode mode) noexcept;
@@ -136,6 +167,9 @@ class SpatialLearner {
   virtual void observe(const NavigationEpisode& episode) = 0;
   virtual void rebuild() = 0;
   virtual SpatialModelUpdate snapshot() const = 0;
+  virtual SharedSpatialSnapshot sharedSnapshot() const {
+    return std::make_shared<const SpatialModelUpdate>(snapshot());
+  }
 
   virtual SpatialRepresentation representation() const noexcept = 0;
   virtual std::string_view name() const noexcept = 0;

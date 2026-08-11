@@ -15,7 +15,8 @@ class SpatialLearnerBase : public SpatialLearner {
 
   void observe(const NavigationEpisode& episode) final;
   void rebuild() final;
-  SpatialModelUpdate snapshot() const final { return update_; }
+  SpatialModelUpdate snapshot() const final;
+  SharedSpatialSnapshot sharedSnapshot() const final;
 
   SpatialRepresentation representation() const noexcept final {
     return update_.representation;
@@ -39,6 +40,8 @@ class SpatialLearnerBase : public SpatialLearner {
  private:
   ObservationContract contract_;
   SpatialModelUpdate update_;
+  SharedSpatialSnapshot published_;
+  mutable SharedSpatialSnapshot metadata_snapshot_;
   std::string published_payload_signature_;
   std::vector<NavigationEpisode> episodes_;
 };

@@ -431,13 +431,19 @@ class VisualizationPublisher::Impl {
         familiarity.revision != last_familiarity_revision_) {
       auto marker = gridMarker(header, "familiarity", familiarity.resolution_m,
                                0.1F, 0.35F, 1.0F);
-      for (std::size_t index = 0U; index < familiarity.cells.size(); ++index) {
-        if (familiarity.cells[index] == 0U) continue;
+      const auto append_familiarity = [&](std::size_t index) {
         const auto center = familiarity.extent().center(index);
         geometry_msgs::msg::Point point;
         point.x = center.x_m;
         point.y = center.y_m;
         marker.points.push_back(point);
+      };
+      if (familiarity.cells.empty()) {
+        for (const auto& cell : familiarity.sparseCells())
+          if (cell.value != 0U) append_familiarity(cell.index);
+      } else {
+        for (std::size_t index = 0U; index < familiarity.cells.size(); ++index)
+          if (familiarity.cells[index] != 0U) append_familiarity(index);
       }
       familiarity_publisher_->publish(marker);
       last_familiarity_revision_ = familiarity.revision;
@@ -450,9 +456,9 @@ class VisualizationPublisher::Impl {
       auto occupied = gridMarker(header, "sensed_occupied",
                                  sensed.geometry.resolution_m, 0.9F, 0.1F,
                                  0.1F);
-      for (std::size_t index = 0U; index < sensed.cells.size(); ++index) {
-        const auto state = sensed.cells[index].state;
-        if (state == domain::SensedOccupancyState::Unknown) continue;
+      const auto append_sensed = [&](std::size_t index,
+                                     domain::SensedOccupancyState state) {
+        if (state == domain::SensedOccupancyState::Unknown) return;
         const auto center = sensed.geometry.center(index);
         geometry_msgs::msg::Point point;
         point.x = center.x_m;
@@ -460,6 +466,13 @@ class VisualizationPublisher::Impl {
         (state == domain::SensedOccupancyState::ObservedOccupied ? occupied
                                                                  : free)
             .points.push_back(point);
+      };
+      if (sensed.cells.empty()) {
+        for (const auto& cell : sensed.sparseCells())
+          append_sensed(cell.index, cell.value.state);
+      } else {
+        for (std::size_t index = 0U; index < sensed.cells.size(); ++index)
+          append_sensed(index, sensed.cells[index].state);
       }
       sensed_free_publisher_->publish(free);
       sensed_occupied_publisher_->publish(occupied);

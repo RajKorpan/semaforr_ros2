@@ -11,6 +11,8 @@ public:
   virtual ~SpatialLearner() = default;
   virtual void observe(const NavigationEpisode&) = 0;
   virtual void rebuild() = 0;
+  virtual SharedSpatialSnapshot sharedSnapshot() const = 0;
+  // Compatibility API for explicit callers that need an owned value.
   virtual SpatialModelUpdate snapshot() const = 0;
 };
 ```
@@ -24,9 +26,10 @@ Every representation declares one `UpdateSchedule`, including
 `EveryObservation`, `EveryDecisionCycle`, `AfterActionStart`,
 `AfterSuccessfulActionCompletion`, `AfterAnyTerminalActionResult`,
 `EndOfTarget`, `EndOfTask`, `EndOfInitialExploration`, HLE/LLE-only,
-`Periodic`, `OnShutdown`, or `OnDemand`. Learners retain mutable construction state and publish copied
-snapshots only when their payload or status changes; unchanged publication
-does not advance the model revision.
+`Periodic`, `OnShutdown`, or `OnDemand`. Learners retain mutable construction
+state and publish immutable shared snapshots only when their payload or status
+changes; unchanged publication does not advance the model revision or copy its
+payload into the world model.
 
 ## Components
 
@@ -65,13 +68,19 @@ incomplete update never clears the last usable representation, so advisors and
 planners can continue with the last fresh model. Consumers can inspect the
 coordinator when they need to distinguish current from retained data.
 
-The known and inclusion grids use sparse cells while learning and emit sorted
-sparse snapshots. Legacy consumers are densified only when the coordinator
-projects a snapshot into `domain::SpatialModel`. Highway labels rasterize only
-new path segments and record the affected rows and columns. Highway snapshots
+The known, sensed-occupancy, and inclusion grids use sparse cells while
+learning and emit sorted sparse snapshots. The coordinator aliases these const
+vectors into `domain::SpatialModel`; it does not densify them. Explicit legacy
+consumers can request a cached lazy dense view or a region-of-interest view.
+Highway labels rasterize only new path segments and record the affected rows
+and columns. Highway snapshots
 use schema-versioned first-class highway, intersection, and graph entities;
 legacy node/edge projections remain available during consumer migration.
 Skeleton connected components are recomputed only after a graph mutation.
+
+Each publication also carries cell/entity/graph change sets. Projection cost,
+copy counts, allocations, lock time, and peak retained bytes are exposed by
+the coordinator. See [Snapshot sharing and projection performance](snapshot-sharing.md).
 
 Learners are rebuilt explicitly with `rebuild(kind)`, collectively with
 `rebuildStale()` or `rebuildAll()`, and at lifecycle boundaries matching their
