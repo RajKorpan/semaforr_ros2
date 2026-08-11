@@ -56,6 +56,20 @@ std::string_view toString(ActionOutcome outcome) noexcept {
       return "sensor_lost";
     case ActionOutcome::Shutdown:
       return "shutdown";
+    case ActionOutcome::PartialMovement:
+      return "partial_movement";
+    case ActionOutcome::NoMovement:
+      return "no_movement";
+    case ActionOutcome::SafetyInterrupted:
+      return "safety_interrupted";
+    case ActionOutcome::ControllerRejected:
+      return "controller_rejected";
+    case ActionOutcome::ControllerFailure:
+      return "controller_failure";
+    case ActionOutcome::GoalPreempted:
+      return "goal_preempted";
+    case ActionOutcome::NavigationModeTransition:
+      return "navigation_mode_transition";
   }
   return "unknown";
 }

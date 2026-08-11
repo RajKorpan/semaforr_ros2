@@ -2,6 +2,7 @@
 #define SEMAFORR_DECISION_NAVIGATION_ENGINE_HPP
 
 #include <cstdint>
+#include <deque>
 #include <memory>
 #include <optional>
 #include <semaforr/decision/decision_coordinator.hpp>
@@ -45,6 +46,20 @@ class NavigationEngine {
   void observe(const domain::RobotObservation& observation);
   DecisionResult decide();
   DecisionResult decide(const domain::RobotObservation& observation);
+  domain::FeedbackDisposition onActionStarted(
+      const domain::ActionStartedEvent& event);
+  domain::FeedbackDisposition onActionProgress(
+      const domain::ActionProgressEvent& event);
+  domain::FeedbackDisposition onActionCompleted(
+      domain::ActionExecutionResult result);
+  domain::FeedbackDisposition onActionFailed(
+      domain::ActionExecutionResult result);
+  domain::FeedbackDisposition onActionCancelled(
+      domain::ActionExecutionResult result);
+  domain::FeedbackDisposition onControllerRestart(
+      domain::ExecutionTimestamp when, const domain::Pose2D& pose);
+  const domain::SelectedActionRecord* pendingAction() const noexcept;
+  const std::vector<std::string>& executionDiagnostics() const noexcept;
   bool missionComplete() noexcept;
   navigation::NavigationPhase phase() const noexcept;
 
@@ -52,6 +67,19 @@ class NavigationEngine {
   std::vector<domain::Action> candidates() const;
   std::optional<std::string> preparePlan(MissionStep step);
   void finishInitialExploration();
+  void registerSelection(DecisionResult& result,
+                         spatial::NavigationEpisode episode);
+  domain::FeedbackDisposition acceptTerminal(
+      domain::ActionExecutionResult result);
+  bool terminalSeen(domain::ActionId action_id) const noexcept;
+
+  struct PendingExecution {
+    domain::SelectedActionRecord selection;
+    spatial::NavigationEpisode episode;
+    bool started{false};
+    std::optional<domain::ActionStartedEvent> start;
+    std::optional<domain::ActionProgressEvent> progress;
+  };
 
   domain::WorldModel& world_;
   const domain::ActionSpace& action_space_;
@@ -78,6 +106,11 @@ class NavigationEngine {
   std::optional<domain::TaskId> hierarchy_task_;
   std::vector<std::string> pending_phase_events_;
   std::uint64_t decision_sequence_{0U};
+  domain::ActionId action_sequence_{0U};
+  std::optional<PendingExecution> pending_execution_;
+  std::deque<domain::ActionId> terminal_action_ids_;
+  std::vector<std::string> execution_diagnostics_;
+  bool finalize_initial_exploration_after_action_{false};
 };
 
 }  // namespace semaforr::decision

@@ -376,12 +376,28 @@ std::string_view toString(UpdateSchedule schedule) noexcept {
   switch (schedule) {
     case UpdateSchedule::EveryObservation:
       return "every_observation";
-    case UpdateSchedule::AfterCompletedAction:
-      return "after_completed_action";
+    case UpdateSchedule::EveryDecisionCycle:
+      return "every_decision_cycle";
+    case UpdateSchedule::AfterActionStart:
+      return "after_action_start";
+    case UpdateSchedule::AfterSuccessfulActionCompletion:
+      return "after_successful_action_completion";
+    case UpdateSchedule::AfterAnyTerminalActionResult:
+      return "after_any_terminal_action_result";
     case UpdateSchedule::EndOfTarget:
       return "end_of_target";
+    case UpdateSchedule::EndOfTask:
+      return "end_of_task";
     case UpdateSchedule::EndOfInitialExploration:
       return "end_of_initial_exploration";
+    case UpdateSchedule::DuringHLEOnly:
+      return "during_hle_only";
+    case UpdateSchedule::DuringLLEOnly:
+      return "during_lle_only";
+    case UpdateSchedule::Periodic:
+      return "periodic";
+    case UpdateSchedule::OnShutdown:
+      return "on_shutdown";
     case UpdateSchedule::OnDemand:
       return "on_demand";
   }

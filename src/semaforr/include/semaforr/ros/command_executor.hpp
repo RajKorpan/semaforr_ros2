@@ -5,6 +5,7 @@
 #include <optional>
 #include <rclcpp/time.hpp>
 #include <semaforr/domain/action.hpp>
+#include <semaforr/domain/action_execution.hpp>
 #include <semaforr/domain/geometry.hpp>
 #include <semaforr/domain/observation.hpp>
 #include <string_view>
@@ -35,6 +36,20 @@ struct ActionExecutionRequest {
   domain::Action action{domain::Action::pause()};
   double target_distance_m{0.0};
   double target_angle_rad{0.0};
+  domain::DecisionId decision_id{0U};
+  domain::ActionId action_id{0U};
+
+  ActionExecutionRequest() = default;
+  ActionExecutionRequest(domain::Action requested_action,
+                         double requested_distance_m,
+                         double requested_angle_rad,
+                         domain::DecisionId requested_decision_id = 0U,
+                         domain::ActionId requested_action_id = 0U)
+      : action(requested_action),
+        target_distance_m(requested_distance_m),
+        target_angle_rad(requested_angle_rad),
+        decision_id(requested_decision_id),
+        action_id(requested_action_id) {}
 };
 
 enum class ActionExecutionStatus {
@@ -44,7 +59,14 @@ enum class ActionExecutionStatus {
   TimedOut,
   OdometryReset,
   ClockReset,
-  Cancelled
+  Cancelled,
+  SafetyInterrupted,
+  ControllerRejected,
+  ControllerFailure,
+  GoalPreempted,
+  NavigationModeTransition,
+  SensorLost,
+  Shutdown
 };
 
 struct ActionExecutionUpdate {
@@ -52,6 +74,12 @@ struct ActionExecutionUpdate {
   domain::VelocityCommand command;
   double progress{0.0};
   double target{0.0};
+  domain::DecisionId decision_id{0U};
+  domain::ActionId action_id{0U};
+  domain::Pose2D start_pose;
+  domain::Pose2D final_pose;
+  double distance_achieved_m{0.0};
+  double rotation_achieved_rad{0.0};
 };
 
 class CommandExecutor {
@@ -63,7 +91,8 @@ class CommandExecutor {
                               const rclcpp::Time& now);
   ActionExecutionUpdate update(const domain::Pose2D& pose,
                                const rclcpp::Time& now);
-  ActionExecutionUpdate cancel() noexcept;
+  ActionExecutionUpdate cancel(
+      ActionExecutionStatus status = ActionExecutionStatus::Cancelled) noexcept;
 
   ActionExecutionStatus status() const noexcept { return status_; }
   bool executing() const noexcept {
@@ -79,11 +108,14 @@ class CommandExecutor {
   CommandExecutorConfiguration configuration_;
   std::optional<ActionExecutionRequest> request_;
   std::optional<domain::Pose2D> previous_pose_;
+  std::optional<domain::Pose2D> start_pose_;
   std::optional<rclcpp::Time> started_at_;
   std::optional<rclcpp::Time> command_updated_at_;
   ActionExecutionStatus status_{ActionExecutionStatus::Idle};
   domain::VelocityCommand command_;
   double progress_{0.0};
+  double distance_achieved_m_{0.0};
+  double rotation_achieved_rad_{0.0};
 };
 
 std::string_view toString(ActionExecutionStatus status) noexcept;

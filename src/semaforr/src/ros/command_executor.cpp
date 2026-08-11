@@ -81,6 +81,9 @@ CommandExecutor::CommandExecutor(CommandExecutorConfiguration configuration)
 ActionExecutionUpdate CommandExecutor::start(
     const ActionExecutionRequest& request, const domain::Pose2D& pose,
     const rclcpp::Time& now) {
+  if (executing())
+    throw std::logic_error(
+        "cannot start an action while another action is executing");
   if (!pose.position.finite()) {
     throw std::invalid_argument("action start pose must be finite");
   }
@@ -112,19 +115,28 @@ ActionExecutionUpdate CommandExecutor::start(
 
   request_ = request;
   previous_pose_ = pose;
+  start_pose_ = pose;
   started_at_ = now;
   command_updated_at_ = now;
   status_ = ActionExecutionStatus::Executing;
   progress_ = 0.0;
+  distance_achieved_m_ = 0.0;
+  rotation_achieved_rad_ = 0.0;
   command_ = {};
-  return {status_, command_, progress_, target()};
+  return {status_, command_, progress_, target(), request.decision_id,
+          request.action_id, pose, pose, 0.0, 0.0};
 }
 
 ActionExecutionUpdate CommandExecutor::update(const domain::Pose2D& pose,
                                               const rclcpp::Time& now) {
   if (!executing() || !request_ || !previous_pose_ || !started_at_ ||
       !command_updated_at_) {
-    return {status_, command_, progress_, target()};
+    const domain::Pose2D pose_value = previous_pose_.value_or(domain::Pose2D{});
+    const domain::Pose2D start_value = start_pose_.value_or(pose_value);
+    return {status_, command_, progress_, target(),
+            request_ ? request_->decision_id : 0U,
+            request_ ? request_->action_id : 0U, start_value, pose_value,
+            distance_achieved_m_, rotation_achieved_rad_};
   }
   if (now.get_clock_type() != started_at_->get_clock_type() ||
       now < *started_at_) {
@@ -141,6 +153,8 @@ ActionExecutionUpdate CommandExecutor::update(const domain::Pose2D& pose,
       rotation > configuration_.odometry_reset_angle_rad) {
     return terminal(ActionExecutionStatus::OdometryReset);
   }
+  distance_achieved_m_ += translation;
+  rotation_achieved_rad_ += rotation;
 
   switch (request_->action.type()) {
     case domain::ActionType::Forward:
@@ -197,19 +211,27 @@ ActionExecutionUpdate CommandExecutor::update(const domain::Pose2D& pose,
           configuration_.maximum_linear_velocity_mps ||
       std::abs(command_.angular_radps) >
           configuration_.maximum_angular_velocity_radps)
-    return terminal(ActionExecutionStatus::Cancelled);
-  return {status_, command_, progress_, target()};
+    return terminal(ActionExecutionStatus::SafetyInterrupted);
+  return {status_, command_, progress_, target(), request_->decision_id,
+          request_->action_id, start_pose_.value_or(pose), pose,
+          distance_achieved_m_, rotation_achieved_rad_};
 }
 
-ActionExecutionUpdate CommandExecutor::cancel() noexcept {
-  return terminal(ActionExecutionStatus::Cancelled);
+ActionExecutionUpdate CommandExecutor::cancel(
+    ActionExecutionStatus status) noexcept {
+  return terminal(status);
 }
 
 ActionExecutionUpdate CommandExecutor::terminal(
     ActionExecutionStatus status) noexcept {
   status_ = status;
   command_ = {};
-  return {status_, command_, progress_, target()};
+  const domain::Pose2D final_pose = previous_pose_.value_or(domain::Pose2D{});
+  return {status_, command_, progress_, target(),
+          request_ ? request_->decision_id : 0U,
+          request_ ? request_->action_id : 0U,
+          start_pose_.value_or(final_pose), final_pose, distance_achieved_m_,
+          rotation_achieved_rad_};
 }
 
 double CommandExecutor::timeoutSeconds() const noexcept {
@@ -263,6 +285,20 @@ std::string_view toString(ActionExecutionStatus status) noexcept {
       return "clock_reset";
     case ActionExecutionStatus::Cancelled:
       return "cancelled";
+    case ActionExecutionStatus::SafetyInterrupted:
+      return "safety_interrupted";
+    case ActionExecutionStatus::ControllerRejected:
+      return "controller_rejected";
+    case ActionExecutionStatus::ControllerFailure:
+      return "controller_failure";
+    case ActionExecutionStatus::GoalPreempted:
+      return "goal_preempted";
+    case ActionExecutionStatus::NavigationModeTransition:
+      return "navigation_mode_transition";
+    case ActionExecutionStatus::SensorLost:
+      return "sensor_lost";
+    case ActionExecutionStatus::Shutdown:
+      return "shutdown";
   }
   return "unknown";
 }

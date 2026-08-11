@@ -96,6 +96,20 @@ std::uint8_t toMessage(decision::ActionOutcome outcome) {
       return semaforr_msgs::msg::DecisionRecord::OUTCOME_SENSOR_LOST;
     case decision::ActionOutcome::Shutdown:
       return semaforr_msgs::msg::DecisionRecord::OUTCOME_SHUTDOWN;
+    case decision::ActionOutcome::PartialMovement:
+      return semaforr_msgs::msg::DecisionRecord::OUTCOME_PARTIAL_MOVEMENT;
+    case decision::ActionOutcome::NoMovement:
+      return semaforr_msgs::msg::DecisionRecord::OUTCOME_NO_MOVEMENT;
+    case decision::ActionOutcome::SafetyInterrupted:
+      return semaforr_msgs::msg::DecisionRecord::OUTCOME_SAFETY_INTERRUPTED;
+    case decision::ActionOutcome::ControllerRejected:
+      return semaforr_msgs::msg::DecisionRecord::OUTCOME_CONTROLLER_REJECTED;
+    case decision::ActionOutcome::ControllerFailure:
+      return semaforr_msgs::msg::DecisionRecord::OUTCOME_CONTROLLER_FAILURE;
+    case decision::ActionOutcome::GoalPreempted:
+      return semaforr_msgs::msg::DecisionRecord::OUTCOME_GOAL_PREEMPTED;
+    case decision::ActionOutcome::NavigationModeTransition:
+      return semaforr_msgs::msg::DecisionRecord::OUTCOME_NAVIGATION_MODE_TRANSITION;
   }
   return semaforr_msgs::msg::DecisionRecord::OUTCOME_CANCELLED;
 }
@@ -119,6 +133,8 @@ semaforr_msgs::msg::DecisionRecord toMessage(
   result.header.stamp = stamp;
   result.header.frame_id = frame_id;
   result.sequence = source.sequence;
+  result.decision_id = source.decision_id;
+  result.action_id = source.action_id;
   result.navigation_phase = toMessage(source.navigation_phase);
   result.configuration_fingerprint = source.configuration_fingerprint;
   result.component_manifest = source.component_manifest;

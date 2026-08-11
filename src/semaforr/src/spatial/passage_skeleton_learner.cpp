@@ -15,7 +15,7 @@ PassageSkeletonLearner::PassageSkeletonLearner(double minimum_node_spacing_m)
            true,
            "append spaced path nodes and connectivity incrementally",
            {"skeleton", "hallwayskel", "skeletonhall", "passage planners"},
-           UpdateSchedule::AfterCompletedAction}),
+           UpdateSchedule::AfterSuccessfulActionCompletion}),
       minimum_node_spacing_m_(minimum_node_spacing_m) {
   if (!std::isfinite(minimum_node_spacing_m_) ||
       minimum_node_spacing_m_ <= 0.0) {
@@ -25,7 +25,11 @@ PassageSkeletonLearner::PassageSkeletonLearner(double minimum_node_spacing_m)
 }
 
 void PassageSkeletonLearner::onObserve(const NavigationEpisode& episode) {
-  if (!episode.action_completed) return;
+  if (!episode.actionSucceeded()) return;
+  if (model_.nodes.empty() && episode.execution_result) {
+    model_.nodes.push_back(episode.execution_result->start_pose.position);
+    model_.component_by_node.push_back(0U);
+  }
   const domain::Point2D point = episode.observation.pose.position;
   const bool task_changed = last_task_ && episode.active_task != last_task_;
   if (model_.nodes.empty() || task_changed ||

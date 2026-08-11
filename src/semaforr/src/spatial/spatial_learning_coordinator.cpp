@@ -196,16 +196,105 @@ bool SpatialLearningCoordinator::enabled(
   return require(representation).enabled;
 }
 
-void SpatialLearningCoordinator::observe(const NavigationEpisode& episode) {
+namespace {
+
+bool acceptsEvent(const ObservationContract& contract,
+                  const NavigationEpisode& episode) {
+  switch (contract.schedule) {
+    case UpdateSchedule::EveryObservation:
+      return episode.event == LearningEvent::SensorObservation;
+    case UpdateSchedule::EveryDecisionCycle:
+      return episode.event == LearningEvent::DecisionSelected;
+    case UpdateSchedule::AfterActionStart:
+      return episode.event == LearningEvent::ActionStarted;
+    case UpdateSchedule::AfterSuccessfulActionCompletion:
+      return episode.event == LearningEvent::ActionTerminal &&
+             episode.actionSucceeded();
+    case UpdateSchedule::AfterAnyTerminalActionResult:
+    case UpdateSchedule::EndOfTarget:
+    case UpdateSchedule::EndOfTask:
+      return episode.event == LearningEvent::ActionTerminal;
+    case UpdateSchedule::EndOfInitialExploration:
+    case UpdateSchedule::DuringHLEOnly:
+      return episode.initial_exploration &&
+             episode.event == LearningEvent::ActionTerminal &&
+             episode.actionSucceeded();
+    case UpdateSchedule::DuringLLEOnly:
+      return episode.event == LearningEvent::ActionTerminal &&
+             episode.selection &&
+             episode.selection->provenance.find("LLE") != std::string::npos;
+    case UpdateSchedule::Periodic:
+      return episode.event == LearningEvent::Periodic;
+    case UpdateSchedule::OnShutdown:
+      return episode.event == LearningEvent::Shutdown;
+    case UpdateSchedule::OnDemand:
+      return false;
+  }
+  return false;
+}
+
+}  // namespace
+
+void SpatialLearningCoordinator::dispatch(const NavigationEpisode& episode) {
+  bool accepted = false;
   for (Entry& entry : learners_) {
-    if (entry.enabled) {
+    if (entry.enabled && acceptsEvent(entry.learner->contract(), episode)) {
       entry.learner->observe(episode);
+      accepted = true;
     }
   }
+  if (!accepted) return;
   ++observed_episodes_;
   if (observed_episodes_ % automatic_rebuild_interval_ == 0U) {
     rebuildStale();
   }
+}
+
+void SpatialLearningCoordinator::observe(const NavigationEpisode& episode) {
+  NavigationEpisode sensed = episode;
+  sensed.event = LearningEvent::SensorObservation;
+  sensed.action_completed = false;
+  sensed.execution_result.reset();
+  dispatch(sensed);
+  if (episode.execution_result || episode.action_completed) {
+    NavigationEpisode terminal = episode;
+    terminal.event = LearningEvent::ActionTerminal;
+    dispatch(terminal);
+  }
+}
+
+void SpatialLearningCoordinator::observeSensor(NavigationEpisode episode) {
+  episode.event = LearningEvent::SensorObservation;
+  episode.action_completed = false;
+  episode.execution_result.reset();
+  dispatch(episode);
+}
+
+void SpatialLearningCoordinator::observeDecision(NavigationEpisode episode) {
+  episode.event = LearningEvent::DecisionSelected;
+  dispatch(episode);
+}
+
+void SpatialLearningCoordinator::observeActionStarted(
+    NavigationEpisode episode) {
+  episode.event = LearningEvent::ActionStarted;
+  dispatch(episode);
+}
+
+void SpatialLearningCoordinator::observeActionProgress(
+    NavigationEpisode episode) {
+  episode.event = LearningEvent::ActionProgress;
+  dispatch(episode);
+}
+
+void SpatialLearningCoordinator::observeActionTerminal(
+    NavigationEpisode episode) {
+  if (!episode.execution_result)
+    throw std::invalid_argument(
+        "terminal learning episode requires an execution result");
+  episode.event = LearningEvent::ActionTerminal;
+  episode.action_completed = episode.execution_result->successful();
+  dispatch(episode);
 }
 
 void SpatialLearningCoordinator::rebuild(SpatialRepresentation representation) {
@@ -221,7 +310,8 @@ void SpatialLearningCoordinator::rebuildStale() {
       continue;
     }
     const SpatialModelUpdate update = entry.learner->snapshot();
-    if (update.update_mode == UpdateMode::RebuildOnDemand &&
+    if (entry.learner->contract().schedule == UpdateSchedule::OnDemand &&
+        update.update_mode == UpdateMode::RebuildOnDemand &&
         (update.status == ModelStatus::Stale ||
          update.status == ModelStatus::Incomplete)) {
       entry.learner->rebuild();

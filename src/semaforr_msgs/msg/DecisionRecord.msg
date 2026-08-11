@@ -24,9 +24,18 @@ uint8 OUTCOME_CLOCK_RESET=4
 uint8 OUTCOME_CANCELLED=5
 uint8 OUTCOME_SENSOR_LOST=6
 uint8 OUTCOME_SHUTDOWN=7
+uint8 OUTCOME_PARTIAL_MOVEMENT=8
+uint8 OUTCOME_NO_MOVEMENT=9
+uint8 OUTCOME_SAFETY_INTERRUPTED=10
+uint8 OUTCOME_CONTROLLER_REJECTED=11
+uint8 OUTCOME_CONTROLLER_FAILURE=12
+uint8 OUTCOME_GOAL_PREEMPTED=13
+uint8 OUTCOME_NAVIGATION_MODE_TRANSITION=14
 
 std_msgs/Header header
 uint64 sequence
+uint64 decision_id
+uint64 action_id
 geometry_msgs/Pose2D robot_pose
 uint8 navigation_phase
 string configuration_fingerprint

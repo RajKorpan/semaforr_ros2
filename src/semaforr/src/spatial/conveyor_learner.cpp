@@ -15,7 +15,7 @@ ConveyorLearner::ConveyorLearner(double minimum_traversal_distance_m)
            false,
            "accumulate a traversal when the next observation completes it",
            {"ConveyLinear", "ConveyRotation", "conveyor-cost planners"},
-           UpdateSchedule::AfterCompletedAction}),
+           UpdateSchedule::AfterSuccessfulActionCompletion}),
       minimum_traversal_distance_m_(minimum_traversal_distance_m) {
   if (!std::isfinite(minimum_traversal_distance_m_) ||
       minimum_traversal_distance_m_ <= 0.0) {
@@ -25,13 +25,12 @@ ConveyorLearner::ConveyorLearner(double minimum_traversal_distance_m)
 }
 
 void ConveyorLearner::onObserve(const NavigationEpisode& episode) {
-  if (!episode.action_completed) return;
-  const domain::Point2D current = episode.observation.pose.position;
-  // The displacement ending at this observation was caused by the action
-  // selected in the preceding episode, not by the action selected now.
-  if (previous_position_ && previous_action_ &&
-      previous_action_->type() == domain::ActionType::Forward) {
-    domain::Segment2D traversal{*previous_position_, current};
+  if (!episode.actionSucceeded()) return;
+  if (episode.execution_result && episode.selected_action &&
+      episode.selected_action->type() == domain::ActionType::Forward) {
+    domain::Segment2D traversal{
+        episode.execution_result->start_pose.position,
+        episode.execution_result->final_pose.position};
     if (traversal.length().meters() >= minimum_traversal_distance_m_) {
       bool merged = false;
       for (ConveyorFlow& flow : model_.flows) {
@@ -46,8 +45,6 @@ void ConveyorLearner::onObserve(const NavigationEpisode& episode) {
       }
     }
   }
-  previous_position_ = current;
-  previous_action_ = episode.selected_action;
   publish(model_,
           model_.flows.empty() ? ModelStatus::Incomplete : ModelStatus::Fresh,
           model_.flows.empty() ? "no completed forward traversal observed"

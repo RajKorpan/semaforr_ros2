@@ -467,8 +467,10 @@ decision::DecisionResult NavigationEngineAdapter::decide() {
 }
 
 ActionExecutionRequest NavigationEngineAdapter::executionRequest(
-    const domain::Action& action) const {
-  ActionExecutionRequest request{action, 0.0, 0.0};
+    const decision::DecisionResult& decision) const {
+  const domain::Action& action = decision.action;
+  ActionExecutionRequest request{action, 0.0, 0.0, decision.decision_id,
+                                 decision.action_id};
   const std::size_t magnitude = action.magnitude_index();
   if (action.type() == domain::ActionType::Forward) {
     request.target_distance_m =
@@ -479,6 +481,59 @@ ActionExecutionRequest NavigationEngineAdapter::executionRequest(
         impl_->action_space_.rotation_angles_rad().at(magnitude - 1U);
   }
   return request;
+}
+
+domain::FeedbackDisposition NavigationEngineAdapter::onActionStarted(
+    const ActionExecutionUpdate& update) {
+  return impl_->engine_->onActionStarted(
+      {update.decision_id, update.action_id, std::chrono::steady_clock::now(),
+       update.start_pose});
+}
+
+domain::FeedbackDisposition NavigationEngineAdapter::onActionProgress(
+    const ActionExecutionUpdate& update) {
+  return impl_->engine_->onActionProgress(
+      {update.decision_id, update.action_id, std::chrono::steady_clock::now(),
+       update.final_pose, update.distance_achieved_m,
+       update.rotation_achieved_rad});
+}
+
+domain::FeedbackDisposition NavigationEngineAdapter::onActionTerminal(
+    const ActionExecutionUpdate& update,
+    domain::ExecutionCompletionStatus status, std::string detail) {
+  domain::ActionExecutionResult result;
+  result.decision_id = update.decision_id;
+  result.action_id = update.action_id;
+  if (const auto* pending = impl_->engine_->pendingAction())
+    result.task_id = pending->task_id;
+  result.finished_at = std::chrono::steady_clock::now();
+  result.status = status;
+  result.start_pose = update.start_pose;
+  result.final_pose = update.final_pose;
+  result.distance_achieved_m = update.distance_achieved_m;
+  result.rotation_achieved_rad = update.rotation_achieved_rad;
+  result.timed_out = status == domain::ExecutionCompletionStatus::TimedOut;
+  result.cancellation_reason = std::move(detail);
+  result.safety_interruption =
+      status == domain::ExecutionCompletionStatus::SafetyInterrupted;
+  result.controller_failure =
+      status == domain::ExecutionCompletionStatus::ControllerFailure ||
+      status == domain::ExecutionCompletionStatus::ControllerRejected;
+  if (status == domain::ExecutionCompletionStatus::Succeeded)
+    return impl_->engine_->onActionCompleted(std::move(result));
+  if (status == domain::ExecutionCompletionStatus::Cancelled ||
+      status == domain::ExecutionCompletionStatus::GoalPreempted ||
+      status == domain::ExecutionCompletionStatus::NavigationModeTransition ||
+      status == domain::ExecutionCompletionStatus::SensorLost ||
+      status == domain::ExecutionCompletionStatus::Shutdown)
+    return impl_->engine_->onActionCancelled(std::move(result));
+  return impl_->engine_->onActionFailed(std::move(result));
+}
+
+domain::FeedbackDisposition NavigationEngineAdapter::onControllerRestart(
+    const domain::Pose2D& pose) {
+  return impl_->engine_->onControllerRestart(std::chrono::steady_clock::now(),
+                                             pose);
 }
 
 const domain::WorldModel& NavigationEngineAdapter::worldModel() const noexcept {

@@ -32,6 +32,7 @@ ctest -L behavior_mode:compatibility-contract
 | Region and door geometry | `navigation_behavior_test` |
 | Configuration validation | `configuration_test` |
 | Tier 1, Tier 3, planning, spatial learning, execution | component GTests |
+| Action feedback lifecycle, stable IDs, failure learning, duplicates, preemption, and controller restart | `semaforr_action_execution_lifecycle_test` |
 | Nine navigation situations | `navigation_scenario_test`, `ros_execution_test` |
 | Baseline decision trace | `navigation_strategy_test` |
 

@@ -75,6 +75,7 @@ find_package(visualization_msgs REQUIRED)
 set(SEMAFORR_DOMAIN_SOURCES
   src/config/navigation_configuration.cpp
   src/domain/circumstance.cpp
+  src/domain/action_execution.cpp
   src/domain/crowd_model.cpp
   src/domain/grid_geometry.cpp
   src/domain/motion_model.cpp
@@ -427,6 +428,14 @@ if(BUILD_TESTING)
   target_link_libraries(
     semaforr_ros_execution_test semaforr_ros_adapters)
   semaforr_apply_project_options(semaforr_ros_execution_test)
+
+  ament_add_gtest(
+    semaforr_action_execution_lifecycle_test
+    test/unit/action_execution_lifecycle_test.cpp
+  )
+  target_link_libraries(
+    semaforr_action_execution_lifecycle_test semaforr_navigation)
+  semaforr_apply_project_options(semaforr_action_execution_lifecycle_test)
 
   ament_add_gtest(
     semaforr_social_navigation_test

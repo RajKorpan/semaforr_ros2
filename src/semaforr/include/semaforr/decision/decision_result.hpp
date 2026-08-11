@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <optional>
 #include <semaforr/domain/action.hpp>
+#include <semaforr/domain/action_execution.hpp>
 #include <semaforr/domain/geometry.hpp>
 #include <semaforr/navigation/navigation_phase.hpp>
 #include <string>
@@ -38,7 +39,14 @@ enum class ActionOutcome {
   ClockReset,
   Cancelled,
   SensorLost,
-  Shutdown
+  Shutdown,
+  PartialMovement,
+  NoMovement,
+  SafetyInterrupted,
+  ControllerRejected,
+  ControllerFailure,
+  GoalPreempted,
+  NavigationModeTransition
 };
 
 struct Veto {
@@ -72,6 +80,8 @@ struct TaskDiagnostic {
 
 struct DecisionResult {
   std::uint64_t sequence{0U};
+  domain::DecisionId decision_id{0U};
+  domain::ActionId action_id{0U};
   domain::Pose2D robot_pose;
   navigation::NavigationPhase navigation_phase{
       navigation::NavigationPhase::TargetNavigation};

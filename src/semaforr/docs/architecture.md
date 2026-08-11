@@ -34,11 +34,12 @@ must not include ROS headers.
    generates typed `PlanResult` values and installs the selected waypoints.
 4. `DecisionCoordinator` applies Tier 1 mandatory rules and vetoes, then Tier 3
    weighted scoring when no mandatory decision wins.
-5. `CommandExecutor` executes the selected discrete action without blocking the
-   ROS executor. It reports completion, timeout, odometry reset, or shutdown.
-6. `VisualizationPublisher` publishes one structured `DecisionRecord` plus
-   navigation and crowd diagnostics. The spatial learners observe the completed
-   episode through `SpatialLearningCoordinator`.
+5. The engine records a selection under stable decision/action IDs. The
+   `CommandExecutor` reports start, progress, and exactly one terminal result
+   without blocking the ROS executor.
+6. The engine correlates terminal feedback, records executed history, and only
+   then dispatches completed-action learners. `VisualizationPublisher`
+   publishes the same IDs with the outcome.
 
 ## Ownership and failure boundaries
 

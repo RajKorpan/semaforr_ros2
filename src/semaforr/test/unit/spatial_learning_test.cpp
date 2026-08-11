@@ -26,12 +26,24 @@ semaforr::spatial::NavigationEpisode episode(std::size_t sequence, double x_m,
   domain::RobotObservation observation;
   observation.pose = {{x_m, 0.0}, domain::Angle::zero()};
   observation.laser = std::move(laser);
-  return {sequence,
-          std::move(observation),
-          domain::Action(domain::ActionType::Forward, 1U),
-          domain::TaskId{1U},
-          task_started,
-          false};
+  spatial::NavigationEpisode result;
+  result.sequence = sequence;
+  result.observation = std::move(observation);
+  result.selected_action =
+      domain::Action(domain::ActionType::Forward, 1U);
+  result.active_task = domain::TaskId{1U};
+  result.task_started = task_started;
+  result.action_completed = true;
+  domain::ActionExecutionResult execution;
+  execution.decision_id = sequence;
+  execution.action_id = sequence;
+  execution.task_id = domain::TaskId{1U};
+  execution.status = domain::ExecutionCompletionStatus::Succeeded;
+  execution.start_pose = result.observation.pose;
+  if (!task_started) execution.start_pose.position.x_m -= 0.3;
+  execution.final_pose = result.observation.pose;
+  result.execution_result = execution;
+  return result;
 }
 
 class CapturingLearner final : public semaforr::spatial::SpatialLearner {
@@ -64,7 +76,8 @@ class CapturingLearner final : public semaforr::spatial::SpatialLearner {
     return value;
   }();
   semaforr::spatial::ObservationContract observation_contract{
-      true, true, true, true, "after decision", {"test"}};
+      true, true, true, true, "after terminal execution", {"test"},
+      semaforr::spatial::UpdateSchedule::AfterSuccessfulActionCompletion};
 };
 
 }  // namespace
@@ -276,6 +289,25 @@ TEST(SpatialLearning, NavigationEngineObservesCompletePostDecisionEpisodes) {
   const auto input = episode(1U, 0.0, true).observation;
   const decision::DecisionResult result = engine.decide(input);
 
+  EXPECT_FALSE(capture->captured);
+  EXPECT_EQ(world.decision_history.entries().size(), 1U);
+  EXPECT_TRUE(world.navigation_history.entries().empty());
+  const auto now = std::chrono::steady_clock::now();
+  EXPECT_EQ(engine.onActionStarted(
+                {result.decision_id, result.action_id, now, input.pose}),
+            domain::FeedbackDisposition::Accepted);
+  domain::ActionExecutionResult execution;
+  execution.decision_id = result.decision_id;
+  execution.action_id = result.action_id;
+  execution.task_id = domain::TaskId{1U};
+  execution.finished_at = now;
+  execution.status = domain::ExecutionCompletionStatus::Succeeded;
+  execution.start_pose = input.pose;
+  execution.final_pose = {{0.2, 0.0}, domain::Angle::zero()};
+  execution.distance_achieved_m = 0.2;
+  EXPECT_EQ(engine.onActionCompleted(execution),
+            domain::FeedbackDisposition::Accepted);
+
   ASSERT_TRUE(capture->captured);
   ASSERT_TRUE(capture->captured->selected_action);
   EXPECT_EQ(*capture->captured->selected_action, result.action);
@@ -284,6 +316,7 @@ TEST(SpatialLearning, NavigationEngineObservesCompletePostDecisionEpisodes) {
   EXPECT_TRUE(capture->captured->task_started);
   EXPECT_EQ(capture->captured->active_task, domain::TaskId{1U});
   EXPECT_EQ(world.navigation_history.entries().size(), 1U);
+  EXPECT_EQ(world.completed_path_history.entries().size(), 1U);
 }
 
 TEST(SpatialLearning, InitialExplorationFinalizationPublishesGraphModels) {

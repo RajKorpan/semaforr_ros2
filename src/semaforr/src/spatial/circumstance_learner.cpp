@@ -236,7 +236,8 @@ void CircumstanceLearner::onObserve(const NavigationEpisode& episode) {
   const auto setting = domain::normalizeSetting(
       episode.observation.laser, settingConfiguration(configuration_));
   updateClusters(setting);
-  if (episode.selected_action && episode.active_target && episode.active_task)
+  if (episode.actionSucceeded() && episode.selected_action &&
+      episode.active_target && episode.active_task)
     pending_experiences_.push_back({setting, episode, false});
 }
 

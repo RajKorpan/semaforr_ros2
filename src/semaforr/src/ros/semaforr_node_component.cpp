@@ -283,11 +283,63 @@ decision::ActionOutcome toOutcome(ActionExecutionStatus status) noexcept {
       return decision::ActionOutcome::ClockReset;
     case ActionExecutionStatus::Cancelled:
       return decision::ActionOutcome::Cancelled;
+    case ActionExecutionStatus::SafetyInterrupted:
+      return decision::ActionOutcome::SafetyInterrupted;
+    case ActionExecutionStatus::ControllerRejected:
+      return decision::ActionOutcome::ControllerRejected;
+    case ActionExecutionStatus::ControllerFailure:
+      return decision::ActionOutcome::ControllerFailure;
+    case ActionExecutionStatus::GoalPreempted:
+      return decision::ActionOutcome::GoalPreempted;
+    case ActionExecutionStatus::NavigationModeTransition:
+      return decision::ActionOutcome::NavigationModeTransition;
+    case ActionExecutionStatus::SensorLost:
+      return decision::ActionOutcome::SensorLost;
+    case ActionExecutionStatus::Shutdown:
+      return decision::ActionOutcome::Shutdown;
     case ActionExecutionStatus::Idle:
     case ActionExecutionStatus::Executing:
       return decision::ActionOutcome::Pending;
   }
   return decision::ActionOutcome::Cancelled;
+}
+
+domain::ExecutionCompletionStatus toExecutionStatus(
+    ActionExecutionStatus status, decision::ActionOutcome outcome) noexcept {
+  switch (outcome) {
+    case decision::ActionOutcome::Completed:
+      return domain::ExecutionCompletionStatus::Succeeded;
+    case decision::ActionOutcome::TimedOut:
+      return domain::ExecutionCompletionStatus::TimedOut;
+    case decision::ActionOutcome::OdometryReset:
+      return domain::ExecutionCompletionStatus::OdometryReset;
+    case decision::ActionOutcome::ClockReset:
+      return domain::ExecutionCompletionStatus::ClockReset;
+    case decision::ActionOutcome::SensorLost:
+      return domain::ExecutionCompletionStatus::SensorLost;
+    case decision::ActionOutcome::Shutdown:
+      return domain::ExecutionCompletionStatus::Shutdown;
+    case decision::ActionOutcome::PartialMovement:
+      return domain::ExecutionCompletionStatus::PartialMovement;
+    case decision::ActionOutcome::NoMovement:
+      return domain::ExecutionCompletionStatus::NoMovement;
+    case decision::ActionOutcome::SafetyInterrupted:
+      return domain::ExecutionCompletionStatus::SafetyInterrupted;
+    case decision::ActionOutcome::ControllerRejected:
+      return domain::ExecutionCompletionStatus::ControllerRejected;
+    case decision::ActionOutcome::ControllerFailure:
+      return domain::ExecutionCompletionStatus::ControllerFailure;
+    case decision::ActionOutcome::GoalPreempted:
+      return domain::ExecutionCompletionStatus::GoalPreempted;
+    case decision::ActionOutcome::NavigationModeTransition:
+      return domain::ExecutionCompletionStatus::NavigationModeTransition;
+    case decision::ActionOutcome::Cancelled:
+    case decision::ActionOutcome::Pending:
+      break;
+  }
+  return status == ActionExecutionStatus::TimedOut
+             ? domain::ExecutionCompletionStatus::TimedOut
+             : domain::ExecutionCompletionStatus::Cancelled;
 }
 
 std::uint8_t toMessage(NavigationNodeState state) noexcept {
@@ -428,7 +480,8 @@ class SemaFORRNode::Impl {
       timer_->cancel();
     }
     if (executor_ && pending_decision_) {
-      const ActionExecutionUpdate update = executor_->cancel();
+      const ActionExecutionUpdate update =
+          executor_->cancel(ActionExecutionStatus::Shutdown);
       completeDecision(node_.now(), decision::ActionOutcome::Shutdown, update,
                        "shutdown");
     }
@@ -453,8 +506,10 @@ class SemaFORRNode::Impl {
                  detail.c_str());
     last_failure_ = "invariant_failure: " + detail;
     if (pending_decision_) {
-      const ActionExecutionUpdate update = executor_->cancel();
-      completeDecision(node_.now(), decision::ActionOutcome::Cancelled, update,
+      const ActionExecutionUpdate update =
+          executor_->cancel(ActionExecutionStatus::SafetyInterrupted);
+      completeDecision(node_.now(), decision::ActionOutcome::SafetyInterrupted,
+                       update,
                        last_failure_);
     }
     publishZero(true);
@@ -592,7 +647,10 @@ class SemaFORRNode::Impl {
     }
 
     if (state_ == NavigationNodeState::ExecutingAction) {
-      const ActionExecutionUpdate update = executor_->cancel();
+      const ActionExecutionUpdate update = executor_->cancel(
+          status == SensorStatus::ClockReset
+              ? ActionExecutionStatus::ClockReset
+              : ActionExecutionStatus::SensorLost);
       const decision::ActionOutcome outcome =
           status == SensorStatus::ClockReset
               ? decision::ActionOutcome::ClockReset
@@ -646,23 +704,42 @@ class SemaFORRNode::Impl {
     pending_decision_->allocation_count = allocation_delta.count;
     pending_decision_->allocation_bytes = allocation_delta.bytes;
 
-    const domain::Action& action = pending_decision_->action;
     const ActionExecutionRequest request =
-        navigation_engine_->executionRequest(action);
+        navigation_engine_->executionRequest(*pending_decision_);
 
-    const ActionExecutionUpdate update =
-        executor_->start(request, sensors.pose, now);
+    ActionExecutionUpdate update;
+    try {
+      update = executor_->start(request, sensors.pose, now);
+    } catch (const std::exception& error) {
+      update.status = ActionExecutionStatus::Cancelled;
+      update.decision_id = request.decision_id;
+      update.action_id = request.action_id;
+      update.start_pose = sensors.pose;
+      update.final_pose = sensors.pose;
+      completeDecision(now, decision::ActionOutcome::ControllerRejected,
+                       update, error.what());
+      throw;
+    }
+    if (navigation_engine_->onActionStarted(update) !=
+        domain::FeedbackDisposition::Accepted)
+      throw std::runtime_error("navigation engine rejected action-start feedback");
     pending_decision_->action_progress = update.progress;
     pending_decision_->action_target = update.target;
     action_started_at_ = now;
     publishCommand(update.command);
     transition(NavigationNodeState::ExecutingAction,
-               std::string("action_") + std::string(actionName(action.type())));
+               std::string("action_") +
+                   std::string(actionName(pending_decision_->action.type())));
   }
 
   void execute(const SynchronizedSensors& sensors, const rclcpp::Time& now) {
     const ActionExecutionUpdate update = executor_->update(sensors.pose, now);
     if (update.status == ActionExecutionStatus::Executing) {
+      const auto disposition = navigation_engine_->onActionProgress(update);
+      if (disposition != domain::FeedbackDisposition::Accepted)
+        throw std::runtime_error(
+            "navigation engine rejected action-progress feedback: " +
+            std::string(domain::toString(disposition)));
       publishCommand(update.command);
       return;
     }
@@ -705,6 +782,16 @@ class SemaFORRNode::Impl {
             ? std::max(0.0, (now - *action_started_at_).seconds())
             : 0.0;
     pending_decision_->outcome_detail = std::move(detail);
+    const auto disposition = navigation_engine_->onActionTerminal(
+        update, toExecutionStatus(update.status, outcome),
+        pending_decision_->outcome_detail);
+    if (disposition != domain::FeedbackDisposition::Accepted) {
+      RCLCPP_ERROR(node_.get_logger(),
+                   "Navigation engine rejected terminal feedback: %s",
+                   std::string(domain::toString(disposition)).c_str());
+      last_failure_ = "execution_feedback_" +
+                      std::string(domain::toString(disposition));
+    }
     visualization_->publishDecision(*pending_decision_);
     pending_decision_.reset();
     action_started_at_.reset();

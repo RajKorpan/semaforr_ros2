@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <optional>
 #include <semaforr/domain/action.hpp>
+#include <semaforr/domain/action_execution.hpp>
 #include <semaforr/domain/crowd_model.hpp>
 #include <semaforr/domain/circumstance.hpp>
 #include <semaforr/domain/highway.hpp>
@@ -88,6 +89,21 @@ struct NavigationHistoryEntry {
   LaserObservation laser;
   Action action = Action::pause();
   std::optional<TaskId> task_id;
+  DecisionId decision_id{0U};
+  ActionId action_id{0U};
+  ExecutionCompletionStatus execution_status =
+      ExecutionCompletionStatus::NoMovement;
+  double distance_achieved_m{0.0};
+  double rotation_achieved_rad{0.0};
+
+  NavigationHistoryEntry() = default;
+  NavigationHistoryEntry(Pose2D pose_value, LaserObservation laser_value,
+                         Action action_value,
+                         std::optional<TaskId> task_value = std::nullopt)
+      : pose(std::move(pose_value)),
+        laser(std::move(laser_value)),
+        action(action_value),
+        task_id(task_value) {}
 };
 
 class NavigationHistory {
@@ -103,6 +119,27 @@ class NavigationHistory {
  private:
   std::vector<NavigationHistoryEntry> entries_;
 };
+
+template <typename Record>
+class AppendOnlyHistory {
+ public:
+  void record(Record entry) { entries_.push_back(std::move(entry)); }
+  const std::vector<Record>& entries() const noexcept { return entries_; }
+
+ private:
+  std::vector<Record> entries_;
+};
+
+struct ObservationHistoryEntry {
+  Pose2D pose;
+  ExecutionTimestamp observed_at{};
+};
+
+using DecisionHistory = AppendOnlyHistory<SelectedActionRecord>;
+using CommandHistory = AppendOnlyHistory<ActionStartedEvent>;
+using ExecutionHistory = AppendOnlyHistory<ActionExecutionResult>;
+using CompletedPathHistory = AppendOnlyHistory<NavigationHistoryEntry>;
+using ObservationHistory = AppendOnlyHistory<ObservationHistoryEntry>;
 
 struct RecoveryState {
   bool confined = false;
@@ -153,6 +190,11 @@ struct WorldModel {
   RobotState robot;
   Mission mission;
   NavigationHistory navigation_history;
+  DecisionHistory decision_history;
+  CommandHistory command_history;
+  ExecutionHistory execution_history;
+  CompletedPathHistory completed_path_history;
+  ObservationHistory observation_history;
   RecoveryState recovery;
   CrowdModel crowd;
   SpatialModel spatial;

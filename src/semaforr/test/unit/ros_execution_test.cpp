@@ -96,17 +96,24 @@ TEST(CommandExecutor, SeparatesTargetDistanceFromVelocity) {
   using namespace semaforr::ros;
   CommandExecutor executor(CommandExecutorConfiguration{});
   const ActionExecutionRequest request{
-      domain::Action(domain::ActionType::Forward, 1U), 0.2, 0.0};
+      domain::Action(domain::ActionType::Forward, 1U), 0.2, 0.0, 17U, 23U};
 
   const auto started =
       executor.start(request, domainPose(0.0, 0.0, 0.0), at(1.0));
   EXPECT_EQ(started.status, ActionExecutionStatus::Executing);
   EXPECT_DOUBLE_EQ(started.command.linear_mps, 0.0);
   EXPECT_DOUBLE_EQ(started.target, 0.2);
+  EXPECT_EQ(started.decision_id, 17U);
+  EXPECT_EQ(started.action_id, 23U);
 
   const auto completed = executor.update(domainPose(0.15, 0.0, 0.0), at(1.2));
   EXPECT_EQ(completed.status, ActionExecutionStatus::Completed);
   EXPECT_DOUBLE_EQ(completed.command.linear_mps, 0.0);
+  EXPECT_EQ(completed.decision_id, 17U);
+  EXPECT_EQ(completed.action_id, 23U);
+  EXPECT_NEAR(completed.distance_achieved_m, 0.15, 1.0e-9);
+  EXPECT_EQ(completed.start_pose, domainPose(0.0, 0.0, 0.0));
+  EXPECT_EQ(completed.final_pose, domainPose(0.15, 0.0, 0.0));
 }
 
 TEST(CommandExecutor, SmallTurnsRequireMeasuredProgressAndWrapAngles) {
@@ -194,4 +201,15 @@ TEST(CommandExecutor, SensorTimeoutCancellationPublishesAZeroCommand) {
   EXPECT_EQ(cancelled.status, ActionExecutionStatus::Cancelled);
   EXPECT_DOUBLE_EQ(cancelled.command.linear_mps, 0.0);
   EXPECT_DOUBLE_EQ(cancelled.command.angular_radps, 0.0);
+}
+
+TEST(CommandExecutor, RejectsOverlappingStarts) {
+  using namespace semaforr;
+  using namespace semaforr::ros;
+  CommandExecutor executor(CommandExecutorConfiguration{});
+  const ActionExecutionRequest request{
+      domain::Action(domain::ActionType::Forward, 1U), 1.0, 0.0, 1U, 1U};
+  executor.start(request, domainPose(0.0, 0.0, 0.0), at(1.0));
+  EXPECT_THROW(executor.start(request, domainPose(0.0, 0.0, 0.0), at(1.1)),
+               std::logic_error);
 }

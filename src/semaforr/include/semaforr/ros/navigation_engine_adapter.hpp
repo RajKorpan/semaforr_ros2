@@ -9,8 +9,6 @@
 #include <semaforr/ros/sensor_synchronizer.hpp>
 #include <string>
 #include <vector>
-#include <string>
-#include <vector>
 
 namespace semaforr::ros {
 
@@ -31,7 +29,17 @@ class NavigationEngineAdapter {
   bool missionComplete();
   navigation::NavigationPhase phase() const noexcept;
   decision::DecisionResult decide();
-  ActionExecutionRequest executionRequest(const domain::Action& action) const;
+  ActionExecutionRequest executionRequest(
+      const decision::DecisionResult& decision) const;
+  domain::FeedbackDisposition onActionStarted(
+      const ActionExecutionUpdate& update);
+  domain::FeedbackDisposition onActionProgress(
+      const ActionExecutionUpdate& update);
+  domain::FeedbackDisposition onActionTerminal(
+      const ActionExecutionUpdate& update,
+      domain::ExecutionCompletionStatus status, std::string detail = {});
+  domain::FeedbackDisposition onControllerRestart(
+      const domain::Pose2D& pose);
   const domain::WorldModel& worldModel() const noexcept;
   const std::vector<std::string>& startupDiagnostics() const noexcept;
 

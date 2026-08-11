@@ -35,7 +35,8 @@ void HallwayLearner::onRebuild() {
   for (std::size_t index = 1U; index < episodes().size(); ++index) {
     const auto& previous = episodes()[index - 1U];
     const auto& current = episodes()[index];
-    if (current.active_task != previous.active_task ||
+    if (!previous.actionSucceeded() || !current.actionSucceeded() ||
+        current.active_task != previous.active_task ||
         current.observation.laser.ranges_m.empty()) {
       continue;
     }

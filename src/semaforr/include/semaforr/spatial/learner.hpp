@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <optional>
 #include <semaforr/domain/action.hpp>
+#include <semaforr/domain/action_execution.hpp>
 #include <semaforr/domain/mission.hpp>
 #include <semaforr/domain/observation.hpp>
 #include <semaforr/spatial/representations/models.hpp>
@@ -34,10 +35,31 @@ enum class SpatialRepresentation {
 enum class UpdateMode { Incremental, RebuildOnDemand };
 enum class UpdateSchedule {
   EveryObservation,
-  AfterCompletedAction,
+  EveryDecisionCycle,
+  AfterActionStart,
+  AfterSuccessfulActionCompletion,
+  AfterAnyTerminalActionResult,
   EndOfTarget,
+  EndOfTask,
   EndOfInitialExploration,
+  DuringHLEOnly,
+  DuringLLEOnly,
+  Periodic,
+  OnShutdown,
   OnDemand
+};
+
+enum class LearningEvent {
+  SensorObservation,
+  DecisionSelected,
+  ActionStarted,
+  ActionProgress,
+  ActionTerminal,
+  TargetCompleted,
+  TaskCompleted,
+  InitialExplorationCompleted,
+  Periodic,
+  Shutdown
 };
 
 enum class ModelStatus { Empty, Incomplete, Fresh, Stale };
@@ -60,11 +82,22 @@ struct NavigationEpisode {
   bool task_started = false;
   bool task_finished = false;
   bool initial_exploration = false;
-  bool action_completed = true;
+  bool action_completed = false;
   std::optional<domain::Point2D> active_target;
   std::vector<domain::Action> viable_actions;
   std::vector<double> move_distances_m;
   std::vector<double> rotation_angles_rad;
+  LearningEvent event = LearningEvent::SensorObservation;
+  std::optional<domain::SelectedActionRecord> selection;
+  std::optional<domain::ActionExecutionResult> execution_result;
+
+  bool actionSucceeded() const noexcept {
+    return execution_result ? execution_result->successful()
+                            : action_completed;
+  }
+  bool actionTerminated() const noexcept {
+    return execution_result.has_value() || action_completed;
+  }
 };
 
 using SpatialPayload = std::variant<std::monostate, TrailModel, ConveyorModel,

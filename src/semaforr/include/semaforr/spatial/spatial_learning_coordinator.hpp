@@ -60,6 +60,11 @@ class SpatialLearningCoordinator {
   bool enabled(SpatialRepresentation representation) const;
 
   void observe(const NavigationEpisode& episode);
+  void observeSensor(NavigationEpisode episode);
+  void observeDecision(NavigationEpisode episode);
+  void observeActionStarted(NavigationEpisode episode);
+  void observeActionProgress(NavigationEpisode episode);
+  void observeActionTerminal(NavigationEpisode episode);
   void rebuild(SpatialRepresentation representation);
   void rebuildStale();
   void rebuildAll();
@@ -78,6 +83,7 @@ class SpatialLearningCoordinator {
   std::size_t enabledCount() const noexcept;
 
  private:
+  void dispatch(const NavigationEpisode& episode);
   struct Entry {
     std::unique_ptr<SpatialLearner> learner;
     bool enabled = true;

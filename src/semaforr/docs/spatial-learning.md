@@ -15,14 +15,16 @@ public:
 };
 ```
 
-A `NavigationEpisode` contains the validated robot observation, selected
-action, active task, monotonically increasing sequence number, task boundary
-flags, and an `action_completed` outcome. Motion-dependent learners ignore
-episodes that do not represent completed actions.
+A `NavigationEpisode` identifies its lifecycle event and may carry both the
+immutable `SelectedActionRecord` and the matching `ActionExecutionResult`.
+Motion-dependent learners receive terminal results only; they never infer
+completion from action selection.
 
-Every representation declares one `UpdateSchedule`: `EveryObservation`,
-`AfterCompletedAction`, `EndOfTarget`, `EndOfInitialExploration`, or
-`OnDemand`. Learners retain mutable construction state and publish copied
+Every representation declares one `UpdateSchedule`, including
+`EveryObservation`, `EveryDecisionCycle`, `AfterActionStart`,
+`AfterSuccessfulActionCompletion`, `AfterAnyTerminalActionResult`,
+`EndOfTarget`, `EndOfTask`, `EndOfInitialExploration`, HLE/LLE-only,
+`Periodic`, `OnShutdown`, or `OnDemand`. Learners retain mutable construction state and publish copied
 snapshots only when their payload or status changes; unchanged publication
 does not advance the model revision.
 
@@ -30,17 +32,17 @@ does not advance the model revision.
 
 | Learner | Observations consumed | Update timing | Incremental | Consumers |
 |---|---|---|---|---|
-| `TrailLearner` | Pose and task boundaries | After completed action; incrementally appends spaced poses | Yes | `TrailerLinear`, `TrailerRotation`, trail planner |
-| `ConveyorLearner` | Pose and selected action | After completed action; adds or reinforces a directed segment | Yes | `ConveyLinear`, `ConveyRotation`, conveyor-cost planners |
+| `TrailLearner` | Execution-confirmed start/final pose and task boundaries | After successful action completion; failures never enter a trail | Yes | `TrailerLinear`, `TrailerRotation`, trail planner |
+| `ConveyorLearner` | Execution-confirmed forward displacement | After successful action completion; adds or reinforces the actual directed segment | Yes | `ConveyLinear`, `ConveyRotation`, conveyor-cost planners |
 | `RegionLearner` | Complete pose/scan episodes | Every observation; nearby overlap candidates come from a spatial hash | Yes | region-leaver advisors, skeleton planner |
-| `DoorExitLearner` | Pose and laser ranges | End of target | No | enter advisors, region and skeleton planners |
-| `HallwayLearner` | Pose and nonempty laser scan | End of target; orientation and midpoint bins avoid all-pairs comparison | No | hallway advisors, `hallwayskel`, `skeletonhall` |
+| `DoorExitLearner` | Terminal pose and laser ranges, including outcome metadata | Collect terminal evidence; rebuild at end of target | No | enter advisors, region and skeleton planners |
+| `HallwayLearner` | Terminal poses, outcomes, and nonempty laser scans | Collect terminal evidence; rebuild at end of target; orientation and midpoint bins avoid all-pairs comparison | No | hallway advisors, `hallwayskel`, `skeletonhall` |
 | `BarrierLearner` | Pose and laser ranges | Adds deduplicated adjacent obstacle-return segments after every scan | Yes | `AvoidObstacles`, `UnlikelyField`, collision-aware planners |
-| `PassageSkeletonLearner` | Pose, scan, and task boundaries | After completed action; stable node IDs and cached connected components | Yes | skeleton, hallway-skeleton, and passage planners |
+| `PassageSkeletonLearner` | Execution-confirmed start/final pose, scan, and task boundaries | After successful action completion; stable node IDs and cached connected components | Yes | skeleton, hallway-skeleton, and passage planners |
 | `HighwayLearner` | HLE pose and detected passages | Builds touched grid rows/columns incrementally; at finalization performs local smoothing, minimum-extent extraction, intersection/spur conversion, and largest-component selection | Yes | `HighwayPlan`, `Enforcer` |
 | `KnownGridLearner` | Pose and laser visibility | Every observation into sparse construction cells | Yes | `Out`, grid planners |
 | `InclusionGridLearner` | Pose and laser visibility | Every observation into sparse construction cells | Yes | LLE, exploration |
-| `CircumstanceLearner` | Completed selected actions | End of target | No | `Precedent` |
+| `CircumstanceLearner` | Terminal selected actions with explicit success/failure outcome | Collect after any terminal result; validate cases at end of target | No | `Precedent` |
 
 Every learner declares this information at runtime through
 `ObservationContract`. `SpatialLearningCoordinator::inspect()` returns the
@@ -77,7 +79,7 @@ declared schedule.
 
 ## Independent control and serialization
 
-The default coordinator registers one uniquely owned instance of all eleven
+The default coordinator registers one uniquely owned instance of all twelve
 modules:
 
 ```cpp
