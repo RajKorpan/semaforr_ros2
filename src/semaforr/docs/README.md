@@ -14,6 +14,7 @@
 - [Topic and frame contract](topics-and-frames.md)
 - [Spatial learning](spatial-learning.md)
 - [Action execution and learning lifecycle](action-execution-lifecycle.md)
+- [Representation revisions and dependency tracking](revision-dependencies.md)
 - [Social navigation](social-navigation.md)
 - [Troubleshooting](troubleshooting.md)
 - [Contributor guide](contributing.md)

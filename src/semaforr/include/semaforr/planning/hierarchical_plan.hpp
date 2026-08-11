@@ -13,6 +13,8 @@ class SkeletonPlan final : public Planner {
   PlanObjective objective() const noexcept override {
     return PlanObjective::SkeletonDistance;
   }
+  std::vector<domain::ModelDependency> dependencies(
+      const PlanningRequest&) const override;
 };
 
 class HighwayPlan final : public Planner {
@@ -22,6 +24,8 @@ class HighwayPlan final : public Planner {
   PlanObjective objective() const noexcept override {
     return PlanObjective::HighwayDistance;
   }
+  std::vector<domain::ModelDependency> dependencies(
+      const PlanningRequest&) const override;
 };
 
 }  // namespace semaforr::planning

@@ -208,7 +208,7 @@ class LowLevelExplorer final : public ReactivePlanner,
   std::size_t candidate_cursor_ = 0U;
   std::size_t decisions_ = 0U;
   std::optional<domain::TaskId> mission_id_;
-  std::size_t source_revision_ = 0U;
+  domain::DependencyRevisions source_revisions_;
   std::uint64_t next_candidate_id_ = 1U;
   double minimum_cue_length_m_;
   double target_cue_tolerance_m_;

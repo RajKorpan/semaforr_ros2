@@ -1,5 +1,6 @@
 #include <algorithm>
 #include <semaforr/decision/enforcer.hpp>
+#include <sstream>
 
 namespace semaforr::decision {
 namespace {
@@ -21,6 +22,23 @@ bool visible(const domain::Pose2D& pose, domain::Point2D point,
         return false;
   }
   return true;
+}
+bool isSpatialDependency(domain::ModelDependency dependency) {
+  using D = domain::ModelDependency;
+  return dependency != D::StaticMapGeometry &&
+         dependency != D::StaticOccupancy && dependency != D::CrowdDensity &&
+         dependency != D::CrowdRisk && dependency != D::CrowdFlow &&
+         dependency != D::PlannerConfiguration;
+}
+void record(planning::HierarchicalPlan& plan, std::string operation,
+            const domain::SpatialModel& spatial,
+            std::initializer_list<domain::ModelDependency> dependencies) {
+  planning::HierarchicalPlan::OperationalizationRecord item;
+  item.step_index = plan.cursor;
+  item.operation = std::move(operation);
+  for (const auto dependency : dependencies)
+    item.dependency_revisions[dependency] = spatial.revisionOf(dependency);
+  plan.operationalizations.push_back(std::move(item));
 }
 }  // namespace
 
@@ -48,12 +66,19 @@ std::size_t Enforcer::activeStep(const planning::HierarchicalPlan& plan,
 std::optional<domain::Point2D> Enforcer::operationalizeNext(
     planning::HierarchicalPlan& plan, const domain::SpatialModel& spatial,
     const domain::Pose2D& pose, domain::Distance tolerance) const {
-  const auto spatial_revision = plan.source_model_revisions.find("spatial");
-  if (spatial_revision != plan.source_model_revisions.end() &&
-      spatial_revision->second != spatial.revision) {
-    plan.validity = planning::PlanValidity::Stale;
-    plan.diagnostics.push_back("stale_plan:spatial_revision_changed");
-    return std::nullopt;
+  if (plan.validity != planning::PlanValidity::Valid) return std::nullopt;
+  for (const auto& [dependency, consumed] : plan.dependency_revisions) {
+    if (!isSpatialDependency(dependency)) continue;
+    const auto current = spatial.revisionOf(dependency);
+    if (current != consumed) {
+      plan.validity = planning::PlanValidity::Stale;
+      std::ostringstream diagnostic;
+      diagnostic << "stale_plan:dependency_changed:"
+                 << domain::toString(dependency) << ':' << consumed << "->"
+                 << current;
+      plan.diagnostics.push_back(diagnostic.str());
+      return std::nullopt;
+    }
   }
   plan.cursor = activeStep(plan, pose, tolerance);
   if (plan.exhausted()) {
@@ -65,6 +90,8 @@ std::optional<domain::Point2D> Enforcer::operationalizeNext(
   if (plan.cursor + 1U < plan.steps.size()) {
     const auto second = planning::stepTarget(plan.steps[plan.cursor + 1U]);
     if (second && visible(pose, *second, spatial)) {
+      record(plan, "visible_second_step_shortcut", spatial,
+             {domain::ModelDependency::VisibilityGeometry});
       ++plan.cursor;
       plan.diagnostics.push_back("visible_second_step_shortcut");
       return second;
@@ -82,6 +109,9 @@ std::optional<domain::Point2D> Enforcer::operationalizeNext(
     for (std::size_t i = trail->waypoints.size(); i > trail->cursor; --i)
       if (visible(pose, trail->waypoints[i - 1], spatial)) {
         trail->cursor = i - 1;
+        record(plan, "subtrail_lookahead_shortcut", spatial,
+               {domain::ModelDependency::VisibilityGeometry,
+                domain::ModelDependency::Trails});
         plan.diagnostics.push_back("subtrail_lookahead_shortcut");
         break;
       }
@@ -94,10 +124,15 @@ std::optional<domain::Point2D> Enforcer::operationalizeNext(
       return std::nullopt;
     }
     region->center = spatial.learned_regions[region->region_id].center;
+    record(plan, "region_center_substitution", spatial,
+           {domain::ModelDependency::Regions});
     if (spatial.learned_regions[region->region_id].contains(pose.position) &&
         plan.cursor + 1U < plan.steps.size()) {
       const auto next = planning::stepTarget(plan.steps[plan.cursor + 1U]);
       if (next && visible(pose, *next, spatial)) {
+        record(plan, "visible_later_step_shortcut", spatial,
+               {domain::ModelDependency::Regions,
+                domain::ModelDependency::VisibilityGeometry});
         ++plan.cursor;
         plan.diagnostics.push_back("visible_later_step_shortcut");
         return next;
@@ -130,6 +165,9 @@ std::optional<domain::Point2D> Enforcer::operationalizeNext(
                                    static_cast<domain::TrailId>(std::distance(
                                        spatial.trails.begin(), trail)),
                                    0U};
+        record(plan, "region_repaired_with_stored_subtrail", spatial,
+               {domain::ModelDependency::Regions,
+                domain::ModelDependency::Trails});
         plan.diagnostics.push_back("region_repaired_with_stored_subtrail");
         return operationalizeNext(plan, spatial, pose, tolerance);
       }
@@ -162,6 +200,11 @@ std::optional<domain::Point2D> Enforcer::operationalizeNext(
               planning::RegionStep{id, spatial.learned_regions[id].center});
       }
       if (regions.size() >= 2U) {
+        record(plan, "highway_replaced_with_overlapping_regions", spatial,
+               {domain::ModelDependency::Highways,
+                domain::ModelDependency::HighwayGraph,
+                domain::ModelDependency::Regions,
+                domain::ModelDependency::Familiarity});
         plan.steps.erase(plan.steps.begin() +
                          static_cast<std::ptrdiff_t>(plan.cursor));
         plan.steps.insert(
@@ -174,6 +217,9 @@ std::optional<domain::Point2D> Enforcer::operationalizeNext(
     if (!highway->fallback_subtrail.empty()) {
       current =
           planning::SubtrailStep{highway->fallback_subtrail, std::nullopt, 0U};
+      record(plan, "highway_repaired_with_stored_trail", spatial,
+             {domain::ModelDependency::Highways,
+              domain::ModelDependency::Trails});
       plan.diagnostics.push_back("highway_repaired_with_stored_trail");
       return operationalizeNext(plan, spatial, pose, tolerance);
     }

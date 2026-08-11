@@ -144,6 +144,29 @@ CrowdFieldSnapshot CrowdFieldSnapshot::load(std::istream& input) {
 
 void CrowdModel::setLearned(CrowdFieldSnapshot snapshot) {
   snapshot.validate();
+  const bool geometry_changed = learned_.geometry != snapshot.geometry ||
+                                learned_.cells.size() != snapshot.cells.size();
+  const auto layerChanged = [&](auto projection) {
+    if (geometry_changed) return true;
+    for (std::size_t index = 0U; index < snapshot.cells.size(); ++index)
+      if (projection(learned_.cells[index]) != projection(snapshot.cells[index]))
+        return true;
+    return false;
+  };
+  const auto record = [&](ModelDependency dependency, bool changed) {
+    if (!changed) return;
+    const Revision revision = ++revisions_[dependency];
+    mutation_history_.push_back(
+        {++mutation_sequence_, dependency, revision,
+         std::chrono::steady_clock::now(), "crowd field layer changed"});
+  };
+  record(ModelDependency::CrowdDensity,
+         layerChanged([](const auto& cell) { return cell.density; }));
+  record(ModelDependency::CrowdRisk,
+         layerChanged(
+             [](const auto& cell) { return cell.learned_encounter_risk; }));
+  record(ModelDependency::CrowdFlow,
+         layerChanged([](const auto& cell) { return cell.directional_flow; }));
   learned_ = std::move(snapshot);
 }
 

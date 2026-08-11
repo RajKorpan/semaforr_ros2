@@ -754,8 +754,13 @@ ReactivePlanUpdate LowLevelExplorer::update(
         (initial_included_cells_ == 0U ||
          static_cast<double>(included) >=
              1.1 * static_cast<double>(initial_included_cells_));
+    const bool connectivity_revision_changed = std::any_of(
+        source_revisions_.begin(), source_revisions_.end(),
+        [&](const auto& entry) {
+          return context.world.spatial.revisionOf(entry.first) != entry.second;
+        });
     const bool connectivity =
-        context.world.spatial.revision != source_revision_ &&
+        connectivity_revision_changed &&
         (!context.world.spatial.skeleton_nodes.empty() ||
          !context.world.spatial.highways.nodes.empty() ||
          !context.world.spatial.highways.graph.vertices.empty());
@@ -767,7 +772,14 @@ ReactivePlanUpdate LowLevelExplorer::update(
   if (state_ == LowLevelExplorationState::DetectMissingGuidance) {
     if (!evaluateTrigger(context).triggered) return {};
     mission_id_ = context.world.mission.active()->id;
-    source_revision_ = context.world.spatial.revision;
+    source_revisions_ = {
+        {domain::ModelDependency::Inclusion,
+         context.world.spatial.revisionOf(domain::ModelDependency::Inclusion)},
+        {domain::ModelDependency::Skeleton,
+         context.world.spatial.revisionOf(domain::ModelDependency::Skeleton)},
+        {domain::ModelDependency::HighwayGraph,
+         context.world.spatial.revisionOf(
+             domain::ModelDependency::HighwayGraph)}};
     initial_included_cells_ = includedCellCount(context.world);
     state_ = LowLevelExplorationState::AssembleCandidateRays;
   }

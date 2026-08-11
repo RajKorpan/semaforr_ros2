@@ -12,6 +12,7 @@
 #include <semaforr/domain/highway.hpp>
 #include <semaforr/domain/grid_layers.hpp>
 #include <semaforr/domain/mission.hpp>
+#include <semaforr/domain/model_revision.hpp>
 #include <semaforr/domain/observation.hpp>
 #include <semaforr/domain/static_map.hpp>
 #include <stdexcept>
@@ -183,7 +184,16 @@ struct SpatialModel {
   std::vector<ExplorationCue> unfinished_hle_candidates;
   HighwayGraph highways;
   CircumstanceModel circumstances;
+  DependencyRevisions revisions;
+  Revision mutation_sequence = 0U;
+  std::vector<ModelMutation> mutation_history;
+  // Compatibility diagnostic sequence. This is never used as a dependency.
   std::size_t revision = 0U;
+
+  Revision revisionOf(ModelDependency dependency) const noexcept {
+    const auto found = revisions.find(dependency);
+    return found == revisions.end() ? 0U : found->second;
+  }
 };
 
 struct WorldModel {
@@ -202,6 +212,28 @@ struct WorldModel {
   // prior; spatial learners never mutate or replace it.
   const StaticMap* static_map = nullptr;
   MapCapabilities map_capabilities;
+  Revision mutation_sequence = 0U;
+  std::vector<ModelMutation> mutation_history;
+
+  // Imports representation-local mutations into one diagnostic ordering.
+  // Consumers must continue to validate the exact representation revisions.
+  void synchronizeMutationJournal() {
+    while (imported_spatial_mutations_ < spatial.mutation_history.size()) {
+      auto mutation = spatial.mutation_history[imported_spatial_mutations_++];
+      mutation.sequence = ++mutation_sequence;
+      mutation_history.push_back(std::move(mutation));
+    }
+    const auto& crowd_mutations = crowd.mutationHistory();
+    while (imported_crowd_mutations_ < crowd_mutations.size()) {
+      auto mutation = crowd_mutations[imported_crowd_mutations_++];
+      mutation.sequence = ++mutation_sequence;
+      mutation_history.push_back(std::move(mutation));
+    }
+  }
+
+ private:
+  std::size_t imported_spatial_mutations_ = 0U;
+  std::size_t imported_crowd_mutations_ = 0U;
 };
 
 }  // namespace semaforr::domain

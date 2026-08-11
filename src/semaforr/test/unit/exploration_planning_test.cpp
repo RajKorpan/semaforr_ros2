@@ -159,7 +159,8 @@ TEST(HierarchicalPlans, HighwayPlanProducesTypedOperationalSteps) {
   spatial.highways.nodes = {{0.0, 0.0}, {1.0, 0.0}, {2.0, 0.0}};
   spatial.highways.edges = {{0U, 1U}, {1U, 2U}};
   spatial.highways.intersections = {{1U, 3U}};
-  spatial.revision = 7U;
+  spatial.revisions[semaforr::domain::ModelDependency::Highways] = 7U;
+  spatial.revisions[semaforr::domain::ModelDependency::HighwayGraph] = 7U;
   semaforr::planning::HighwayPlan planner;
   const auto result =
       planner.plan({{{-1.0, 0.0}, semaforr::domain::Angle::zero()},
@@ -168,7 +169,14 @@ TEST(HierarchicalPlans, HighwayPlanProducesTypedOperationalSteps) {
                     nullptr});
   ASSERT_TRUE(result.succeeded());
   ASSERT_TRUE(result.hierarchical);
-  EXPECT_EQ(result.hierarchical->source_model_revisions.at("spatial"), 7U);
+  EXPECT_EQ(result.hierarchical->dependency_revisions.at(
+                semaforr::domain::ModelDependency::HighwayGraph),
+            7U);
+  const auto dependencies = planner.dependencies(
+      {{{-1.0, 0.0}, semaforr::domain::Angle::zero()}, {3.0, 0.0}, &spatial});
+  EXPECT_NE(std::find(dependencies.begin(), dependencies.end(),
+                      semaforr::domain::ModelDependency::HighwayGraph),
+            dependencies.end());
   EXPECT_TRUE(std::any_of(
       result.hierarchical->steps.begin(), result.hierarchical->steps.end(),
       [](const auto& step) {
@@ -210,7 +218,7 @@ TEST(HierarchicalPlans, HighwayPlanChoosesBestValidNetworkAlternative) {
   EXPECT_EQ(skeleton.hierarchical->planner, "skeleton");
 }
 
-TEST(PlanCache, ReusesExactRevisionAndInvalidatesOnModelRevision) {
+TEST(PlanCache, ReusesExactRevisionAndInvalidatesOnConsumedRevision) {
   semaforr::planning::PlanningCoordinator coordinator;
   coordinator.registerPlanner(
       std::make_unique<semaforr::planning::DomainPlanner>(
@@ -226,7 +234,7 @@ TEST(PlanCache, ReusesExactRevisionAndInvalidatesOnModelRevision) {
   ASSERT_TRUE(coordinator.selectPlan(request));
   ASSERT_TRUE(coordinator.selectPlan(request));
   EXPECT_EQ(coordinator.cacheHits(), 1U);
-  ++spatial.revision;
+  ++spatial.revisions[semaforr::domain::ModelDependency::SensedOccupancy];
   ASSERT_TRUE(coordinator.selectPlan(request));
   EXPECT_EQ(coordinator.cacheHits(), 1U);
 }

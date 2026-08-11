@@ -62,12 +62,6 @@ PlanResult buildNetworkPlan(
   hierarchy.objective = highway ? PlanObjective::HighwayDistance
                                 : PlanObjective::SkeletonDistance;
   hierarchy.provenance = "Dijkstra/A* connection through " + strategy;
-  if (request.spatial_model) {
-    hierarchy.source_model_revisions["spatial"] =
-        request.spatial_model->revision;
-    hierarchy.source_model_revisions["highways"] =
-        request.spatial_model->highways.revision;
-  }
   std::vector<domain::Point2D> waypoints;
   for (std::size_t index = 1U; index < path.vertices.size(); ++index) {
     const VertexId vertex = path.vertices[index];
@@ -138,15 +132,28 @@ PlanResult buildNetworkPlan(
 
 }  // namespace
 
+std::vector<domain::ModelDependency> SkeletonPlan::dependencies(
+    const PlanningRequest&) const {
+  return {domain::ModelDependency::Skeleton, domain::ModelDependency::Regions};
+}
+
+std::vector<domain::ModelDependency> HighwayPlan::dependencies(
+    const PlanningRequest&) const {
+  using D = domain::ModelDependency;
+  return {D::Skeleton, D::Highways, D::HighwayGraph, D::Regions, D::Trails};
+}
+
 PlanResult SkeletonPlan::plan(const PlanningRequest& request) {
   if (!request.spatial_model)
     return {PlanStatus::PlannerUnavailable,
             {},
             0.0,
             "spatial model is unavailable"};
-  return buildNetworkPlan(request, request.spatial_model->skeleton_nodes,
-                          request.spatial_model->skeleton_edges, "skeleton",
-                          false);
+  auto result = buildNetworkPlan(request, request.spatial_model->skeleton_nodes,
+                                 request.spatial_model->skeleton_edges,
+                                 "skeleton", false);
+  attachDependencySnapshot(result, request, dependencies(request));
+  return result;
 }
 
 PlanResult HighwayPlan::plan(const PlanningRequest& request) {
@@ -156,6 +163,10 @@ PlanResult HighwayPlan::plan(const PlanningRequest& request) {
             0.0,
             "spatial model is unavailable"};
   const auto& spatial = *request.spatial_model;
+  const auto finish = [&](PlanResult result) {
+    attachDependencySnapshot(result, request, dependencies(request));
+    return result;
+  };
   std::vector<domain::Point2D> highway_nodes = spatial.highways.nodes;
   std::vector<std::pair<std::size_t, std::size_t>> highway_edges =
       spatial.highways.edges;
@@ -177,12 +188,13 @@ PlanResult HighwayPlan::plan(const PlanningRequest& request) {
   PlanResult skeleton =
       buildNetworkPlan(request, spatial.skeleton_nodes, spatial.skeleton_edges,
                        "skeleton", false);
-  if (highway_nodes.empty()) return skeleton;
+  if (highway_nodes.empty()) return finish(std::move(skeleton));
 
   if (spatial.skeleton_nodes.empty()) {
     PlanResult highway = buildNetworkPlan(request, highway_nodes, highway_edges,
                                           "highway", true, intersections);
-    return highway.succeeded() ? highway : skeleton;
+    return finish(highway.succeeded() ? std::move(highway)
+                                      : std::move(skeleton));
   }
 
   std::vector<domain::Point2D> combined = spatial.skeleton_nodes;
@@ -216,12 +228,12 @@ PlanResult HighwayPlan::plan(const PlanningRequest& request) {
   PlanResult assisted = buildNetworkPlan(
       request, combined, edges, "highway_assisted", true, intersections,
       spatial.skeleton_nodes.size(), highway_offset);
-  if (!assisted.succeeded()) return skeleton;
+  if (!assisted.succeeded()) return finish(std::move(skeleton));
   if (!skeleton.succeeded() || assisted.cost_m < skeleton.cost_m)
-    return assisted;
+    return finish(std::move(assisted));
   skeleton.explanation =
       "skeleton-only route selected over valid highway-assisted route";
-  return skeleton;
+  return finish(std::move(skeleton));
 }
 
 }  // namespace semaforr::planning

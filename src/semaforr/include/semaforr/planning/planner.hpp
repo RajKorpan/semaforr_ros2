@@ -62,7 +62,17 @@ struct HierarchicalPlan {
   PlanObjective objective = PlanObjective::Distance;
   std::vector<PlanStep> steps;
   ObjectiveCosts estimated_objective_costs;
-  std::map<std::string, std::size_t> source_model_revisions;
+  domain::DependencyRevisions dependency_revisions;
+  domain::Pose2D planned_start;
+  domain::Point2D planned_goal;
+  std::optional<domain::TaskId> task_id;
+  domain::Revision planner_configuration_revision = 0U;
+  struct OperationalizationRecord {
+    std::size_t step_index = 0U;
+    std::string operation;
+    domain::DependencyRevisions dependency_revisions;
+  };
+  std::vector<OperationalizationRecord> operationalizations;
   std::size_t cursor = 0U;
   std::string provenance;
   PlanValidity validity = PlanValidity::Valid;
@@ -84,19 +94,25 @@ struct PlanningRequest {
   const domain::CrowdModel* crowd_model{nullptr};
   const domain::StaticMap* static_map{nullptr};
   TraversabilityConfiguration traversability;
+  std::optional<domain::TaskId> task_id;
+  domain::Revision planner_configuration_revision = 0U;
 
   PlanningRequest() = default;
   PlanningRequest(domain::Pose2D request_start, domain::Point2D request_goal,
                   const domain::SpatialModel* request_spatial = nullptr,
                   const domain::CrowdModel* request_crowd = nullptr,
                   const domain::StaticMap* request_map = nullptr,
-                  TraversabilityConfiguration traversal_configuration = {})
+                  TraversabilityConfiguration traversal_configuration = {},
+                  std::optional<domain::TaskId> request_task = std::nullopt,
+                  domain::Revision configuration_revision = 0U)
       : start(request_start),
         goal(request_goal),
         spatial_model(request_spatial),
         crowd_model(request_crowd),
         static_map(request_map),
-        traversability(std::move(traversal_configuration)) {}
+        traversability(std::move(traversal_configuration)),
+        task_id(request_task),
+        planner_configuration_revision(configuration_revision) {}
 };
 
 struct PlanResult {
@@ -107,6 +123,12 @@ struct PlanResult {
   std::optional<HierarchicalPlan> hierarchical;
   PlanObjective primary_objective = PlanObjective::Distance;
   ObjectiveCosts objective_costs;
+  domain::DependencyRevisions dependency_revisions;
+  domain::Pose2D planned_start;
+  domain::Point2D planned_goal;
+  std::optional<domain::TaskId> task_id;
+  domain::Revision planner_configuration_revision = 0U;
+  std::vector<std::string> stale_reasons;
 
   PlanResult() = default;
   PlanResult(PlanStatus plan_status, std::vector<domain::Point2D> plan_path,
@@ -129,7 +151,24 @@ class Planner {
   virtual PlanObjective objective() const noexcept {
     return PlanObjective::Distance;
   }
+  virtual std::vector<domain::ModelDependency> dependencies(
+      const PlanningRequest&) const {
+    return {};
+  }
 };
+
+domain::Revision currentRevision(const PlanningRequest& request,
+                                 domain::ModelDependency dependency) noexcept;
+std::vector<std::string> dependencyChangeReasons(
+    const domain::DependencyRevisions& consumed,
+    const PlanningRequest& request);
+void attachDependencySnapshot(
+    PlanResult& plan, const PlanningRequest& request,
+    std::vector<domain::ModelDependency> dependencies);
+std::vector<std::string> stalePlanReasons(
+    const PlanResult& plan, const PlanningRequest& request,
+    domain::Distance start_tolerance, domain::Distance target_tolerance,
+    bool execution_invalidated = false);
 
 }  // namespace semaforr::planning
 #endif

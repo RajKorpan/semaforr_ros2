@@ -455,7 +455,7 @@ TEST(LowLevelExplorer, RequestsTierTwoReplanAfterFailedProgress) {
   EXPECT_EQ(pursuing.status, semaforr::planning::ReactiveStatus::Action);
   world.spatial.skeleton_nodes = {{0.0, 0.0}, {1.0, 0.0}};
   world.spatial.skeleton_edges = {{0U, 1U}};
-  ++world.spatial.revision;
+  ++world.spatial.revisions[semaforr::domain::ModelDependency::Skeleton];
   const auto result = explorer.evaluate({world, actions});
   EXPECT_EQ(result.status, semaforr::planning::ReactiveStatus::RequestReplan);
   EXPECT_EQ(result.planner, "LLE");

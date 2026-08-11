@@ -19,6 +19,8 @@ class DomainPlanner final : public Planner {
   PlanResult plan(const PlanningRequest& request) override;
   std::string_view name() const noexcept override { return name_; }
   PlanObjective objective() const noexcept override { return objective_; }
+  std::vector<domain::ModelDependency> dependencies(
+      const PlanningRequest& request) const override;
 
  private:
   std::string name_;

@@ -41,6 +41,12 @@ must not include ROS headers.
    then dispatches completed-action learners. `VisualizationPublisher`
    publishes the same IDs with the outcome.
 
+Plans and plan-cache entries carry exact named representation revisions.
+Unrelated model updates do not invalidate them, and stale diagnostics name the
+dependency and old/new revisions. The world mutation sequence exists only for
+ordered diagnostics. See
+[revision-dependencies.md](revision-dependencies.md).
+
 ## Ownership and failure boundaries
 
 The navigation engine owns its mission and world model. Coordinators own

@@ -9,6 +9,7 @@
 #include <optional>
 #include <semaforr/domain/geometry.hpp>
 #include <semaforr/domain/grid_geometry.hpp>
+#include <semaforr/domain/model_revision.hpp>
 #include <semaforr/domain/social.hpp>
 #include <string>
 #include <vector>
@@ -112,6 +113,14 @@ class CrowdModel {
   const CrowdFieldSnapshot& learned() const noexcept { return learned_; }
   bool learnedAvailable() const noexcept { return learned_.available(); }
   CrowdModelStatus status() const noexcept;
+  Revision revisionOf(ModelDependency dependency) const noexcept {
+    const auto found = revisions_.find(dependency);
+    return found == revisions_.end() ? 0U : found->second;
+  }
+  Revision mutationSequence() const noexcept { return mutation_sequence_; }
+  const std::vector<ModelMutation>& mutationHistory() const noexcept {
+    return mutation_history_;
+  }
 
   std::optional<CrowdFieldSample> learnedAt(
       Point2D point, SocialTimestamp now = {},
@@ -132,6 +141,9 @@ class CrowdModel {
  private:
   CrowdState observations_;
   CrowdFieldSnapshot learned_;
+  DependencyRevisions revisions_;
+  Revision mutation_sequence_{0U};
+  std::vector<ModelMutation> mutation_history_;
 };
 
 }  // namespace semaforr::domain

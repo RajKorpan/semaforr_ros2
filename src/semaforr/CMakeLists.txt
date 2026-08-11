@@ -76,6 +76,7 @@ set(SEMAFORR_DOMAIN_SOURCES
   src/config/navigation_configuration.cpp
   src/domain/circumstance.cpp
   src/domain/action_execution.cpp
+  src/domain/model_revision.cpp
   src/domain/crowd_model.cpp
   src/domain/grid_geometry.cpp
   src/domain/motion_model.cpp
@@ -484,6 +485,14 @@ if(BUILD_TESTING)
   target_link_libraries(
     semaforr_exploration_planning_test semaforr_navigation)
   semaforr_apply_project_options(semaforr_exploration_planning_test)
+
+  ament_add_gtest(
+    semaforr_revision_dependency_test
+    test/unit/revision_dependency_test.cpp
+  )
+  target_link_libraries(
+    semaforr_revision_dependency_test semaforr_navigation)
+  semaforr_apply_project_options(semaforr_revision_dependency_test)
 
   ament_add_gtest(
     semaforr_tier_advisor_test

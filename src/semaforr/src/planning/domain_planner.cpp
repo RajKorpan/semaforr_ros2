@@ -118,6 +118,47 @@ std::vector<domain::Point2D> completePath(
 }
 }  // namespace
 
+std::vector<domain::ModelDependency> DomainPlanner::dependencies(
+    const PlanningRequest&) const {
+  using D = domain::ModelDependency;
+  std::vector<D> result;
+  if (source_mode_ == OccupancySourceMode::StaticMapWithSensors) {
+    result = {D::StaticMapGeometry, D::StaticOccupancy,
+              D::SensedOccupancy};
+  } else if (source_mode_ == OccupancySourceMode::SensorDerivedPartial) {
+    result = {D::SensedOccupancy};
+  } else {
+    result = {D::Skeleton};
+  }
+  switch (objective_) {
+    case PlanObjective::CrowdDensity:
+      result.push_back(D::CrowdDensity);
+      break;
+    case PlanObjective::EncounterRisk:
+      result.push_back(D::CrowdRisk);
+      break;
+    case PlanObjective::FlowOpposition:
+      result.push_back(D::CrowdFlow);
+      break;
+    case PlanObjective::RegionPreference:
+      result.push_back(D::Regions);
+      result.push_back(D::DoorsAndExits);
+      break;
+    case PlanObjective::HallwayPreference:
+      result.push_back(D::Hallways);
+      break;
+    case PlanObjective::TrailPreference:
+      result.push_back(D::Trails);
+      break;
+    case PlanObjective::ConveyorPreference:
+      result.push_back(D::Conveyors);
+      break;
+    default:
+      break;
+  }
+  return result;
+}
+
 ObjectiveCosts evaluatePathObjectives(
     const PlanningRequest& request, const std::vector<domain::Point2D>& path) {
   ObjectiveCosts result;
@@ -300,17 +341,9 @@ PlanResult DomainPlanner::plan(const PlanningRequest& request) {
   hierarchy.objective = objective_;
   hierarchy.provenance = result.explanation;
   hierarchy.estimated_objective_costs = result.objective_costs;
-  if (request.spatial_model)
-    hierarchy.source_model_revisions["spatial"] =
-        request.spatial_model->revision;
-  if (request.static_map)
-    hierarchy.source_model_revisions["static_map"] =
-        request.static_map->revision;
-  if (request.spatial_model)
-    hierarchy.source_model_revisions["sensed_occupancy"] =
-        request.spatial_model->sensed_occupancy.revision;
   for (auto p : result.path) hierarchy.steps.emplace_back(WaypointStep{p});
   result.hierarchical = std::move(hierarchy);
+  attachDependencySnapshot(result, request, dependencies(request));
   return result;
 }
 }  // namespace semaforr::planning

@@ -104,7 +104,7 @@ they are not fidelity claims.
 | HighwayPlan | Functionally adapted | Skeleton connection, shortest highway graph path, skeleton connection; compare with SkeletonPlan | Implements combined highway/skeleton routing and compares alternatives using adapted graphs | Yes at architecture level | Route differs with learned graph and surrogate details | No | Reuse faithful graphs and published surrogate rules in compatibility mode |
 | Tier-2 range voting | Dissertation-faithful | Each objective evaluates every plan, normalize costs to `[0,10]`, minimize summed score | Same range-vote structure with deterministic planner-name tie break | Yes, tie adapted | Ties differ; ordinary non-tied selection should match given identical plans/costs | Pending oracle tests | Random tie policy in compatibility mode; retain deterministic option in modernized mode |
 | Other selection policies | Engineering extension | Not described | Single, normalized minimum, Pareto-then-vote, shortest-valid | Yes | Enables new experiments | No | Modernized mode only |
-| Plan cache and revision invalidation | Engineering extension | Not described | Caches plans by surrogates, planner, and revisions | Yes | Should preserve results when invalidation is correct | Potentially | Add exact per-representation revisions and cache equivalence tests |
+| Plan cache and revision invalidation | Engineering extension | Not described | Caches by task and start/target surrogates plus exact declared representation and policy revisions | Yes | Relevant mutations invalidate precisely; unrelated layers remain cached | Potentially | Implemented and covered by exact-dependency regression tests |
 
 ## Tier-3 advisors and voting
 

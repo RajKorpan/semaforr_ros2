@@ -58,10 +58,19 @@ void PlanningCoordinator::registerPlanner(std::unique_ptr<Planner> planner) {
                   [&](const auto& p) { return p->name() == name; }))
     throw std::invalid_argument("planner '" + name + "' is already registered");
   planners_.push_back(std::move(planner));
+  ++configuration_revision_;
+}
+
+void PlanningCoordinator::setSelectionPolicy(PlanSelectionPolicy value) noexcept {
+  if (policy_ == value) return;
+  policy_ = value;
+  ++configuration_revision_;
 }
 
 std::optional<SelectedPlan> PlanningCoordinator::selectPlan(
     const PlanningRequest& request) {
+  PlanningRequest effective = request;
+  effective.planner_configuration_revision = configuration_revision_;
   const double resolution =
       request.static_map && request.static_map->occupancyAvailable()
           ? request.static_map->occupancy.geometry.resolution_m
@@ -73,12 +82,6 @@ std::optional<SelectedPlan> PlanningCoordinator::selectPlan(
                   sy = surrogate(request.start.position.y_m, resolution),
                   gx = surrogate(request.goal.x_m, resolution),
                   gy = surrogate(request.goal.y_m, resolution);
-  const std::size_t spatial =
-      request.spatial_model ? request.spatial_model->revision : 0U;
-  const std::size_t static_map =
-      request.static_map ? request.static_map->revision : 0U;
-  const std::uint64_t crowd =
-      request.crowd_model ? request.crowd_model->learned().version : 0U;
   struct Candidate {
     PlanResult result;
     std::string planner;
@@ -89,43 +92,45 @@ std::optional<SelectedPlan> PlanningCoordinator::selectPlan(
   for (const auto& planner : planners_) {
     PlanResult result;
     const std::string name(planner->name());
-    const auto objective = planner->objective();
-    const bool social = objective == PlanObjective::CrowdDensity ||
-                        objective == PlanObjective::EncounterRisk ||
-                        objective == PlanObjective::FlowOpposition;
-    const std::uint64_t relevant_crowd = social ? crowd : 0U;
-    std::size_t relevant_spatial =
-        objective == PlanObjective::HighwayDistance && request.spatial_model
-            ? spatial ^ (request.spatial_model->highways.revision + 0x9e3779b9U)
-            : spatial ^ (static_map + 0x85ebca6bU);
-    const bool occupancy_based =
-        name == "distance" || name == "sensor_distance" ||
-        name == "density" || name == "risk" || name == "flow";
-    if (occupancy_based && request.spatial_model)
-      relevant_spatial ^=
-          request.spatial_model->sensed_occupancy.revision + 0xc2b2ae35U;
+    auto declared = planner->dependencies(effective);
+    declared.push_back(domain::ModelDependency::PlannerConfiguration);
+    std::sort(declared.begin(), declared.end(), [](auto a, auto b) {
+      return static_cast<int>(a) < static_cast<int>(b);
+    });
+    declared.erase(std::unique(declared.begin(), declared.end()),
+                   declared.end());
+    domain::DependencyRevisions dependencies;
+    for (const auto dependency : declared)
+      dependencies[dependency] = currentRevision(effective, dependency);
     auto found =
         std::find_if(cache_.begin(), cache_.end(), [&](const CacheEntry& e) {
-          return e.planner == name && e.start_x == sx && e.start_y == sy &&
-                 e.goal_x == gx && e.goal_y == gy &&
-                 e.spatial_revision == relevant_spatial &&
-                 e.crowd_revision == relevant_crowd;
+          if (e.planner != name || e.start_x != sx || e.start_y != sy ||
+              e.goal_x != gx || e.goal_y != gy ||
+              e.task_id != effective.task_id ||
+              e.dependency_revisions != dependencies)
+            return false;
+          const domain::Distance tolerance(
+              std::max(0.05, resolution * 0.5));
+          return stalePlanReasons(e.result, effective, tolerance, tolerance)
+              .empty();
         });
     if (found != cache_.end()) {
       result = found->result;
       ++cache_hits_;
     } else {
-      result = planner->plan(request);
+      result = planner->plan(effective);
+      attachDependencySnapshot(result, effective, declared);
       cache_.erase(
           std::remove_if(cache_.begin(), cache_.end(),
                          [&](const CacheEntry& e) {
-                           return e.planner == name &&
-                                  (e.spatial_revision != relevant_spatial ||
-                                   e.crowd_revision != relevant_crowd);
+                           return e.planner == name && e.start_x == sx &&
+                                  e.start_y == sy && e.goal_x == gx &&
+                                  e.goal_y == gy &&
+                                  e.task_id == effective.task_id;
                          }),
           cache_.end());
-      cache_.push_back(
-          {name, sx, sy, gx, gy, relevant_spatial, relevant_crowd, result});
+      cache_.push_back({name, sx, sy, gx, gy, effective.task_id, dependencies,
+                        result});
     }
     if (!result.succeeded()) continue;
     if (!std::isfinite(result.cost_m) || result.cost_m < 0.0)

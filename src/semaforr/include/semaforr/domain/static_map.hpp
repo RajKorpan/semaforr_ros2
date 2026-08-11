@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <semaforr/domain/geometry.hpp>
 #include <semaforr/domain/grid_layers.hpp>
+#include <semaforr/domain/model_revision.hpp>
 #include <string>
 #include <vector>
 
@@ -54,6 +55,9 @@ struct StaticMap {
   std::vector<Polygon> obstacle_polygons;
   StaticOccupancyGrid occupancy;
   GeometryProvenance provenance = GeometryProvenance::StaticMap;
+  Revision geometry_revision = 1U;
+  Revision occupancy_revision = 1U;
+  // Compatibility identifier for the immutable loaded artifact.
   std::size_t revision = 1U;
 
   bool geometryAvailable() const noexcept {

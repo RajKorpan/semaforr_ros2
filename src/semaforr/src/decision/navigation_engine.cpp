@@ -51,6 +51,7 @@ NavigationEngine::NavigationEngine(
   exploration_.setModelFinalizer([this] {
     learning_.finalizeInitialExploration();
     learning_.applyTo(world_.spatial);
+    world_.synchronizeMutationJournal();
   });
 }
 
@@ -104,12 +105,14 @@ void NavigationEngine::observe(const domain::RobotObservation& observation) {
           : std::nullopt;
   learning_.observeSensor(std::move(sensor_episode));
   learning_.applyTo(world_.spatial);
+  world_.synchronizeMutationJournal();
   if (observation.crowd) {
     world_.crowd.update(*observation.crowd);
     if (crowd_learning_ &&
         crowd_learning_->observe(observation.pose, observation.laser,
                                  *observation.crowd)) {
       world_.crowd.setLearned(crowd_learning_->snapshot());
+      world_.synchronizeMutationJournal();
     }
   } else {
     world_.crowd.clearCurrent();
@@ -129,6 +132,7 @@ void NavigationEngine::observe(const domain::RobotObservation& observation) {
     hierarchy_task_.reset();
     learning_.finalizeTarget();
     learning_.applyTo(world_.spatial);
+    world_.synchronizeMutationJournal();
   }
 }
 
@@ -141,12 +145,30 @@ std::optional<std::string> NavigationEngine::preparePlan(MissionStep step) {
   }
   if (enforcer_enabled_ && active_hierarchy_ && hierarchy_task_ &&
       *hierarchy_task_ == world_.mission.active()->id) {
-    const auto next = enforcer_->operationalizeNext(
-        *active_hierarchy_, world_.spatial, world_.robot.pose, goal_tolerance_);
-    if (next) {
-      mission_.installPlan({*next});
-      mission_.advanceWaypoint(world_.robot.pose, goal_tolerance_);
-      return active_hierarchy_->planner;
+    planning::PlanningRequest validation{
+        world_.robot.pose, world_.mission.active()->target, &world_.spatial,
+        &world_.crowd, world_.static_map, traversability_,
+        world_.mission.active()->id, planning_.configurationRevision()};
+    auto stale = planning::dependencyChangeReasons(
+        active_hierarchy_->dependency_revisions, validation);
+    if (active_hierarchy_->task_id != validation.task_id)
+      stale.push_back("task_changed");
+    if (domain::distance(active_hierarchy_->planned_goal, validation.goal)
+            .meters() > goal_tolerance_.meters())
+      stale.push_back("target_moved_beyond_tolerance");
+    if (stale.empty()) {
+      const auto next = enforcer_->operationalizeNext(
+          *active_hierarchy_, world_.spatial, world_.robot.pose,
+          goal_tolerance_);
+      if (next) {
+        mission_.installPlan({*next});
+        mission_.advanceWaypoint(world_.robot.pose, goal_tolerance_);
+        return active_hierarchy_->planner;
+      }
+    } else {
+      active_hierarchy_->validity = planning::PlanValidity::Stale;
+      active_hierarchy_->diagnostics.insert(
+          active_hierarchy_->diagnostics.end(), stale.begin(), stale.end());
     }
     active_hierarchy_.reset();
     hierarchy_task_.reset();
@@ -157,7 +179,8 @@ std::optional<std::string> NavigationEngine::preparePlan(MissionStep step) {
       world_.robot.laser ? world_.robot.laser->maximum_range.meters() : 0.0;
   const auto selected = planning_.selectPlan(
       {world_.robot.pose, world_.mission.active()->target, &world_.spatial,
-       &world_.crowd, world_.static_map, traversal});
+       &world_.crowd, world_.static_map, traversal,
+       world_.mission.active()->id});
   if (!selected) {
     mission_.installPlan({world_.mission.active()->target});
     return std::nullopt;
@@ -522,6 +545,12 @@ domain::FeedbackDisposition NavigationEngine::acceptTerminal(
   history.rotation_achieved_rad = result.rotation_achieved_rad;
   world_.navigation_history.record(history);
   if (result.successful()) world_.completed_path_history.record(history);
+  if (!result.successful() && active_hierarchy_) {
+    active_hierarchy_->validity = planning::PlanValidity::Stale;
+    active_hierarchy_->diagnostics.push_back(
+        "execution_invalidated_remaining_route:" +
+        std::string(domain::toString(result.status)));
+  }
 
   auto episode = pending_execution_->episode;
   episode.observation.pose = result.final_pose;
@@ -529,6 +558,7 @@ domain::FeedbackDisposition NavigationEngine::acceptTerminal(
   const auto model_update_started = std::chrono::steady_clock::now();
   learning_.observeActionTerminal(std::move(episode));
   learning_.applyTo(world_.spatial);
+  world_.synchronizeMutationJournal();
   if (finalize_initial_exploration_after_action_) {
     finishInitialExploration();
     phases_->completeInitialExploration();

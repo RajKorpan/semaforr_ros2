@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <semaforr/spatial/learners/all.hpp>
 #include <semaforr/spatial/spatial_learning_coordinator.hpp>
@@ -7,6 +8,25 @@
 
 namespace semaforr::spatial {
 namespace {
+
+domain::ModelDependency dependencyFor(SpatialRepresentation representation) {
+  using D = domain::ModelDependency;
+  switch (representation) {
+    case SpatialRepresentation::Trails: return D::Trails;
+    case SpatialRepresentation::Conveyors: return D::Conveyors;
+    case SpatialRepresentation::Regions: return D::Regions;
+    case SpatialRepresentation::DoorsAndExits: return D::DoorsAndExits;
+    case SpatialRepresentation::Hallways: return D::Hallways;
+    case SpatialRepresentation::Barriers: return D::Barriers;
+    case SpatialRepresentation::PassagesAndSkeleton: return D::Skeleton;
+    case SpatialRepresentation::KnownGrid: return D::Familiarity;
+    case SpatialRepresentation::SensedOccupancy: return D::SensedOccupancy;
+    case SpatialRepresentation::InclusionGrid: return D::Inclusion;
+    case SpatialRepresentation::Highways: return D::Highways;
+    case SpatialRepresentation::Circumstances: return D::Circumstances;
+  }
+  return D::Trails;
+}
 
 void clearRepresentation(domain::SpatialModel& model,
                          SpatialRepresentation representation) {
@@ -417,6 +437,8 @@ void SpatialLearningCoordinator::applyTo(domain::SpatialModel& model) const {
     if (!update.usable()) {
       continue;
     }
+    const auto dependency = dependencyFor(update.representation);
+    if (model.revisionOf(dependency) == update.revision) continue;
     std::visit(
         [&model, &update](const auto& payload) {
           using Payload = std::decay_t<decltype(payload)>;
@@ -508,12 +530,21 @@ void SpatialLearningCoordinator::applyTo(domain::SpatialModel& model) const {
           }
         },
         update.payload);
+    model.revisions[dependency] = update.revision;
+    ++model.mutation_sequence;
+    model.revision = static_cast<std::size_t>(model.mutation_sequence);
+    model.mutation_history.push_back(
+        {model.mutation_sequence, dependency, update.revision,
+         std::chrono::steady_clock::now(),
+         std::string(update.learner) + ":" + update.diagnostic});
+    if (dependency == domain::ModelDependency::Highways) {
+      model.revisions[domain::ModelDependency::HighwayGraph] = update.revision;
+      model.highways.revision = update.revision;
+    }
+    if (dependency == domain::ModelDependency::Barriers)
+      model.revisions[domain::ModelDependency::VisibilityGeometry] =
+          update.revision;
   }
-  std::size_t revision = 0U;
-  for (const Entry& entry : learners_)
-    if (entry.enabled)
-      revision = std::max(revision, entry.learner->snapshot().revision);
-  model.revision = revision;
 }
 
 std::size_t SpatialLearningCoordinator::enabledCount() const noexcept {
