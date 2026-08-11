@@ -130,6 +130,9 @@ struct ExperimentConfiguration {
   TargetNavigationConfiguration target_navigation;
   bool reactive_exploration_enabled = true;
   std::string reactive_exploration_strategy = "lle";
+  std::string reactive_exploration_behavior_policy = "profile";
+  bool reactive_exploration_stalled_history_extension = true;
+  double reactive_exploration_closest_target_bin_m = 1.0;
   SocialConfiguration social;
   SafetyEnvelopeConfiguration safety_envelope;
   // Backward-compatible mirrors populated by parameter loading.

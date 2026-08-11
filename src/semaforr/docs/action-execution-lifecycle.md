@@ -31,7 +31,8 @@ terminate any pending action as a controller failure.
 
 | Learner | Event received | Success policy |
 |---|---|---|
-| Region, barrier, familiarity, sensed occupancy, inclusion | Every sensor observation | Independent of action outcome |
+| Region, barrier, familiarity, sensed occupancy | Every sensor observation or the representation's profile schedule | Independent of selected-action outcome |
+| Inclusion | Region/skeleton finalization and successful LLE translation | Failed, cancelled, and rotation-only actions do not add inclusion |
 | Trail, conveyor, passage/skeleton | Terminal action result | Successful completion only |
 | Door/exit, hallway, circumstance | Terminal evidence accumulated; publish/rebuild at target boundary | Outcome remains attached; successful traversal is distinguishable from failures |
 | Highway | Successful HLE terminal evidence; final rebuild at initial-exploration boundary | Successful HLE motion only |

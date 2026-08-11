@@ -150,6 +150,9 @@ struct RecoveryState {
   bool confined = false;
   std::size_t get_out_attempts = 0U;
   std::size_t reposition_attempts = 0U;
+  bool planning_attempted = false;
+  bool plan_available = false;
+  bool completed_plan_failed_target = false;
 };
 
 using FreespaceGrid = SparseCountGrid;

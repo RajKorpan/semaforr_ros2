@@ -741,6 +741,12 @@ std::string configurationFingerprint(const Configuration& configuration) {
       << '|'
       << configuration.experiment.initial_exploration.minimum_extension_m
       << '|' << configuration.experiment.reactive_exploration_enabled << '|'
+      << configuration.experiment.reactive_exploration_behavior_policy << '|'
+      << configuration.experiment
+             .reactive_exploration_stalled_history_extension
+      << '|'
+      << configuration.experiment.reactive_exploration_closest_target_bin_m
+      << '|'
       << configuration.experiment.opportunistic_exploration << '|'
       << configuration.experiment.social.enabled << '|'
       << configuration.experiment.social.observations << '|'
@@ -872,6 +878,12 @@ std::vector<std::string> componentManifest(const Configuration& configuration) {
     result.push_back("phase:initial_exploration");
   result.push_back("hle_behavior_policy:" +
                    experiment.initial_exploration.behavior_policy);
+  result.push_back("lle_behavior_policy:" +
+                   experiment.reactive_exploration_behavior_policy);
+  result.push_back(
+      std::string("lle_stalled_history_extension:") +
+      (experiment.reactive_exploration_stalled_history_extension ? "true"
+                                                                  : "false"));
   if (experiment.tiers.tier_one) result.push_back("tier:tier_one");
   if (experiment.tiers.tier_two) result.push_back("tier:tier_two");
   if (experiment.tiers.tier_three) result.push_back("tier:tier_three");
@@ -1056,6 +1068,19 @@ void validateConfiguration(const Configuration& configuration) {
       experiment.reactive_exploration_strategy != "lle")
     throw std::runtime_error(
         "configuration: reactive exploration strategy must be 'lle'");
+  const std::set<std::string> lle_policies{
+      "profile", "modernized", "compatibility"};
+  if (!lle_policies.contains(
+          experiment.reactive_exploration_behavior_policy))
+    throw std::runtime_error(
+        "configuration: exploration.reactive.behavior_policy must be "
+        "'profile', 'modernized', or 'compatibility'");
+  if (!std::isfinite(
+          experiment.reactive_exploration_closest_target_bin_m) ||
+      experiment.reactive_exploration_closest_target_bin_m <= 0.0)
+    throw std::runtime_error(
+        "configuration: exploration.reactive.closest_target_bin_m must be "
+        "finite and positive");
   if (configuration.navigation.planners.highway &&
       !configuration.navigation.highways_on)
     throw std::runtime_error(

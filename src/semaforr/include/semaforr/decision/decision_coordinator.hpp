@@ -33,6 +33,9 @@ class DecisionCoordinator {
 
   DecisionResult decide(const DecisionContext& context,
                         std::span<const domain::Action> candidates);
+  std::optional<DecisionResult> mandatoryDecision(
+      const DecisionContext& context,
+      std::span<const domain::Action> candidates) const;
 
  private:
   ArbitrationConfiguration configuration_;

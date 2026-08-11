@@ -484,15 +484,25 @@ LowLevelExplorer::LowLevelExplorer(std::size_t history_window,
                                    double minimum_cue_length_m,
                                    double target_cue_tolerance_m,
                                    std::size_t cue_waypoint_count)
-    : history_window_(history_window),
-      progress_threshold_m_(progress_threshold_m),
-      decision_budget_(decision_budget),
-      minimum_cue_length_m_(minimum_cue_length_m),
-      target_cue_tolerance_m_(target_cue_tolerance_m),
-      cue_waypoint_count_(cue_waypoint_count) {
+    : LowLevelExplorer(LowLevelExplorationConfiguration{
+          LLEBehaviorPolicy::Modernized, true, history_window,
+          progress_threshold_m, decision_budget, minimum_cue_length_m,
+          target_cue_tolerance_m, cue_waypoint_count, 1.0, 0U}) {}
+
+LowLevelExplorer::LowLevelExplorer(
+    LowLevelExplorationConfiguration configuration)
+    : history_window_(configuration.history_window),
+      progress_threshold_m_(configuration.progress_threshold_m),
+      decision_budget_(configuration.decision_budget),
+      minimum_cue_length_m_(configuration.minimum_cue_length_m),
+      target_cue_tolerance_m_(configuration.target_cue_tolerance_m),
+      cue_waypoint_count_(configuration.cue_waypoint_count),
+      configuration_(std::move(configuration)),
+      random_(configuration_.random_seed) {
   if (history_window_ < 2U || !(progress_threshold_m_ > 0.0) ||
       decision_budget_ == 0U || minimum_cue_length_m_ <= 0.0 ||
-      target_cue_tolerance_m_ <= 0.0 || cue_waypoint_count_ == 0U)
+      target_cue_tolerance_m_ <= 0.0 || cue_waypoint_count_ == 0U ||
+      configuration_.closest_target_bin_m <= 0.0)
     throw std::invalid_argument("invalid LLE progress/budget configuration");
 }
 
@@ -500,11 +510,13 @@ TriggerEvaluation LowLevelExplorer::evaluateTrigger(
     const decision::DecisionContext& context) const {
   if (!context.world.mission.active()) return {};
   const auto& task = *context.world.mission.active();
-  const bool only_direct_guidance = task.plan.size() <= 1U;
-  const bool lacks_connectivity =
-      context.world.spatial.skeleton_nodes.empty() &&
-      context.world.spatial.highways.nodes.empty() &&
-      context.world.spatial.highways.graph.vertices.empty();
+  const bool no_plan = !context.world.recovery.plan_available &&
+                       task.plan.empty();
+  const bool completed_plan_failed =
+      context.world.recovery.completed_plan_failed_target ||
+      (!task.plan.empty() && task.waypoint_index >= task.plan.size() &&
+       !domain::goalReached(context.world.robot.pose, task.target,
+                           domain::Distance(progress_threshold_m_)));
   const auto& history = context.world.navigation_history.entries();
   bool stalled = false;
   if (history.size() >= history_window_) {
@@ -518,9 +530,29 @@ TriggerEvaluation LowLevelExplorer::evaluateTrigger(
                 return entry.action.type() == domain::ActionType::Forward;
               });
   }
-  return {(only_direct_guidance && lacks_connectivity) || stalled,
-          stalled ? "target navigation has stalled"
-                  : "target-directed planning lacks learned connectivity"};
+  const bool stalled_extension =
+      configuration_.behavior_policy == LLEBehaviorPolicy::Modernized &&
+      configuration_.stalled_history_extension && stalled;
+  if (completed_plan_failed)
+    last_trigger_ = {true,
+                     "completed target-directed plan did not reach target"};
+  else if (no_plan)
+    last_trigger_ = {true, "no target-directed plan is available"};
+  else if (stalled_extension)
+    last_trigger_ = {true, "target navigation has stalled"};
+  else
+    last_trigger_ = {
+        false,
+        configuration_.behavior_policy == LLEBehaviorPolicy::Compatibility
+            ? "compatibility trigger requires no plan or a completed failed plan"
+            : "no LLE trigger condition is active"};
+  last_trigger_reason_code_ = completed_plan_failed
+                                  ? "completed_plan_failed_target"
+                              : no_plan ? "no_plan_available"
+                              : stalled_extension
+                                  ? "stalled_history_extension"
+                                  : "none";
+  return last_trigger_;
 }
 
 decision::ReplanningRequest LowLevelExplorer::evaluateReplan(
@@ -536,9 +568,9 @@ void LowLevelExplorer::assembleCandidates(const domain::WorldModel& world) {
   const auto& grid = world.spatial.inclusion_grid;
   const auto add = [&](LLECandidateSource source, domain::Point2D start,
                        domain::Point2D point, std::uint64_t stable_id = 0U,
-                       bool require_valid_cue = true) {
-    if (require_valid_cue &&
-        (domain::distance(start, point).meters() < minimum_cue_length_m_ ||
+                       bool require_target_relevance = true) {
+    if (domain::distance(start, point).meters() < minimum_cue_length_m_ ||
+        (require_target_relevance &&
          domain::distance(point, target).meters() >
              target_cue_tolerance_m_))
       return;
@@ -553,10 +585,11 @@ void LowLevelExplorer::assembleCandidates(const domain::WorldModel& world) {
     const double relevance = -domain::distance(point, target).meters();
     ranked_candidates_.push_back(
         {stable_id == 0U ? next_candidate_id_++ : stable_id, source, start,
-         point, relevance, require_valid_cue});
+         point, relevance, true});
   };
   for (const auto& cue : world.spatial.unfinished_hle_candidates)
-    add(LLECandidateSource::UnfinishedHle, cue.start, cue.target, cue.id);
+    add(LLECandidateSource::UnfinishedHle, cue.start, cue.target, cue.id,
+        false);
 
   std::vector<LLECandidate> fallback_rays;
   const auto addView = [&](const domain::Pose2D& pose,
@@ -602,10 +635,6 @@ void LowLevelExplorer::assembleCandidates(const domain::WorldModel& world) {
                 domain::distance(region.boundary.center, target).meters())
           add(LLECandidateSource::RegionVisibility, visibility.ray_start,
               visibility.ray_end);
-  } else {
-    for (const auto& region : world.spatial.learned_regions)
-      add(LLECandidateSource::RegionVisibility, world.robot.pose.position,
-          region.center);
   }
   std::vector<LLECandidate> fallback_gaps;
   if (grid.columns > 0U && grid.rows > 0U) {
@@ -624,22 +653,34 @@ void LowLevelExplorer::assembleCandidates(const domain::WorldModel& world) {
            -domain::distance(point, target).meters(), false});
     }
   }
-  if (ranked_candidates_.empty() && !fallback_rays.empty()) {
-    const auto closest = std::max_element(
-        fallback_rays.begin(), fallback_rays.end(),
-        [](const auto& left, const auto& right) {
-          return left.target_relevance < right.target_relevance;
-        });
-    ranked_candidates_.push_back(*closest);
+  if (ranked_candidates_.empty()) selectFallback(std::move(fallback_rays));
+  if (ranked_candidates_.empty()) selectFallback(std::move(fallback_gaps));
+}
+
+void LowLevelExplorer::selectFallback(std::vector<LLECandidate> candidates) {
+  if (candidates.empty()) return;
+  std::stable_sort(candidates.begin(), candidates.end(),
+                   [](const auto& left, const auto& right) {
+                     return left.target_relevance > right.target_relevance ||
+                            (left.target_relevance == right.target_relevance &&
+                             left.id < right.id);
+                   });
+  if (configuration_.behavior_policy == LLEBehaviorPolicy::Modernized) {
+    ranked_candidates_.push_back(candidates.front());
+    return;
   }
-  if (ranked_candidates_.empty() && !fallback_gaps.empty()) {
-    const auto closest = std::max_element(
-        fallback_gaps.begin(), fallback_gaps.end(),
-        [](const auto& left, const auto& right) {
-          return left.target_relevance < right.target_relevance;
-        });
-    ranked_candidates_.push_back(*closest);
+  const double closest_distance = -candidates.front().target_relevance;
+  const auto closest_bin = static_cast<long long>(
+      std::floor(closest_distance / configuration_.closest_target_bin_m));
+  std::vector<LLECandidate> in_bin;
+  for (const auto& candidate : candidates) {
+    const auto bin = static_cast<long long>(std::floor(
+        -candidate.target_relevance / configuration_.closest_target_bin_m));
+    if (bin != closest_bin) break;
+    in_bin.push_back(candidate);
   }
+  std::uniform_int_distribution<std::size_t> choose(0U, in_bin.size() - 1U);
+  ranked_candidates_.push_back(in_bin[choose(random_)]);
 }
 
 void LowLevelExplorer::installCandidateWaypoints(
@@ -733,7 +774,10 @@ ReactivePlanUpdate LowLevelExplorer::update(
     return complete(ReactiveCompletionReason::SensorLost,
                     "laser observation is unavailable");
   if (state_ != LowLevelExplorationState::DetectMissingGuidance &&
-      context.world.mission.active()->plan.size() > 1U)
+      context.world.mission.active()->waypoint() &&
+      (context.world.mission.active()->plan != plan_at_start_ ||
+       context.world.mission.active()->waypoint_index !=
+           waypoint_index_at_start_))
     return complete(ReactiveCompletionReason::NewPlanAvailable,
                     "a new target-directed plan is available");
   if (targetSensed(context.world))
@@ -781,6 +825,8 @@ ReactivePlanUpdate LowLevelExplorer::update(
   if (state_ == LowLevelExplorationState::DetectMissingGuidance) {
     if (!evaluateTrigger(context).triggered) return {};
     mission_id_ = context.world.mission.active()->id;
+    plan_at_start_ = context.world.mission.active()->plan;
+    waypoint_index_at_start_ = context.world.mission.active()->waypoint_index;
     source_revisions_ = {
         {domain::ModelDependency::Inclusion,
          context.world.spatial.revisionOf(domain::ModelDependency::Inclusion)},
@@ -904,6 +950,7 @@ void LowLevelExplorer::cancel(InterruptionReason reason) {
       break;
   }
   state_ = LowLevelExplorationState::Complete;
+  plan_at_start_.clear();
   cue_waypoints_.clear();
   waypoint_cursor_ = 0U;
   lost_waypoint_cycles_ = 0U;

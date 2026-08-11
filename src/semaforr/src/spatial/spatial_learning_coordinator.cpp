@@ -512,9 +512,12 @@ void SpatialLearningCoordinator::finalizeInitialExploration() {
              UpdateSchedule::EndOfInitialExploration ||
          entry.learner->representation() == SpatialRepresentation::Regions ||
          entry.learner->representation() ==
-             SpatialRepresentation::PassagesAndSkeleton))
+             SpatialRepresentation::PassagesAndSkeleton) &&
+        entry.learner->representation() !=
+            SpatialRepresentation::InclusionGrid)
       entry.learner->rebuild();
   }
+  synchronizeInclusion();
 }
 
 void SpatialLearningCoordinator::finalizeTarget() {
@@ -523,8 +526,36 @@ void SpatialLearningCoordinator::finalizeTarget() {
         (entry.learner->contract().schedule == UpdateSchedule::EndOfTarget ||
          entry.learner->representation() == SpatialRepresentation::Regions ||
          entry.learner->representation() ==
-             SpatialRepresentation::PassagesAndSkeleton))
+             SpatialRepresentation::PassagesAndSkeleton) &&
+        entry.learner->representation() !=
+            SpatialRepresentation::InclusionGrid)
       entry.learner->rebuild();
+  synchronizeInclusion();
+}
+
+void SpatialLearningCoordinator::synchronizeInclusion() {
+  auto inclusion = std::find_if(
+      learners_.begin(), learners_.end(), [](const Entry& entry) {
+        return entry.learner->representation() ==
+               SpatialRepresentation::InclusionGrid;
+      });
+  if (inclusion == learners_.end() || !inclusion->enabled) return;
+  RegionModel regions;
+  PassageSkeletonModel skeleton;
+  if (const auto update = snapshot(SpatialRepresentation::Regions);
+      update && update->usable() &&
+      std::holds_alternative<RegionModel>(update->payload))
+    regions = std::get<RegionModel>(update->payload);
+  if (const auto update =
+          snapshot(SpatialRepresentation::PassagesAndSkeleton);
+      update && update->usable() &&
+      std::holds_alternative<PassageSkeletonModel>(update->payload))
+    skeleton = std::get<PassageSkeletonModel>(update->payload);
+  auto* learner = dynamic_cast<InclusionGridLearner*>(inclusion->learner.get());
+  if (!learner)
+    throw std::logic_error(
+        "inclusion representation is not provided by InclusionGridLearner");
+  learner->replaceRepresented(regions, skeleton);
 }
 
 std::optional<SpatialModelUpdate> SpatialLearningCoordinator::snapshot(

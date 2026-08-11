@@ -41,6 +41,12 @@ replanning request. Target sensing, a new plan, candidate exhaustion, absence
 of candidates, budget exhaustion, sensor loss, and mission changes remain
 distinct completion or cancellation reasons.
 
+Registered mandatory rules are evaluated before LLE. Victory therefore owns
+direct visible-target motion, and an Enforcer-produced waypoint counts as
+available guidance. LLE's selected-policy diagnostic includes its trigger
+reason (`no_plan_available`, `completed_plan_failed_target`, or the explicitly
+modernized `stalled_history_extension`).
+
 ## Tier 3: advisor aggregation
 
 After Tier 1 vetoes, each enabled advisor may score the remaining actions.

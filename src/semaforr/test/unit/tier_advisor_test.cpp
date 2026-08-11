@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 #include <algorithm>
+#include <cmath>
 #include <limits>
 #include <semaforr/decision/advisors/catalog_registry.hpp>
 #include <semaforr/decision/advisors/heuristic_advisor.hpp>
@@ -466,11 +467,17 @@ TEST(LowLevelExplorer, RequestsTierTwoReplanAfterFailedProgress) {
 TEST(LowLevelExplorer, AssemblesValidCueSourcesAndSupportsCancellation) {
   const semaforr::domain::ActionSpace actions({0.25}, {0.2});
   auto world = worldWithTarget({10.0, 0.0});
+  world.mission.install_active_plan({});
+  world.recovery.planning_attempted = true;
   world.robot.laser = laser();
+  world.robot.laser->ranges_m = {5.0, 5.0, 5.0};
   world.spatial.unfinished_hle_candidates.push_back(
       {42U, {0.0, 0.0}, {3.5, 0.0}});
-  world.spatial.learned_regions.push_back({{3.5, 1.0},
-                                           semaforr::domain::Distance(0.5)});
+  semaforr::domain::LearnedRegion region;
+  region.id = 1U;
+  region.boundary = {{3.5, 1.0}, semaforr::domain::Distance(0.5)};
+  region.visibility[0] = {true, 6.0, {3.5, 1.0}, {9.5, 0.0}, 1U};
+  world.spatial.regions.push_back(region);
   world.spatial.inclusion_grid =
       {2U, 1U, 1.0, {}, {0U, 1U}, 1U};
   semaforr::planning::LowLevelExplorer explorer;
@@ -498,6 +505,87 @@ TEST(LowLevelExplorer, AssemblesValidCueSourcesAndSupportsCancellation) {
             semaforr::planning::LowLevelExplorationState::Complete);
   EXPECT_EQ(explorer.completionReason(),
             semaforr::planning::ReactiveCompletionReason::SensorLost);
+}
+
+TEST(LowLevelExplorer, CompatibilityUsesOnlyPublishedPlanFailureTriggers) {
+  const semaforr::domain::ActionSpace actions({0.25}, {0.2});
+  auto world = worldWithTarget({10.0, 0.0});
+  world.robot.laser = laser();
+  for (std::size_t index = 0U; index < 4U; ++index)
+    world.navigation_history.record(
+        {{{0.01 * static_cast<double>(index), 0.0},
+          semaforr::domain::Angle::zero()},
+         laser(),
+         semaforr::domain::Action(semaforr::domain::ActionType::Forward, 1U)});
+  semaforr::planning::LowLevelExplorationConfiguration configuration;
+  configuration.behavior_policy =
+      semaforr::planning::LLEBehaviorPolicy::Compatibility;
+  configuration.stalled_history_extension = false;
+  semaforr::planning::LowLevelExplorer explorer(configuration);
+  EXPECT_FALSE(explorer.evaluateTrigger({world}).triggered);
+  EXPECT_EQ(explorer.lastTriggerReasonCode(), "none");
+
+  world.mission.install_active_plan({});
+  world.recovery.planning_attempted = true;
+  EXPECT_TRUE(explorer.evaluateTrigger({world}).triggered);
+  EXPECT_EQ(explorer.lastTriggerReasonCode(), "no_plan_available");
+
+  world.mission.install_active_plan({{1.0, 0.0}});
+  world.mission.advance_waypoint(
+      {{1.0, 0.0}, semaforr::domain::Angle::zero()},
+      semaforr::domain::Distance(0.1));
+  world.recovery.plan_available = false;
+  world.recovery.completed_plan_failed_target = true;
+  EXPECT_TRUE(explorer.evaluateTrigger({world}).triggered);
+  EXPECT_EQ(explorer.lastTriggerReasonCode(),
+            "completed_plan_failed_target");
+}
+
+TEST(LowLevelExplorer, RegionCentersDoNotSubstituteForVisibilityRays) {
+  const semaforr::domain::ActionSpace actions({0.25}, {0.2});
+  auto world = worldWithTarget({10.0, 0.0});
+  world.mission.install_active_plan({});
+  world.robot.laser = laser();
+  world.spatial.learned_regions.push_back(
+      {{9.0, 0.0}, semaforr::domain::Distance(0.5)});
+  semaforr::planning::LowLevelExplorer explorer;
+  ASSERT_EQ(explorer.evaluate({world, actions}).status,
+            semaforr::planning::ReactiveStatus::Action);
+  EXPECT_TRUE(std::none_of(
+      explorer.candidates().begin(), explorer.candidates().end(),
+      [](const auto& candidate) {
+        return candidate.source ==
+               semaforr::planning::LLECandidateSource::RegionVisibility;
+      }));
+}
+
+TEST(LowLevelExplorer, CompatibilityFallbackIsSeededWithinClosestBin) {
+  const semaforr::domain::ActionSpace actions({0.25}, {0.2});
+  auto world = worldWithTarget({10.0, 0.0});
+  world.mission.install_active_plan({});
+  world.robot.laser = laser();
+  world.robot.laser->angle_min = semaforr::domain::Angle(-0.1);
+  semaforr::planning::LowLevelExplorationConfiguration configuration;
+  configuration.behavior_policy =
+      semaforr::planning::LLEBehaviorPolicy::Compatibility;
+  configuration.stalled_history_extension = false;
+  configuration.closest_target_bin_m = 1.0;
+  configuration.random_seed = 7U;
+  semaforr::planning::LowLevelExplorer first(configuration);
+  semaforr::planning::LowLevelExplorer second(configuration);
+  ASSERT_EQ(first.evaluate({world, actions}).status,
+            semaforr::planning::ReactiveStatus::Action);
+  ASSERT_EQ(second.evaluate({world, actions}).status,
+            semaforr::planning::ReactiveStatus::Action);
+  ASSERT_EQ(first.candidates().size(), 1U);
+  ASSERT_EQ(second.candidates().size(), 1U);
+  EXPECT_EQ(first.candidates().front().target,
+            second.candidates().front().target);
+  const double selected_distance = semaforr::domain::distance(
+                                       first.candidates().front().target,
+                                       world.mission.active()->target)
+                                       .meters();
+  EXPECT_EQ(static_cast<int>(std::floor(selected_distance)), 8);
 }
 
 TEST(TierOneRules, VictoryForwardAndNotOppositeAreTyped) {

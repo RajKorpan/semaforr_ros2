@@ -74,16 +74,18 @@ class InclusionGridLearner final : public SpatialLearnerBase {
                        domain::GridExpansionPolicy expansion_policy = {},
                        bool initialize_around_first_pose = false,
                        std::string frame_id = "map");
+  void replaceRepresented(const RegionModel& regions,
+                          const PassageSkeletonModel& skeleton);
 
  private:
   void onObserve(const NavigationEpisode& episode) override;
   void onRebuild() override;
   GridGeometry geometry_;
   std::unordered_map<std::size_t, std::uint32_t> included_;
+  std::unordered_map<std::size_t, std::uint32_t> lle_included_;
   GridExtentPolicy extent_policy_;
   domain::GridExpansionPolicy expansion_policy_;
   bool initialize_around_first_pose_ = false;
-  std::size_t out_of_bounds_evidence_ = 0U;
 };
 
 }  // namespace semaforr::spatial

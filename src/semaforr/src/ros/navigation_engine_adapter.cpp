@@ -201,6 +201,28 @@ exploration::HighLevelExplorationConfiguration hleConfiguration(
   return result;
 }
 
+planning::LowLevelExplorationConfiguration lleConfiguration(
+    const config::Configuration& configuration) {
+  planning::LowLevelExplorationConfiguration result;
+  const auto& policy =
+      configuration.experiment.reactive_exploration_behavior_policy;
+  result.behavior_policy =
+      policy == "compatibility" ||
+              (policy == "profile" &&
+               configuration.experiment.behavior_mode ==
+                   config::BehaviorMode::Compatibility)
+          ? planning::LLEBehaviorPolicy::Compatibility
+          : planning::LLEBehaviorPolicy::Modernized;
+  result.stalled_history_extension =
+      result.behavior_policy == planning::LLEBehaviorPolicy::Modernized &&
+      configuration.experiment
+          .reactive_exploration_stalled_history_extension;
+  result.closest_target_bin_m = configuration.experiment
+                                    .reactive_exploration_closest_target_bin_m;
+  result.random_seed = configuration.experiment.random_seed;
+  return result;
+}
+
 }  // namespace
 
 class NavigationEngineAdapter::Impl {
@@ -266,7 +288,9 @@ class NavigationEngineAdapter::Impl {
     auto lle_component =
         configuration_.experiment.reactive_exploration_enabled &&
                 has_tier_one_rule("low_level_exploration")
-            ? tier_one_registry.createReactive("low_level_exploration")
+            ? std::unique_ptr<planning::ReactivePlanner>(
+                  std::make_unique<planning::LowLevelExplorer>(
+                      lleConfiguration(configuration_)))
             : nullptr;
     auto enforcer_component =
         has_tier_one_rule("enforcer")

@@ -380,10 +380,10 @@ InclusionGridLearner::InclusionGridLearner(
     : SpatialLearnerBase(
           SpatialRepresentation::InclusionGrid, "inclusion_grid",
           UpdateMode::Incremental,
-          {true, false, false, true,
-           "mark cells represented by accepted navigation episodes",
+          {true, false, true, true,
+           "project learned regions, operational subtrails, and successful LLE traversal",
            {"low-level exploration", "coverage diagnostics"},
-           UpdateSchedule::EveryObservation}),
+           UpdateSchedule::DuringLLEOnly}),
       geometry_(geometry(columns, rows, resolution_m, origin, extent_policy,
                          std::move(frame_id))),
       extent_policy_(extent_policy),
@@ -395,28 +395,106 @@ void InclusionGridLearner::onObserve(const NavigationEpisode& episode) {
     initializeAround(geometry_, episode.observation.pose.position);
     initialize_around_first_pose_ = false;
   }
-  if (extent_policy_ == GridExtentPolicy::Fixed &&
-      !geometry_.index(episode.observation.pose.position))
-    ++out_of_bounds_evidence_;
-  const auto expanded = expandedGeometry(
-      geometry_, {episode.observation.pose.position}, extent_policy_,
-      expansion_policy_);
+  if (!episode.execution_result || !episode.execution_result->successful())
+    return;
+  const auto start = episode.execution_result->start_pose.position;
+  const auto finish = episode.execution_result->final_pose.position;
+  const double length = domain::distance(start, finish).meters();
+  if (length <= domain::geometry_tolerance_m) return;
+  const auto expanded = expandedGeometry(geometry_, {start, finish},
+                                         extent_policy_, expansion_policy_);
   remap(included_, geometry_, expanded);
+  remap(lle_included_, geometry_, expanded);
   geometry_ = expanded;
-  if (const auto index =
-          indexOf(geometry_, episode.observation.pose.position))
-    included_[*index] = 1U;
+  const double step = geometry_.resolution_m * 0.5;
+  const std::size_t samples = std::max<std::size_t>(
+      1U, static_cast<std::size_t>(std::ceil(length / step)));
+  bool changed = false;
+  for (std::size_t sample = 0U; sample <= samples; ++sample) {
+    const double fraction = static_cast<double>(sample) /
+                            static_cast<double>(samples);
+    const domain::Point2D point{
+        start.x_m + (finish.x_m - start.x_m) * fraction,
+        start.y_m + (finish.y_m - start.y_m) * fraction};
+    if (const auto index = indexOf(geometry_, point)) {
+      lle_included_[*index] = 1U;
+      changed = included_.emplace(*index, 1U).second || changed;
+    }
+  }
+  if (changed)
+    publish(InclusionGridModel{geometry_, {}, sparseSnapshot(included_)},
+            ModelStatus::Fresh,
+            "successful LLE traversal added as learned subtrail inclusion");
+}
+
+void InclusionGridLearner::replaceRepresented(
+    const RegionModel& regions, const PassageSkeletonModel& skeleton) {
+  std::vector<domain::Point2D> extent;
+  for (const auto& region : regions.learned_regions) {
+    const double radius = region.boundary.radius.meters();
+    extent.push_back({region.boundary.center.x_m - radius,
+                      region.boundary.center.y_m - radius});
+    extent.push_back({region.boundary.center.x_m + radius,
+                      region.boundary.center.y_m + radius});
+  }
+  for (const auto& edge : skeleton.region_edges)
+    extent.insert(extent.end(), edge.supporting_subtrail.begin(),
+                  edge.supporting_subtrail.end());
+  const auto previous_geometry = geometry_;
+  const auto expanded = expandedGeometry(geometry_, extent, extent_policy_,
+                                         expansion_policy_);
+  remap(lle_included_, geometry_, expanded);
+  geometry_ = expanded;
+  std::unordered_map<std::size_t, std::uint32_t> represented = lle_included_;
+  for (const auto& region : regions.learned_regions) {
+    const double radius = region.boundary.radius.meters();
+    const auto minimum = geometry_.cell(
+        {region.boundary.center.x_m - radius + domain::geometry_tolerance_m,
+         region.boundary.center.y_m - radius + domain::geometry_tolerance_m});
+    const auto maximum = geometry_.cell(
+        {region.boundary.center.x_m + radius - domain::geometry_tolerance_m,
+         region.boundary.center.y_m + radius - domain::geometry_tolerance_m});
+    if (!minimum || !maximum) continue;
+    for (std::size_t row = minimum->second; row <= maximum->second; ++row) {
+      for (std::size_t column = minimum->first; column <= maximum->first;
+           ++column) {
+        const auto point = geometry_.center(column, row);
+        if (domain::distance(point, region.boundary.center).meters() <= radius)
+          represented[row * geometry_.columns + column] = 1U;
+      }
+    }
+  }
+  const double sample_step = geometry_.resolution_m * 0.5;
+  for (const auto& edge : skeleton.region_edges) {
+    for (std::size_t point = 1U; point < edge.supporting_subtrail.size();
+         ++point) {
+      const auto start = edge.supporting_subtrail[point - 1U];
+      const auto finish = edge.supporting_subtrail[point];
+      const double length = domain::distance(start, finish).meters();
+      const std::size_t samples = std::max<std::size_t>(
+          1U, static_cast<std::size_t>(std::ceil(length / sample_step)));
+      for (std::size_t sample = 0U; sample <= samples; ++sample) {
+        const double fraction = static_cast<double>(sample) /
+                                static_cast<double>(samples);
+        const domain::Point2D location{
+            start.x_m + (finish.x_m - start.x_m) * fraction,
+            start.y_m + (finish.y_m - start.y_m) * fraction};
+        if (const auto index = indexOf(geometry_, location))
+          represented[*index] = 1U;
+      }
+    }
+  }
+  if (represented == included_ && geometry_ == previous_geometry) return;
+  included_ = std::move(represented);
   publish(InclusionGridModel{geometry_, {}, sparseSnapshot(included_)},
           ModelStatus::Fresh,
-          "visited decision cell included incrementally; " +
-              std::to_string(out_of_bounds_evidence_) +
-              " fixed-extent observations rejected");
+          "inclusion rebuilt from learned region area and supporting subtrails");
 }
 
 void InclusionGridLearner::onRebuild() {
   publish(InclusionGridModel{geometry_, {}, sparseSnapshot(included_)},
           ModelStatus::Fresh,
-          "inclusion grid snapshot refreshed");
+          "region/subtrail inclusion snapshot refreshed");
 }
 
 }  // namespace semaforr::spatial

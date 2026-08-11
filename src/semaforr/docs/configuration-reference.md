@@ -67,6 +67,13 @@ HLE is controlled only by `phases.initial_exploration.*`. LLE is controlled by
 `low_level_exploration` reactive-planner registration. Exploration-oriented
 Tier-3 advisors remain independent entries in `advisors.*`.
 
+`exploration.reactive.behavior_policy` accepts `profile`, `compatibility`, or
+`modernized`. Compatibility triggers only when no plan is available or when a
+plan completes short of its target, and uses seeded random selection within
+the closest target-distance bin. Modernized mode may additionally enable the
+explicit `stalled_history_extension`. `closest_target_bin_m` sets the bin
+width, and `experiment.random_seed` makes compatibility selection replayable.
+
 HLE policy thresholds are typed parameters rather than embedded constants:
 `minimum_clearance_m`, `heading_tolerance_rad`,
 `candidate_completion_distance_m`, `cue_similarity_radius_m`,

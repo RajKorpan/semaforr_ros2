@@ -109,6 +109,7 @@ class SpatialLearningCoordinator {
   std::size_t enabledCount() const noexcept;
 
  private:
+  void synchronizeInclusion();
   void dispatch(const NavigationEpisode& episode);
   struct Entry {
     std::unique_ptr<SpatialLearner> learner;

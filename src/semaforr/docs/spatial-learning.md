@@ -49,7 +49,7 @@ payload into the world model.
 | `PassageSkeletonLearner` | Completed paths, reconciled regions, visibility, and trails | Compatibility: region graph with shortest subtrails at target end; modernized: increment sampled path graph after success | Profile-dependent | skeleton, highway, LLE, Enforcer, and passage planners |
 | `HighwayLearner` | HLE pose and detected passages | Builds touched grid rows/columns incrementally; at finalization performs local smoothing, minimum-extent extraction, intersection/spur conversion, and largest-component selection | Yes | `HighwayPlan`, `Enforcer` |
 | `KnownGridLearner` | Pose and laser visibility | Every observation into sparse construction cells | Yes | `Out`, grid planners |
-| `InclusionGridLearner` | Pose and laser visibility | Every observation into sparse construction cells | Yes | LLE, exploration |
+| `InclusionGridLearner` | Learned region area, region-skeleton supporting subtrails, and successful LLE traversal | Reproject after region/skeleton finalization; increment only after successful LLE translation | Yes | LLE and coverage diagnostics |
 | `CircumstanceLearner` | Terminal selected actions with explicit success/failure outcome | Collect after any terminal result; validate cases at end of target | No | `Precedent` |
 
 Every learner declares this information at runtime through

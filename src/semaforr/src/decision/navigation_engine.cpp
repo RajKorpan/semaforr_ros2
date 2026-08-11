@@ -122,12 +122,22 @@ void NavigationEngine::observe(const domain::RobotObservation& observation) {
   if (world_.mission.active() &&
       domain::goalReached(observation.pose, world_.mission.active()->target,
                           goal_tolerance_)) {
+    world_.recovery.planning_attempted = false;
+    world_.recovery.plan_available = false;
+    world_.recovery.completed_plan_failed_target = false;
     if (mission_.completeActiveTask()) {
       world_.path_history.finish(true, false, observation.observed_at);
       pending_phase_events_.push_back("target_completed");
     }
   } else {
-    mission_.advanceWaypoint(observation.pose, goal_tolerance_);
+    const bool advanced = mission_.advanceWaypoint(observation.pose,
+                                                    goal_tolerance_);
+    if (advanced && world_.mission.active() &&
+        !world_.mission.active()->waypoint() &&
+        !world_.mission.active()->plan.empty()) {
+      world_.recovery.plan_available = false;
+      world_.recovery.completed_plan_failed_target = true;
+    }
   }
   if (had_active_task && !world_.mission.active()) {
     active_hierarchy_.reset();
@@ -142,9 +152,11 @@ std::optional<std::string> NavigationEngine::preparePlan(MissionStep step) {
   if (!world_.mission.active()) {
     return std::nullopt;
   }
-  if (step == MissionStep::Ready && !world_.mission.active()->plan.empty()) {
+  if (step == MissionStep::Ready && world_.mission.active()->waypoint()) {
+    world_.recovery.plan_available = true;
     return std::nullopt;
   }
+  if (world_.recovery.completed_plan_failed_target) return std::nullopt;
   if (enforcer_enabled_ && active_hierarchy_ && hierarchy_task_ &&
       *hierarchy_task_ == world_.mission.active()->id) {
     planning::PlanningRequest validation{
@@ -165,6 +177,9 @@ std::optional<std::string> NavigationEngine::preparePlan(MissionStep step) {
       if (next) {
         mission_.installPlan({*next});
         mission_.advanceWaypoint(world_.robot.pose, goal_tolerance_);
+        world_.recovery.planning_attempted = true;
+        world_.recovery.plan_available =
+            world_.mission.active()->waypoint().has_value();
         return active_hierarchy_->planner;
       }
     } else {
@@ -184,7 +199,9 @@ std::optional<std::string> NavigationEngine::preparePlan(MissionStep step) {
        &world_.crowd, world_.static_map, traversal,
        world_.mission.active()->id});
   if (!selected) {
-    mission_.installPlan({world_.mission.active()->target});
+    mission_.clearPlan();
+    world_.recovery.planning_attempted = true;
+    world_.recovery.plan_available = false;
     return std::nullopt;
   }
   if (enforcer_enabled_ && selected->result.hierarchical) {
@@ -198,6 +215,10 @@ std::optional<std::string> NavigationEngine::preparePlan(MissionStep step) {
     mission_.installPlan(selected->result.path);
   }
   mission_.advanceWaypoint(world_.robot.pose, goal_tolerance_);
+  world_.recovery.planning_attempted = true;
+  world_.recovery.plan_available =
+      world_.mission.active()->waypoint().has_value();
+  world_.recovery.completed_plan_failed_target = false;
   return selected->planner;
 }
 
@@ -304,6 +325,12 @@ DecisionResult NavigationEngine::decide() {
   }
   const std::size_t skipped_before = world_.mission.skipped().size();
   const MissionStep mission_step = mission_.prepareDecision();
+  if (mission_step == MissionStep::ActivatedTask ||
+      mission_step == MissionStep::SkippedTask) {
+    world_.recovery.planning_attempted = false;
+    world_.recovery.plan_available = false;
+    world_.recovery.completed_plan_failed_target = false;
+  }
   if (world_.mission.skipped().size() > skipped_before) {
     world_.path_history.finish(false, true, std::chrono::steady_clock::now());
     learning_.finalizeTarget();
@@ -321,20 +348,8 @@ DecisionResult NavigationEngine::decide() {
     finalize_measurements(result);
     return result;
   }
-  const planning::ReactiveResult lle =
-      low_level_exploration_enabled_ ? lle_->evaluate({world_, action_space_})
-                                     : planning::ReactiveResult{};
-  if (lle.status == planning::ReactiveStatus::RequestReplan &&
-      world_.mission.active()) {
-    mission_.clearPlan();
-    planning_.clearCache();
-    world_.recovery.confined = true;
-  }
   const auto planning_started = std::chrono::steady_clock::now();
-  const std::optional<std::string> selected_planner =
-      lle.status == planning::ReactiveStatus::Action
-          ? std::nullopt
-          : preparePlan(mission_step);
+  const std::optional<std::string> selected_planner = preparePlan(mission_step);
   const double planning_latency_s =
       std::chrono::duration<double>(std::chrono::steady_clock::now() -
                                     planning_started)
@@ -347,16 +362,40 @@ DecisionResult NavigationEngine::decide() {
     decision_candidates = std::move(filtered.safe_actions);
     hard_vetoes = std::move(filtered.vetoes);
   }
+  const auto mandated =
+      decisions_.mandatoryDecision(DecisionContext{world_}, decision_candidates);
+  if (mandated && mandated->selected_policy == "mandatory_rule:Victory")
+    lle_->cancel(planning::InterruptionReason::TargetSensed);
+  const planning::ReactiveResult lle =
+      !mandated && low_level_exploration_enabled_
+          ? lle_->evaluate({world_, action_space_})
+          : planning::ReactiveResult{};
+  if (lle.status == planning::ReactiveStatus::RequestReplan &&
+      world_.mission.active()) {
+    mission_.clearPlan();
+    planning_.clearCache();
+    world_.recovery.confined = true;
+    world_.recovery.planning_attempted = false;
+    world_.recovery.plan_available = false;
+    world_.recovery.completed_plan_failed_target = false;
+  }
   const planning::ReactiveResult reactive =
-      reactive_.evaluate({world_, action_space_});
+      mandated || lle.status == planning::ReactiveStatus::Action
+          ? planning::ReactiveResult{}
+          : reactive_.evaluate({world_, action_space_});
   DecisionResult result;
-  if (lle.status == planning::ReactiveStatus::Action && lle.action &&
+  if (mandated) {
+    result = *mandated;
+  } else if (lle.status == planning::ReactiveStatus::Action && lle.action &&
       std::find(decision_candidates.begin(), decision_candidates.end(),
                 *lle.action) != decision_candidates.end()) {
     result.action = *lle.action;
     result.source = DecisionSource::MandatoryRule;
     result.tier = DecisionTier::TierOne;
     result.selected_policy = "reactive:LLE";
+    if (const auto* explorer =
+            dynamic_cast<const planning::LowLevelExplorer*>(lle_.get()))
+      result.selected_policy += ":" + explorer->lastTriggerReasonCode();
   } else if (reactive.status == planning::ReactiveStatus::Action &&
              reactive.action &&
              std::find(decision_candidates.begin(), decision_candidates.end(),

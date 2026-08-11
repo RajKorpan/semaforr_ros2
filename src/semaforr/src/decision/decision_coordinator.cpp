@@ -36,6 +36,25 @@ DecisionCoordinator::DecisionCoordinator(ArbitrationConfiguration configuration)
   }
 }
 
+std::optional<DecisionResult> DecisionCoordinator::mandatoryDecision(
+    const DecisionContext& context,
+    std::span<const Action> candidates) const {
+  for (const auto& rule : mandatory_rules_) {
+    if (auto decision = rule->evaluate(context)) {
+      if (std::find(candidates.begin(), candidates.end(), decision->action) ==
+          candidates.end())
+        continue;
+      DecisionResult result;
+      result.action = decision->action;
+      result.source = DecisionSource::MandatoryRule;
+      result.tier = DecisionTier::TierOne;
+      result.selected_policy = "mandatory_rule:" + decision->rule;
+      return result;
+    }
+  }
+  return std::nullopt;
+}
+
 void DecisionCoordinator::addMandatoryRule(
     std::unique_ptr<MandatoryRule> rule) {
   if (!rule) {
@@ -60,19 +79,8 @@ void DecisionCoordinator::addAdvisor(std::unique_ptr<Advisor> advisor) {
 
 DecisionResult DecisionCoordinator::decide(const DecisionContext& context,
                                            std::span<const Action> candidates) {
-  for (const auto& rule : mandatory_rules_) {
-    if (auto decision = rule->evaluate(context)) {
-      if (std::find(candidates.begin(), candidates.end(), decision->action) ==
-          candidates.end())
-        continue;
-      DecisionResult result;
-      result.action = decision->action;
-      result.source = DecisionSource::MandatoryRule;
-      result.tier = DecisionTier::TierOne;
-      result.selected_policy = "mandatory_rule:" + decision->rule;
-      return result;
-    }
-  }
+  if (auto mandatory = mandatoryDecision(context, candidates))
+    return *mandatory;
 
   DecisionResult result;
   for (const auto& rule : veto_rules_) {

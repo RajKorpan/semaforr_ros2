@@ -5,6 +5,7 @@
 #include <memory>
 #include <optional>
 #include <queue>
+#include <random>
 #include <semaforr/decision/context.hpp>
 #include <semaforr/decision/rules.hpp>
 #include <string>
@@ -158,6 +159,21 @@ struct LLECandidate {
   bool validated_cue = false;
 };
 
+enum class LLEBehaviorPolicy { Compatibility, Modernized };
+
+struct LowLevelExplorationConfiguration {
+  LLEBehaviorPolicy behavior_policy{LLEBehaviorPolicy::Modernized};
+  bool stalled_history_extension{true};
+  std::size_t history_window{4U};
+  double progress_threshold_m{0.1};
+  std::size_t decision_budget{64U};
+  double minimum_cue_length_m{2.0};
+  double target_cue_tolerance_m{5.0};
+  std::size_t cue_waypoint_count{20U};
+  double closest_target_bin_m{1.0};
+  std::uint32_t random_seed{0U};
+};
+
 class LowLevelExplorer final : public ReactivePlanner,
                                public decision::ReplanningTrigger {
  public:
@@ -167,6 +183,7 @@ class LowLevelExplorer final : public ReactivePlanner,
                             double minimum_cue_length_m = 2.0,
                             double target_cue_tolerance_m = 5.0,
                             std::size_t cue_waypoint_count = 20U);
+  explicit LowLevelExplorer(LowLevelExplorationConfiguration configuration);
   std::string_view name() const noexcept override { return "LLE"; }
   std::vector<std::string_view> dependencies() const override {
     return {"active_target", "laser", "regions", "inclusion_grid",
@@ -186,11 +203,18 @@ class LowLevelExplorer final : public ReactivePlanner,
   const std::vector<LLECandidate>& candidates() const noexcept {
     return ranked_candidates_;
   }
+  const TriggerEvaluation& lastTrigger() const noexcept {
+    return last_trigger_;
+  }
+  const std::string& lastTriggerReasonCode() const noexcept {
+    return last_trigger_reason_code_;
+  }
 
  private:
   void assembleCandidates(const domain::WorldModel&);
   bool appendCurrentViewCandidates(const domain::WorldModel&);
   void installCandidateWaypoints(const LLECandidate&);
+  void selectFallback(std::vector<LLECandidate> candidates);
   std::size_t includedCellCount(const domain::WorldModel&) const noexcept;
   domain::Action actionToward(const domain::Pose2D&, domain::Point2D,
                               const domain::ActionSpace&) const;
@@ -208,6 +232,8 @@ class LowLevelExplorer final : public ReactivePlanner,
   std::size_t candidate_cursor_ = 0U;
   std::size_t decisions_ = 0U;
   std::optional<domain::TaskId> mission_id_;
+  std::vector<domain::Point2D> plan_at_start_;
+  std::size_t waypoint_index_at_start_ = 0U;
   domain::DependencyRevisions source_revisions_;
   std::uint64_t next_candidate_id_ = 1U;
   double minimum_cue_length_m_;
@@ -217,6 +243,10 @@ class LowLevelExplorer final : public ReactivePlanner,
   std::size_t waypoint_cursor_ = 0U;
   std::size_t lost_waypoint_cycles_ = 0U;
   std::size_t initial_included_cells_ = 0U;
+  LowLevelExplorationConfiguration configuration_;
+  mutable TriggerEvaluation last_trigger_;
+  mutable std::string last_trigger_reason_code_{"none"};
+  std::mt19937 random_;
 };
 
 std::string_view toString(ReactiveCompletionReason) noexcept;

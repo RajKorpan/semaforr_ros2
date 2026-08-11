@@ -107,6 +107,11 @@ void declareConfigurationParameters(rclcpp::Node& node) {
   node.declare_parameter("phases.target_navigation.enabled", true);
   node.declare_parameter("exploration.reactive.enabled", true);
   node.declare_parameter("exploration.reactive.strategy", std::string{"lle"});
+  node.declare_parameter("exploration.reactive.behavior_policy",
+                         std::string{"profile"});
+  node.declare_parameter(
+      "exploration.reactive.stalled_history_extension", true);
+  node.declare_parameter("exploration.reactive.closest_target_bin_m", 1.0);
   node.declare_parameter("exploration.opportunistic.enabled", false);
   node.declare_parameter("social.enabled", true);
   node.declare_parameter("social.observations.enabled", true);
@@ -534,6 +539,14 @@ config::Configuration configurationFromParameters(rclcpp::Node& node) {
       node.get_parameter("exploration.reactive.enabled").as_bool();
   configuration.experiment.reactive_exploration_strategy =
       node.get_parameter("exploration.reactive.strategy").as_string();
+  configuration.experiment.reactive_exploration_behavior_policy =
+      node.get_parameter("exploration.reactive.behavior_policy").as_string();
+  configuration.experiment.reactive_exploration_stalled_history_extension =
+      node.get_parameter("exploration.reactive.stalled_history_extension")
+          .as_bool();
+  configuration.experiment.reactive_exploration_closest_target_bin_m =
+      node.get_parameter("exploration.reactive.closest_target_bin_m")
+          .as_double();
   configuration.experiment.opportunistic_exploration =
       node.get_parameter("exploration.opportunistic.enabled").as_bool();
   configuration.experiment.social_enabled =

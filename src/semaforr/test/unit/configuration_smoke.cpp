@@ -224,6 +224,35 @@ int main() {
   }
   {
     auto changed = valid;
+    changed.experiment.reactive_exploration_behavior_policy =
+        "compatibility";
+    changed.experiment.reactive_exploration_stalled_history_extension = false;
+    assert(semaforr::config::configurationFingerprint(changed) !=
+           semaforr::config::configurationFingerprint(valid));
+    const auto manifest = semaforr::config::componentManifest(changed);
+    assert(std::find(manifest.begin(), manifest.end(),
+                     "lle_behavior_policy:compatibility") != manifest.end());
+    assert(std::find(manifest.begin(), manifest.end(),
+                     "lle_stalled_history_extension:false") !=
+           manifest.end());
+    semaforr::config::validateConfiguration(changed);
+  }
+  {
+    auto invalid = valid;
+    invalid.experiment.reactive_exploration_behavior_policy = "approximate";
+    assertThrowsContaining(
+        [&invalid]() { semaforr::config::validateConfiguration(invalid); },
+        "exploration.reactive.behavior_policy");
+  }
+  {
+    auto invalid = valid;
+    invalid.experiment.reactive_exploration_closest_target_bin_m = 0.0;
+    assertThrowsContaining(
+        [&invalid]() { semaforr::config::validateConfiguration(invalid); },
+        "closest_target_bin_m");
+  }
+  {
+    auto changed = valid;
     changed.navigation.grids.highway_smoothing_policy =
         "von_neumann_three_of_four";
     changed.navigation.grids.highway_component_selection_policy =

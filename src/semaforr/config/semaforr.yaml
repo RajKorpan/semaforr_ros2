@@ -52,6 +52,10 @@ semaforr:
       reactive:
         enabled: true
         strategy: lle
+        behavior_policy: profile
+        # Used only by the modernized/adapted policy.
+        stalled_history_extension: true
+        closest_target_bin_m: 1.0
       opportunistic:
         enabled: false
 

@@ -56,7 +56,10 @@ BenchmarkResult benchmark(double extent_m) {
   EXPECT_TRUE(world.inclusion_grid.cells.empty());
   EXPECT_FALSE(world.known_grid.sparseCells().empty());
   EXPECT_FALSE(world.sensed_occupancy.sparseCells().empty());
-  EXPECT_FALSE(world.inclusion_grid.sparseCells().empty());
+  // Sensor observations populate familiarity and sensed occupancy, not
+  // learned inclusion. Inclusion is published from regions/subtrails or
+  // successful LLE traversal.
+  EXPECT_TRUE(world.inclusion_grid.sparseCells().empty());
   return {first_metrics,
           learning.lastProjectionMetrics(),
           semaforr::validation::allocationDifference(first_before,

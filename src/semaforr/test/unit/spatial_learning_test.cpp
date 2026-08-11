@@ -3,8 +3,10 @@
 #include <algorithm>
 #include <numbers>
 #include <semaforr/decision/navigation_engine.hpp>
+#include <semaforr/decision/tier_registry.hpp>
 #include <semaforr/spatial/spatial_learning_coordinator.hpp>
 #include <semaforr/spatial/learners/circumstance_learner.hpp>
+#include <semaforr/spatial/learners/grid_learners.hpp>
 #include <semaforr/spatial/representations/highway_model.hpp>
 #include <semaforr/spatial/representations/known_grid.hpp>
 #include <string>
@@ -253,6 +255,72 @@ TEST(SpatialLearning, PublishesImmutableRevisionedSparseSnapshots) {
             grid.sparse_observations.size());
 }
 
+TEST(InclusionGrid, RepresentsRegionsAndSupportingSubtrailsNotObservations) {
+  using namespace semaforr;
+  spatial::InclusionGridLearner learner(8U, 8U, 1.0, {-4.0, -4.0},
+                                        spatial::GridExtentPolicy::Expand);
+  spatial::RegionModel regions;
+  domain::LearnedRegion region;
+  region.id = 1U;
+  region.boundary = {{0.0, 0.0}, domain::Distance(1.1)};
+  regions.learned_regions.push_back(region);
+  spatial::PassageSkeletonModel skeleton;
+  domain::RegionSkeletonEdge edge;
+  edge.from = 0U;
+  edge.to = 1U;
+  edge.supporting_subtrail = {{0.0, 0.0}, {3.0, 0.0}};
+  skeleton.region_edges.push_back(edge);
+  learner.replaceRepresented(regions, skeleton);
+  const auto snapshot = learner.snapshot();
+  const auto& inclusion =
+      std::get<spatial::InclusionGridModel>(snapshot.payload);
+  EXPECT_GT(inclusion.sparse_included.size(), 3U);
+  const auto region_cell = inclusion.geometry.index({0.0, 0.0});
+  const auto trail_cell = inclusion.geometry.index({2.5, 0.0});
+  ASSERT_TRUE(region_cell);
+  ASSERT_TRUE(trail_cell);
+  EXPECT_TRUE(std::any_of(inclusion.sparse_included.begin(),
+                          inclusion.sparse_included.end(),
+                          [&](const auto& cell) {
+                            return cell.index == *region_cell;
+                          }));
+  EXPECT_TRUE(std::any_of(inclusion.sparse_included.begin(),
+                          inclusion.sparse_included.end(),
+                          [&](const auto& cell) {
+                            return cell.index == *trail_cell;
+                          }));
+}
+
+TEST(InclusionGrid, AddsOnlySuccessfulLowLevelExplorationTranslation) {
+  using namespace semaforr;
+  spatial::InclusionGridLearner learner(8U, 8U, 1.0, {-4.0, -4.0});
+  auto failed = episode(1U, 0.0);
+  failed.selection = domain::SelectedActionRecord{};
+  failed.selection->provenance = "reactive:LLE:no_plan_available";
+  failed.execution_result = domain::ActionExecutionResult{};
+  failed.execution_result->status =
+      domain::ExecutionCompletionStatus::ControllerFailure;
+  failed.execution_result->start_pose = failed.observation.pose;
+  failed.execution_result->final_pose =
+      {{2.0, 0.0}, domain::Angle::zero()};
+  learner.observe(failed);
+  EXPECT_FALSE(learner.snapshot().usable());
+
+  auto succeeded = episode(2U, 0.0);
+  succeeded.selection = domain::SelectedActionRecord{};
+  succeeded.selection->provenance = "reactive:LLE:no_plan_available";
+  succeeded.execution_result = domain::ActionExecutionResult{};
+  succeeded.execution_result->status =
+      domain::ExecutionCompletionStatus::Succeeded;
+  succeeded.execution_result->start_pose = succeeded.observation.pose;
+  succeeded.execution_result->final_pose =
+      {{2.0, 0.0}, domain::Angle::zero()};
+  learner.observe(succeeded);
+  EXPECT_FALSE(
+      std::get<spatial::InclusionGridModel>(learner.snapshot().payload)
+          .sparse_included.empty());
+}
+
 TEST(SpatialLearning, SkeletonCachesStableConnectedComponents) {
   using namespace semaforr::spatial;
   auto coordinator = SpatialLearningCoordinator::defaults(100U);
@@ -323,6 +391,26 @@ TEST(SpatialLearning, NavigationEngineObservesCompletePostDecisionEpisodes) {
   EXPECT_EQ(capture->captured->active_task, domain::TaskId{1U});
   EXPECT_EQ(world.navigation_history.entries().size(), 1U);
   EXPECT_EQ(world.completed_path_history.entries().size(), 1U);
+}
+
+TEST(NavigationEngine, VictoryPrecedesLowLevelExplorationWhenNoPlanExists) {
+  using namespace semaforr;
+  domain::WorldModel world;
+  world.mission = domain::Mission({{1U, {2.0, 0.0}}}, 10U);
+  const domain::ActionSpace action_space({0.2, 1.0}, {0.5});
+  decision::DecisionCoordinator decisions;
+  decisions.addMandatoryRule(std::make_unique<decision::VictoryRule>(
+      domain::Distance(0.2), action_space));
+  decision::MissionManager mission(world.mission);
+  planning::PlanningCoordinator planning;
+  spatial::SpatialLearningCoordinator learning(100U);
+  decision::NavigationEngine engine(world, action_space, decisions, mission,
+                                    planning, learning);
+  auto input = episode(1U, 0.0, true).observation;
+  input.laser.ranges_m = {5.0, 5.0, 2.0, 5.0, 5.0};
+  const auto result = engine.decide(input);
+  EXPECT_EQ(result.selected_policy, "mandatory_rule:Victory");
+  EXPECT_EQ(result.selected_policy.find("LLE"), std::string::npos);
 }
 
 TEST(SpatialLearning, InitialExplorationFinalizationPublishesGraphModels) {
