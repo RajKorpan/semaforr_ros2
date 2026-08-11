@@ -56,6 +56,9 @@ int main() {
          semaforr::config::BehaviorMode::Modernized);
   assert(semaforr::config::behaviorModeFromString("compatibility") ==
          semaforr::config::BehaviorMode::Compatibility);
+  assert(semaforr::config::spatialLearningProfileFromString(
+             "chapter3_compatibility") ==
+         semaforr::config::SpatialLearningProfile::Chapter3Compatibility);
   assert(semaforr::config::mapOperatingModeFromString("mapless") ==
          semaforr::config::MapOperatingMode::Mapless);
   assert(semaforr::config::mapOperatingModeFromString("map_enabled") ==
@@ -65,6 +68,8 @@ int main() {
   const auto manifest = semaforr::config::componentManifest(valid);
   assert(std::find(manifest.begin(), manifest.end(),
                    "behavior_mode:modernized") != manifest.end());
+  assert(std::find(manifest.begin(), manifest.end(),
+                   "spatial_learning_profile:modernized") != manifest.end());
   for (const std::string profile :
        {"full", "tier1_only", "tier1_tier3", "tier3_only",
         "tier1_tier2_tier3", "no_initial_exploration",
@@ -187,6 +192,17 @@ int main() {
     changed.experiment.tiers.tier_one_rules.pop_back();
     assert(semaforr::config::configurationFingerprint(changed) !=
            semaforr::config::configurationFingerprint(valid));
+  }
+  {
+    auto changed = valid;
+    changed.navigation.spatial_learning_profile =
+        semaforr::config::SpatialLearningProfile::Chapter3Compatibility;
+    assert(semaforr::config::configurationFingerprint(changed) !=
+           semaforr::config::configurationFingerprint(valid));
+    const auto changed_manifest = semaforr::config::componentManifest(changed);
+    assert(std::find(changed_manifest.begin(), changed_manifest.end(),
+                     "spatial_learning_profile:chapter3_compatibility") !=
+           changed_manifest.end());
   }
   {
     auto invalid = valid;

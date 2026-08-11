@@ -8,27 +8,49 @@
 #include <semaforr/domain/geometry.hpp>
 #include <semaforr/domain/highway.hpp>
 #include <semaforr/domain/grid_layers.hpp>
+#include <semaforr/domain/spatial_affordances.hpp>
 #include <vector>
 
 namespace semaforr::spatial {
 
-struct TrailModel { std::vector<std::vector<domain::Point2D>> trails; };
+struct TrailModel {
+  std::vector<domain::LearnedTrail> learned_trails;
+  std::vector<std::vector<domain::Point2D>> trails;
+};
 struct ConveyorFlow {
   domain::Segment2D axis;
   std::size_t traversals = 1U;
 };
-struct ConveyorModel { std::vector<ConveyorFlow> flows; };
-struct RegionModel { std::vector<domain::Circle> regions; };
-struct DoorExitModel { std::vector<domain::Segment2D> openings; };
-struct HallwayModel { std::vector<domain::Segment2D> centerlines; };
+struct ConveyorModel {
+  domain::ConveyorGrid grid;
+  std::vector<ConveyorFlow> flows;
+};
+struct RegionModel {
+  std::vector<domain::LearnedRegion> learned_regions;
+  std::vector<domain::Circle> regions;
+};
+struct DoorExitModel {
+  std::vector<domain::RegionExit> exits;
+  std::vector<domain::LearnedDoor> doors;
+  std::vector<domain::SensorOpening> sensor_openings;
+  std::vector<domain::Segment2D> openings;
+};
+struct HallwayModel {
+  std::vector<domain::LearnedHallway> hallways;
+  std::vector<domain::Segment2D> centerlines;
+};
 struct BarrierModel { std::vector<domain::Segment2D> barriers; };
 struct SkeletonEdge {
   std::size_t from = 0U;
   std::size_t to = 0U;
 };
 struct PassageSkeletonModel {
+  std::vector<domain::RegionSkeletonNode> region_nodes;
+  std::vector<domain::RegionSkeletonEdge> region_edges;
   std::vector<domain::Point2D> nodes;
   std::vector<SkeletonEdge> edges;
+  std::vector<domain::Point2D> sampled_path_nodes;
+  std::vector<SkeletonEdge> sampled_path_edges;
   std::vector<std::size_t> component_by_node;
   std::size_t connectivity_revision = 0U;
 };

@@ -13,18 +13,29 @@ std::uint64_t regionKey(long long x, long long y) {
 }  // namespace
 
 RegionLearner::RegionLearner(double cluster_radius_m,
-                             std::size_t minimum_observations)
+                             std::size_t minimum_observations,
+                             SpatialLearningMode mode,
+                             RegionLearningConfiguration compatibility)
     : SpatialLearnerBase(
-          SpatialRepresentation::Regions, "region", UpdateMode::Incremental,
+          SpatialRepresentation::Regions, "region",
+          mode == SpatialLearningMode::Compatibility
+              ? UpdateMode::RebuildOnDemand
+              : UpdateMode::Incremental,
           {true,
            true,
            false,
            false,
-           "incrementally merge local freespace observations",
+           mode == SpatialLearningMode::Compatibility
+               ? "create decision-point regions and reconcile them at target completion"
+               : "incrementally cluster and average local freespace observations",
            {"RegionLeaverLinear", "RegionLeaverRotation", "skeleton planner"},
-           UpdateSchedule::EveryObservation}),
+           mode == SpatialLearningMode::Compatibility
+               ? UpdateSchedule::EveryDecisionCycle
+               : UpdateSchedule::EveryObservation}),
       cluster_radius_m_(cluster_radius_m),
-      minimum_observations_(minimum_observations) {
+      minimum_observations_(minimum_observations),
+      mode_(mode),
+      compatibility_(compatibility) {
   if (!std::isfinite(cluster_radius_m_) || cluster_radius_m_ <= 0.0) {
     throw std::invalid_argument(
         "region cluster radius must be finite and positive");
@@ -35,6 +46,7 @@ RegionLearner::RegionLearner(double cluster_radius_m,
 }
 
 void RegionLearner::onObserve(const NavigationEpisode& episode) {
+  if (mode_ == SpatialLearningMode::Compatibility) return;
   const auto point = episode.observation.pose.position;
   const auto finite_range = std::min_element(
       episode.observation.laser.ranges_m.begin(),
@@ -110,6 +122,15 @@ void RegionLearner::onObserve(const NavigationEpisode& episode) {
 }
 
 void RegionLearner::onRebuild() {
+  if (mode_ == SpatialLearningMode::Compatibility) {
+    model_ = learnDecisionRegions(episodes(), compatibility_);
+    publish(model_, model_.learned_regions.empty() ? ModelStatus::Incomplete
+                                                   : ModelStatus::Fresh,
+            model_.learned_regions.empty()
+                ? "no decision point has valid region evidence"
+                : "decision-point regions reconciled deterministically");
+    return;
+  }
   publish(model_, model_.regions.empty() ? ModelStatus::Incomplete
                                          : ModelStatus::Fresh,
           "incremental region snapshot refreshed");

@@ -594,9 +594,19 @@ void LowLevelExplorer::assembleCandidates(const domain::WorldModel& world) {
   addView(world.robot.pose, *world.robot.laser);
   for (const auto& entry : world.navigation_history.entries())
     addView(entry.pose, entry.laser);
-  for (const auto& region : world.spatial.learned_regions)
-    add(LLECandidateSource::RegionVisibility, world.robot.pose.position,
-        region.center);
+  if (!world.spatial.regions.empty()) {
+    for (const auto& region : world.spatial.regions)
+      for (const auto& visibility : region.visibility)
+        if (visibility.known &&
+            domain::distance(visibility.ray_end, target).meters() <
+                domain::distance(region.boundary.center, target).meters())
+          add(LLECandidateSource::RegionVisibility, visibility.ray_start,
+              visibility.ray_end);
+  } else {
+    for (const auto& region : world.spatial.learned_regions)
+      add(LLECandidateSource::RegionVisibility, world.robot.pose.position,
+          region.center);
+  }
   std::vector<LLECandidate> fallback_gaps;
   if (grid.columns > 0U && grid.rows > 0U) {
     for (std::size_t index = 0U; index < grid.cells.size(); ++index) {

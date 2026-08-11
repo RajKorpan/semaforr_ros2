@@ -152,6 +152,39 @@ PlanResult SkeletonPlan::plan(const PlanningRequest& request) {
   auto result = buildNetworkPlan(request, request.spatial_model->skeleton_nodes,
                                  request.spatial_model->skeleton_edges,
                                  "skeleton", false);
+  if (result.hierarchical &&
+      !request.spatial_model->region_skeleton_edges.empty()) {
+    std::vector<PlanStep> operational;
+    std::optional<std::size_t> previous_region;
+    for (const auto& step : result.hierarchical->steps) {
+      if (const auto* region = std::get_if<RegionStep>(&step)) {
+        if (previous_region && *previous_region != region->region_id) {
+          const auto edge = std::find_if(
+              request.spatial_model->region_skeleton_edges.begin(),
+              request.spatial_model->region_skeleton_edges.end(),
+              [&](const auto& candidate) {
+                return (candidate.from == *previous_region &&
+                        candidate.to == region->region_id) ||
+                       (candidate.to == *previous_region &&
+                        candidate.from == region->region_id);
+              });
+          if (edge != request.spatial_model->region_skeleton_edges.end()) {
+            auto subtrail = edge->supporting_subtrail;
+            if (edge->to == *previous_region) std::reverse(subtrail.begin(), subtrail.end());
+            operational.emplace_back(
+                SubtrailStep{std::move(subtrail), std::nullopt, 0U});
+          }
+        }
+        previous_region = region->region_id;
+      }
+      operational.push_back(step);
+    }
+    result.hierarchical->steps = std::move(operational);
+    result.hierarchical->provenance =
+        "region skeleton with shortest execution-confirmed subtrail labels";
+    result.explanation =
+        "hierarchical region-skeleton route with operationalizable subtrails";
+  }
   attachDependencySnapshot(result, request, dependencies(request));
   return result;
 }

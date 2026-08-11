@@ -29,6 +29,7 @@ struct LearnedGridConfiguration {
   GridExtentPolicy extent_policy = GridExtentPolicy::Expand;
   domain::GridExpansionPolicy expansion;
   bool initialize_around_first_pose{true};
+  SpatialLearningMode learning_mode{SpatialLearningMode::Modernized};
 };
 
 struct SnapshotProjectionMetrics {

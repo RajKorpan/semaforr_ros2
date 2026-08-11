@@ -77,20 +77,35 @@ ProjectionEstimate estimateProjection(const SpatialPayload& value) {
         } else if constexpr (std::is_same_v<Payload, TrailModel>) {
           add(payload.trails);
           for (const auto& trail : payload.trails) add(trail);
+          add(payload.learned_trails);
+          for (const auto& trail : payload.learned_trails) {
+            add(trail.markers);
+            add(trail.subtrail_geometry);
+          }
         } else if constexpr (std::is_same_v<Payload, ConveyorModel>) {
           add(payload.flows);
+          add(payload.grid.cells);
         } else if constexpr (std::is_same_v<Payload, RegionModel>) {
           add(payload.regions);
+          add(payload.learned_regions);
         } else if constexpr (std::is_same_v<Payload, DoorExitModel>) {
           add(payload.openings);
+          add(payload.exits);
+          add(payload.doors);
+          add(payload.sensor_openings);
         } else if constexpr (std::is_same_v<Payload, HallwayModel>) {
           add(payload.centerlines);
+          add(payload.hallways);
         } else if constexpr (std::is_same_v<Payload, BarrierModel>) {
           add(payload.barriers);
         } else if constexpr (std::is_same_v<Payload,
                                              PassageSkeletonModel>) {
           add(payload.nodes);
           add(payload.edges);
+          add(payload.region_nodes);
+          add(payload.region_edges);
+          add(payload.sampled_path_nodes);
+          add(payload.sampled_path_edges);
         } else if constexpr (std::is_same_v<Payload, HighwayModel>) {
           add(payload.highways);
           add(payload.graph.vertices);
@@ -109,19 +124,26 @@ void clearRepresentation(domain::SpatialModel& model,
   switch (representation) {
     case SpatialRepresentation::Trails:
       model.trails.clear();
+      model.learned_trails.clear();
       break;
     case SpatialRepresentation::Conveyors:
       model.conveyor_flows.clear();
       model.conveyor_traversals.clear();
+      model.conveyor_grid = {};
       break;
     case SpatialRepresentation::Regions:
       model.learned_regions.clear();
+      model.regions.clear();
       break;
     case SpatialRepresentation::DoorsAndExits:
       model.doorways.clear();
+      model.exits.clear();
+      model.doors.clear();
+      model.sensor_openings.clear();
       break;
     case SpatialRepresentation::Hallways:
       model.hallways.clear();
+      model.hallway_entities.clear();
       break;
     case SpatialRepresentation::Barriers:
       model.barriers.clear();
@@ -129,6 +151,10 @@ void clearRepresentation(domain::SpatialModel& model,
     case SpatialRepresentation::PassagesAndSkeleton:
       model.skeleton_nodes.clear();
       model.skeleton_edges.clear();
+      model.region_skeleton_nodes.clear();
+      model.region_skeleton_edges.clear();
+      model.sampled_path_nodes.clear();
+      model.sampled_path_edges.clear();
       break;
     case SpatialRepresentation::KnownGrid:
       model.known_grid = {};
@@ -210,13 +236,21 @@ SpatialLearningCoordinator SpatialLearningCoordinator::defaults(
     SensedOccupancyLearningConfiguration occupancy_configuration,
     LearnedGridConfiguration grid_configuration) {
   SpatialLearningCoordinator coordinator(automatic_rebuild_interval);
-  coordinator.addLearner(std::make_unique<TrailLearner>());
-  coordinator.addLearner(std::make_unique<ConveyorLearner>());
-  coordinator.addLearner(std::make_unique<RegionLearner>());
-  coordinator.addLearner(std::make_unique<DoorExitLearner>());
-  coordinator.addLearner(std::make_unique<HallwayLearner>());
+  coordinator.addLearner(
+      std::make_unique<TrailLearner>(0.05, grid_configuration.learning_mode));
+  coordinator.addLearner(std::make_unique<ConveyorLearner>(
+      0.05, grid_configuration.learning_mode,
+      ConveyorLearningConfiguration{grid_configuration.resolution_m, 1.0,
+                                    grid_configuration.resolution_m, true}));
+  coordinator.addLearner(std::make_unique<RegionLearner>(
+      1.0, 3U, grid_configuration.learning_mode));
+  coordinator.addLearner(std::make_unique<DoorExitLearner>(
+      0.75, 2.5, grid_configuration.learning_mode));
+  coordinator.addLearner(std::make_unique<HallwayLearner>(
+      0.5, grid_configuration.learning_mode));
   coordinator.addLearner(std::make_unique<BarrierLearner>());
-  coordinator.addLearner(std::make_unique<PassageSkeletonLearner>());
+  coordinator.addLearner(std::make_unique<PassageSkeletonLearner>(
+      0.5, grid_configuration.learning_mode));
   const auto columns = static_cast<std::size_t>(std::ceil(
       grid_configuration.initial_width_m / grid_configuration.resolution_m));
   const auto rows = static_cast<std::size_t>(std::ceil(
@@ -445,7 +479,10 @@ void SpatialLearningCoordinator::finalizeInitialExploration() {
 void SpatialLearningCoordinator::finalizeTarget() {
   for (Entry& entry : learners_)
     if (entry.enabled &&
-        entry.learner->contract().schedule == UpdateSchedule::EndOfTarget)
+        (entry.learner->contract().schedule == UpdateSchedule::EndOfTarget ||
+         entry.learner->representation() == SpatialRepresentation::Regions ||
+         entry.learner->representation() ==
+             SpatialRepresentation::PassagesAndSkeleton))
       entry.learner->rebuild();
 }
 
@@ -547,6 +584,7 @@ void SpatialLearningCoordinator::applyTo(domain::SpatialModel& model) const {
           using Payload = std::decay_t<decltype(payload)>;
           if constexpr (std::is_same_v<Payload, TrailModel>) {
             model.trails = payload.trails;
+            model.learned_trails = payload.learned_trails;
           } else if constexpr (std::is_same_v<Payload, ConveyorModel>) {
             model.conveyor_flows.clear();
             model.conveyor_traversals.clear();
@@ -554,12 +592,18 @@ void SpatialLearningCoordinator::applyTo(domain::SpatialModel& model) const {
               model.conveyor_flows.push_back(flow.axis);
               model.conveyor_traversals.push_back(flow.traversals);
             }
+            model.conveyor_grid = payload.grid;
           } else if constexpr (std::is_same_v<Payload, RegionModel>) {
             model.learned_regions = payload.regions;
+            model.regions = payload.learned_regions;
           } else if constexpr (std::is_same_v<Payload, DoorExitModel>) {
             model.doorways = payload.openings;
+            model.exits = payload.exits;
+            model.doors = payload.doors;
+            model.sensor_openings = payload.sensor_openings;
           } else if constexpr (std::is_same_v<Payload, HallwayModel>) {
             model.hallways = payload.centerlines;
+            model.hallway_entities = payload.hallways;
           } else if constexpr (std::is_same_v<Payload, BarrierModel>) {
             model.barriers = payload.barriers;
           } else if constexpr (std::is_same_v<Payload, PassageSkeletonModel>) {
@@ -568,6 +612,12 @@ void SpatialLearningCoordinator::applyTo(domain::SpatialModel& model) const {
             for (const SkeletonEdge& edge : payload.edges) {
               model.skeleton_edges.emplace_back(edge.from, edge.to);
             }
+            model.region_skeleton_nodes = payload.region_nodes;
+            model.region_skeleton_edges = payload.region_edges;
+            model.sampled_path_nodes = payload.sampled_path_nodes;
+            model.sampled_path_edges.clear();
+            for (const SkeletonEdge& edge : payload.sampled_path_edges)
+              model.sampled_path_edges.emplace_back(edge.from, edge.to);
           } else if constexpr (std::is_same_v<Payload, KnownGridModel>) {
             model.known_grid = {
                 payload.geometry.columns, payload.geometry.rows,

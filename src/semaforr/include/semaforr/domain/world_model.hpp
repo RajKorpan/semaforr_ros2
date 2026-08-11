@@ -11,12 +11,14 @@
 #include <semaforr/domain/action_execution.hpp>
 #include <semaforr/domain/crowd_model.hpp>
 #include <semaforr/domain/circumstance.hpp>
+#include <semaforr/domain/completed_path.hpp>
 #include <semaforr/domain/highway.hpp>
 #include <semaforr/domain/grid_layers.hpp>
 #include <semaforr/domain/mission.hpp>
 #include <semaforr/domain/model_revision.hpp>
 #include <semaforr/domain/observation.hpp>
 #include <semaforr/domain/static_map.hpp>
+#include <semaforr/domain/spatial_affordances.hpp>
 #include <stdexcept>
 #include <string>
 #include <utility>
@@ -161,14 +163,27 @@ struct ExplorationCue {
 struct SpatialModel {
   std::vector<Polygon> obstacle_polygons;
   std::vector<std::vector<Point2D>> trails;
+  std::vector<LearnedTrail> learned_trails;
   std::vector<Segment2D> conveyor_flows;
   std::vector<std::size_t> conveyor_traversals;
+  ConveyorGrid conveyor_grid;
   std::vector<Circle> learned_regions;
+  std::vector<LearnedRegion> regions;
   std::vector<Segment2D> doorways;
+  std::vector<RegionExit> exits;
+  std::vector<LearnedDoor> doors;
+  std::vector<SensorOpening> sensor_openings;
   std::vector<Segment2D> hallways;
+  std::vector<LearnedHallway> hallway_entities;
   std::vector<Segment2D> barriers;
   std::vector<Point2D> skeleton_nodes;
   std::vector<std::pair<std::size_t, std::size_t>> skeleton_edges;
+  std::vector<RegionSkeletonNode> region_skeleton_nodes;
+  std::vector<RegionSkeletonEdge> region_skeleton_edges;
+  // The incremental sampled-pose graph is retained as a distinct engineering
+  // representation and is never advertised as the region skeleton.
+  std::vector<Point2D> sampled_path_nodes;
+  std::vector<std::pair<std::size_t, std::size_t>> sampled_path_edges;
   FamiliarityGrid known_grid;
   SensedOccupancyGrid sensed_occupancy;
   FreespaceGrid inclusion_grid;
@@ -196,6 +211,7 @@ struct WorldModel {
   CommandHistory command_history;
   ExecutionHistory execution_history;
   CompletedPathHistory completed_path_history;
+  PathHistory path_history;
   ObservationHistory observation_history;
   RecoveryState recovery;
   CrowdModel crowd;

@@ -40,6 +40,21 @@ std::size_t nearTrailMarkers(
   return count;
 }
 
+std::size_t nearExits(domain::Point2D point,
+                      const std::vector<domain::RegionExit>& exits,
+                      double radius = 0.5) {
+  return static_cast<std::size_t>(std::count_if(
+      exits.begin(), exits.end(), [&](const auto& exit) {
+        return domain::distance(point, exit.point).meters() <= radius;
+      }));
+}
+
+bool hallwayContains(domain::Point2D point,
+                     const domain::LearnedHallway& hallway) {
+  return pointSegmentDistance(point, hallway.centerline) <=
+         std::max(0.5, hallway.width_m / 2.0);
+}
+
 double socialPenalty(const PlanningRequest& request, PlanObjective objective,
                      domain::Point2D midpoint, double length,
                      domain::Point2D from, domain::Point2D to) {
@@ -80,14 +95,30 @@ double edgeCost(PlanObjective objective, const PlanningRequest& request,
       if (ia && ib) return .25 * w;
       if (ia != ib) {
         const bool door = nearSegments(m, s->doorways) > 0U;
-        return (door ? .5 : .75) * w;
+        const bool exit = nearExits(m, s->exits) > 0U;
+        if (door && exit) return .5 * w;
+        return (door || exit ? .75 : 1.0) * w;
       }
       return 10.0 * w;
     }
     case PlanObjective::HallwayPreference: {
       if (!s) return 10.0 * w;
-      const auto fa = nearSegments(a, s->hallways),
-                 fb = nearSegments(b, s->hallways);
+      const auto fa = s->hallway_entities.empty()
+                          ? nearSegments(a, s->hallways)
+                          : static_cast<std::size_t>(std::count_if(
+                                s->hallway_entities.begin(),
+                                s->hallway_entities.end(),
+                                [&](const auto& hallway) {
+                                  return hallwayContains(a, hallway);
+                                }));
+      const auto fb = s->hallway_entities.empty()
+                          ? nearSegments(b, s->hallways)
+                          : static_cast<std::size_t>(std::count_if(
+                                s->hallway_entities.begin(),
+                                s->hallway_entities.end(),
+                                [&](const auto& hallway) {
+                                  return hallwayContains(b, hallway);
+                                }));
       return fa && fb ? 2.0 * w / static_cast<double>(fa + fb) : 10.0 * w;
     }
     case PlanObjective::TrailPreference: {
@@ -98,6 +129,16 @@ double edgeCost(PlanObjective objective, const PlanningRequest& request,
     }
     case PlanObjective::ConveyorPreference: {
       if (!s) return 10.0 * w;
+      if (s->conveyor_grid.geometry.valid()) {
+        const auto* first = s->conveyor_grid.at(a);
+        const auto* second = s->conveyor_grid.at(b);
+        if (!first || !second || first->traversal_frequency == 0U ||
+            second->traversal_frequency == 0U)
+          return 10.0 * w;
+        return 2.0 * w /
+               static_cast<double>(first->traversal_frequency +
+                                   second->traversal_frequency);
+      }
       const auto fa = nearSegments(a, s->conveyor_flows),
                  fb = nearSegments(b, s->conveyor_flows);
       if (!fa || !fb) return 10.0 * w;

@@ -8,7 +8,9 @@
 
 namespace semaforr::spatial {
 
-HallwayLearner::HallwayLearner(double minimum_centerline_length_m)
+HallwayLearner::HallwayLearner(
+    double minimum_centerline_length_m, SpatialLearningMode mode,
+    HallwayLearningConfiguration compatibility)
     : SpatialLearnerBase(
           SpatialRepresentation::Hallways, "hallway",
           UpdateMode::RebuildOnDemand,
@@ -16,10 +18,14 @@ HallwayLearner::HallwayLearner(double minimum_centerline_length_m)
            true,
            false,
            false,
-           "extract traversed centerlines when rebuild is requested",
+           mode == SpatialLearningMode::Compatibility
+               ? "infer directional parents, visible children, heatmaps, and connected hallways"
+               : "deduplicate orientation-binned traversed centerlines",
            {"hallway advisors", "hallwayskel and skeletonhall planners"},
            UpdateSchedule::EndOfTarget}),
-      minimum_centerline_length_m_(minimum_centerline_length_m) {
+      minimum_centerline_length_m_(minimum_centerline_length_m),
+      mode_(mode),
+      compatibility_(compatibility) {
   if (!std::isfinite(minimum_centerline_length_m_) ||
       minimum_centerline_length_m_ <= 0.0) {
     throw std::invalid_argument(
@@ -30,6 +36,16 @@ HallwayLearner::HallwayLearner(double minimum_centerline_length_m)
 void HallwayLearner::onObserve(const NavigationEpisode&) {}
 
 void HallwayLearner::onRebuild() {
+  if (mode_ == SpatialLearningMode::Compatibility) {
+    auto model = learnCompatibilityHallways(
+        completedPathsFromEpisodes(episodes()), compatibility_);
+    publish(model,
+            model.hallways.empty() ? ModelStatus::Incomplete : ModelStatus::Fresh,
+            model.hallways.empty()
+                ? "no statistically exceptional visible hallway structure"
+                : "hallways rebuilt from directional travel inference");
+    return;
+  }
   HallwayModel model;
   std::unordered_set<std::uint64_t> occupied_bins;
   for (std::size_t index = 1U; index < episodes().size(); ++index) {
@@ -57,8 +73,18 @@ void HallwayLearner::onRebuild() {
               (centerline.start.y_m + centerline.end.y_m) * 2.5)));
       const std::uint64_t key =
           (orientation << 56U) ^ (cell_x << 28U) ^ cell_y;
-      if (occupied_bins.insert(key).second)
+      if (occupied_bins.insert(key).second) {
         model.centerlines.push_back(centerline);
+        domain::LearnedHallway hallway;
+        hallway.id = key;
+        hallway.direction = static_cast<domain::HallwayDirection>(
+            std::min<std::uint64_t>(3U, orientation / 4U));
+        hallway.centerline = centerline;
+        hallway.extent_m = centerline.length().meters();
+        hallway.width_m = 0.0;
+        hallway.supporting_segments = 1U;
+        model.hallways.push_back(std::move(hallway));
+      }
     }
   }
   publish(

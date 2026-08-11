@@ -136,6 +136,8 @@ void declareConfigurationParameters(rclcpp::Node& node) {
     node.declare_parameter("features." + feature, default_value);
   }
   node.declare_parameter("features.loaded_highway_model", std::string{});
+  node.declare_parameter("features.spatial_learning_profile",
+                         std::string{"modernized"});
   node.declare_parameter("grids.extent_policy", std::string{"expand"});
   node.declare_parameter("grids.frame_id", std::string{"map"});
   node.declare_parameter("grids.mapless.initial_width_m", 20.0);
@@ -262,6 +264,9 @@ config::Configuration configurationFromParameters(rclcpp::Node& node) {
       node.get_parameter("features.circumstances").as_bool();
   navigation.loaded_highway_model =
       node.get_parameter("features.loaded_highway_model").as_string();
+  navigation.spatial_learning_profile =
+      config::spatialLearningProfileFromString(
+          node.get_parameter("features.spatial_learning_profile").as_string());
   navigation.grids.extent_policy =
       node.get_parameter("grids.extent_policy").as_string();
   navigation.grids.frame_id = node.get_parameter("grids.frame_id").as_string();

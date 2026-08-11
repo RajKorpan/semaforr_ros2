@@ -260,6 +260,22 @@ BehaviorMode behaviorModeFromString(const std::string& value) {
       "experiment.behavior_mode must be 'compatibility' or 'modernized'");
 }
 
+std::string_view toString(SpatialLearningProfile profile) noexcept {
+  return profile == SpatialLearningProfile::Chapter3Compatibility
+             ? "chapter3_compatibility"
+             : "modernized";
+}
+
+SpatialLearningProfile spatialLearningProfileFromString(
+    const std::string& value) {
+  if (value == "modernized") return SpatialLearningProfile::Modernized;
+  if (value == "chapter3_compatibility")
+    return SpatialLearningProfile::Chapter3Compatibility;
+  throw std::invalid_argument(
+      "features.spatial_learning_profile must be 'modernized' or "
+      "'chapter3_compatibility'");
+}
+
 std::string_view toString(MapOperatingMode mode) noexcept {
   return mode == MapOperatingMode::MapEnabled ? "map_enabled" : "mapless";
 }
@@ -728,7 +744,8 @@ std::string configurationFingerprint(const Configuration& configuration) {
     canonical << "|t1:" << rule;
   for (const auto& planner : configuration.experiment.tiers.reactive_planners)
     canonical << "|rx:" << planner;
-  canonical << '|' << configuration.navigation.trails_on << '|'
+  canonical << '|' << toString(configuration.navigation.spatial_learning_profile)
+            << '|' << configuration.navigation.trails_on << '|'
             << configuration.navigation.conveyors_on << '|'
             << configuration.navigation.regions_on << '|'
             << configuration.navigation.doors_on << '|'
@@ -810,6 +827,9 @@ std::vector<std::string> componentManifest(const Configuration& configuration) {
       "hard_safety:obstacle_clearance", "phase:target_navigation"};
   result.push_back("map_mode:" +
                    std::string(toString(configuration.static_map.mode)));
+  result.push_back(
+      "spatial_learning_profile:" +
+      std::string(toString(configuration.navigation.spatial_learning_profile)));
   if (configuration.static_map.mode == MapOperatingMode::MapEnabled)
     result.push_back("map:requested");
   const auto& experiment = configuration.experiment;

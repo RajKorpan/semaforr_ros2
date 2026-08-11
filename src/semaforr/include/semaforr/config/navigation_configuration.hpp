@@ -15,6 +15,11 @@ enum class BehaviorMode {
   Modernized
 };
 
+// Component-scoped selection.  This does not claim whole-system behavioral
+// compatibility; it permits validating the Chapter 3 learning pipeline while
+// unrelated compatibility-mode blockers remain fail-closed.
+enum class SpatialLearningProfile { Modernized, Chapter3Compatibility };
+
 enum class MapOperatingMode { Mapless, MapEnabled };
 enum class MapLoadFailurePolicy { FailStartup, DisableMap };
 
@@ -215,6 +220,8 @@ struct NavigationConfiguration {
   bool highways_on = false;
   bool circumstances_on = true;
   std::string loaded_highway_model;
+  SpatialLearningProfile spatial_learning_profile =
+      SpatialLearningProfile::Modernized;
 
   PlannerConfiguration planners;
   GridLayerConfiguration grids;
@@ -255,6 +262,9 @@ std::string_view toString(AblationProfile profile) noexcept;
 AblationProfile ablationProfileFromString(const std::string& value);
 std::string_view toString(BehaviorMode mode) noexcept;
 BehaviorMode behaviorModeFromString(const std::string& value);
+std::string_view toString(SpatialLearningProfile profile) noexcept;
+SpatialLearningProfile spatialLearningProfileFromString(
+    const std::string& value);
 std::string_view toString(MapOperatingMode mode) noexcept;
 MapOperatingMode mapOperatingModeFromString(const std::string& value);
 std::string_view toString(MapLoadFailurePolicy policy) noexcept;

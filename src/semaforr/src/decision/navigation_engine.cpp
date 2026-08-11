@@ -122,8 +122,10 @@ void NavigationEngine::observe(const domain::RobotObservation& observation) {
   if (world_.mission.active() &&
       domain::goalReached(observation.pose, world_.mission.active()->target,
                           goal_tolerance_)) {
-    if (mission_.completeActiveTask())
+    if (mission_.completeActiveTask()) {
+      world_.path_history.finish(true, false, observation.observed_at);
       pending_phase_events_.push_back("target_completed");
+    }
   } else {
     mission_.advanceWaypoint(observation.pose, goal_tolerance_);
   }
@@ -307,8 +309,13 @@ DecisionResult NavigationEngine::decide() {
   }
   const std::size_t skipped_before = world_.mission.skipped().size();
   const MissionStep mission_step = mission_.prepareDecision();
-  if (world_.mission.skipped().size() > skipped_before)
+  if (world_.mission.skipped().size() > skipped_before) {
+    world_.path_history.finish(false, true, std::chrono::steady_clock::now());
+    learning_.finalizeTarget();
+    learning_.applyTo(world_.spatial);
+    world_.synchronizeMutationJournal();
     pending_phase_events_.push_back("target_skipped");
+  }
   if (mission_step == MissionStep::Complete) {
     phases_->completeMission();
     DecisionResult result;
@@ -545,6 +552,22 @@ domain::FeedbackDisposition NavigationEngine::acceptTerminal(
   history.rotation_achieved_rad = result.rotation_achieved_rad;
   world_.navigation_history.record(history);
   if (result.successful()) world_.completed_path_history.record(history);
+  if (result.task_id) {
+    domain::PathDecisionPoint path_point;
+    path_point.selection = pending_execution_->selection;
+    path_point.execution = result;
+    path_point.decision_observation = pending_execution_->episode.observation;
+    if (pending_execution_->started)
+      path_point.executed_action = pending_execution_->selection.action;
+    path_point.target = pending_execution_->episode.active_target;
+    path_point.task_started = pending_execution_->episode.task_started;
+    path_point.interrupted = !result.successful();
+    if (!world_.path_history.active()) {
+      world_.path_history.begin(++path_sequence_, result.task_id,
+                                pending_execution_->episode.active_target);
+    }
+    world_.path_history.record(std::move(path_point));
+  }
   if (!result.successful() && active_hierarchy_) {
     active_hierarchy_->validity = planning::PlanValidity::Stale;
     active_hierarchy_->diagnostics.push_back(
@@ -553,8 +576,12 @@ domain::FeedbackDisposition NavigationEngine::acceptTerminal(
   }
 
   auto episode = pending_execution_->episode;
-  episode.observation.pose = result.final_pose;
   episode.execution_result = result;
+  episode.target_reached =
+      episode.active_target &&
+      domain::distance(result.final_pose.position, *episode.active_target)
+              .meters() <= goal_tolerance_.meters();
+  episode.task_finished = episode.target_reached;
   const auto model_update_started = std::chrono::steady_clock::now();
   learning_.observeActionTerminal(std::move(episode));
   learning_.applyTo(world_.spatial);

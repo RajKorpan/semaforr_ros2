@@ -22,6 +22,11 @@ immutable `SelectedActionRecord` and the matching `ActionExecutionResult`.
 Motion-dependent learners receive terminal results only; they never infer
 completion from action selection.
 
+The default `modernized` profile retains incremental approximations. Setting
+`features.spatial_learning_profile: chapter3_compatibility` switches the
+Chapter 3 representations to their target-boundary compatibility lifecycle;
+see [Chapter 3 spatial representation profiles](chapter3-spatial-representations.md).
+
 Every representation declares one `UpdateSchedule`, including
 `EveryObservation`, `EveryDecisionCycle`, `AfterActionStart`,
 `AfterSuccessfulActionCompletion`, `AfterAnyTerminalActionResult`,
@@ -35,13 +40,13 @@ payload into the world model.
 
 | Learner | Observations consumed | Update timing | Incremental | Consumers |
 |---|---|---|---|---|
-| `TrailLearner` | Execution-confirmed start/final pose and task boundaries | After successful action completion; failures never enter a trail | Yes | `TrailerLinear`, `TrailerRotation`, trail planner |
-| `ConveyorLearner` | Execution-confirmed forward displacement | After successful action completion; adds or reinforces the actual directed segment | Yes | `ConveyLinear`, `ConveyRotation`, conveyor-cost planners |
-| `RegionLearner` | Complete pose/scan episodes | Every observation; nearby overlap candidates come from a spatial hash | Yes | region-leaver advisors, skeleton planner |
-| `DoorExitLearner` | Terminal pose and laser ranges, including outcome metadata | Collect terminal evidence; rebuild at end of target | No | enter advisors, region and skeleton planners |
-| `HallwayLearner` | Terminal poses, outcomes, and nonempty laser scans | Collect terminal evidence; rebuild at end of target; orientation and midpoint bins avoid all-pairs comparison | No | hallway advisors, `hallwayskel`, `skeletonhall` |
+| `TrailLearner` | Execution-confirmed completed paths, poses, and historical views | Compatibility: rebuild by backward visibility at target end; modernized: sample successful final poses | Profile-dependent | `TrailerLinear`, `TrailerRotation`, trail planner |
+| `ConveyorLearner` | Successful compatibility trails or execution-confirmed forward displacement | Compatibility: rasterize frequency grid at target end; modernized: reinforce directed segments after success | Profile-dependent | `ConveyLinear`, `ConveyRotation`, conveyor-cost planners |
+| `RegionLearner` | Decision poses and complete scans | Compatibility: reconcile minimum-range circles at target end; modernized: incremental spatial-hash clustering | Profile-dependent | region advisors, LLE, skeleton planner |
+| `DoorExitLearner` | Completed paths, reconciled regions, and outcomes | Compatibility: derive exits and door arcs at target end; modernized: publish scan discontinuities only as sensor openings | No | enter advisors, region and skeleton planners |
+| `HallwayLearner` | Successful execution segments and historical views | Compatibility: indexed pair inference, heatmap, smoothing, components, visible merge at target end; modernized: orientation bins | No | hallway advisors, `hallwayskel`, `skeletonhall` |
 | `BarrierLearner` | Pose and laser ranges | Adds deduplicated adjacent obstacle-return segments after every scan | Yes | `AvoidObstacles`, `UnlikelyField`, collision-aware planners |
-| `PassageSkeletonLearner` | Execution-confirmed start/final pose, scan, and task boundaries | After successful action completion; stable node IDs and cached connected components | Yes | skeleton, hallway-skeleton, and passage planners |
+| `PassageSkeletonLearner` | Completed paths, reconciled regions, visibility, and trails | Compatibility: region graph with shortest subtrails at target end; modernized: increment sampled path graph after success | Profile-dependent | skeleton, highway, LLE, Enforcer, and passage planners |
 | `HighwayLearner` | HLE pose and detected passages | Builds touched grid rows/columns incrementally; at finalization performs local smoothing, minimum-extent extraction, intersection/spur conversion, and largest-component selection | Yes | `HighwayPlan`, `Enforcer` |
 | `KnownGridLearner` | Pose and laser visibility | Every observation into sparse construction cells | Yes | `Out`, grid planners |
 | `InclusionGridLearner` | Pose and laser visibility | Every observation into sparse construction cells | Yes | LLE, exploration |

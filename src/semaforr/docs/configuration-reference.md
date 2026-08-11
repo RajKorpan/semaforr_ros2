@@ -87,6 +87,12 @@ planners are individually selected in `planners.enabled`, including
 `distance`, `sensor_distance`, `skeleton`, `highway`, `density`, `risk`, and
 `flow`.
 
+`features.spatial_learning_profile` is `modernized` (incremental adapted
+learners) or `chapter3_compatibility` (target-boundary compatibility learners).
+It is component-scoped and does not assert whole-system compatibility. The
+value participates in both the configuration fingerprint and component
+manifest.
+
 `grids.extent_policy` is `expand` or `fixed`. `grids.sensed` controls evidence
 needed to clear and expire sensed obstacles. `grids.planning` controls separate
 map and partial-sensor unknown-space policies, footprint inflation margins, and

@@ -34,6 +34,7 @@ enum class SpatialRepresentation {
 };
 
 enum class UpdateMode { Incremental, RebuildOnDemand };
+enum class SpatialLearningMode { Compatibility, Modernized };
 enum class UpdateSchedule {
   EveryObservation,
   EveryDecisionCycle,
@@ -91,6 +92,9 @@ struct NavigationEpisode {
   LearningEvent event = LearningEvent::SensorObservation;
   std::optional<domain::SelectedActionRecord> selection;
   std::optional<domain::ActionExecutionResult> execution_result;
+  // Appended to preserve the established aggregate-initialization order.
+  bool target_reached = false;
+  bool task_skipped = false;
 
   bool actionSucceeded() const noexcept {
     return execution_result ? execution_result->successful()

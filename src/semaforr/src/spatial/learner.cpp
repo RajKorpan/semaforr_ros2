@@ -61,20 +61,26 @@ PayloadShape shape(const SpatialPayload& payload) {
         using Model = std::decay_t<decltype(model)>;
         PayloadShape result;
         if constexpr (std::is_same_v<Model, TrailModel>)
-          result.entities = model.trails.size();
+          result.entities = std::max(model.trails.size(),
+                                     model.learned_trails.size());
         else if constexpr (std::is_same_v<Model, ConveyorModel>)
           result.entities = model.flows.size();
         else if constexpr (std::is_same_v<Model, RegionModel>)
-          result.entities = model.regions.size();
+          result.entities = std::max(model.regions.size(),
+                                     model.learned_regions.size());
         else if constexpr (std::is_same_v<Model, DoorExitModel>)
-          result.entities = model.openings.size();
+          result.entities = model.exits.size() + model.doors.size() +
+                            model.sensor_openings.size();
         else if constexpr (std::is_same_v<Model, HallwayModel>)
-          result.entities = model.centerlines.size();
+          result.entities = std::max(model.centerlines.size(),
+                                     model.hallways.size());
         else if constexpr (std::is_same_v<Model, BarrierModel>)
           result.entities = model.barriers.size();
         else if constexpr (std::is_same_v<Model, PassageSkeletonModel>) {
-          result.graph_nodes = model.nodes.size();
-          result.graph_edges = model.edges.size();
+          result.graph_nodes = std::max(model.nodes.size(),
+                                        model.region_nodes.size());
+          result.graph_edges = std::max(model.edges.size(),
+                                        model.region_edges.size());
         } else if constexpr (std::is_same_v<Model, HighwayModel>) {
           result.entities = model.highways.size();
           result.graph_nodes = model.graph.vertices.size();
@@ -246,6 +252,28 @@ void payload(std::ostream& output, const SpatialPayload& value) {
                 [](std::ostream& stream, const auto& trail) {
                   array(stream, trail, point);
                 });
+          output << ",\"learned_trails\":";
+          array(output, model.learned_trails,
+                [](std::ostream& stream, const auto& trail) {
+                  stream << "{\"id\":" << trail.id
+                         << ",\"source_path\":" << trail.source_path
+                         << ",\"length_m\":" << trail.length_m
+                         << ",\"markers\":";
+                  array(stream, trail.markers,
+                        [](std::ostream& marker_stream, const auto& marker) {
+                          marker_stream << "{\"path_point_index\":"
+                                        << marker.path_point_index
+                                        << ",\"position\":";
+                          point(marker_stream, marker.pose.position);
+                          marker_stream << ",\"visibility_distance_m\":"
+                                        << (marker.visibility_to_next
+                                                ? marker.visibility_to_next
+                                                      ->visible_distance.meters()
+                                                : -1.0)
+                                        << '}';
+                        });
+                  stream << '}';
+                });
           output << '}';
         } else if constexpr (std::is_same_v<Model, ConveyorModel>) {
           output << "{\"flows\":";
@@ -255,6 +283,27 @@ void payload(std::ostream& output, const SpatialPayload& value) {
                   segment(stream, flow.axis);
                   stream << ",\"traversals\":" << flow.traversals << '}';
                 });
+          output << ",\"grid\":";
+          if (model.grid.geometry.valid()) {
+            output << "{\"geometry\":";
+            gridGeometry(output, model.grid.geometry);
+            output << ",\"decay_factor\":" << model.grid.decay_factor
+                   << ",\"maximum_frequency\":"
+                   << model.grid.maximum_frequency << ",\"cells\":";
+            array(output, model.grid.cells,
+                  [](std::ostream& stream, const auto& cell) {
+                    stream << "{\"index\":" << cell.index
+                           << ",\"frequency\":"
+                           << cell.traversal_frequency
+                           << ",\"direction_x\":" << cell.direction_x
+                           << ",\"direction_y\":" << cell.direction_y
+                           << ",\"strength\":" << cell.normalized_strength
+                           << '}';
+                  });
+            output << '}';
+          } else {
+            output << "null";
+          }
           output << '}';
         } else if constexpr (std::is_same_v<Model, RegionModel>) {
           output << "{\"regions\":";
@@ -264,14 +313,79 @@ void payload(std::ostream& output, const SpatialPayload& value) {
                   point(stream, region.center);
                   stream << ",\"radius_m\":" << region.radius.meters() << '}';
                 });
+          output << ",\"learned_regions\":";
+          array(output, model.learned_regions,
+                [](std::ostream& stream, const auto& region) {
+                  stream << "{\"id\":" << region.id << ",\"center\":";
+                  point(stream, region.boundary.center);
+                  stream << ",\"radius_m\":"
+                         << region.boundary.radius.meters()
+                         << ",\"supporting_decision\":"
+                         << region.supporting_decision
+                         << ",\"visibility_revision\":"
+                         << region.visibility_revision << ",\"visibility\":";
+                  array(stream, region.visibility,
+                        [](std::ostream& bin_stream, const auto& bin) {
+                          bin_stream << (bin.known ? bin.maximum_distance_m
+                                                   : -1.0);
+                        });
+                  stream << '}';
+                });
           output << '}';
         } else if constexpr (std::is_same_v<Model, DoorExitModel>) {
           output << "{\"openings\":";
           array(output, model.openings, segment);
+          output << ",\"exits\":";
+          array(output, model.exits,
+                [](std::ostream& stream, const auto& exit) {
+                  stream << "{\"id\":" << exit.id << ",\"region\":"
+                         << exit.region << ",\"point\":";
+                  point(stream, exit.point);
+                  stream << ",\"traversals\":" << exit.traversal_count
+                         << ",\"confidence\":" << exit.confidence << '}';
+                });
+          output << ",\"doors\":";
+          array(output, model.doors,
+                [](std::ostream& stream, const auto& door) {
+                  stream << "{\"id\":" << door.id << ",\"region\":"
+                         << door.region << ",\"start_rad\":"
+                         << door.clockwise_start_rad << ",\"end_rad\":"
+                         << door.clockwise_end_rad << ",\"confidence\":"
+                         << door.confidence << ",\"traversals\":"
+                         << door.supporting_traversals << '}';
+                });
+          output << ",\"sensor_openings\":";
+          array(output, model.sensor_openings,
+                [](std::ostream& stream, const auto& opening) {
+                  stream << "{\"segment\":";
+                  segment(stream, opening.opening);
+                  stream << ",\"decision_id\":" << opening.decision_id
+                         << ",\"confidence\":" << opening.confidence << '}';
+                });
           output << '}';
         } else if constexpr (std::is_same_v<Model, HallwayModel>) {
           output << "{\"centerlines\":";
           array(output, model.centerlines, segment);
+          output << ",\"hallways\":";
+          array(output, model.hallways,
+                [](std::ostream& stream, const auto& hallway) {
+                  stream << "{\"id\":" << hallway.id
+                         << ",\"direction\":"
+                         << static_cast<int>(hallway.direction)
+                         << ",\"centerline\":";
+                  segment(stream, hallway.centerline);
+                  stream << ",\"width_m\":" << hallway.width_m
+                         << ",\"extent_m\":" << hallway.extent_m
+                         << ",\"supporting_segments\":"
+                         << hallway.supporting_segments << ",\"cells\":";
+                  array(stream, hallway.connected_area,
+                        [](std::ostream& cell_stream, const auto& cell) {
+                          cell_stream << "{\"x\":" << cell.x
+                                      << ",\"y\":" << cell.y
+                                      << ",\"heat\":" << cell.heat << '}';
+                        });
+                  stream << '}';
+                });
           output << '}';
         } else if constexpr (std::is_same_v<Model, BarrierModel>) {
           output << "{\"barriers\":";
@@ -293,6 +407,26 @@ void payload(std::ostream& output, const SpatialPayload& value) {
                 });
           output << ",\"connectivity_revision\":"
                  << model.connectivity_revision;
+          output << ",\"region_nodes\":";
+          array(output, model.region_nodes,
+                [](std::ostream& stream, const auto& node) {
+                  stream << "{\"id\":" << node.id << ",\"region\":"
+                         << node.region << ",\"center\":";
+                  point(stream, node.center);
+                  stream << '}';
+                });
+          output << ",\"region_edges\":";
+          array(output, model.region_edges,
+                [](std::ostream& stream, const auto& edge) {
+                  stream << "{\"from\":" << edge.from << ",\"to\":"
+                         << edge.to << ",\"length_m\":" << edge.length_m
+                         << ",\"source_path\":" << edge.source_path
+                         << ",\"subtrail\":";
+                  array(stream, edge.supporting_subtrail, point);
+                  stream << '}';
+                });
+          output << ",\"sampled_path_nodes\":";
+          array(output, model.sampled_path_nodes, point);
           output << '}';
         } else if constexpr (std::is_same_v<Model, KnownGridModel>) {
           output << "{\"geometry\":";

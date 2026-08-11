@@ -6,17 +6,28 @@
 
 namespace semaforr::spatial {
 
-ConveyorLearner::ConveyorLearner(double minimum_traversal_distance_m)
+ConveyorLearner::ConveyorLearner(
+    double minimum_traversal_distance_m, SpatialLearningMode mode,
+    ConveyorLearningConfiguration compatibility)
     : SpatialLearnerBase(
-          SpatialRepresentation::Conveyors, "conveyor", UpdateMode::Incremental,
+          SpatialRepresentation::Conveyors, "conveyor",
+          mode == SpatialLearningMode::Compatibility
+              ? UpdateMode::RebuildOnDemand
+              : UpdateMode::Incremental,
           {true,
-           false,
+           mode == SpatialLearningMode::Compatibility,
            true,
            false,
-           "accumulate a traversal when the next observation completes it",
+           mode == SpatialLearningMode::Compatibility
+               ? "rasterize successful learned trails into a frequency grid"
+               : "merge completed traversal segments",
            {"ConveyLinear", "ConveyRotation", "conveyor-cost planners"},
-           UpdateSchedule::AfterSuccessfulActionCompletion}),
-      minimum_traversal_distance_m_(minimum_traversal_distance_m) {
+           mode == SpatialLearningMode::Compatibility
+               ? UpdateSchedule::EndOfTarget
+               : UpdateSchedule::AfterSuccessfulActionCompletion}),
+      minimum_traversal_distance_m_(minimum_traversal_distance_m),
+      mode_(mode),
+      compatibility_(compatibility) {
   if (!std::isfinite(minimum_traversal_distance_m_) ||
       minimum_traversal_distance_m_ <= 0.0) {
     throw std::invalid_argument(
@@ -25,6 +36,7 @@ ConveyorLearner::ConveyorLearner(double minimum_traversal_distance_m)
 }
 
 void ConveyorLearner::onObserve(const NavigationEpisode& episode) {
+  if (mode_ == SpatialLearningMode::Compatibility) return;
   if (!episode.actionSucceeded()) return;
   if (episode.execution_result && episode.selected_action &&
       episode.selected_action->type() == domain::ActionType::Forward) {
@@ -52,6 +64,22 @@ void ConveyorLearner::onObserve(const NavigationEpisode& episode) {
 }
 
 void ConveyorLearner::onRebuild() {
+  if (mode_ == SpatialLearningMode::Compatibility) {
+    std::vector<domain::LearnedTrail> successful_trails;
+    for (const auto& path : completedPathsFromEpisodes(episodes())) {
+      if (!path.target_reached) continue;
+      auto trail = learnVisibilityTrail(path, path.id);
+      if (trail.markers.size() >= 2U)
+        successful_trails.push_back(std::move(trail));
+    }
+    model_ = learnConveyorGrid(successful_trails, compatibility_);
+    publish(model_, model_.grid.cells.empty() ? ModelStatus::Incomplete
+                                              : ModelStatus::Fresh,
+            model_.grid.cells.empty()
+                ? "no successful completed trail has conveyor evidence"
+                : "conveyor frequency grid rebuilt from successful trails");
+    return;
+  }
   publish(model_,
           model_.flows.empty() ? ModelStatus::Incomplete : ModelStatus::Fresh,
           model_.flows.empty() ? "no conveyor evidence"

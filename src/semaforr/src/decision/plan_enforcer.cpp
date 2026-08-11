@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <cmath>
 #include <semaforr/decision/enforcer.hpp>
 #include <sstream>
 
@@ -11,7 +12,28 @@ bool reached(const domain::Pose2D& pose, domain::Point2D point,
 }
 bool visible(const domain::Pose2D& pose, domain::Point2D point,
              const domain::SpatialModel& spatial) {
-  if (domain::distance(pose.position, point).meters() > 5.0) return false;
+  bool learned_visibility = false;
+  for (const auto& region : spatial.regions) {
+    if (!region.boundary.contains(pose.position)) continue;
+    const double angle = std::atan2(point.y_m - region.boundary.center.y_m,
+                                    point.x_m - region.boundary.center.x_m);
+    constexpr double pi = 3.14159265358979323846;
+    double positive = std::fmod(angle, 2.0 * pi);
+    if (positive < 0.0) positive += 2.0 * pi;
+    const auto bin = static_cast<std::size_t>(
+                         std::floor(positive * 180.0 / pi)) %
+                     360U;
+    const auto& evidence = region.visibility[bin];
+    learned_visibility = evidence.known &&
+                         evidence.maximum_distance_m +
+                                 domain::geometry_tolerance_m >=
+                             domain::distance(region.boundary.center, point)
+                                 .meters();
+    if (learned_visibility) break;
+  }
+  if (!learned_visibility &&
+      domain::distance(pose.position, point).meters() > 5.0)
+    return false;
   const domain::Segment2D sight{pose.position, point};
   for (const auto& obstacle : spatial.obstacle_polygons) {
     if (obstacle.contains(point)) return false;

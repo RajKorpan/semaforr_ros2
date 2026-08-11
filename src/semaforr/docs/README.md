@@ -13,6 +13,7 @@
 - [Grid geometry and expansion](grid-geometry.md)
 - [Topic and frame contract](topics-and-frames.md)
 - [Spatial learning](spatial-learning.md)
+- [Chapter 3 spatial representation profiles](chapter3-spatial-representations.md)
 - [Action execution and learning lifecycle](action-execution-lifecycle.md)
 - [Representation revisions and dependency tracking](revision-dependencies.md)
 - [Immutable snapshots and projection performance](snapshot-sharing.md)

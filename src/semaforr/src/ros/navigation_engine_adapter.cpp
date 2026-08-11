@@ -143,6 +143,12 @@ spatial::LearnedGridConfiguration learnedGridConfiguration(
                       source.maximum_height_m,
                       source.memory_limit_cells};
   result.initialize_around_first_pose = true;
+  result.learning_mode =
+      configuration.experiment.behavior_mode == config::BehaviorMode::Compatibility ||
+              configuration.navigation.spatial_learning_profile ==
+                  config::SpatialLearningProfile::Chapter3Compatibility
+          ? spatial::SpatialLearningMode::Compatibility
+          : spatial::SpatialLearningMode::Modernized;
   return result;
 }
 

@@ -75,12 +75,14 @@ find_package(visualization_msgs REQUIRED)
 set(SEMAFORR_DOMAIN_SOURCES
   src/config/navigation_configuration.cpp
   src/domain/circumstance.cpp
+  src/domain/completed_path.cpp
   src/domain/action_execution.cpp
   src/domain/model_revision.cpp
   src/domain/crowd_model.cpp
   src/domain/grid_geometry.cpp
   src/domain/grid_layers.cpp
   src/domain/motion_model.cpp
+  src/domain/spatial_affordances.cpp
   src/decision/decision_result.cpp
   src/social/crowd_field_learner.cpp
   src/spatial/coverage.cpp
@@ -142,6 +144,7 @@ add_library(semaforr_spatial SHARED
   src/spatial/barrier_learner.cpp
   src/spatial/conveyor_learner.cpp
   src/spatial/circumstance_learner.cpp
+  src/spatial/chapter3_learning.cpp
   src/spatial/door_exit_learner.cpp
   src/spatial/hallway_learner.cpp
   src/spatial/grid_learners.cpp
@@ -503,6 +506,16 @@ if(BUILD_TESTING)
     semaforr_snapshot_projection_test
     semaforr_navigation semaforr_validation)
   semaforr_apply_project_options(semaforr_snapshot_projection_test)
+
+  ament_add_gtest(
+    semaforr_chapter3_representations_test
+    test/unit/chapter3_representations_test.cpp
+  )
+  target_link_libraries(
+    semaforr_chapter3_representations_test
+    semaforr_navigation
+  )
+  semaforr_apply_project_options(semaforr_chapter3_representations_test)
 
   ament_add_gtest(
     semaforr_tier_advisor_test

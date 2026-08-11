@@ -107,6 +107,7 @@ class NavigationEngine {
   std::vector<std::string> pending_phase_events_;
   std::uint64_t decision_sequence_{0U};
   domain::ActionId action_sequence_{0U};
+  domain::PathId path_sequence_{0U};
   std::optional<PendingExecution> pending_execution_;
   std::deque<domain::ActionId> terminal_action_ids_;
   std::vector<std::string> execution_diagnostics_;
