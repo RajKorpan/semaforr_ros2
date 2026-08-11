@@ -502,7 +502,14 @@ void payload(std::ostream& output, const SpatialPayload& value) {
           output << '}';
         } else if constexpr (std::is_same_v<Model, HighwayModel>) {
           output << "{\"schema_version\":"
-                 << model.serialized_schema_version << ",\"highways\":";
+                 << model.serialized_schema_version << ",\"geometry\":";
+          if (model.geometry.valid())
+            gridGeometry(output, model.geometry);
+          else
+            output << "null";
+          output << ",\"smoothing_policy\":\"" << model.smoothing_policy
+                 << "\",\"component_selection_policy\":\""
+                 << model.component_selection_policy << "\",\"highways\":";
           array(output, model.highways,
                 [](std::ostream& stream, const auto& highway) {
                   stream << "{\"id\":" << highway.id << ",\"axis\":\""
@@ -545,6 +552,8 @@ void payload(std::ostream& output, const SpatialPayload& value) {
                         [](std::ostream& label_stream, auto label) {
                           label_stream << label;
                         });
+                  stream << ",\"operational_subtrail\":";
+                  array(stream, edge.operational_subtrail, point);
                   stream << '}';
                 });
           output << "},\"nodes\":";

@@ -786,6 +786,12 @@ std::string configurationFingerprint(const Configuration& configuration) {
             << configuration.navigation.grids.mapless_initial_width_m << '|'
             << configuration.navigation.grids.mapless_initial_height_m << '|'
             << configuration.navigation.grids.resolution_m << '|'
+            << configuration.navigation.grids.highway_origin_x_m << '|'
+            << configuration.navigation.grids.highway_origin_y_m << '|'
+            << configuration.navigation.grids.highway_smoothing_policy << '|'
+            << configuration.navigation.grids
+                   .highway_component_selection_policy
+            << '|'
             << configuration.navigation.grids.expansion_margin_m << '|'
             << configuration.navigation.grids.expansion_increment_cells << '|'
             << configuration.navigation.grids.maximum_width_m << '|'
@@ -830,6 +836,11 @@ std::vector<std::string> componentManifest(const Configuration& configuration) {
   result.push_back(
       "spatial_learning_profile:" +
       std::string(toString(configuration.navigation.spatial_learning_profile)));
+  result.push_back("highway_smoothing_policy:" +
+                   configuration.navigation.grids.highway_smoothing_policy);
+  result.push_back(
+      "highway_component_selection_policy:" +
+      configuration.navigation.grids.highway_component_selection_policy);
   if (configuration.static_map.mode == MapOperatingMode::MapEnabled)
     result.push_back("map:requested");
   const auto& experiment = configuration.experiment;
@@ -1169,6 +1180,10 @@ void validateConfiguration(const Configuration& configuration) {
                            configuration.navigation.planners.flow;
   const std::set<std::string> unknown_policies{
       "prohibited", "high_cost", "within_sensor_range", "exploration_only"};
+  const std::set<std::string> highway_smoothing_policies{
+      "profile", "von_neumann_three_of_four", "directional_gap_fill"};
+  const std::set<std::string> highway_component_policies{
+      "profile", "most_intersections", "largest_vertex_count"};
   const auto& grids = configuration.navigation.grids;
   if ((grids.extent_policy != "fixed" && grids.extent_policy != "expand") ||
       grids.frame_id.empty() ||
@@ -1177,6 +1192,12 @@ void validateConfiguration(const Configuration& configuration) {
       !std::isfinite(grids.mapless_initial_height_m) ||
       grids.mapless_initial_height_m <= 0.0 ||
       !std::isfinite(grids.resolution_m) || grids.resolution_m <= 0.0 ||
+      !std::isfinite(grids.highway_origin_x_m) ||
+      !std::isfinite(grids.highway_origin_y_m) ||
+      !highway_smoothing_policies.contains(
+          grids.highway_smoothing_policy) ||
+      !highway_component_policies.contains(
+          grids.highway_component_selection_policy) ||
       !std::isfinite(grids.expansion_margin_m) ||
       grids.expansion_margin_m < 0.0 ||
       grids.expansion_increment_cells == 0U ||
@@ -1198,8 +1219,9 @@ void validateConfiguration(const Configuration& configuration) {
       !std::isfinite(grids.unknown_cost_multiplier) ||
       grids.unknown_cost_multiplier < 1.0)
     throw std::runtime_error(
-        "configuration: grid geometry, expansion limits, evidence thresholds, "
-        "unknown-space policies, inflation margins, or unknown cost are invalid");
+        "configuration: grid geometry, highway policies, expansion limits, "
+        "evidence thresholds, unknown-space policies, inflation margins, or "
+        "unknown cost are invalid");
   if (configuration.navigation.planners.sensor_distance &&
       !configuration.navigation.sensed_occupancy_on)
     throw std::runtime_error(

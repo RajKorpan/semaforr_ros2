@@ -102,6 +102,13 @@ mapless allocation. `grids.expansion` defines its trigger margin, aligned cell
 increment, optional maximum dimensions (zero means unbounded), and hard memory
 limit. Learned grids are centered on the first robot pose.
 
+`grids.highway.origin_x_m` and `origin_y_m` define the highway lattice origin.
+`smoothing_policy` accepts `profile`, `von_neumann_three_of_four`, or
+`directional_gap_fill`; `component_selection_policy` accepts `profile`,
+`most_intersections`, or `largest_vertex_count`. `profile` resolves through the
+selected spatial-learning profile. See [Highway and passage
+models](highway-model.md) for exact semantics.
+
 `map.bounds_policy` is `require_declared`, `infer`, or `infer_expandable`.
 Inference uses obstacle geometry and `map.inferred_bounds_padding_m`; static
 occupancy remains fixed, while `infer_expandable` permits the separate sensed

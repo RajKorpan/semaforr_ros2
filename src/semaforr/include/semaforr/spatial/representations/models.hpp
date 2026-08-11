@@ -76,7 +76,8 @@ struct HighwayGridLabel {
   std::uint32_t label = 0U;
 };
 struct HighwayModel {
-  static constexpr std::size_t schema_version = 1U;
+  static constexpr std::size_t schema_version = 2U;
+  GridGeometry geometry;
   domain::Graph<domain::Intersection, domain::HighwayEdge> graph;
   std::vector<domain::Highway> highways;
   std::size_t serialized_schema_version = schema_version;
@@ -86,6 +87,8 @@ struct HighwayModel {
   std::vector<HighwayGridLabel> grid_labels;
   std::vector<int> touched_rows;
   std::vector<int> touched_columns;
+  std::string smoothing_policy{"von_neumann_three_of_four"};
+  std::string component_selection_policy{"most_intersections"};
 };
 using CircumstanceModel = domain::CircumstanceModel;
 

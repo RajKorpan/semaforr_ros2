@@ -203,18 +203,14 @@ std::optional<domain::Point2D> Enforcer::operationalizeNext(
           return candidate.id == highway->highway_id;
         });
     if (model != spatial.highways.highways.end() &&
-        spatial.known_grid.resolution_m > 0.0) {
+        spatial.highways.geometry.valid()) {
       std::vector<planning::PlanStep> regions;
       for (std::size_t id = 0; id < spatial.learned_regions.size(); ++id) {
         const bool overlaps = std::any_of(
             model->cells.begin(), model->cells.end(), [&](const auto& cell) {
-              const domain::Point2D center{
-                  spatial.known_grid.origin.x_m +
-                      (static_cast<double>(cell.column) + .5) *
-                          spatial.known_grid.resolution_m,
-                  spatial.known_grid.origin.y_m +
-                      (static_cast<double>(cell.row) + .5) *
-                          spatial.known_grid.resolution_m};
+              const domain::Point2D center = spatial.highways.geometry.center(
+                  static_cast<std::size_t>(cell.column),
+                  static_cast<std::size_t>(cell.row));
               return spatial.learned_regions[id].contains(center);
             });
         if (overlaps)

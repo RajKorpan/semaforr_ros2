@@ -4,6 +4,7 @@
 #include <chrono>
 #include <cstddef>
 #include <semaforr/domain/action.hpp>
+#include <semaforr/domain/grid_geometry.hpp>
 #include <semaforr/domain/motion_model.hpp>
 #include <semaforr/domain/observation.hpp>
 #include <semaforr/exploration/exploration_result.hpp>
@@ -20,6 +21,9 @@ struct HighLevelExplorationConfiguration {
   std::size_t minimum_bundle_beams = 1U;
   std::chrono::duration<double> time_budget{1200.0};
   std::size_t decision_budget = 10000U;
+  // When invalid, HLE creates an expandable representation-local geometry
+  // around the first observation. A valid value supplies fixed/shared geometry.
+  domain::GridGeometry passage_grid_geometry;
 
   void validate() const;
 };

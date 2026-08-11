@@ -109,12 +109,15 @@ PlanResult buildNetworkPlan(
                                      candidate.from == to->intersection_id);
                            });
           if (edge != request.spatial_model->highways.graph.edges.end()) {
-            std::vector<domain::Point2D> fallback;
-            for (const auto trail_id : edge->trail_labels)
-              if (trail_id < request.spatial_model->trails.size())
-                fallback.insert(fallback.end(),
-                                request.spatial_model->trails[trail_id].begin(),
-                                request.spatial_model->trails[trail_id].end());
+            auto fallback = edge->operational_subtrail;
+            if (edge->to == from->intersection_id)
+              std::reverse(fallback.begin(), fallback.end());
+            if (fallback.empty())
+              for (const auto trail_id : edge->trail_labels)
+                if (trail_id < request.spatial_model->trails.size())
+                  fallback.insert(fallback.end(),
+                                  request.spatial_model->trails[trail_id].begin(),
+                                  request.spatial_model->trails[trail_id].end());
             typed.emplace_back(HighwayStep{edge->highway, from->intersection_id,
                                            to->intersection_id,
                                            std::move(fallback)});

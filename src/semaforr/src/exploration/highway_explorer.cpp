@@ -3,11 +3,22 @@
 #include <cmath>
 
 namespace semaforr::exploration {
+namespace {
+
+HighLevelExplorationConfiguration explorationConfiguration(
+    double minimum_clearance_m, double heading_tolerance_rad) {
+  HighLevelExplorationConfiguration result;
+  result.minimum_clearance = domain::Distance(minimum_clearance_m);
+  result.heading_tolerance = domain::Angle(heading_tolerance_rad);
+  return result;
+}
+
+}  // namespace
 
 HighwayExplorer::HighwayExplorer(double minimum_clearance_m,
                                  double heading_tolerance_rad)
-    : configuration_{domain::Distance(minimum_clearance_m),
-                     domain::Angle(heading_tolerance_rad)},
+    : configuration_(explorationConfiguration(minimum_clearance_m,
+                                              heading_tolerance_rad)),
       explorer_(configuration_) {}
 
 std::vector<PassageCandidate> HighwayExplorer::detectPassages(

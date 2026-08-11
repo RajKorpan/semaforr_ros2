@@ -272,7 +272,48 @@ SpatialLearningCoordinator SpatialLearningCoordinator::defaults(
       grid_configuration.extent_policy, grid_configuration.expansion,
       grid_configuration.initialize_around_first_pose,
       grid_configuration.frame_id));
-  coordinator.addLearner(std::make_unique<HighwayLearner>());
+  HighwayLearningConfiguration highway_configuration;
+  highway_configuration.grid_resolution_m = grid_configuration.resolution_m;
+  highway_configuration.grid_origin = grid_configuration.highway_origin;
+  highway_configuration.frame_id = grid_configuration.frame_id;
+  const bool modernized =
+      grid_configuration.learning_mode == SpatialLearningMode::Modernized;
+  if (grid_configuration.highway_smoothing_policy == "profile") {
+    highway_configuration.smoothing_policy =
+        modernized ? HighwaySmoothingPolicy::DirectionalGapFill
+                   : HighwaySmoothingPolicy::VonNeumannThreeOfFour;
+  } else if (grid_configuration.highway_smoothing_policy ==
+             "von_neumann_three_of_four") {
+    highway_configuration.smoothing_policy =
+        HighwaySmoothingPolicy::VonNeumannThreeOfFour;
+  } else if (grid_configuration.highway_smoothing_policy ==
+             "directional_gap_fill") {
+    highway_configuration.smoothing_policy =
+        HighwaySmoothingPolicy::DirectionalGapFill;
+  } else {
+    throw std::invalid_argument("unknown highway smoothing policy '" +
+                                grid_configuration.highway_smoothing_policy +
+                                "'");
+  }
+  if (grid_configuration.highway_component_selection_policy == "profile") {
+    highway_configuration.component_selection_policy =
+        modernized ? HighwayComponentSelectionPolicy::LargestVertexCount
+                   : HighwayComponentSelectionPolicy::MostIntersections;
+  } else if (grid_configuration.highway_component_selection_policy ==
+             "most_intersections") {
+    highway_configuration.component_selection_policy =
+        HighwayComponentSelectionPolicy::MostIntersections;
+  } else if (grid_configuration.highway_component_selection_policy ==
+             "largest_vertex_count") {
+    highway_configuration.component_selection_policy =
+        HighwayComponentSelectionPolicy::LargestVertexCount;
+  } else {
+    throw std::invalid_argument(
+        "unknown highway component selection policy '" +
+        grid_configuration.highway_component_selection_policy + "'");
+  }
+  coordinator.addLearner(
+      std::make_unique<HighwayLearner>(highway_configuration));
   coordinator.addLearner(std::make_unique<CircumstanceLearner>(
       std::move(circumstance_configuration)));
   return coordinator;
@@ -666,6 +707,10 @@ void SpatialLearningCoordinator::applyTo(domain::SpatialModel& model) const {
                  payload.intersections)
               model.highways.intersections.push_back(
                   {intersection.node, intersection.degree});
+            model.highways.geometry = payload.geometry;
+            model.highways.smoothing_policy = payload.smoothing_policy;
+            model.highways.component_selection_policy =
+                payload.component_selection_policy;
             model.highways.revision = update.revision;
           } else if constexpr (std::is_same_v<Payload, CircumstanceModel>) {
             model.circumstances = payload;

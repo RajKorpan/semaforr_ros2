@@ -175,6 +175,13 @@ semaforr:
       extent_policy: expand
       frame_id: map
       resolution_m: 0.5
+      highway:
+        origin_x_m: 0.0
+        origin_y_m: 0.0
+        # "profile" selects the compatibility or modernized policy named by
+        # features.spatial_learning_profile.
+        smoothing_policy: profile
+        component_selection_policy: profile
       mapless:
         initial_width_m: 20.0
         initial_height_m: 20.0

@@ -143,6 +143,12 @@ void declareConfigurationParameters(rclcpp::Node& node) {
   node.declare_parameter("grids.mapless.initial_width_m", 20.0);
   node.declare_parameter("grids.mapless.initial_height_m", 20.0);
   node.declare_parameter("grids.resolution_m", 0.5);
+  node.declare_parameter("grids.highway.origin_x_m", 0.0);
+  node.declare_parameter("grids.highway.origin_y_m", 0.0);
+  node.declare_parameter("grids.highway.smoothing_policy",
+                         std::string{"profile"});
+  node.declare_parameter("grids.highway.component_selection_policy",
+                         std::string{"profile"});
   node.declare_parameter("grids.expansion.margin_m", 2.0);
   node.declare_parameter("grids.expansion.increment_cells", 32);
   node.declare_parameter("grids.expansion.maximum_width_m", 0.0);
@@ -276,6 +282,14 @@ config::Configuration configurationFromParameters(rclcpp::Node& node) {
       node.get_parameter("grids.mapless.initial_height_m").as_double();
   navigation.grids.resolution_m =
       node.get_parameter("grids.resolution_m").as_double();
+  navigation.grids.highway_origin_x_m =
+      node.get_parameter("grids.highway.origin_x_m").as_double();
+  navigation.grids.highway_origin_y_m =
+      node.get_parameter("grids.highway.origin_y_m").as_double();
+  navigation.grids.highway_smoothing_policy =
+      node.get_parameter("grids.highway.smoothing_policy").as_string();
+  navigation.grids.highway_component_selection_policy = node.get_parameter(
+      "grids.highway.component_selection_policy").as_string();
   navigation.grids.expansion_margin_m =
       node.get_parameter("grids.expansion.margin_m").as_double();
   navigation.grids.expansion_increment_cells = static_cast<std::size_t>(

@@ -26,6 +26,9 @@ struct LearnedGridConfiguration {
   double initial_width_m{20.0};
   double initial_height_m{20.0};
   double resolution_m{0.5};
+  domain::Point2D highway_origin;
+  std::string highway_smoothing_policy{"profile"};
+  std::string highway_component_selection_policy{"profile"};
   GridExtentPolicy extent_policy = GridExtentPolicy::Expand;
   domain::GridExpansionPolicy expansion;
   bool initialize_around_first_pose{true};

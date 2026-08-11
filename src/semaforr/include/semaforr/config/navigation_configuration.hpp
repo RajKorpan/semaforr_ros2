@@ -147,6 +147,10 @@ struct GridLayerConfiguration {
   double mapless_initial_width_m = 20.0;
   double mapless_initial_height_m = 20.0;
   double resolution_m = 0.5;
+  double highway_origin_x_m = 0.0;
+  double highway_origin_y_m = 0.0;
+  std::string highway_smoothing_policy = "profile";
+  std::string highway_component_selection_policy = "profile";
   double expansion_margin_m = 2.0;
   std::size_t expansion_increment_cells = 32U;
   double maximum_width_m = 0.0;

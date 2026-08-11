@@ -35,6 +35,15 @@ domain::Action turnToward(double heading,
 
 }  // namespace
 
+const char* toString(PassageCellState state) noexcept {
+  switch (state) {
+    case PassageCellState::Free: return "free";
+    case PassageCellState::Obstructed: return "obstructed";
+    case PassageCellState::Passage: return "passage";
+  }
+  return "free";
+}
+
 void HighLevelExplorationConfiguration::validate() const {
   if (!(minimum_clearance.meters() > 0.0) ||
       !(heading_tolerance.radians() > 0.0) ||
@@ -45,6 +54,12 @@ void HighLevelExplorationConfiguration::validate() const {
       decision_budget == 0U)
     throw std::invalid_argument(
         "HLE distances, angles, budgets, and bundle size must be positive");
+  if (passage_grid_geometry.valid() &&
+      std::abs(passage_grid_geometry.resolution_m -
+               passage_grid_resolution.meters()) >
+          domain::geometry_tolerance_m)
+    throw std::invalid_argument(
+        "HLE passage grid geometry and configured resolution disagree");
 }
 
 std::string_view toString(HleState state) noexcept {
@@ -166,27 +181,89 @@ std::vector<ExplorationCandidate> HighLevelExplorer::discover(
 }
 
 void HighLevelExplorer::updatePassageGrid(
-    const domain::RobotObservation& observation) {
+    const domain::RobotObservation& observation,
+    ExplorationCandidateId passage_id, domain::Point2D passage_start) {
   bool changed = false;
   const double resolution = configuration_.passage_grid_resolution.meters();
+  if (!passage_grid_reference_)
+    passage_grid_reference_ = configuration_.passage_grid_geometry.valid()
+                                  ? configuration_.passage_grid_geometry.origin
+                                  : observation.pose.position;
+  const auto coordinates = [&](domain::Point2D point)
+      -> std::optional<std::pair<int, int>> {
+    if (configuration_.passage_grid_geometry.valid()) {
+      const auto cell = configuration_.passage_grid_geometry.cell(point);
+      if (!cell) return std::nullopt;
+      return std::pair{static_cast<int>(cell->second),
+                       static_cast<int>(cell->first)};
+    }
+    return std::pair{
+        static_cast<int>(std::floor(
+            (point.y_m - passage_grid_reference_->y_m) / resolution)),
+        static_cast<int>(std::floor(
+            (point.x_m - passage_grid_reference_->x_m) / resolution))};
+  };
+  const auto apply = [&](domain::Point2D point, PassageCellState state,
+                         std::optional<std::uint64_t> numbered_passage) {
+    const auto coordinate = coordinates(point);
+    if (!coordinate) return;
+    auto& cell = passage_cells_[cellKey(coordinate->first, coordinate->second)];
+    cell.row = coordinate->first;
+    cell.column = coordinate->second;
+    const auto previous_state = cell.state;
+    const auto previous_passage = cell.passage_id;
+    if (state == PassageCellState::Obstructed) {
+      cell.state = state;
+      cell.passage_id.reset();
+    } else if (state == PassageCellState::Passage &&
+               cell.state != PassageCellState::Obstructed) {
+      cell.state = state;
+      cell.passage_id = numbered_passage;
+    } else if (state == PassageCellState::Free &&
+               cell.state != PassageCellState::Obstructed &&
+               cell.state != PassageCellState::Passage) {
+      cell.state = state;
+    }
+    ++cell.evidence_count;
+    changed = changed || previous_state != cell.state ||
+              previous_passage != cell.passage_id ||
+              cell.evidence_count == 1U;
+  };
   for (std::size_t beam = 0U; beam < observation.laser.ranges_m.size(); ++beam) {
     const double range = observation.laser.ranges_m[beam];
-    if (!std::isfinite(range) || range <= 0.0) continue;
+    if (!std::isfinite(range) ||
+        range < observation.laser.minimum_range.meters())
+      continue;
+    const double extent =
+        std::min(range, observation.laser.maximum_range.meters());
+    const bool obstacle_hit =
+        range + domain::geometry_tolerance_m <
+        observation.laser.maximum_range.meters();
     const std::size_t samples = std::max<std::size_t>(
-        1U, static_cast<std::size_t>(std::ceil(range / resolution)));
+        1U, static_cast<std::size_t>(std::ceil(extent / resolution)));
     for (std::size_t sample = 0U; sample <= samples; ++sample) {
       const auto point =
           endpoint(observation, beam,
-                   range * static_cast<double>(sample) /
+                   extent * static_cast<double>(sample) /
                        static_cast<double>(samples));
-      const int row = static_cast<int>(std::floor(point.y_m / resolution));
-      const int column = static_cast<int>(std::floor(point.x_m / resolution));
-      auto& cell = passage_cells_[cellKey(row, column)];
-      cell.row = row;
-      cell.column = column;
-      ++cell.observations;
-      changed = true;
+      apply(point, obstacle_hit && sample == samples
+                       ? PassageCellState::Obstructed
+                       : PassageCellState::Free,
+            std::nullopt);
     }
+  }
+  const double path_length =
+      domain::distance(passage_start, observation.pose.position).meters();
+  const auto path_samples = std::max<std::size_t>(
+      1U, static_cast<std::size_t>(std::ceil(path_length / resolution)));
+  for (std::size_t sample = 0U; sample <= path_samples; ++sample) {
+    const double fraction =
+        static_cast<double>(sample) / static_cast<double>(path_samples);
+    apply({passage_start.x_m +
+               fraction * (observation.pose.position.x_m - passage_start.x_m),
+           passage_start.y_m +
+               fraction * (observation.pose.position.y_m - passage_start.y_m)},
+          PassageCellState::Passage, passage_id);
   }
   if (changed) ++passage_revision_;
 }
@@ -282,7 +359,7 @@ ExplorationResult HighLevelExplorer::update(const ExplorationInput& input) {
     }
   }
   if (state_ == HleState::RecordPassage) {
-    updatePassageGrid(input.observation);
+    updatePassageGrid(input.observation, active_->id, active_->start);
     result.event = CandidateLifecycleEvent::Completed;
     result.candidate_id = active_ ? std::optional(active_->id) : std::nullopt;
     result.passage_grid_revision = passage_revision_;
@@ -313,12 +390,48 @@ void HighLevelExplorer::finish() noexcept {
 
 PassageGridSnapshot HighLevelExplorer::passageGrid() const {
   PassageGridSnapshot result;
-  result.resolution_m = configuration_.passage_grid_resolution.meters();
   result.revision = passage_revision_;
+  if (passage_cells_.empty() || !passage_grid_reference_) return result;
+  int minimum_row = std::numeric_limits<int>::max();
+  int maximum_row = std::numeric_limits<int>::min();
+  int minimum_column = std::numeric_limits<int>::max();
+  int maximum_column = std::numeric_limits<int>::min();
+  for (const auto& [key, cell] : passage_cells_) {
+    (void)key;
+    minimum_row = std::min(minimum_row, cell.row);
+    maximum_row = std::max(maximum_row, cell.row);
+    minimum_column = std::min(minimum_column, cell.column);
+    maximum_column = std::max(maximum_column, cell.column);
+  }
+  if (configuration_.passage_grid_geometry.valid()) {
+    result.geometry = configuration_.passage_grid_geometry;
+    minimum_row = 0;
+    minimum_column = 0;
+  } else {
+    const double resolution = configuration_.passage_grid_resolution.meters();
+    const domain::Point2D minimum{
+        passage_grid_reference_->x_m +
+            static_cast<double>(minimum_column) * resolution,
+        passage_grid_reference_->y_m +
+            static_cast<double>(minimum_row) * resolution};
+    result.geometry = domain::GridGeometry::fromBounds(
+        "map", minimum,
+        {passage_grid_reference_->x_m +
+             static_cast<double>(maximum_column + 1) * resolution,
+         passage_grid_reference_->y_m +
+             static_cast<double>(maximum_row + 1) * resolution},
+        resolution, domain::GridExtentMode::Expandable,
+        domain::GridExtentSource::SensorDerivedExpansion,
+        domain::GridOutOfBoundsBehavior::ExpandBeforeInsert,
+        static_cast<std::size_t>(passage_revision_));
+  }
   result.cells.reserve(passage_cells_.size());
   for (const auto& [key, cell] : passage_cells_) {
     (void)key;
-    result.cells.push_back(cell);
+    auto projected = cell;
+    projected.row -= minimum_row;
+    projected.column -= minimum_column;
+    result.cells.push_back(std::move(projected));
   }
   std::sort(result.cells.begin(), result.cells.end(),
             [](const PassageCell& left, const PassageCell& right) {

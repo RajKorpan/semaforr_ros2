@@ -205,6 +205,30 @@ int main() {
            changed_manifest.end());
   }
   {
+    auto changed = valid;
+    changed.navigation.grids.highway_smoothing_policy =
+        "von_neumann_three_of_four";
+    changed.navigation.grids.highway_component_selection_policy =
+        "most_intersections";
+    changed.navigation.grids.highway_origin_x_m = -12.5;
+    assert(semaforr::config::configurationFingerprint(changed) !=
+           semaforr::config::configurationFingerprint(valid));
+    const auto manifest = semaforr::config::componentManifest(changed);
+    assert(std::find(manifest.begin(), manifest.end(),
+                     "highway_smoothing_policy:von_neumann_three_of_four") !=
+           manifest.end());
+    assert(std::find(manifest.begin(), manifest.end(),
+                     "highway_component_selection_policy:most_intersections") !=
+           manifest.end());
+  }
+  {
+    auto invalid = valid;
+    invalid.navigation.grids.highway_smoothing_policy = "unnamed_magic";
+    assertThrowsContaining(
+        [&invalid]() { semaforr::config::validateConfiguration(invalid); },
+        "highway policies");
+  }
+  {
     auto invalid = valid;
     invalid.experiment.initial_exploration.enabled = true;
     invalid.experiment.initial_exploration.observation_budget = 0U;

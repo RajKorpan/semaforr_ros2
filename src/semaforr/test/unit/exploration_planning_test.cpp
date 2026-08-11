@@ -80,7 +80,26 @@ TEST(HighLevelExplore,
   EXPECT_EQ(completed.event,
             semaforr::exploration::CandidateLifecycleEvent::Completed);
   EXPECT_GT(completed.passage_grid_revision, 0U);
-  EXPECT_FALSE(explorer.passageGrid().cells.empty());
+  const auto passage_grid = explorer.passageGrid();
+  EXPECT_TRUE(passage_grid.geometry.valid());
+  EXPECT_FALSE(passage_grid.cells.empty());
+  EXPECT_TRUE(std::any_of(
+      passage_grid.cells.begin(), passage_grid.cells.end(),
+      [](const auto& cell) {
+        return cell.state == semaforr::exploration::PassageCellState::Free;
+      }));
+  EXPECT_TRUE(std::any_of(
+      passage_grid.cells.begin(), passage_grid.cells.end(),
+      [](const auto& cell) {
+        return cell.state ==
+               semaforr::exploration::PassageCellState::Obstructed;
+      }));
+  EXPECT_TRUE(std::any_of(
+      passage_grid.cells.begin(), passage_grid.cells.end(),
+      [&](const auto& cell) {
+        return cell.state == semaforr::exploration::PassageCellState::Passage &&
+               cell.passage_id == selected.candidate_id;
+      }));
 }
 
 TEST(HighLevelExplore, ReportsBudgetCompletionAndFinalizesExactlyOnce) {
@@ -127,11 +146,17 @@ TEST(HighwayLearning, BuildsVersionedGraphIncrementally) {
   EXPECT_EQ(model.highways.front().endpoints.size(), 2U);
   ASSERT_EQ(model.graph.edges.size(), 1U);
   EXPECT_FALSE(model.graph.edges.front().trail_labels.empty());
+  EXPECT_FALSE(model.graph.edges.front().operational_subtrail.empty());
+  EXPECT_TRUE(model.geometry.valid());
+  EXPECT_DOUBLE_EQ(model.geometry.resolution_m, 0.5);
+  EXPECT_EQ(model.smoothing_policy, "von_neumann_three_of_four");
+  EXPECT_EQ(model.component_selection_policy, "most_intersections");
   EXPECT_EQ(model.serialized_schema_version,
             semaforr::spatial::HighwayModel::schema_version);
   const auto encoded = semaforr::spatial::serialize(update);
-  EXPECT_NE(encoded.find("\"schema_version\":1"), std::string::npos);
+  EXPECT_NE(encoded.find("\"schema_version\":2"), std::string::npos);
   EXPECT_NE(encoded.find("\"trail_labels\""), std::string::npos);
+  EXPECT_NE(encoded.find("\"operational_subtrail\""), std::string::npos);
   EXPECT_FALSE(model.grid_labels.empty());
   EXPECT_FALSE(model.touched_rows.empty());
   EXPECT_FALSE(model.touched_columns.empty());
@@ -150,8 +175,57 @@ TEST(HighwayLearning, LabelsNegativeWorldCoordinatesWithoutDiscardingThem) {
   const auto& model = std::get<semaforr::spatial::HighwayModel>(
       update.payload);
   ASSERT_FALSE(model.grid_labels.empty());
-  EXPECT_LT(model.grid_labels.front().row, 0);
-  EXPECT_LT(model.grid_labels.front().column, 0);
+  EXPECT_GE(model.grid_labels.front().row, 0);
+  EXPECT_GE(model.grid_labels.front().column, 0);
+  ASSERT_TRUE(model.geometry.valid());
+  EXPECT_LT(model.geometry.minimum.x_m, 0.0);
+  EXPECT_LT(model.geometry.minimum.y_m, 0.0);
+  EXPECT_LT(model.geometry.center(
+                static_cast<std::size_t>(model.grid_labels.front().column),
+                static_cast<std::size_t>(model.grid_labels.front().row))
+                .x_m,
+            0.0);
+}
+
+TEST(HighwayLearning, CompatibilitySmoothingUsesThreeVonNeumannNeighbors) {
+  using CellSet = semaforr::spatial::HighwayCellSet;
+  const CellSet free{{0, 0}, {-1, 0}, {1, 0}, {0, -1}};
+  const CellSet labeled{{-1, 0}, {1, 0}};
+  const auto compatible = semaforr::spatial::smoothHighwayCells(
+      free, {}, labeled,
+      semaforr::spatial::HighwaySmoothingPolicy::VonNeumannThreeOfFour);
+  const auto adapted = semaforr::spatial::smoothHighwayCells(
+      free, {}, labeled,
+      semaforr::spatial::HighwaySmoothingPolicy::DirectionalGapFill);
+  EXPECT_TRUE(compatible.contains({0, 0}));
+  EXPECT_TRUE(adapted.contains({0, 0}));
+  const CellSet non_gap_labels{{-1, 0}};
+  const auto non_gap = semaforr::spatial::smoothHighwayCells(
+      free, {}, non_gap_labels,
+      semaforr::spatial::HighwaySmoothingPolicy::DirectionalGapFill);
+  EXPECT_FALSE(non_gap.contains({0, 0}));
+}
+
+TEST(HighwayLearning, ComponentPolicyCanPreferIntersectionCountOrSize) {
+  semaforr::domain::Graph<semaforr::domain::Intersection,
+                          semaforr::domain::HighwayEdge> graph;
+  for (std::size_t id = 0U; id < 7U; ++id)
+    graph.vertices.push_back(
+        {id, {}, {static_cast<double>(id), 0.0}, id != 4U});
+  graph.edges = {{0U, 1U, 0U, 1.0, {}, {}},
+                 {1U, 2U, 1U, 1.0, {}, {}},
+                 {2U, 3U, 2U, 1.0, {}, {}},
+                 {4U, 5U, 3U, 1.0, {}, {}},
+                 {4U, 6U, 4U, 1.0, {}, {}}};
+  const auto compatible = semaforr::spatial::selectHighwayComponent(
+      graph,
+      semaforr::spatial::HighwayComponentSelectionPolicy::MostIntersections);
+  const auto adapted = semaforr::spatial::selectHighwayComponent(
+      graph,
+      semaforr::spatial::HighwayComponentSelectionPolicy::LargestVertexCount);
+  EXPECT_EQ(compatible.component_by_vertex[4], compatible.selected_component);
+  EXPECT_EQ(adapted.component_by_vertex[0], adapted.selected_component);
+  EXPECT_NE(compatible.selected_component, adapted.selected_component);
 }
 
 TEST(HierarchicalPlans, HighwayPlanProducesTypedOperationalSteps) {
@@ -195,7 +269,8 @@ TEST(HierarchicalPlans, HighwayPlanChoosesBestValidNetworkAlternative) {
   spatial.skeleton_edges = {{0U, 1U}, {1U, 2U}, {2U, 3U}};
   spatial.highways.graph.vertices = {{0U, {0, 0}, {0.0, 0.0}, true},
                                      {1U, {0, 10}, {10.0, 0.0}, true}};
-  spatial.highways.graph.edges = {{0U, 1U, 0U, 10.0, {7U}}};
+  spatial.highways.graph.edges = {
+      {0U, 1U, 0U, 10.0, {7U}, {{0.0, 0.0}, {5.0, 0.0}, {10.0, 0.0}}}};
   semaforr::planning::HighwayPlan planner;
   const auto assisted =
       planner.plan({{{-1.0, 0.0}, semaforr::domain::Angle::zero()},
@@ -205,6 +280,12 @@ TEST(HierarchicalPlans, HighwayPlanChoosesBestValidNetworkAlternative) {
   ASSERT_TRUE(assisted.succeeded());
   ASSERT_TRUE(assisted.hierarchical);
   EXPECT_EQ(assisted.hierarchical->planner, "highway_assisted");
+  EXPECT_TRUE(std::any_of(
+      assisted.hierarchical->steps.begin(), assisted.hierarchical->steps.end(),
+      [](const auto& step) {
+        const auto* highway = std::get_if<semaforr::planning::HighwayStep>(&step);
+        return highway != nullptr && !highway->fallback_subtrail.empty();
+      }));
 
   spatial.highways.graph.vertices = {{0U, {20, 20}, {20.0, 20.0}, true},
                                      {1U, {20, 30}, {30.0, 20.0}, true}};

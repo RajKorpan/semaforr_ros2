@@ -3,6 +3,8 @@
 
 #include <cstddef>
 #include <semaforr/domain/geometry.hpp>
+#include <semaforr/domain/grid_geometry.hpp>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -34,6 +36,8 @@ struct HighwayEdge {
   HighwayId highway = 0U;
   double length_m = 0.0;
   std::vector<TrailId> trail_labels;
+  // Execution-confirmed exploration poses from `from` to `to`.
+  std::vector<Point2D> operational_subtrail;
 };
 
 template <typename Vertex, typename Edge>
@@ -55,7 +59,7 @@ struct HighwayIntersection {
 };
 
 struct HighwayGraph {
-  static constexpr std::size_t schema_version = 1U;
+  static constexpr std::size_t schema_version = 2U;
   Graph<Intersection, HighwayEdge> graph;
   std::vector<Highway> highways;
   ModelRevision revision = 0U;
@@ -63,6 +67,9 @@ struct HighwayGraph {
   std::vector<Point2D> nodes;
   std::vector<std::pair<std::size_t, std::size_t>> edges;
   std::vector<HighwayIntersection> intersections;
+  GridGeometry geometry;
+  std::string smoothing_policy{"von_neumann_three_of_four"};
+  std::string component_selection_policy{"most_intersections"};
 };
 
 }  // namespace semaforr::domain

@@ -33,7 +33,9 @@ class HighLevelExplorer final : public ExplorationStrategy {
   std::int64_t cueKey(const domain::Point2D&) const noexcept;
   std::vector<ExplorationCandidate> discover(
       const domain::RobotObservation&);
-  void updatePassageGrid(const domain::RobotObservation&);
+  void updatePassageGrid(const domain::RobotObservation&,
+                         ExplorationCandidateId passage_id,
+                         domain::Point2D passage_start);
   domain::Action pursue(const ExplorationInput&) const;
 
   HighLevelExplorationConfiguration configuration_;
@@ -43,6 +45,7 @@ class HighLevelExplorer final : public ExplorationStrategy {
   CandidateQueue candidates_;
   std::unordered_set<std::int64_t> cue_cells_;
   std::unordered_map<std::int64_t, PassageCell> passage_cells_;
+  std::optional<domain::Point2D> passage_grid_reference_;
   std::vector<domain::Point2D> exploration_path_;
   std::optional<ExplorationCandidate> active_;
   ExplorationCandidateId next_candidate_id_ = 1U;

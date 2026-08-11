@@ -136,6 +136,11 @@ spatial::LearnedGridConfiguration learnedGridConfiguration(
   result.initial_width_m = source.mapless_initial_width_m;
   result.initial_height_m = source.mapless_initial_height_m;
   result.resolution_m = source.resolution_m;
+  result.highway_origin =
+      {source.highway_origin_x_m, source.highway_origin_y_m};
+  result.highway_smoothing_policy = source.highway_smoothing_policy;
+  result.highway_component_selection_policy =
+      source.highway_component_selection_policy;
   result.extent_policy = gridExtentPolicy(source.extent_policy);
   result.expansion = {source.expansion_margin_m,
                       source.expansion_increment_cells,
@@ -261,7 +266,8 @@ class NavigationEngineAdapter::Impl {
             configuration_.experiment.initial_exploration.minimum_bundle_beams,
             std::chrono::duration<double>(
                 configuration_.experiment.initial_exploration.time_limit_s),
-            configuration_.experiment.initial_exploration.decision_budget},
+            configuration_.experiment.initial_exploration.decision_budget,
+            {}},
         std::move(lle_component), std::move(enforcer_component),
         planning::TraversabilityConfiguration{
             unknownPolicy(configuration_.navigation.grids.map_unknown_policy),
