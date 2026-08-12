@@ -32,10 +32,19 @@ class NavigationAdvisor final : public Advisor {
   AdvisorEvaluation evaluate(
       const DecisionContext& context,
       std::span<const domain::Action> candidates) const override;
+  AdvisorMetadata metadata() const override {
+    return {{},
+            {domain::ActionType::Pause, domain::ActionType::Forward,
+             domain::ActionType::TurnLeft, domain::ActionType::TurnRight},
+            configuration_.objective !=
+                NavigationAdvisorObjective::GoalProgress,
+            ScoreNormalization::SignedUnit,
+            "local navigation objective"};
+  }
 
  private:
   bool accepts(const domain::Action& action) const noexcept;
-  double score(const domain::WorldModel& world,
+  double score(const DecisionContext& context,
                const domain::Action& action) const;
 
   NavigationAdvisorConfiguration configuration_;

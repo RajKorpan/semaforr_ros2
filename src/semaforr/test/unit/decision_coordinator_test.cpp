@@ -26,10 +26,16 @@ using semaforr::domain::ActionType;
 class FixedAdvisor final : public Advisor {
  public:
   FixedAdvisor(std::string name, std::vector<ActionScore> scores,
-               double weight = 1.0)
-      : name_(std::move(name)), scores_(std::move(scores)), weight_(weight) {}
+               double weight = 1.0,
+               semaforr::decision::ScoreNormalization normalization =
+                   semaforr::decision::ScoreNormalization::None)
+      : name_(std::move(name)), scores_(std::move(scores)), weight_(weight),
+        normalization_(normalization) {}
 
   std::string_view name() const noexcept override { return name_; }
+  semaforr::decision::AdvisorMetadata metadata() const override {
+    return {{}, {}, false, normalization_, "fixed test scores"};
+  }
 
   AdvisorEvaluation evaluate(const DecisionContext&,
                              std::span<const Action>) const override {
@@ -40,6 +46,7 @@ class FixedAdvisor final : public Advisor {
   std::string name_;
   std::vector<ActionScore> scores_;
   double weight_;
+  semaforr::decision::ScoreNormalization normalization_;
 };
 
 class FixedVeto final : public VetoRule {
@@ -137,6 +144,87 @@ TEST(DecisionCoordinator, SameSeedProducesSameTieChoiceAndDiagnostics) {
   const auto second_result = second.decide(DecisionContext{model}, candidates);
   EXPECT_EQ(first_result.action, second_result.action);
   EXPECT_EQ(first_result.contributions, second_result.contributions);
+  auto ordered_candidates = candidates;
+  std::sort(ordered_candidates.begin(), ordered_candidates.end());
+  EXPECT_EQ(first_result.tier_three_tie_candidates, ordered_candidates);
+  EXPECT_TRUE(first_result.tier_three_random_selection_used);
+  EXPECT_EQ(first_result.tier_three_random_selection_index,
+            second_result.tier_three_random_selection_index);
+}
+
+TEST(DecisionCoordinator, CompatibilityCommentsAreZeroToTenAndUnweighted) {
+  auto model = world();
+  const Action forward(ActionType::Forward, 1U);
+  const Action left(ActionType::TurnLeft, 1U);
+  semaforr::decision::ArbitrationConfiguration configuration;
+  configuration.scoring_policy =
+      semaforr::decision::TierThreeScoringPolicy::CompatibilityComments;
+  configuration.tie_policy = semaforr::decision::TierThreeTiePolicy::Exact;
+  DecisionCoordinator coordinator(configuration);
+  coordinator.addAdvisor(std::make_unique<FixedAdvisor>(
+      "compatibility", std::vector<ActionScore>{{forward, -7.0}, {left, 3.0}},
+      100.0));
+  const std::vector<Action> candidates{forward, left};
+  const auto result = coordinator.decideTierThree({model}, candidates);
+  ASSERT_EQ(result.contributions.size(), 2U);
+  EXPECT_EQ(result.tier_three_scoring_policy,
+            "compatibility_comments_0_10_unweighted");
+  for (const auto& contribution : result.contributions) {
+    EXPECT_GE(contribution.normalized_score, 0.0);
+    EXPECT_LE(contribution.normalized_score, 10.0);
+    EXPECT_DOUBLE_EQ(contribution.weighted_score,
+                     contribution.normalized_score);
+    EXPECT_DOUBLE_EQ(contribution.weight, 100.0);
+  }
+  EXPECT_EQ(result.action, left);
+}
+
+TEST(DecisionCoordinator, AdaptedPolicyPreservesRawNormalizedAndWeightedScores) {
+  auto model = world();
+  const Action forward(ActionType::Forward, 1U);
+  const Action left(ActionType::TurnLeft, 1U);
+  semaforr::decision::ArbitrationConfiguration configuration;
+  DecisionCoordinator coordinator(configuration);
+  coordinator.addAdvisor(std::make_unique<FixedAdvisor>(
+      "adapted", std::vector<ActionScore>{{forward, 2.0}, {left, 6.0}}, 2.5,
+      semaforr::decision::ScoreNormalization::SignedUnit));
+  const std::vector<Action> candidates{forward, left};
+  const auto result = coordinator.decideTierThree({model}, candidates);
+  ASSERT_EQ(result.contributions.size(), 2U);
+  const auto selected = std::find_if(
+      result.contributions.begin(), result.contributions.end(),
+      [&](const auto& contribution) { return contribution.action == left; });
+  ASSERT_NE(selected, result.contributions.end());
+  EXPECT_DOUBLE_EQ(selected->raw_score, 6.0);
+  EXPECT_DOUBLE_EQ(selected->normalized_score, 1.0);
+  EXPECT_DOUBLE_EQ(selected->weighted_score, 2.5);
+  EXPECT_DOUBLE_EQ(selected->final_total, 2.5);
+  EXPECT_TRUE(selected->viable);
+}
+
+TEST(DecisionCoordinator, ExactAndToleranceTiePoliciesAreDistinct) {
+  auto model = world();
+  const Action forward(ActionType::Forward, 1U);
+  const Action left(ActionType::TurnLeft, 1U);
+  const std::vector<Action> candidates{forward, left};
+  auto make = [&](semaforr::decision::TierThreeTiePolicy policy) {
+    semaforr::decision::ArbitrationConfiguration configuration;
+    configuration.tie_policy = policy;
+    configuration.tie_tolerance = 1.0e-6;
+    DecisionCoordinator coordinator(configuration);
+    coordinator.addAdvisor(std::make_unique<FixedAdvisor>(
+        "nearly_tied",
+        std::vector<ActionScore>{{forward, 1.0}, {left, 1.0 - 1.0e-9}}));
+    return coordinator;
+  };
+  auto exact = make(semaforr::decision::TierThreeTiePolicy::Exact);
+  auto tolerance = make(semaforr::decision::TierThreeTiePolicy::Tolerance);
+  const auto exact_result = exact.decideTierThree({model}, candidates);
+  const auto tolerance_result = tolerance.decideTierThree({model}, candidates);
+  EXPECT_EQ(exact_result.tier_three_tie_candidates.size(), 1U);
+  EXPECT_EQ(tolerance_result.tier_three_tie_candidates.size(), 2U);
+  EXPECT_FALSE(exact_result.tier_three_random_selection_used);
+  EXPECT_TRUE(tolerance_result.tier_three_random_selection_used);
 }
 
 TEST(DecisionCoordinator, NoAdvisorUsesConfiguredFallback) {

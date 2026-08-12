@@ -700,6 +700,9 @@ std::string configurationFingerprint(const Configuration& configuration) {
       << configuration.experiment.tiers.tier_one << '|'
       << configuration.experiment.tiers.tier_two << '|'
       << configuration.experiment.tiers.tier_three << '|'
+      << configuration.experiment.tier_three_scoring_policy << '|'
+      << configuration.experiment.tier_three_tie_policy << '|'
+      << configuration.experiment.tier_three_tie_tolerance << '|'
       << configuration.experiment.initial_exploration.enabled << '|'
       << configuration.experiment.initial_exploration.observation_budget << '|'
       << configuration.experiment.initial_exploration.strategy << '|'
@@ -955,6 +958,24 @@ Configuration loadStructuredConfiguration(
 void validateConfiguration(const Configuration& configuration) {
   validateNavigation(configuration.navigation);
   const auto& experiment = configuration.experiment;
+  const std::set<std::string> tier_three_scoring_policies{
+      "profile", "compatibility_comments", "weighted_normalized"};
+  const std::set<std::string> tier_three_tie_policies{
+      "profile", "exact", "tolerance"};
+  if (!tier_three_scoring_policies.contains(
+          experiment.tier_three_scoring_policy))
+    throw std::runtime_error(
+        "configuration: tiers.tier3.scoring_policy must be 'profile', "
+        "'compatibility_comments', or 'weighted_normalized'");
+  if (!tier_three_tie_policies.contains(experiment.tier_three_tie_policy))
+    throw std::runtime_error(
+        "configuration: tiers.tier3.tie_policy must be 'profile', 'exact', "
+        "or 'tolerance'");
+  if (!std::isfinite(experiment.tier_three_tie_tolerance) ||
+      experiment.tier_three_tie_tolerance < 0.0)
+    throw std::runtime_error(
+        "configuration: tiers.tier3.tie_tolerance must be finite and "
+        "nonnegative");
   if (experiment.behavior_mode == BehaviorMode::Compatibility) {
     throw std::runtime_error(
         "configuration: experiment.behavior_mode 'compatibility' is reserved "

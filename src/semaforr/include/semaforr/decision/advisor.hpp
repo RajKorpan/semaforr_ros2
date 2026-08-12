@@ -41,7 +41,7 @@ class Advisor {
     return {dependencies(),
             {domain::ActionType::Pause, domain::ActionType::Forward,
              domain::ActionType::TurnLeft, domain::ActionType::TurnRight},
-            false, ScoreNormalization::None, "advisor score"};
+            false, ScoreNormalization::SignedUnit, "advisor score"};
   }
   virtual AdvisorEvaluation evaluate(
       const DecisionContext& context,

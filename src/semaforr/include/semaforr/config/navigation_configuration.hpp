@@ -126,6 +126,9 @@ struct ExperimentConfiguration {
   BehaviorMode behavior_mode = BehaviorMode::Modernized;
   AblationProfile profile = AblationProfile::Custom;
   unsigned int random_seed = 0U;
+  std::string tier_three_scoring_policy = "profile";
+  std::string tier_three_tie_policy = "profile";
+  double tier_three_tie_tolerance = 1.0e-9;
   TierConfiguration tiers;
   InitialExplorationConfiguration initial_exploration;
   TargetNavigationConfiguration target_navigation;

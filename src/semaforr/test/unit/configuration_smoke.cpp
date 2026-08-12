@@ -474,6 +474,29 @@ int main() {
         [&invalid]() { semaforr::config::validateConfiguration(invalid); },
         "grid geometry");
   }
+  {
+    auto changed = valid;
+    changed.experiment.tier_three_scoring_policy =
+        "compatibility_comments";
+    changed.experiment.tier_three_tie_policy = "exact";
+    semaforr::config::validateConfiguration(changed);
+    assert(semaforr::config::configurationFingerprint(changed) !=
+           semaforr::config::configurationFingerprint(valid));
+  }
+  {
+    auto invalid = valid;
+    invalid.experiment.tier_three_scoring_policy = "legacy_vote";
+    assertThrowsContaining(
+        [&invalid]() { semaforr::config::validateConfiguration(invalid); },
+        "tiers.tier3.scoring_policy");
+  }
+  {
+    auto invalid = valid;
+    invalid.experiment.tier_three_tie_tolerance = -1.0;
+    assertThrowsContaining(
+        [&invalid]() { semaforr::config::validateConfiguration(invalid); },
+        "tiers.tier3.tie_tolerance");
+  }
   for (const auto& fixture :
        {"empty_tasks.conf", "invalid_tasks.conf", "extra_task_token.conf"}) {
     assertThrowsContaining(

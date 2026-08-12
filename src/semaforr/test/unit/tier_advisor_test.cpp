@@ -84,6 +84,8 @@ TEST(TierThreeCatalog, SpatialAdvisorReportsSourceRevision) {
   const auto advisor = registry.create("crossroads");
   auto world = worldWithTarget();
   world.spatial.revision = 17U;
+  world.spatial.hallways = {{{0.0, 0.0}, {2.0, 0.0}},
+                            {{1.0, -1.0}, {1.0, 1.0}}};
   const std::vector<semaforr::domain::Action> candidates{
       semaforr::domain::Action::pause(),
       {semaforr::domain::ActionType::Forward, 1U},
@@ -92,7 +94,7 @@ TEST(TierThreeCatalog, SpatialAdvisorReportsSourceRevision) {
   const auto evaluation = advisor->evaluate({world}, candidates);
   EXPECT_EQ(evaluation.model_revision_used, 17U);
   const auto dependencies = advisor->dependencies();
-  EXPECT_NE(std::find(dependencies.begin(), dependencies.end(), "highways"),
+  EXPECT_NE(std::find(dependencies.begin(), dependencies.end(), "hallways"),
             dependencies.end());
 }
 
@@ -340,6 +342,72 @@ TEST(SpatialAdvisors, FollowLeastAngleSpatialLearnerAndStayAreDirectional) {
   evaluation = spatialEvaluation(O::Stay, hallway_world, actions, candidates);
   EXPECT_GT(scoreFor(evaluation, {ActionType::Forward, 1U}),
             scoreFor(evaluation, {ActionType::TurnLeft, 1U}));
+}
+
+TEST(TierThreeAdvisors, PlanSensitiveAdvisorsUseActiveLocalObjective) {
+  using semaforr::decision::ActivePlanObjective;
+  using semaforr::decision::HeuristicAdvisor;
+  using semaforr::decision::HeuristicObjective;
+  using semaforr::domain::Action;
+  using semaforr::domain::ActionType;
+  const semaforr::domain::ActionSpace actions({1.0},
+                                               {1.5707963267948966});
+  const std::vector<Action> candidates{{ActionType::Forward, 1U},
+                                       {ActionType::TurnLeft, 1U},
+                                       {ActionType::TurnRight, 1U}};
+  auto world = worldWithTarget({10.0, 0.0});
+  const ActivePlanObjective local{{0.0, 5.0}, "region", 7U, 2U};
+
+  HeuristicAdvisor greedy(
+      {"greedy", HeuristicObjective::Greedy, actions, 1.0});
+  auto evaluation = greedy.evaluate({world, &actions, candidates, local},
+                                    candidates);
+  EXPECT_GT(scoreFor(evaluation, {ActionType::TurnLeft, 1U}),
+            scoreFor(evaluation, {ActionType::TurnRight, 1U}));
+
+  world.spatial.learned_regions = {
+      {{0.0, 5.0}, semaforr::domain::Distance(1.0)}};
+  HeuristicAdvisor enter(
+      {"enter", HeuristicObjective::Enter, actions, 1.0});
+  EXPECT_TRUE(enter.evaluate({world, &actions, candidates, local}, candidates)
+                  .participated);
+  EXPECT_FALSE(enter.evaluate({world}, candidates).participated);
+
+  world.spatial.learned_regions = {
+      {{0.0, 0.0}, semaforr::domain::Distance(1.0)}};
+  const ActivePlanObjective local_inside{{0.0, 0.5}, "region", 7U, 2U};
+  HeuristicAdvisor exit({"exit", HeuristicObjective::Exit, actions, 1.0});
+  EXPECT_FALSE(
+      exit.evaluate({world, &actions, candidates, local_inside}, candidates)
+          .participated);
+  EXPECT_TRUE(exit.evaluate({world}, candidates).participated);
+
+  world.spatial.trails = {{{0.0, 0.0}, {0.0, 5.0}},
+                          {{0.0, 0.0}, {2.0, 0.0}}};
+  HeuristicAdvisor trailer(
+      {"trailer", HeuristicObjective::Trailer, actions, 1.0});
+  evaluation = trailer.evaluate({world, &actions, candidates, local},
+                                candidates);
+  EXPECT_GT(scoreFor(evaluation, {ActionType::TurnLeft, 1U}),
+            scoreFor(evaluation, {ActionType::TurnRight, 1U}));
+
+  world.spatial.hallways = {{{0.0, 0.0}, {0.0, 5.0}},
+                            {{0.0, 0.0}, {10.0, 0.0}}};
+  HeuristicAdvisor follow(
+      {"follow", HeuristicObjective::Follow, actions, 1.0});
+  evaluation = follow.evaluate({world, &actions, candidates, local},
+                               candidates);
+  EXPECT_GT(scoreFor(evaluation, {ActionType::TurnLeft, 1U}),
+            scoreFor(evaluation, {ActionType::TurnRight, 1U}));
+
+  world.spatial.skeleton_nodes = {{0.0, 0.0}, {1.0, 0.0}, {0.0, 1.0}};
+  world.spatial.skeleton_edges = {{0U, 1U}, {0U, 2U}};
+  HeuristicAdvisor least_angle(
+      {"least_angle", HeuristicObjective::LeastAngle, actions, 1.0});
+  evaluation = least_angle.evaluate({world, &actions, candidates, local},
+                                    candidates);
+  EXPECT_GT(scoreFor(evaluation, {ActionType::TurnLeft, 1U}),
+            scoreFor(evaluation, {ActionType::Forward, 1U}));
 }
 
 TEST(ReactivePlanners, ThruBehindAndOutHaveExplicitDependencies) {

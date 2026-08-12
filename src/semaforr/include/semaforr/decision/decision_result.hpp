@@ -52,7 +52,7 @@ enum class ActionOutcome {
 };
 
 struct Veto {
-  domain::Action action;
+  domain::Action action{domain::Action::pause()};
   std::string rule;
   std::string explanation;
 
@@ -96,14 +96,26 @@ struct DecisionCycleEvent {
 
 struct AdvisorContribution {
   std::string advisor;
-  domain::Action action;
+  domain::Action action{domain::Action::pause()};
   double raw_score{0.0};
+  double normalized_score{0.0};
   double weight{1.0};
   double weighted_score{0.0};
+  bool viable{true};
+  double final_total{0.0};
   std::string explanation;
   std::size_t model_revision_used{0U};
 
   bool operator==(const AdvisorContribution&) const = default;
+};
+
+struct TierThreeActionTotal {
+  domain::Action action{domain::Action::pause()};
+  double total{0.0};
+  bool viable{true};
+  bool scored{false};
+
+  bool operator==(const TierThreeActionTotal&) const = default;
 };
 
 struct TaskDiagnostic {
@@ -143,6 +155,14 @@ struct DecisionResult {
   std::string selected_policy;
   std::vector<Veto> vetoes;
   std::vector<AdvisorContribution> contributions;
+  std::vector<TierThreeActionTotal> tier_three_totals;
+  std::string tier_three_scoring_policy;
+  std::string tier_three_tie_policy;
+  double tier_three_tie_tolerance{0.0};
+  std::uint32_t tier_three_random_seed{0U};
+  std::vector<domain::Action> tier_three_tie_candidates;
+  bool tier_three_random_selection_used{false};
+  std::optional<std::size_t> tier_three_random_selection_index;
   std::vector<DecisionCycleEvent> decision_cycle;
   std::optional<std::string> planner;
   std::optional<planning::PlanId> plan_id;

@@ -22,6 +22,41 @@ bool contributionLess(const AdvisorContribution& left,
          std::tie(right.advisor, right.action, right.explanation);
 }
 
+std::vector<double> transformScores(
+    const AdvisorEvaluation& evaluation, ScoreNormalization normalization,
+    TierThreeScoringPolicy policy) {
+  std::vector<double> transformed;
+  transformed.reserve(evaluation.scores.size());
+  if (evaluation.scores.empty()) return transformed;
+  const auto [minimum, maximum] = std::minmax_element(
+      evaluation.scores.begin(), evaluation.scores.end(),
+      [](const auto& left, const auto& right) {
+        return left.raw_score < right.raw_score;
+      });
+  const double span = maximum->raw_score - minimum->raw_score;
+  for (const auto& score : evaluation.scores) {
+    if (policy == TierThreeScoringPolicy::CompatibilityComments) {
+      transformed.push_back(span <= 1.0e-12
+                                ? 5.0
+                                : 10.0 * (score.raw_score -
+                                          minimum->raw_score) /
+                                      span);
+      continue;
+    }
+    if (normalization == ScoreNormalization::None) {
+      transformed.push_back(score.raw_score);
+      continue;
+    }
+    const double unit = span <= 1.0e-12
+                            ? 0.5
+                            : (score.raw_score - minimum->raw_score) / span;
+    transformed.push_back(normalization == ScoreNormalization::SignedUnit
+                              ? (span <= 1.0e-12 ? 0.0 : 2.0 * unit - 1.0)
+                              : unit);
+  }
+  return transformed;
+}
+
 }  // namespace
 
 DecisionCoordinator::DecisionCoordinator(ArbitrationConfiguration configuration)
@@ -170,6 +205,21 @@ void DecisionCoordinator::addAdvisor(std::unique_ptr<Advisor> advisor) {
 DecisionResult DecisionCoordinator::decideTierThree(
     const DecisionContext& context, std::span<const Action> candidates) {
   DecisionResult result;
+  result.tier_three_scoring_policy =
+      configuration_.scoring_policy ==
+              TierThreeScoringPolicy::CompatibilityComments
+          ? "compatibility_comments_0_10_unweighted"
+          : "weighted_normalized";
+  result.tier_three_tie_policy =
+      configuration_.tie_policy == TierThreeTiePolicy::Exact ? "exact"
+                                                              : "tolerance";
+  result.tier_three_tie_tolerance = configuration_.tie_tolerance;
+  result.tier_three_random_seed = configuration_.random_seed;
+  if (context.active_plan_objective) {
+    result.operational_target = context.active_plan_objective->target;
+    result.active_plan_step = context.active_plan_objective->step_index;
+    result.plan_id = context.active_plan_objective->plan_id;
+  }
   std::vector<Action> survivors(candidates.begin(), candidates.end());
   std::sort(survivors.begin(), survivors.end());
   survivors.erase(std::unique(survivors.begin(), survivors.end()),
@@ -199,6 +249,7 @@ DecisionResult DecisionCoordinator::decideTierThree(
 
   for (const auto& advisor : advisors_) {
     const AdvisorEvaluation evaluation = advisor->evaluate(context, survivors);
+    const auto metadata = advisor->metadata();
     result.decision_cycle.push_back(
         {result.decision_cycle.size() + 1U, "tier3",
          std::string(advisor->name()), survivors, std::nullopt, {},
@@ -212,7 +263,10 @@ DecisionResult DecisionCoordinator::decideTierThree(
       throw std::domain_error("advisor '" + std::string(advisor->name()) +
                               "' returned a non-finite weight");
     }
-    for (const auto& score : evaluation.scores) {
+    const auto transformed = transformScores(
+        evaluation, metadata.normalization, configuration_.scoring_policy);
+    for (std::size_t index = 0U; index < evaluation.scores.size(); ++index) {
+      const auto& score = evaluation.scores[index];
       if (!std::binary_search(survivors.begin(), survivors.end(),
                               score.action)) {
         throw std::domain_error("advisor '" + std::string(advisor->name()) +
@@ -222,16 +276,28 @@ DecisionResult DecisionCoordinator::decideTierThree(
         throw std::domain_error("advisor '" + std::string(advisor->name()) +
                                 "' returned a non-finite score");
       }
-      const double weighted = score.raw_score * evaluation.weight;
+      const double applied_weight =
+          configuration_.scoring_policy ==
+                  TierThreeScoringPolicy::CompatibilityComments
+              ? 1.0
+              : evaluation.weight;
+      const double weighted = transformed[index] * applied_weight;
       if (!std::isfinite(weighted)) {
         throw std::domain_error("weighted advisor contribution is non-finite");
       }
       totals[score.action] += weighted;
       scored.insert(score.action);
-      result.contributions.push_back(
-          {std::string(advisor->name()), score.action, score.raw_score,
-           evaluation.weight, weighted, evaluation.explanation,
-           evaluation.model_revision_used});
+      AdvisorContribution contribution;
+      contribution.advisor = std::string(advisor->name());
+      contribution.action = score.action;
+      contribution.raw_score = score.raw_score;
+      contribution.normalized_score = transformed[index];
+      contribution.weight = evaluation.weight;
+      contribution.weighted_score = weighted;
+      contribution.viable = true;
+      contribution.explanation = evaluation.explanation;
+      contribution.model_revision_used = evaluation.model_revision_used;
+      result.contributions.push_back(std::move(contribution));
     }
   }
   std::sort(result.contributions.begin(), result.contributions.end(),
@@ -268,6 +334,15 @@ DecisionResult DecisionCoordinator::decideTierThree(
     }
   }
 
+  for (const auto& action : survivors) {
+    const auto total = totals.find(action);
+    result.tier_three_totals.push_back(
+        {action, total == totals.end() ? 0.0 : total->second, true,
+         scored.contains(action)});
+  }
+  for (auto& contribution : result.contributions)
+    contribution.final_total = totals.at(contribution.action);
+
   const auto maximum =
       std::max_element(totals.begin(), totals.end(),
                        [](const auto& left, const auto& right) {
@@ -276,12 +351,23 @@ DecisionResult DecisionCoordinator::decideTierThree(
           ->second;
   std::vector<Action> tied;
   for (const auto& [action, total] : totals) {
-    if (std::abs(total - maximum) <= configuration_.tie_tolerance) {
+    const bool is_tied =
+        configuration_.tie_policy == TierThreeTiePolicy::Exact
+            ? total == maximum
+            : std::abs(total - maximum) <= configuration_.tie_tolerance;
+    if (is_tied) {
       tied.push_back(action);
     }
   }
-  std::uniform_int_distribution<std::size_t> choose(0U, tied.size() - 1U);
-  result.action = tied[choose(random_)];
+  result.tier_three_tie_candidates = tied;
+  std::size_t selected_index = 0U;
+  if (tied.size() > 1U) {
+    std::uniform_int_distribution<std::size_t> choose(0U, tied.size() - 1U);
+    selected_index = choose(random_);
+    result.tier_three_random_selection_used = true;
+    result.tier_three_random_selection_index = selected_index;
+  }
+  result.action = tied[selected_index];
   result.source = DecisionSource::TierThreeAdvisor;
   result.tier = DecisionTier::TierThree;
   result.selected_policy = "advisor_arbitration";

@@ -11,6 +11,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/DecisionAction.msg"
   "msg/DecisionVeto.msg"
   "msg/AdvisorContribution.msg"
+  "msg/TierThreeActionTotal.msg"
   "msg/TaskDiagnostic.msg"
   "msg/PlanCandidateDiagnostic.msg"
   "msg/DecisionRecord.msg"

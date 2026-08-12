@@ -61,7 +61,7 @@ class LearnedCrowdAdvisor final : public Advisor {
     return {dependencies(),
             {domain::ActionType::Pause, domain::ActionType::Forward,
              domain::ActionType::TurnLeft, domain::ActionType::TurnRight},
-            true, ScoreNormalization::None, rationale};
+            true, ScoreNormalization::SignedUnit, rationale};
   }
 
   AdvisorEvaluation evaluate(

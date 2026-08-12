@@ -63,6 +63,10 @@ void declareConfigurationParameters(rclcpp::Node& node) {
   node.declare_parameter("tiers.tier1.enabled", true);
   node.declare_parameter("tiers.tier2.enabled", true);
   node.declare_parameter("tiers.tier3.enabled", true);
+  node.declare_parameter("tiers.tier3.scoring_policy",
+                         std::string{"profile"});
+  node.declare_parameter("tiers.tier3.tie_policy", std::string{"profile"});
+  node.declare_parameter("tiers.tier3.tie_tolerance", 1.0e-9);
   node.declare_parameter("tiers.tier1.rules",
                          config::TierConfiguration{}.tier_one_rules);
   node.declare_parameter("tiers.tier1.reactive_planners",
@@ -449,6 +453,12 @@ config::Configuration configurationFromParameters(rclcpp::Node& node) {
       node.get_parameter("tiers.tier2.enabled").as_bool();
   configuration.experiment.tiers.tier_three =
       node.get_parameter("tiers.tier3.enabled").as_bool();
+  configuration.experiment.tier_three_scoring_policy =
+      node.get_parameter("tiers.tier3.scoring_policy").as_string();
+  configuration.experiment.tier_three_tie_policy =
+      node.get_parameter("tiers.tier3.tie_policy").as_string();
+  configuration.experiment.tier_three_tie_tolerance =
+      node.get_parameter("tiers.tier3.tie_tolerance").as_double();
   configuration.experiment.tiers.tier_one_rules =
       node.get_parameter("tiers.tier1.rules").as_string_array();
   configuration.experiment.tiers.reactive_planners =

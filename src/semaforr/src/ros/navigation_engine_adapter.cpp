@@ -223,6 +223,39 @@ planning::LowLevelExplorationConfiguration lleConfiguration(
   return result;
 }
 
+decision::ArbitrationConfiguration arbitrationConfiguration(
+    const config::Configuration& configuration) {
+  decision::ArbitrationConfiguration result;
+  result.tie_tolerance =
+      configuration.experiment.tier_three_tie_tolerance;
+  result.unscored_policy = decision::UnscoredActionPolicy::Exclude;
+  result.fallback = domain::Action::pause();
+  result.random_seed = configuration.experiment.random_seed;
+  const bool compatibility_profile =
+      configuration.experiment.behavior_mode ==
+      config::BehaviorMode::Compatibility;
+  const auto& scoring =
+      configuration.experiment.tier_three_scoring_policy;
+  if (scoring == "compatibility_comments" ||
+      (scoring == "profile" && compatibility_profile))
+    result.scoring_policy =
+        decision::TierThreeScoringPolicy::CompatibilityComments;
+  else if (scoring == "weighted_normalized" || scoring == "profile")
+    result.scoring_policy =
+        decision::TierThreeScoringPolicy::WeightedNormalized;
+  else
+    throw std::runtime_error("unknown Tier-3 scoring policy '" + scoring +
+                             "'");
+  const auto& tie = configuration.experiment.tier_three_tie_policy;
+  if (tie == "exact" || (tie == "profile" && compatibility_profile))
+    result.tie_policy = decision::TierThreeTiePolicy::Exact;
+  else if (tie == "tolerance" || tie == "profile")
+    result.tie_policy = decision::TierThreeTiePolicy::Tolerance;
+  else
+    throw std::runtime_error("unknown Tier-3 tie policy '" + tie + "'");
+  return result;
+}
+
 }  // namespace
 
 class NavigationEngineAdapter::Impl {
@@ -232,9 +265,7 @@ class NavigationEngineAdapter::Impl {
         action_space_(configuration_.navigation.move_actions,
                       configuration_.navigation.rotate_actions),
         world_(makeWorld(configuration_)),
-        decisions_({1.0e-9, decision::UnscoredActionPolicy::Exclude, 0.0,
-                    domain::Action::pause(),
-                    configuration_.experiment.random_seed}),
+        decisions_(arbitrationConfiguration(configuration_)),
         mission_(world_.mission),
         learning_(spatial::SpatialLearningCoordinator::defaults(
             10U, circumstanceConfiguration(configuration_),

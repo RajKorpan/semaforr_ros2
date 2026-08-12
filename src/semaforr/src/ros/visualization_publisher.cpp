@@ -172,11 +172,34 @@ semaforr_msgs::msg::DecisionRecord toMessage(
     contribution.advisor = source_contribution.advisor;
     contribution.action = toMessage(source_contribution.action);
     contribution.raw_score = source_contribution.raw_score;
+    contribution.normalized_score = source_contribution.normalized_score;
     contribution.weight = source_contribution.weight;
     contribution.weighted_score = source_contribution.weighted_score;
+    contribution.viable = source_contribution.viable;
+    contribution.final_total = source_contribution.final_total;
     contribution.explanation = source_contribution.explanation;
     result.advisor_contributions.push_back(std::move(contribution));
   }
+  result.tier_three_scoring_policy = source.tier_three_scoring_policy;
+  for (const auto& source_total : source.tier_three_totals) {
+    semaforr_msgs::msg::TierThreeActionTotal total;
+    total.action = toMessage(source_total.action);
+    total.total = source_total.total;
+    total.viable = source_total.viable;
+    total.scored = source_total.scored;
+    result.tier_three_action_totals.push_back(std::move(total));
+  }
+  result.tier_three_tie_policy = source.tier_three_tie_policy;
+  result.tier_three_tie_tolerance = source.tier_three_tie_tolerance;
+  result.tier_three_random_seed = source.tier_three_random_seed;
+  for (const auto& candidate : source.tier_three_tie_candidates)
+    result.tier_three_tie_candidates.push_back(toMessage(candidate));
+  result.tier_three_random_selection_used =
+      source.tier_three_random_selection_used;
+  result.has_tier_three_random_selection_index =
+      source.tier_three_random_selection_index.has_value();
+  result.tier_three_random_selection_index =
+      source.tier_three_random_selection_index.value_or(0U);
   result.selected_tier = toMessage(source.tier);
   result.selected_source = toMessage(source.source);
   result.selected_policy = source.selected_policy;
@@ -299,14 +322,15 @@ class VisualizationPublisher::Impl {
     }
     for (const auto& contribution : result.contributions) {
       RCLCPP_DEBUG(node_.get_logger(),
-                   "decision=%lu advisor=%s action=%u:%zu raw=%.6f weight=%.6f "
-                   "weighted=%.6f",
+                   "decision=%lu advisor=%s action=%u:%zu raw=%.6f "
+                   "transformed=%.6f weight=%.6f weighted=%.6f total=%.6f",
                    static_cast<unsigned long>(result.sequence),
                    contribution.advisor.c_str(),
                    static_cast<unsigned>(contribution.action.type()),
                    contribution.action.magnitude_index(),
-                   contribution.raw_score, contribution.weight,
-                   contribution.weighted_score);
+                   contribution.raw_score, contribution.normalized_score,
+                   contribution.weight, contribution.weighted_score,
+                   contribution.final_total);
     }
     const std::string planner = result.planner.value_or("none");
     RCLCPP_INFO(node_.get_logger(),

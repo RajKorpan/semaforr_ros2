@@ -41,8 +41,9 @@ bool NavigationAdvisor::accepts(const domain::Action& action) const noexcept {
   return false;
 }
 
-double NavigationAdvisor::score(const domain::WorldModel& world,
+double NavigationAdvisor::score(const DecisionContext& context,
                                 const domain::Action& action) const {
+  const auto& world = context.world;
   const domain::Pose2D expected = domain::expectedPoseAfterAction(
       world.robot.pose, action, configuration_.action_space);
   switch (configuration_.objective) {
@@ -50,9 +51,12 @@ double NavigationAdvisor::score(const domain::WorldModel& world,
       if (!world.mission.active()) {
         return 0.0;
       }
-      const domain::Point2D target =
-          world.mission.active()->waypoint().value_or(
-              world.mission.active()->target);
+      const domain::Point2D target = context.active_plan_objective
+                                         ? context.active_plan_objective->target
+                                         : world.mission.active()
+                                               ->waypoint()
+                                               .value_or(world.mission.active()
+                                                             ->target);
       const double progress =
           domain::distance(world.robot.pose.position, target).meters() -
           domain::distance(expected.position, target).meters();
@@ -105,7 +109,7 @@ AdvisorEvaluation NavigationAdvisor::evaluate(
   result.explanation = "ROS-independent navigation objective";
   for (const auto& action : candidates) {
     if (accepts(action)) {
-      result.scores.push_back({action, score(context.world, action)});
+      result.scores.push_back({action, score(context, action)});
     }
   }
   result.participated = !result.scores.empty();

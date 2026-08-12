@@ -172,34 +172,22 @@ std::optional<std::size_t> gridIndex(const Grid& grid,
   return grid.extent().index(point);
 }
 
-double targetProgress(const domain::WorldModel& world,
-                      const domain::Pose2D& expected) {
-  if (!world.mission.active()) return 0.0;
-  const auto target = world.mission.active()->waypoint().value_or(
-      world.mission.active()->target);
-  return domain::distance(world.robot.pose.position, target).meters() -
-         domain::distance(expected.position, target).meters();
+std::optional<domain::Point2D> localObjective(
+    const DecisionContext& context) {
+  if (context.active_plan_objective)
+    return context.active_plan_objective->target;
+  if (!context.world.mission.active()) return std::nullopt;
+  return context.world.mission.active()->waypoint().value_or(
+      context.world.mission.active()->target);
 }
 
-void normalize(std::vector<ActionScore>& scores,
-               ScoreNormalization normalization) {
-  if (scores.empty() || normalization == ScoreNormalization::None) return;
-  const auto [minimum, maximum] = std::minmax_element(
-      scores.begin(), scores.end(),
-      [](const auto& left, const auto& right) {
-        return left.raw_score < right.raw_score;
-      });
-  const double span = maximum->raw_score - minimum->raw_score;
-  if (span <= 1.0e-12) {
-    for (auto& score : scores) score.raw_score = 0.0;
-    return;
-  }
-  for (auto& score : scores) {
-    const double unit = (score.raw_score - minimum->raw_score) / span;
-    score.raw_score =
-        normalization == ScoreNormalization::SignedUnit ? 2.0 * unit - 1.0
-                                                        : unit;
-  }
+double targetProgress(const DecisionContext& context,
+                      const domain::Pose2D& expected) {
+  const auto target = localObjective(context);
+  if (!target) return 0.0;
+  const auto& world = context.world;
+  return domain::distance(world.robot.pose.position, *target).meters() -
+         domain::distance(expected.position, *target).meters();
 }
 
 }  // namespace
@@ -258,19 +246,19 @@ AdvisorMetadata HeuristicAdvisor::metadata() const {
     case O::ElbowRoom: rationale = "maximize predicted obstacle clearance"; break;
     case O::Novelty: rationale = "avoid locations visited for the active target"; break;
     case O::GoAround: rationale = "turn away from the nearest obstacle"; break;
-    case O::Greedy: rationale = "reduce distance to the active waypoint or target"; break;
+    case O::Greedy: rationale = "reduce distance to the active plan step or mission target"; break;
     case O::Curiosity: rationale = "avoid every location visited in the experiment"; break;
     case O::Enfilade: rationale = "return toward recently visited locations"; break;
     case O::VisualScan: rationale = "rotate toward previously unseen orientations"; break;
     case O::Convey: rationale = "approach frequent, distant conveyor flows"; break;
-    case O::Enter: rationale = "enter the region containing the target"; break;
-    case O::Exit: rationale = "leave the current region when it lacks the target"; break;
-    case O::Trailer: rationale = "join a trail segment that approaches the target"; break;
+    case O::Enter: rationale = "enter the region containing the local plan objective"; break;
+    case O::Exit: rationale = "leave the current region when it lacks the local plan objective"; break;
+    case O::Trailer: rationale = "join a trail segment that approaches the local plan objective"; break;
     case O::Unlikely: rationale = "avoid non-target regions with few exits"; break;
     case O::Access: rationale = "approach regions with many doors"; break;
     case O::Crossroads: rationale = "approach highly overlapping hallways"; break;
-    case O::Follow: rationale = "follow a target-relevant hallway"; break;
-    case O::LeastAngle: rationale = "take the skeleton branch best aligned with the target"; break;
+    case O::Follow: rationale = "follow a hallway relevant to the local plan objective"; break;
+    case O::LeastAngle: rationale = "take the skeleton branch best aligned with the local plan objective"; break;
     case O::SpatialLearner: rationale = "approach locations absent from the spatial model"; break;
     case O::Stay: rationale = "remain within the current hallway"; break;
     default: break;
@@ -285,7 +273,9 @@ bool HeuristicAdvisor::accepts(domain::ActionType type) const noexcept {
 }
 
 bool HeuristicAdvisor::applicable(
-    const domain::WorldModel& world) const {
+    const DecisionContext& context) const {
+  const auto& world = context.world;
+  const auto objective = localObjective(context);
   using O = HeuristicObjective;
   const auto& history = world.navigation_history.entries();
   switch (configuration_.objective) {
@@ -304,21 +294,19 @@ bool HeuristicAdvisor::applicable(
       return history.size() >= 2U;
     case O::Convey: return !world.spatial.conveyor_flows.empty();
     case O::Enter:
-      return world.mission.active() &&
+      return objective &&
              std::any_of(world.spatial.learned_regions.begin(),
                          world.spatial.learned_regions.end(),
                          [&](const auto& region) {
-                           return region.contains(
-                               world.mission.active()->target);
+                           return region.contains(*objective);
                          });
     case O::Exit:
-      return world.mission.active() &&
+      return objective &&
              std::any_of(world.spatial.learned_regions.begin(),
                          world.spatial.learned_regions.end(),
                          [&](const auto& region) {
                            return region.contains(world.robot.pose.position) &&
-                                  !region.contains(
-                                      world.mission.active()->target);
+                                  !region.contains(*objective);
                          });
     case O::Trailer:
       return std::any_of(world.spatial.trails.begin(),
@@ -332,9 +320,9 @@ bool HeuristicAdvisor::applicable(
     case O::Crossroads:
       return world.spatial.hallways.size() >= 2U;
     case O::Follow:
-      return world.mission.active() && !world.spatial.hallways.empty();
+      return objective && !world.spatial.hallways.empty();
     case O::LeastAngle:
-      return world.mission.active() &&
+      return objective &&
              !world.spatial.skeleton_nodes.empty() &&
              !world.spatial.skeleton_edges.empty();
     case O::SpatialLearner:
@@ -352,12 +340,14 @@ bool HeuristicAdvisor::applicable(
   }
 }
 
-double HeuristicAdvisor::score(const domain::WorldModel& world,
-                                  const domain::Action& action) const {
+double HeuristicAdvisor::score(const DecisionContext& context,
+                               const domain::Action& action) const {
+  const auto& world = context.world;
   using O = HeuristicObjective;
   const auto expected = anticipatedPose(world, action,
                                         configuration_.action_space);
-  const double progress = targetProgress(world, expected);
+  const double progress = targetProgress(context, expected);
+  const auto objective = localObjective(context);
   switch (configuration_.objective) {
     case O::BigStep:
       if (action.type() == domain::ActionType::Pause) return 0.0;
@@ -380,8 +370,7 @@ double HeuristicAdvisor::score(const domain::WorldModel& world,
               })));
       const auto origin = world.spatial.skeleton_nodes[current];
       const double target_angle = std::atan2(
-          world.mission.active()->target.y_m - origin.y_m,
-          world.mission.active()->target.x_m - origin.x_m);
+          objective->y_m - origin.y_m, objective->x_m - origin.x_m);
       double best_alignment = -std::numeric_limits<double>::infinity();
       std::optional<domain::Point2D> selected;
       for (const auto& edge : world.spatial.skeleton_edges) {
@@ -472,7 +461,7 @@ double HeuristicAdvisor::score(const domain::WorldModel& world,
     case O::Enter: {
       double best = -std::numeric_limits<double>::infinity();
       for (const auto& region : world.spatial.learned_regions)
-        if (region.contains(world.mission.active()->target))
+        if (region.contains(*objective))
           best = std::max(best,
                           -signedDistanceToRegion(expected.position, region));
       return best;
@@ -481,15 +470,14 @@ double HeuristicAdvisor::score(const domain::WorldModel& world,
       double result = -std::numeric_limits<double>::infinity();
       for (const auto& region : world.spatial.learned_regions)
         if (region.contains(world.robot.pose.position) &&
-            !region.contains(world.mission.active()->target))
+            !region.contains(*objective))
           result = std::max(
               result, signedDistanceToRegion(expected.position, region));
       return result;
     }
     case O::Trailer: {
-      const domain::Point2D target = world.mission.active()
-                                         ? world.mission.active()->target
-                                         : world.robot.pose.position;
+      const domain::Point2D target =
+          objective.value_or(world.robot.pose.position);
       double best_utility = -std::numeric_limits<double>::infinity();
       std::optional<domain::Segment2D> selected;
       domain::Point2D preferred;
@@ -564,7 +552,7 @@ double HeuristicAdvisor::score(const domain::WorldModel& world,
       return best;
     }
     case O::Follow: {
-      const auto target = world.mission.active()->target;
+      const auto target = *objective;
       const auto selected = std::min_element(
           world.spatial.hallways.begin(), world.spatial.hallways.end(),
           [&](const auto& left, const auto& right) {
@@ -629,7 +617,7 @@ AdvisorEvaluation HeuristicAdvisor::evaluate(
   if (!contract.participates_without_target &&
       !context.world.mission.active())
     return result;
-  if (!applicable(context.world)) return result;
+  if (!applicable(context)) return result;
   result.weight = configuration_.weight;
   result.explanation = std::string(contract.rationale);
   using O = HeuristicObjective;
@@ -649,8 +637,7 @@ AdvisorEvaluation HeuristicAdvisor::evaluate(
   }
   for (const auto& action : candidates)
     if (accepts(action.type()))
-      result.scores.push_back({action, score(context.world, action)});
-  normalize(result.scores, contract.normalization);
+      result.scores.push_back({action, score(context, action)});
   result.participated = !result.scores.empty();
   return result;
 }

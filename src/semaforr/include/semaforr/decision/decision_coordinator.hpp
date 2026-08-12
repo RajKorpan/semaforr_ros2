@@ -14,6 +14,8 @@
 namespace semaforr::decision {
 
 enum class UnscoredActionPolicy { Exclude, Zero, Baseline };
+enum class TierThreeScoringPolicy { CompatibilityComments, WeightedNormalized };
+enum class TierThreeTiePolicy { Exact, Tolerance };
 
 struct ArbitrationConfiguration {
   double tie_tolerance{1.0e-9};
@@ -21,6 +23,9 @@ struct ArbitrationConfiguration {
   double unscored_baseline{0.0};
   std::optional<domain::Action> fallback;
   std::uint32_t random_seed{0U};
+  TierThreeScoringPolicy scoring_policy{
+      TierThreeScoringPolicy::WeightedNormalized};
+  TierThreeTiePolicy tie_policy{TierThreeTiePolicy::Tolerance};
 };
 
 struct TierOnePass {

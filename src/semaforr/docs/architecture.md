@@ -33,7 +33,11 @@ must not include ROS headers.
 3. `MissionManager` activates or advances tasks. `PlanningCoordinator`
    generates typed `PlanResult` values and installs the selected waypoints.
 4. `DecisionCoordinator` applies Tier 1 mandatory rules and vetoes, then Tier 3
-   weighted scoring when no mandatory decision wins.
+   arbitration when no mandatory decision wins. Tier 3 explicitly selects
+   unweighted `[0,10]` compatibility comments with exact ties or normalized,
+   weighted scoring with tolerance ties. Plan-sensitive advisors receive the
+   current Enforcer operational target rather than silently using the final
+   mission target.
 5. The engine records a selection under stable decision/action IDs. The
    `CommandExecutor` reports start, progress, and exactly one terminal result
    without blocking the ROS executor.

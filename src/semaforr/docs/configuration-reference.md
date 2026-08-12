@@ -17,6 +17,9 @@ durations are seconds.
 | `tiers.tier1.rules` | Ordered, individually enabled cognitive Tier-1 rules. |
 | `tiers.tier1.reactive_planners` | Individually enabled `thru`, `behind`, `out`, and `low_level_exploration` planners. |
 | `tiers.tier{1,2,3}.enabled` | Cognitive-tier ablation switches; these do not bypass command execution validation. |
+| `tiers.tier3.scoring_policy` | `profile`, unweighted `compatibility_comments`, or `weighted_normalized`. |
+| `tiers.tier3.tie_policy` | `profile`, `exact`, or `tolerance`; tie candidates and seeded selection are recorded. |
+| `tiers.tier3.tie_tolerance` | Finite nonnegative tolerance used only by tolerance tie resolution. |
 | `tiers.tier2.maximum_planning_attempts_per_task` | Positive consecutive immediate-planning failure limit before the current plan attempt is abandoned and LLE becomes eligible; default `3`. |
 | `topics.*` | Relative pose, scan, command, state, decision, social, and crowd-field topic names. |
 | `qos.sensors.*`, `qos.command.*` | Queue depth, `reliable`/`best_effort`, and `volatile`/`transient_local`. |

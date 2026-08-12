@@ -1,6 +1,9 @@
 string advisor
 semaforr_msgs/DecisionAction action
 float64 raw_score
+float64 normalized_score
 float64 weight
 float64 weighted_score
+bool viable
+float64 final_total
 string explanation

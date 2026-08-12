@@ -32,8 +32,8 @@ class HeuristicAdvisor final : public Advisor {
 
  private:
   bool accepts(domain::ActionType) const noexcept;
-  bool applicable(const domain::WorldModel&) const;
-  double score(const domain::WorldModel&, const domain::Action&) const;
+  bool applicable(const DecisionContext&) const;
+  double score(const DecisionContext&, const domain::Action&) const;
   HeuristicAdvisorConfiguration configuration_;
 };
 

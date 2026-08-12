@@ -477,6 +477,7 @@ DecisionResult NavigationEngine::decide() {
   std::vector<Veto> cognitive_vetoes = tier_one.vetoes;
   std::vector<domain::Action> viable = tier_one.survivors;
   DecisionResult result;
+  std::optional<ActivePlanObjective> tier_three_objective;
   bool decided = false;
   if (tier_one.decision) {
     result = *tier_one.decision;
@@ -574,6 +575,14 @@ DecisionResult NavigationEngine::decide() {
       }
     }
     const auto action = enforcement.action;
+    if (enforcement.operational_target) {
+      tier_three_objective = ActivePlanObjective{
+          *enforcement.operational_target, enforcement.step_type,
+          active_hierarchy_ ? std::optional<std::uint64_t>(
+                                  active_hierarchy_->id)
+                            : std::nullopt,
+          enforcement.step_index};
+    }
     const std::string mode = enforcement.mode == EnforcerMode::Grid
                                  ? "GridPlanEnforcer"
                                  : "ModelPlanEnforcer";
@@ -606,6 +615,9 @@ DecisionResult NavigationEngine::decide() {
     // have not yet adopted the explicit plan schema. All built-in planners
     // publish a typed grid or model plan and use the modes above.
     const auto action = enforcerAction(viable);
+    tier_three_objective = ActivePlanObjective{
+        *world_.mission.active()->waypoint(), "legacy_waypoint",
+        std::nullopt, std::nullopt};
     cycle.push_back({0U, "tier1", "Enforcer", viable, action, {},
                      action ? "legacy_custom_plan_action_selected"
                             : "legacy_custom_plan_not_operationalizable",
@@ -717,7 +729,10 @@ DecisionResult NavigationEngine::decide() {
   }
 
   if (!decided) {
-    result = decisions_.decideTierThree(DecisionContext{world_}, viable);
+    result = decisions_.decideTierThree(
+        DecisionContext{world_, &action_space_, viable,
+                        std::move(tier_three_objective)},
+        viable);
     cycle.insert(cycle.end(), result.decision_cycle.begin(),
                  result.decision_cycle.end());
   }

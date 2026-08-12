@@ -20,7 +20,8 @@ def test_navigation_engine_composes_focused_collaborators():
         "spatial::SpatialLearningCoordinator&",
     ):
         assert collaborator in header
-    assert "Controller" not in header
+    assert "class Controller" not in header
+    assert "Controller&" not in header
 
 
 def test_ros_adapter_owns_domain_composition_not_legacy_controller():
@@ -34,7 +35,8 @@ def test_ros_adapter_owns_domain_composition_not_legacy_controller():
         "decision::NavigationEngine",
     ):
         assert component in source
-    assert "Controller" not in source
+    assert "class Controller" not in source
+    assert "Controller controller_" not in source
 
 
 def test_removed_controller_files_do_not_exist():

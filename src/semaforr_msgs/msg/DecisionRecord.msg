@@ -46,6 +46,15 @@ semaforr_msgs/TaskDiagnostic task
 semaforr_msgs/DecisionAction[] candidates
 semaforr_msgs/DecisionVeto[] vetoes
 semaforr_msgs/AdvisorContribution[] advisor_contributions
+semaforr_msgs/TierThreeActionTotal[] tier_three_action_totals
+string tier_three_scoring_policy
+string tier_three_tie_policy
+float64 tier_three_tie_tolerance
+uint32 tier_three_random_seed
+semaforr_msgs/DecisionAction[] tier_three_tie_candidates
+bool tier_three_random_selection_used
+bool has_tier_three_random_selection_index
+uint64 tier_three_random_selection_index
 uint8 selected_tier
 uint8 selected_source
 string selected_policy
