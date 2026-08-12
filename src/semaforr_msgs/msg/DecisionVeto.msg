@@ -1,3 +1,6 @@
 semaforr_msgs/DecisionAction action
 string rule
 string explanation
+string reason_code
+string rejection_kind
+string explanation_category

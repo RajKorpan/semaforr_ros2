@@ -1,0 +1,13 @@
+uint64 order
+string tier
+string component
+semaforr_msgs/DecisionAction[] input_actions
+bool has_mandate
+semaforr_msgs/DecisionAction mandate
+semaforr_msgs/DecisionVeto[] vetoes
+semaforr_msgs/DecisionAction[] remaining_actions
+string outcome
+bool returned_to_earlier_tier
+bool has_final_attribution
+uint8 final_attribution
+string reason_code

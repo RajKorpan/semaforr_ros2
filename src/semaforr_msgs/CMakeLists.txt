@@ -10,6 +10,13 @@ find_package(std_msgs REQUIRED)
 rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/DecisionAction.msg"
   "msg/DecisionVeto.msg"
+  "msg/DecisionCycleEvent.msg"
+  "msg/ModelRevision.msg"
+  "msg/PredictedActionResult.msg"
+  "msg/PlannerMetadata.msg"
+  "msg/PlanStepTrace.msg"
+  "msg/ExplanationQuestion.msg"
+  "msg/ExplanationResponse.msg"
   "msg/AdvisorContribution.msg"
   "msg/TierThreeActionTotal.msg"
   "msg/TaskDiagnostic.msg"

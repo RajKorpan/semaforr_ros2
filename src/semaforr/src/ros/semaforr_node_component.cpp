@@ -706,9 +706,13 @@ class SemaFORRNode::Impl {
 
     const ActionExecutionRequest request =
         navigation_engine_->executionRequest(*pending_decision_);
+    pending_decision_->action_lifecycle_status = "selected";
+    visualization_->publishDecision(*pending_decision_);
 
     ActionExecutionUpdate update;
     try {
+      pending_decision_->action_lifecycle_status = "commanded";
+      visualization_->publishDecision(*pending_decision_);
       update = executor_->start(request, sensors.pose, now);
     } catch (const std::exception& error) {
       update.status = ActionExecutionStatus::Cancelled;
@@ -725,6 +729,8 @@ class SemaFORRNode::Impl {
       throw std::runtime_error("navigation engine rejected action-start feedback");
     pending_decision_->action_progress = update.progress;
     pending_decision_->action_target = update.target;
+    pending_decision_->action_lifecycle_status = "started";
+    visualization_->publishDecision(*pending_decision_);
     action_started_at_ = now;
     publishCommand(update.command);
     transition(NavigationNodeState::ExecutingAction,
@@ -782,6 +788,42 @@ class SemaFORRNode::Impl {
             ? std::max(0.0, (now - *action_started_at_).seconds())
             : 0.0;
     pending_decision_->outcome_detail = std::move(detail);
+    pending_decision_->action_lifecycle_status =
+        outcome == decision::ActionOutcome::Completed
+            ? "completed"
+            : std::string(decision::toString(outcome));
+    domain::ActionExecutionResult execution_trace;
+    execution_trace.decision_id = update.decision_id;
+    execution_trace.action_id = update.action_id;
+    if (pending_decision_->task)
+      execution_trace.task_id =
+          domain::TaskId{pending_decision_->task->task_index};
+    execution_trace.status = toExecutionStatus(update.status, outcome);
+    execution_trace.start_pose = update.start_pose;
+    execution_trace.final_pose = update.final_pose;
+    execution_trace.distance_achieved_m = update.distance_achieved_m;
+    execution_trace.rotation_achieved_rad = update.rotation_achieved_rad;
+    execution_trace.timed_out =
+        execution_trace.status ==
+        domain::ExecutionCompletionStatus::TimedOut;
+    execution_trace.cancellation_reason = pending_decision_->outcome_detail;
+    execution_trace.safety_interruption =
+        execution_trace.status ==
+        domain::ExecutionCompletionStatus::SafetyInterrupted;
+    execution_trace.controller_failure =
+        execution_trace.status ==
+            domain::ExecutionCompletionStatus::ControllerFailure ||
+        execution_trace.status ==
+            domain::ExecutionCompletionStatus::ControllerRejected;
+    pending_decision_->execution_result = execution_trace;
+    if (pending_decision_->plan_id &&
+        outcome != decision::ActionOutcome::Completed) {
+      ++pending_decision_->plan_revision;
+      pending_decision_->plan_status = "stale";
+      pending_decision_->plan_execution_events.push_back(
+          "execution_invalidated_remaining_route:" +
+          std::string(domain::toString(execution_trace.status)));
+    }
     const auto disposition = navigation_engine_->onActionTerminal(
         update, toExecutionStatus(update.status, outcome),
         pending_decision_->outcome_detail);

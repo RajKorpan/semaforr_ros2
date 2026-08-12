@@ -9,6 +9,7 @@
 #include <semaforr_msgs/msg/decision_record.hpp>
 #include <social_context_msgs/msg/crowd_field.hpp>
 #include <string>
+#include <type_traits>
 #include <utility>
 #include <visualization_msgs/msg/marker.hpp>
 
@@ -39,6 +40,112 @@ semaforr_msgs::msg::DecisionAction toMessage(const domain::Action& source) {
       break;
   }
   result.magnitude_index = static_cast<std::uint32_t>(source.magnitude_index());
+  return result;
+}
+
+geometry_msgs::msg::Point toMessage(const domain::Point2D& source) {
+  geometry_msgs::msg::Point result;
+  result.x = source.x_m;
+  result.y = source.y_m;
+  return result;
+}
+
+geometry_msgs::msg::Pose2D toMessage(const domain::Pose2D& source) {
+  geometry_msgs::msg::Pose2D result;
+  result.x = source.position.x_m;
+  result.y = source.position.y_m;
+  result.theta = source.heading.radians();
+  return result;
+}
+
+semaforr_msgs::msg::PlannerMetadata toMessage(
+    const planning::PlannerMetadata& source) {
+  semaforr_msgs::msg::PlannerMetadata result;
+  result.planner_name = source.name;
+  result.plan_type = std::string(planning::toString(source.plan_family));
+  result.objective_name = source.objective_name;
+  result.objective_description = source.objective_description;
+  result.representation_dependencies = source.representation_dependencies;
+  result.requires_static_map = source.requires_static_map;
+  result.supports_mapless_operation = source.supports_mapless_operation;
+  return result;
+}
+
+std::vector<semaforr_msgs::msg::ModelRevision> toMessage(
+    const domain::DependencyRevisions& source) {
+  std::vector<semaforr_msgs::msg::ModelRevision> result;
+  for (const auto& [dependency, revision] : source) {
+    semaforr_msgs::msg::ModelRevision item;
+    item.representation = std::string(domain::toString(dependency));
+    item.revision = revision;
+    result.push_back(std::move(item));
+  }
+  return result;
+}
+
+semaforr_msgs::msg::PlanStepTrace toMessage(
+    const planning::PlanStep& source, std::size_t index) {
+  semaforr_msgs::msg::PlanStepTrace result;
+  result.step_id = index;
+  std::visit(
+      [&](const auto& step) {
+        using T = std::decay_t<decltype(step)>;
+        if constexpr (std::is_same_v<T, planning::WaypointStep>) {
+          result.step_type = "waypoint";
+          result.has_target = true;
+          result.target = toMessage(step.target);
+        } else if constexpr (std::is_same_v<T, planning::SubtrailStep>) {
+          result.step_type = "subtrail";
+          result.primary_entity_id = step.trail_id.value_or(0U);
+          for (const auto& point : step.waypoints)
+            result.geometry.push_back(toMessage(point));
+        } else if constexpr (std::is_same_v<T, planning::RegionStep>) {
+          result.step_type = "region";
+          result.primary_entity_id = step.region_id;
+          result.has_target = true;
+          result.target = toMessage(step.center);
+        } else if constexpr (std::is_same_v<T, planning::HighwayStep>) {
+          result.step_type = "highway";
+          result.primary_entity_id = step.highway_id;
+          result.secondary_entity_id = step.to;
+          for (const auto& point : step.fallback_subtrail)
+            result.geometry.push_back(toMessage(point));
+          result.execution_event = "intersection_from=" +
+                                   std::to_string(step.from) + ",to=" +
+                                   std::to_string(step.to);
+        } else if constexpr (std::is_same_v<T, planning::IntersectionStep>) {
+          result.step_type = "intersection";
+          result.primary_entity_id = step.intersection_id;
+          result.has_target = true;
+          result.target = toMessage(step.centroid);
+        } else if constexpr (std::is_same_v<T, planning::HighwayEntryStep>) {
+          result.step_type = "highway_entry";
+          result.primary_entity_id = step.highway_id;
+          result.has_target = true;
+          result.target = toMessage(step.entry);
+          for (const auto& point : step.supporting_subtrail)
+            result.geometry.push_back(toMessage(point));
+        } else if constexpr (std::is_same_v<T, planning::HighwayExitStep>) {
+          result.step_type = "highway_exit";
+          result.primary_entity_id = step.highway_id;
+          result.has_target = true;
+          result.target = toMessage(step.exit);
+          for (const auto& point : step.supporting_subtrail)
+            result.geometry.push_back(toMessage(point));
+        } else if constexpr (
+            std::is_same_v<T, planning::SkeletonTransitionStep>) {
+          result.step_type = "skeleton_transition";
+          result.primary_entity_id = step.from_region;
+          result.secondary_entity_id = step.to_region;
+          for (const auto& point : step.supporting_subtrail)
+            result.geometry.push_back(toMessage(point));
+        } else if constexpr (std::is_same_v<T, planning::FinalTargetStep>) {
+          result.step_type = "final_target";
+          result.has_target = true;
+          result.target = toMessage(step.target);
+        }
+      },
+      source);
   return result;
 }
 
@@ -158,13 +265,63 @@ semaforr_msgs::msg::DecisionRecord toMessage(
   for (const auto& candidate : source.candidates) {
     result.candidates.push_back(toMessage(candidate));
   }
+  for (const auto& candidate : source.viable_actions)
+    result.viable_actions.push_back(toMessage(candidate));
+  for (const auto& prediction : source.predicted_actions) {
+    semaforr_msgs::msg::PredictedActionResult item;
+    item.action = toMessage(prediction.action);
+    item.predicted_pose.x = prediction.predicted_pose.position.x_m;
+    item.predicted_pose.y = prediction.predicted_pose.position.y_m;
+    item.predicted_pose.theta = prediction.predicted_pose.heading.radians();
+    item.viable = prediction.viable;
+    item.evidence_source = prediction.evidence_source;
+    result.predicted_actions.push_back(std::move(item));
+  }
   result.vetoes.reserve(source.vetoes.size());
   for (const auto& source_veto : source.vetoes) {
     semaforr_msgs::msg::DecisionVeto veto;
     veto.action = toMessage(source_veto.action);
     veto.rule = source_veto.rule;
     veto.explanation = source_veto.explanation;
+    veto.reason_code = source_veto.reason_code;
+    veto.rejection_kind =
+        std::string(decision::toString(source_veto.rejection_kind));
+    veto.explanation_category =
+        std::string(decision::toString(source_veto.category));
     result.vetoes.push_back(std::move(veto));
+  }
+  for (const auto& source_event : source.decision_cycle) {
+    semaforr_msgs::msg::DecisionCycleEvent event;
+    event.order = source_event.order;
+    event.tier = source_event.tier;
+    event.component = source_event.component;
+    for (const auto& action : source_event.input_actions)
+      event.input_actions.push_back(toMessage(action));
+    event.has_mandate = source_event.mandate.has_value();
+    if (source_event.mandate)
+      event.mandate = toMessage(*source_event.mandate);
+    for (const auto& source_veto : source_event.vetoes) {
+      semaforr_msgs::msg::DecisionVeto veto;
+      veto.action = toMessage(source_veto.action);
+      veto.rule = source_veto.rule;
+      veto.explanation = source_veto.explanation;
+      veto.reason_code = source_veto.reason_code;
+      veto.rejection_kind =
+          std::string(decision::toString(source_veto.rejection_kind));
+      veto.explanation_category =
+          std::string(decision::toString(source_veto.category));
+      event.vetoes.push_back(std::move(veto));
+    }
+    for (const auto& action : source_event.remaining_actions)
+      event.remaining_actions.push_back(toMessage(action));
+    event.outcome = source_event.outcome;
+    event.returned_to_earlier_tier =
+        source_event.returned_to_earlier_tier;
+    event.has_final_attribution = source_event.final_attribution.has_value();
+    if (source_event.final_attribution)
+      event.final_attribution = toMessage(*source_event.final_attribution);
+    event.reason_code = source_event.reason_code;
+    result.decision_cycle.push_back(std::move(event));
   }
   result.advisor_contributions.reserve(source.contributions.size());
   for (const auto& source_contribution : source.contributions) {
@@ -173,6 +330,10 @@ semaforr_msgs::msg::DecisionRecord toMessage(
     contribution.action = toMessage(source_contribution.action);
     contribution.raw_score = source_contribution.raw_score;
     contribution.normalized_score = source_contribution.normalized_score;
+    contribution.advisor_mean = source_contribution.advisor_mean;
+    contribution.advisor_standard_deviation =
+        source_contribution.advisor_standard_deviation;
+    contribution.relative_support = source_contribution.relative_support;
     contribution.weight = source_contribution.weight;
     contribution.weighted_score = source_contribution.weighted_score;
     contribution.viable = source_contribution.viable;
@@ -200,6 +361,14 @@ semaforr_msgs::msg::DecisionRecord toMessage(
       source.tier_three_random_selection_index.has_value();
   result.tier_three_random_selection_index =
       source.tier_three_random_selection_index.value_or(0U);
+  result.decision_gini_agreement =
+      source.decision_confidence.gini_agreement;
+  result.decision_standardized_total =
+      source.decision_confidence.standardized_total;
+  result.decision_relative_support =
+      source.decision_confidence.relative_support;
+  result.decision_confidence_category =
+      source.decision_confidence.category;
   result.selected_tier = toMessage(source.tier);
   result.selected_source = toMessage(source.source);
   result.selected_policy = source.selected_policy;
@@ -207,6 +376,9 @@ semaforr_msgs::msg::DecisionRecord toMessage(
   result.selected_planner = source.planner.value_or("");
   result.has_plan = source.plan_id.has_value();
   result.active_plan_id = source.plan_id.value_or(0U);
+  result.active_plan_revision = source.plan_revision;
+  result.has_planning_episode = source.planning_episode_id.has_value();
+  result.planning_episode_id = source.planning_episode_id.value_or(0U);
   result.plan_family = source.plan_family
                            ? std::string(planning::toString(*source.plan_family))
                            : "";
@@ -218,6 +390,8 @@ semaforr_msgs::msg::DecisionRecord toMessage(
     result.operational_target.y = source.operational_target->y_m;
   }
   result.enforcer_reason = source.enforcer_reason;
+  result.plan_status = source.plan_status;
+  result.plan_execution_events = source.plan_execution_events;
   result.planning_candidates.reserve(source.planning_candidates.size());
   for (const auto& candidate : source.planning_candidates) {
     semaforr_msgs::msg::PlanCandidateDiagnostic diagnostic;
@@ -234,6 +408,19 @@ semaforr_msgs::msg::DecisionRecord toMessage(
     }
     diagnostic.summed_score = candidate.summed_score;
     diagnostic.tied_for_best = candidate.tied_for_best;
+    diagnostic.metadata = toMessage(candidate.metadata);
+    for (const auto& point : candidate.geometry)
+      diagnostic.geometry.push_back(toMessage(point));
+    for (std::size_t index = 0U; index < candidate.typed_steps.size(); ++index)
+      diagnostic.typed_steps.push_back(
+          toMessage(candidate.typed_steps[index], index));
+    diagnostic.dependency_revisions =
+        toMessage(candidate.dependency_revisions);
+    diagnostic.planner_configuration_revision =
+        candidate.planner_configuration_revision;
+    diagnostic.operating_mode =
+        std::string(planning::toString(candidate.operating_mode));
+    diagnostic.static_map_contributed = candidate.static_map_contributed;
     result.planning_candidates.push_back(std::move(diagnostic));
   }
   result.planning_tie_candidates = source.planning_tie_candidates;
@@ -250,6 +437,32 @@ semaforr_msgs::msg::DecisionRecord toMessage(
   result.action_progress = source.action_progress;
   result.action_target = source.action_target;
   result.outcome_detail = source.outcome_detail;
+  result.execution_id = source.execution_id;
+  result.action_lifecycle_status = source.action_lifecycle_status;
+  result.has_execution_result = source.execution_result.has_value();
+  if (source.execution_result) {
+    result.execution_start_pose = toMessage(source.execution_result->start_pose);
+    result.execution_final_pose = toMessage(source.execution_result->final_pose);
+    result.distance_achieved_m = source.execution_result->distance_achieved_m;
+    result.rotation_achieved_rad =
+        source.execution_result->rotation_achieved_rad;
+    result.execution_timed_out = source.execution_result->timed_out;
+    result.execution_cancellation_reason =
+        source.execution_result->cancellation_reason;
+    result.safety_interruption = source.execution_result->safety_interruption;
+    result.controller_failure = source.execution_result->controller_failure;
+    result.collision = source.execution_result->collision;
+    result.near_collision = source.execution_result->near_collision;
+  }
+  if (!source.source_provenance.empty()) {
+    result.source_provenance = source.source_provenance;
+  } else if (source.predicted_actions.empty()) {
+    result.source_provenance.push_back("no_spatial_evidence_recorded");
+  } else {
+    result.source_provenance.push_back(
+        source.predicted_actions.front().evidence_source);
+  }
+  if (source.plan_id) result.source_provenance.push_back("active_plan_structure");
   return result;
 }
 

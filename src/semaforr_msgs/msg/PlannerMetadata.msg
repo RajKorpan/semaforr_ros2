@@ -1,0 +1,7 @@
+string planner_name
+string plan_type
+string objective_name
+string objective_description
+string[] representation_dependencies
+bool requires_static_map
+bool supports_mapless_operation

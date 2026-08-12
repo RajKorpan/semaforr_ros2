@@ -391,3 +391,11 @@ PlanResult DomainPlanner::plan(const PlanningRequest& request) {
   return result;
 }
 }  // namespace semaforr::planning
+semaforr::planning::PlannerMetadata
+semaforr::planning::DomainPlanner::metadata() const {
+  const bool mapless = source_mode_ != OccupancySourceMode::StaticMapWithSensors;
+  return {name_, PlanFamily::Grid, objective_, std::string(toString(objective_)),
+          std::string(objectiveDescription(objective_)),
+          {mapless ? "sensed_occupancy" : "static_occupancy"}, !mapless,
+          mapless};
+}

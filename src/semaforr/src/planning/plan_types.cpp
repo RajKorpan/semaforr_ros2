@@ -7,6 +7,16 @@ std::string_view toString(PlanFamily family) noexcept {
   return family == PlanFamily::Grid ? "grid" : "model";
 }
 
+std::string_view toString(PlanValidity validity) noexcept {
+  switch (validity) {
+    case PlanValidity::Valid: return "valid";
+    case PlanValidity::Stale: return "stale";
+    case PlanValidity::Invalid: return "invalid";
+    case PlanValidity::Complete: return "complete";
+  }
+  return "invalid";
+}
+
 std::string_view toString(PlanningOperatingMode mode) noexcept {
   return mode == PlanningOperatingMode::MapEnabled ? "map_enabled"
                                                    : "mapless";
@@ -66,6 +76,39 @@ std::string_view toString(PlanObjective objective) noexcept {
       return "highway_distance";
   }
   return "distance";
+}
+
+std::string_view objectiveDescription(PlanObjective objective) noexcept {
+  switch (objective) {
+    case PlanObjective::Distance:
+      return "minimize metric or graph path cost";
+    case PlanObjective::CrowdDensity:
+      return "prefer routes through areas with lower estimated crowd density";
+    case PlanObjective::EncounterRisk:
+      return "prefer routes with lower estimated crowd-related navigation risk";
+    case PlanObjective::FlowOpposition:
+      return "prefer routes aligned with favorable crowd movement patterns";
+    case PlanObjective::RegionPreference:
+      return "prefer learned regions and their entrance and doorway affordances";
+    case PlanObjective::HallwayPreference:
+      return "prefer travel through learned hallway structures";
+    case PlanObjective::TrailPreference:
+      return "prefer previously learned successful trails";
+    case PlanObjective::ConveyorPreference:
+      return "prefer areas associated with repeated successful traversal";
+    case PlanObjective::SkeletonDistance:
+      return "navigate the learned region-connectivity skeleton and supporting subtrails";
+    case PlanObjective::HighwayDistance:
+      return "prefer the learned highway network and its intersections";
+  }
+  return "unknown planning objective";
+}
+
+PlannerMetadata Planner::metadata() const {
+  return {std::string(name()), planFamily(), objective(),
+          std::string(toString(objective())),
+          std::string(objectiveDescription(objective())), {}, false,
+          planFamily() == PlanFamily::Model};
 }
 
 domain::Revision currentRevision(const PlanningRequest& request,

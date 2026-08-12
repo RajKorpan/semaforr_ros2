@@ -14,6 +14,7 @@ class SkeletonPlan final : public Planner {
   PlanObjective objective() const noexcept override {
     return PlanObjective::SkeletonDistance;
   }
+  PlannerMetadata metadata() const override;
   std::vector<domain::ModelDependency> dependencies(
       const PlanningRequest&) const override;
 };
@@ -26,6 +27,7 @@ class HighwayPlan final : public Planner {
   PlanObjective objective() const noexcept override {
     return PlanObjective::HighwayDistance;
   }
+  PlannerMetadata metadata() const override;
   std::vector<domain::ModelDependency> dependencies(
       const PlanningRequest&) const override;
 };

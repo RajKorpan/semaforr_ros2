@@ -31,7 +31,7 @@ def test_compatibility_matrix_classifies_the_full_system():
         "Tier ordering",
         "Enforcer",
         "Weighted signed voting",
-        "Why action explanations",
+        "Unified Why explanations",
         "Why plan comparison",
     ):
         assert component in matrix
@@ -79,4 +79,3 @@ def test_test_suites_make_their_behavior_claim_explicit():
     assert "semaforr_compatibility_contract_test" in cmake
     assert "behavior_mode:modernized" in cmake
     assert "behavior_mode:compatibility-contract" in cmake
-

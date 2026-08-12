@@ -23,8 +23,14 @@ and their timestamps differ by no more than
 |---|---|---|
 | `topics.command`: `cmd_vel` | `geometry_msgs/msg/Twist` | Current velocity command; zero on timeout, completion, shutdown, or invariant failure. |
 | `topics.navigation_state`: `navigation_state` | `semaforr_msgs/msg/NavigationState` | Node state machine and action execution status. |
-| `topics.decision_records`: `decision_records` | `semaforr_msgs/msg/DecisionRecord` | Complete structured explanation for one decision. |
+| `topics.decision_records`: `decision_records` | `semaforr_msgs/msg/DecisionRecord` | Replayable reasoning and execution trace for one stable decision ID; lifecycle updates reuse that ID. |
 | `topics.crowd_field`: `crowd_field` | `social_context_msgs/msg/CrowdField` | Derived learned crowd diagnostic, never a second navigation input. |
+
+The separate `why` node consumes `decision_records`, accepts
+`semaforr_msgs/msg/ExplanationQuestion` on `why_questions`, and publishes
+`semaforr_msgs/msg/ExplanationResponse` on `why_responses`. These explanation
+topic names are parameters of the Why node rather than navigation-engine input
+topics.
 
 Visualization topics include `target_point`, `waypoint`, `all_targets`,
 `remaining_targets`, `plan`, `original_plan`, `decision_pose`,

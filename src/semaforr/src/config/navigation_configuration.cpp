@@ -981,7 +981,7 @@ void validateConfiguration(const Configuration& configuration) {
         "configuration: experiment.behavior_mode 'compatibility' is reserved "
         "but not operational; unresolved fidelity blockers include trail, "
         "conveyor, region, door/exit, hallway, region-skeleton, exact "
-        "tier ordering, Enforcer action selection, and Why explanations. Use "
+        "tier ordering and Enforcer action selection. Use "
         "'modernized' until the compatibility acceptance suite is enabled");
   }
   const std::set<std::string> hle_policies{

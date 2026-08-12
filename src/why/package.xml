@@ -3,15 +3,16 @@
 <package format="3">
   <name>why</name>
   <version>0.1.0</version>
-  <description>ROS 2 action explanation node for Social-SemaFORR diagnostics.</description>
+  <description>Unified request-driven decision and plan explanations.</description>
   <maintainer email="raj.korpan@hunter.cuny.edu">Raj Korpan</maintainer>
   <license>Apache-2.0</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
+  <depend>geometry_msgs</depend>
   <depend>rclcpp</depend>
   <depend>semaforr_msgs</depend>
-  <depend>std_msgs</depend>
 
+  <test_depend>ament_cmake_gtest</test_depend>
   <test_depend>ament_cmake_pytest</test_depend>
   <test_depend>python3-pytest</test_depend>
 

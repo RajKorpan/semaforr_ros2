@@ -24,10 +24,4 @@ def generate_launch_description():
             name='why',
             output='screen',
         ),
-        Node(
-            package='why_plan',
-            executable='why_plan',
-            name='why_plan',
-            output='screen',
-        ),
     ])

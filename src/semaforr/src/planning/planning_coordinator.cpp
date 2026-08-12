@@ -57,6 +57,9 @@ void PlanningCoordinator::registerPlanner(std::unique_ptr<Planner> planner) {
   if (std::any_of(planners_.begin(), planners_.end(),
                   [&](const auto& p) { return p->name() == name; }))
     throw std::invalid_argument("planner '" + name + "' is already registered");
+  if (!planner->metadata().valid())
+    throw std::invalid_argument("planner '" + name +
+                                "' has incomplete explanation metadata");
   planners_.push_back(std::move(planner));
   ++configuration_revision_;
 }
@@ -85,6 +88,7 @@ std::optional<SelectedPlan> PlanningCoordinator::selectPlan(
   struct Candidate {
     PlanResult result;
     std::string planner;
+    PlannerMetadata metadata;
     double vote = 0.0;
     ObjectiveCosts normalized;
   };
@@ -143,7 +147,14 @@ std::optional<SelectedPlan> PlanningCoordinator::selectPlan(
     result.primary_objective = planner->objective();
     result.objective_costs = evaluatePathObjectives(request, result.path);
     objectives.push_back(planner->objective());
-    candidates.push_back({std::move(result), name, 0.0, {}});
+    auto metadata = planner->metadata();
+    metadata.representation_dependencies.clear();
+    for (const auto dependency : declared)
+      if (dependency != domain::ModelDependency::PlannerConfiguration)
+        metadata.representation_dependencies.push_back(
+            std::string(domain::toString(dependency)));
+    candidates.push_back(
+        {std::move(result), name, std::move(metadata), 0.0, {}});
   }
   if (candidates.empty()) return std::nullopt;
   std::sort(objectives.begin(), objectives.end(), [](auto a, auto b) {
@@ -167,13 +178,27 @@ std::optional<SelectedPlan> PlanningCoordinator::selectPlan(
   }
   const auto selected = [&](std::size_t winner) {
     SelectedPlan::SelectionEvidence evidence;
+    evidence.planning_episode_id = next_episode_id_++;
+    evidence.task_id = effective.task_id;
+    evidence.start = effective.start;
+    evidence.target = effective.goal;
+    evidence.policy = policy_;
+    evidence.selected_plan_id = candidates[winner].result.plan_id;
     const double best_score = candidates[winner].vote;
     for (const auto& candidate : candidates) {
       const bool tied = std::abs(candidate.vote - best_score) <= 1e-12;
       evidence.candidates.push_back(
           {candidate.result.plan_id, candidate.planner,
            candidate.result.family, candidate.result.objective_costs,
-           candidate.normalized, candidate.vote, tied});
+           candidate.normalized, candidate.vote, tied, candidate.metadata,
+           candidate.result.path,
+           candidate.result.hierarchical
+               ? candidate.result.hierarchical->steps
+               : std::vector<PlanStep>{},
+           candidate.result.dependency_revisions,
+           candidate.result.planner_configuration_revision,
+           candidate.result.operating_mode,
+           candidate.result.static_map_contributed});
       if (tied) evidence.tie_candidates.push_back(candidate.planner);
     }
     evidence.tie_break_reason =

@@ -128,7 +128,9 @@ std::vector<Veto> ForwardRule::evaluate(
       if (visited_footprint_cells_.contains(visitedCell(projected)))
         vetoes.push_back(
             {action, std::string(name()),
-             "forward:projected_footprint_already_visited"});
+             "forward:projected_footprint_already_visited",
+             RejectionKind::Cognitive,
+             VetoCategory::ReturnsToVisitedSpace});
     }
   }
   if (vetoes.size() == rotations) {
@@ -200,7 +202,9 @@ std::vector<Veto> NotOppositeRule::evaluate(
                       }))
         vetoes.push_back(
             {action, std::string(name()),
-             "not_opposite:predicted_heading_recently_executed"});
+             "not_opposite:predicted_heading_recently_executed",
+             RejectionKind::Cognitive,
+             VetoCategory::OpposesRecentOrientation});
     }
   }
   return vetoes;
@@ -290,7 +294,9 @@ std::vector<Veto> PrecedentRule::evaluate(
            "precedent:action_confidence_below_threshold;evidence=" +
                std::to_string(evidence->evidence) +
                " accuracy=" + std::to_string(evidence->accuracy) +
-               " action confidence=" + std::to_string(confidence)});
+               " action confidence=" + std::to_string(confidence),
+           RejectionKind::Cognitive,
+           VetoCategory::CaseBasedPrecedent});
   }
   return vetoes;
 }

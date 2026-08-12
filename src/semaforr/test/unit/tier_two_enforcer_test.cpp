@@ -292,4 +292,27 @@ TEST(PlannerRegistry, DeclaresActualPlanFamilyAndOccupancyContracts) {
                       domain::ModelDependency::Regions),
             declaration.revision_dependencies.end());
 }
+
+TEST(PlannerRegistry, EveryPlannerPublishesCompleteExplanationMetadata) {
+  const auto registry = planning::defaultPlannerRegistry();
+  domain::SpatialModel spatial;
+  const planning::PlanningRequest request{
+      {{0.0, 0.0}, domain::Angle::zero()}, {1.0, 0.0}, &spatial};
+  for (const auto input : {planning::PlannerInputModel::Grid,
+                           planning::PlannerInputModel::AffordanceModifiedGrid,
+                           planning::PlannerInputModel::Freespace}) {
+    for (const auto& name : registry.names(input)) {
+      const auto declaration = registry.declaration(name, request);
+      const auto& metadata = declaration.explanation_metadata;
+      EXPECT_TRUE(metadata.valid()) << name;
+      EXPECT_EQ(metadata.name, name);
+      EXPECT_FALSE(metadata.objective_description.empty()) << name;
+      EXPECT_FALSE(metadata.representation_dependencies.empty()) << name;
+      if (declaration.static_map == planning::StaticMapRequirement::Required) {
+        EXPECT_TRUE(metadata.requires_static_map) << name;
+        EXPECT_FALSE(metadata.supports_mapless_operation) << name;
+      }
+    }
+  }
+}
 }  // namespace

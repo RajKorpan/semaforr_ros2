@@ -19,6 +19,9 @@ SafetyFilterResult HardSafetyFilter::filter(
     for (auto& veto : result.vetoes) {
       veto.rule = "HardSafetyFilter";
       veto.explanation = "hard_safety:collision_clearance";
+      veto.reason_code = veto.explanation;
+      veto.rejection_kind = RejectionKind::Safety;
+      veto.category = VetoCategory::Unsafe;
     }
   }
   std::set<domain::Action> unsafe;
@@ -26,14 +29,16 @@ SafetyFilterResult HardSafetyFilter::filter(
   for (const auto& action : candidates) {
     if (!action_space_.contains(action)) {
       result.vetoes.push_back(
-          {action, "HardSafetyFilter", "hard_safety:invalid_action_index"});
+          {action, "HardSafetyFilter", "hard_safety:invalid_action_index",
+           RejectionKind::Safety, VetoCategory::Unsafe});
       continue;
     }
     if ((!fresh || !context.world.robot.laser) &&
         action.type() != domain::ActionType::Pause) {
       result.vetoes.push_back(
           {action, "HardSafetyFilter",
-           "hard_safety:sensor_stale_or_missing"});
+           "hard_safety:sensor_stale_or_missing", RejectionKind::Safety,
+           VetoCategory::Unsafe});
       continue;
     }
     if (!unsafe.contains(action)) result.safe_actions.push_back(action);

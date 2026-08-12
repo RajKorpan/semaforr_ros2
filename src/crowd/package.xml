@@ -16,7 +16,6 @@
   <exec_depend>social_context_msgs</exec_depend>
   <exec_depend>visualization_msgs</exec_depend>
   <exec_depend>why</exec_depend>
-  <exec_depend>why_plan</exec_depend>
 
   <test_depend>ament_flake8</test_depend>
   <test_depend>ament_pep257</test_depend>

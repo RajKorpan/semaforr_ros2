@@ -327,3 +327,19 @@ PlanResult HighwayPlan::plan(const PlanningRequest& request) {
 }
 
 }  // namespace semaforr::planning
+semaforr::planning::PlannerMetadata
+semaforr::planning::SkeletonPlan::metadata() const {
+  return {std::string(name()), PlanFamily::Model, objective(),
+          std::string(toString(objective())),
+          std::string(objectiveDescription(objective())),
+          {"regions", "region_skeleton", "subtrails"}, false, true};
+}
+
+semaforr::planning::PlannerMetadata
+semaforr::planning::HighwayPlan::metadata() const {
+  return {std::string(name()), PlanFamily::Model, objective(),
+          std::string(toString(objective())),
+          std::string(objectiveDescription(objective())),
+          {"region_skeleton", "highways", "highway_graph", "subtrails"},
+          false, true};
+}

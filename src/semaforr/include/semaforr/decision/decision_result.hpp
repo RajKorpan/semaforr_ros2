@@ -51,10 +51,39 @@ enum class ActionOutcome {
   NavigationModeTransition
 };
 
+enum class RejectionKind { Safety, Cognitive, NotViable };
+enum class VetoCategory {
+  Unsafe,
+  ObstacleConflict,
+  OpposesRecentOrientation,
+  IneffectivePrecedent,
+  ReturnsToVisitedSpace,
+  ActivePlanConflict,
+  NoUsefulProgress,
+  NotViable,
+  ReactiveControl,
+  ExplorationPreference,
+  CaseBasedPrecedent,
+  PlanEnforcement,
+  InvalidNavigationState
+};
+
 struct Veto {
   domain::Action action{domain::Action::pause()};
   std::string rule;
   std::string explanation;
+  std::string reason_code;
+  RejectionKind rejection_kind{RejectionKind::Cognitive};
+  VetoCategory category{VetoCategory::InvalidNavigationState};
+
+  Veto() = default;
+  Veto(domain::Action vetoed_action, std::string vetoing_rule,
+       std::string detail,
+       RejectionKind kind = RejectionKind::Cognitive,
+       VetoCategory semantic = VetoCategory::InvalidNavigationState)
+      : action(vetoed_action), rule(std::move(vetoing_rule)),
+        explanation(detail), reason_code(std::move(detail)),
+        rejection_kind(kind), category(semantic) {}
 
   bool operator==(const Veto&) const = default;
 };
@@ -66,6 +95,7 @@ struct DecisionCycleEvent {
   std::vector<domain::Action> input_actions;
   std::optional<domain::Action> mandate;
   std::vector<Veto> vetoes;
+  std::vector<domain::Action> remaining_actions;
   std::string outcome;
   bool returned_to_earlier_tier{false};
   std::optional<DecisionTier> final_attribution;
@@ -99,6 +129,9 @@ struct AdvisorContribution {
   domain::Action action{domain::Action::pause()};
   double raw_score{0.0};
   double normalized_score{0.0};
+  double advisor_mean{0.0};
+  double advisor_standard_deviation{0.0};
+  double relative_support{0.0};
   double weight{1.0};
   double weighted_score{0.0};
   bool viable{true};
@@ -107,6 +140,20 @@ struct AdvisorContribution {
   std::size_t model_revision_used{0U};
 
   bool operator==(const AdvisorContribution&) const = default;
+};
+
+struct PredictedActionResult {
+  domain::Action action{domain::Action::pause()};
+  domain::Pose2D predicted_pose;
+  bool viable{false};
+  std::string evidence_source;
+};
+
+struct DecisionConfidence {
+  double gini_agreement{0.0};
+  double standardized_total{0.0};
+  double relative_support{0.0};
+  std::string category{"not_available"};
 };
 
 struct TierThreeActionTotal {
@@ -135,12 +182,21 @@ struct PlanCandidateDiagnostic {
   planning::ObjectiveCosts normalized_costs;
   double summed_score = 0.0;
   bool tied_for_best = false;
+  planning::PlannerMetadata metadata;
+  std::vector<domain::Point2D> geometry;
+  std::vector<planning::PlanStep> typed_steps;
+  domain::DependencyRevisions dependency_revisions;
+  domain::Revision planner_configuration_revision = 0U;
+  planning::PlanningOperatingMode operating_mode{
+      planning::PlanningOperatingMode::Mapless};
+  bool static_map_contributed{false};
 };
 
 struct DecisionResult {
   std::uint64_t sequence{0U};
   domain::DecisionId decision_id{0U};
   domain::ActionId action_id{0U};
+  domain::ActionId execution_id{0U};
   domain::Pose2D robot_pose;
   navigation::NavigationPhase navigation_phase{
       navigation::NavigationPhase::TargetNavigation};
@@ -149,6 +205,8 @@ struct DecisionResult {
   std::vector<std::string> phase_events;
   std::optional<TaskDiagnostic> task;
   std::vector<domain::Action> candidates;
+  std::vector<domain::Action> viable_actions;
+  std::vector<PredictedActionResult> predicted_actions;
   domain::Action action{domain::Action::pause()};
   DecisionSource source{DecisionSource::SafeStop};
   DecisionTier tier{DecisionTier::SafeStop};
@@ -156,6 +214,7 @@ struct DecisionResult {
   std::vector<Veto> vetoes;
   std::vector<AdvisorContribution> contributions;
   std::vector<TierThreeActionTotal> tier_three_totals;
+  DecisionConfidence decision_confidence;
   std::string tier_three_scoring_policy;
   std::string tier_three_tie_policy;
   double tier_three_tie_tolerance{0.0};
@@ -166,12 +225,16 @@ struct DecisionResult {
   std::vector<DecisionCycleEvent> decision_cycle;
   std::optional<std::string> planner;
   std::optional<planning::PlanId> plan_id;
+  domain::Revision plan_revision{0U};
   std::optional<planning::PlanFamily> plan_family;
   std::optional<std::string> enforcer_mode;
   std::optional<std::size_t> active_plan_step;
   std::optional<domain::Point2D> operational_target;
   std::string enforcer_reason;
+  std::string plan_status;
+  std::vector<std::string> plan_execution_events;
   std::vector<PlanCandidateDiagnostic> planning_candidates;
+  std::optional<std::uint64_t> planning_episode_id;
   std::vector<std::string> planning_tie_candidates;
   std::string planning_tie_break_reason;
   double decision_latency_s{0.0};
@@ -181,15 +244,20 @@ struct DecisionResult {
   std::uint64_t allocation_bytes{0U};
   std::uint64_t covered_cells{0U};
   ActionOutcome action_outcome{ActionOutcome::Pending};
+  std::string action_lifecycle_status{"selected"};
+  std::optional<domain::ActionExecutionResult> execution_result;
   double action_duration_s{0.0};
   double action_progress{0.0};
   double action_target{0.0};
   std::string outcome_detail;
+  std::vector<std::string> source_provenance;
 };
 
 std::string_view toString(DecisionSource source) noexcept;
 std::string_view toString(DecisionTier tier) noexcept;
 std::string_view toString(ActionOutcome outcome) noexcept;
+std::string_view toString(RejectionKind kind) noexcept;
+std::string_view toString(VetoCategory category) noexcept;
 
 }  // namespace semaforr::decision
 

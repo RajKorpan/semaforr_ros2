@@ -10,7 +10,7 @@ This folder contains the ROS 2 Social-SemaFORR workspace:
 - `social_context`: social observation and trajectory prediction producers.
 - `semaforr_bridge`: adapters from supported upstream tracking messages.
 - `crowd` (`semaforr_crowd`): learned-field visualization only.
-- `why` and `why_plan`: typed action and plan explanations based on
+- `why`: unified typed action and plan explanations based on
   `semaforr_msgs/msg/DecisionRecord`.
 - `hunav_msgs`: HuNavSim interfaces.
 - `examples`: reproducible workspace examples.

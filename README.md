@@ -41,7 +41,7 @@ trace is written to `baseline-results/example-simulation.json`.
 - `semaforr_bridge`: odometry and tracked-person adapters
 - `semaforr_crowd`: optional crowd-field diagnostics
 - `semaforr_examples`: installed retained maps and scenarios
-- `why`, `why_plan`: decision and plan explanation tools
+- `why`: unified request-driven decision and plan explanations
 
 Start with the
 [documentation index](src/semaforr/docs/README.md), especially the

@@ -20,6 +20,7 @@ class DomainPlanner final : public Planner {
   std::string_view name() const noexcept override { return name_; }
   PlanObjective objective() const noexcept override { return objective_; }
   PlanFamily planFamily() const noexcept override { return PlanFamily::Grid; }
+  PlannerMetadata metadata() const override;
   std::vector<domain::ModelDependency> dependencies(
       const PlanningRequest& request) const override;
 

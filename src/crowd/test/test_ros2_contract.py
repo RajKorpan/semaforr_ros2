@@ -47,4 +47,4 @@ def test_diagnostic_launch_connects_the_migrated_packages():
 
     assert "package='semaforr_crowd'" in launch
     assert "package='why'" in launch
-    assert "package='why_plan'" in launch
+    assert "package='why_plan'" not in launch

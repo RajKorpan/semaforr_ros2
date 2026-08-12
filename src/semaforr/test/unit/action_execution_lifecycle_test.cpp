@@ -94,8 +94,14 @@ TEST_F(LifecycleFixture, SelectionIsNotExecutionAndStableIdsCorrelateFeedback) {
   EXPECT_TRUE(world.execution_history.entries().empty());
   EXPECT_TRUE(world.navigation_history.entries().empty());
   EXPECT_THROW(engine.decide(), std::logic_error);
+  ASSERT_NE(engine.latestDecisionTrace(), nullptr);
+  EXPECT_EQ(engine.latestDecisionTrace()->action_lifecycle_status, "selected");
+  ASSERT_NE(engine.decisionTrace(decision.decision_id), nullptr);
+  ASSERT_NE(engine.actionTrace(decision.action_id), nullptr);
 
   start(decision);
+  EXPECT_EQ(engine.actionTrace(decision.action_id)->action_lifecycle_status,
+            "started");
   EXPECT_EQ(world.command_history.entries().size(), 1U);
   auto completed = resultFor(
       decision, semaforr::domain::ExecutionCompletionStatus::Succeeded, 0.2);
@@ -108,6 +114,9 @@ TEST_F(LifecycleFixture, SelectionIsNotExecutionAndStableIdsCorrelateFeedback) {
             decision.action_id);
   EXPECT_EQ(world.navigation_history.entries().size(), 1U);
   EXPECT_EQ(world.completed_path_history.entries().size(), 1U);
+  ASSERT_TRUE(engine.actionTrace(decision.action_id)->execution_result);
+  EXPECT_EQ(engine.actionTrace(decision.action_id)->action_lifecycle_status,
+            "completed");
 }
 
 TEST_F(LifecycleFixture, DuplicateUnknownAndStaleFeedbackAreRejected) {

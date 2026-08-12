@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <deque>
 #include <memory>
+#include <map>
 #include <optional>
 #include <semaforr/decision/decision_coordinator.hpp>
 #include <semaforr/decision/enforcer.hpp>
@@ -62,6 +63,9 @@ class NavigationEngine {
       domain::ExecutionTimestamp when, const domain::Pose2D& pose);
   const domain::SelectedActionRecord* pendingAction() const noexcept;
   const std::vector<std::string>& executionDiagnostics() const noexcept;
+  const DecisionResult* decisionTrace(domain::DecisionId id) const noexcept;
+  const DecisionResult* actionTrace(domain::ActionId id) const noexcept;
+  const DecisionResult* latestDecisionTrace() const noexcept;
   bool missionComplete() noexcept;
   navigation::NavigationPhase phase() const noexcept;
 
@@ -79,6 +83,7 @@ class NavigationEngine {
   PlanEnforcementResult enforceActivePlan(
       std::span<const domain::Action> viable_actions);
   void appendCycleDiagnostics(DecisionResult&) const;
+  void retainDecisionTrace(const DecisionResult& result);
 
   struct PendingExecution {
     domain::SelectedActionRecord selection;
@@ -120,6 +125,8 @@ class NavigationEngine {
   std::optional<PendingExecution> pending_execution_;
   std::deque<domain::ActionId> terminal_action_ids_;
   std::vector<std::string> execution_diagnostics_;
+  std::map<domain::DecisionId, DecisionResult> explanation_history_;
+  std::map<domain::ActionId, domain::DecisionId> action_to_decision_;
   bool finalize_initial_exploration_after_action_{false};
   std::size_t maximum_planning_attempts_per_task_{3U};
 };

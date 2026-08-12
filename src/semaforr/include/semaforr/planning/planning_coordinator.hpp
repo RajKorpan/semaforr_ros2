@@ -9,6 +9,8 @@
 
 namespace semaforr::planning {
 
+using PlanningEpisodeId = std::uint64_t;
+
 enum class PlanSelectionPolicy {
   Single,
   MinimumNormalizedCost,
@@ -28,8 +30,21 @@ struct SelectedPlan {
     ObjectiveCosts normalized_costs;
     double summed_score = 0.0;
     bool tied_for_best = false;
+    PlannerMetadata metadata;
+    std::vector<domain::Point2D> geometry;
+    std::vector<PlanStep> typed_steps;
+    domain::DependencyRevisions dependency_revisions;
+    domain::Revision planner_configuration_revision = 0U;
+    PlanningOperatingMode operating_mode{PlanningOperatingMode::Mapless};
+    bool static_map_contributed{false};
   };
   struct SelectionEvidence {
+    PlanningEpisodeId planning_episode_id = 0U;
+    std::optional<domain::TaskId> task_id;
+    domain::Pose2D start;
+    domain::Point2D target;
+    PlanSelectionPolicy policy{PlanSelectionPolicy::RangeVote};
+    PlanId selected_plan_id = 0U;
     std::vector<CandidateEvidence> candidates;
     std::vector<std::string> tie_candidates;
     std::string tie_break_reason;
@@ -71,6 +86,7 @@ class PlanningCoordinator {
   std::size_t cache_hits_ = 0U;
   domain::Revision configuration_revision_ = 1U;
   PlanId next_plan_id_ = 1U;
+  PlanningEpisodeId next_episode_id_ = 1U;
 };
 }  // namespace semaforr::planning
 #endif

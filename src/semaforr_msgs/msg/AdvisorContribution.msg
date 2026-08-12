@@ -2,6 +2,9 @@ string advisor
 semaforr_msgs/DecisionAction action
 float64 raw_score
 float64 normalized_score
+float64 advisor_mean
+float64 advisor_standard_deviation
+float64 relative_support
 float64 weight
 float64 weighted_score
 bool viable

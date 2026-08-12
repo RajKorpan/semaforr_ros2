@@ -311,9 +311,17 @@ PlanEnforcementResult ModelPlanEnforcer::enforce(
 PlanEnforcementResult Enforcer::enforce(
     planning::HierarchicalPlan& plan,
     const PlanEnforcementContext& context) const {
-  return plan.family == planning::PlanFamily::Grid
-             ? grid_.enforce(plan, context)
-             : model_.enforce(plan, context);
+  const auto cursor = plan.cursor;
+  const auto validity = plan.validity;
+  const auto operations = plan.operationalizations.size();
+  const auto steps = plan.steps.size();
+  auto result = plan.family == planning::PlanFamily::Grid
+                    ? grid_.enforce(plan, context)
+                    : model_.enforce(plan, context);
+  if (cursor != plan.cursor || validity != plan.validity ||
+      operations != plan.operationalizations.size() || steps != plan.steps.size())
+    ++plan.execution_revision;
+  return result;
 }
 
 std::vector<domain::Point2D> Enforcer::operationalize(

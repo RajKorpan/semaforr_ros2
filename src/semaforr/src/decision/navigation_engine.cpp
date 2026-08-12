@@ -290,6 +290,7 @@ std::optional<std::string> NavigationEngine::preparePlan(MissionStep step) {
       return active_hierarchy_->planner;
     } else {
       active_hierarchy_->validity = planning::PlanValidity::Stale;
+      ++active_hierarchy_->execution_revision;
       active_hierarchy_->diagnostics.insert(
           active_hierarchy_->diagnostics.end(), stale.begin(), stale.end());
     }
@@ -347,6 +348,7 @@ DecisionResult NavigationEngine::decide() {
                                     .count();
     result.covered_cells = static_cast<std::uint64_t>(
         spatial::representedCoverageCells(world_.spatial));
+    retainDecisionTrace(result);
   };
   if (!observation_) {
     throw std::logic_error("navigation decision requires an observation");
@@ -748,14 +750,31 @@ DecisionResult NavigationEngine::decide() {
   result.component_manifest = component_manifest_;
   result.phase_events.swap(pending_phase_events_);
   appendCycleDiagnostics(result);
-  result.candidates = decision_candidates;
+  result.candidates = available;
+  result.viable_actions = viable;
+  const std::string prediction_source = "kinematic_action_model";
+  for (const auto& candidate : available)
+    result.predicted_actions.push_back(
+        {candidate,
+         domain::expectedPoseAfterAction(world_.robot.pose, candidate,
+                                         action_space_),
+         std::find(viable.begin(), viable.end(), candidate) != viable.end(),
+         prediction_source});
   result.planner = selected_planner;
   if (active_hierarchy_) {
     if (!result.planner) result.planner = active_hierarchy_->planner;
     result.plan_id = active_hierarchy_->id;
+    result.plan_revision = active_hierarchy_->execution_revision;
     result.plan_family = active_hierarchy_->family;
+    result.plan_status =
+        std::string(planning::toString(active_hierarchy_->validity));
+    result.plan_execution_events = active_hierarchy_->diagnostics;
+    for (const auto& item : active_hierarchy_->operationalizations)
+      result.plan_execution_events.push_back(item.operation);
   }
   if (active_selection_evidence_) {
+    result.planning_episode_id =
+        active_selection_evidence_->planning_episode_id;
     result.planning_tie_candidates =
         active_selection_evidence_->tie_candidates;
     result.planning_tie_break_reason =
@@ -764,8 +783,25 @@ DecisionResult NavigationEngine::decide() {
       result.planning_candidates.push_back(
           {candidate.plan_id, candidate.planner, candidate.family,
            candidate.raw_costs, candidate.normalized_costs,
-           candidate.summed_score, candidate.tied_for_best});
+           candidate.summed_score, candidate.tied_for_best,
+           candidate.metadata, candidate.geometry, candidate.typed_steps,
+           candidate.dependency_revisions,
+           candidate.planner_configuration_revision,
+           candidate.operating_mode, candidate.static_map_contributed});
+    const auto selected = std::find_if(
+        active_selection_evidence_->candidates.begin(),
+        active_selection_evidence_->candidates.end(), [&](const auto& item) {
+          return item.plan_id == active_selection_evidence_->selected_plan_id;
+        });
+    if (selected != active_selection_evidence_->candidates.end()) {
+      for (const auto& dependency : selected->metadata.representation_dependencies)
+        result.source_provenance.push_back(dependency);
+      if (selected->static_map_contributed)
+        result.source_provenance.push_back("static_map");
+    }
   }
+  if (hard_safety_ || !result.vetoes.empty())
+    result.source_provenance.push_back("current_sensor_readings");
   result.planning_latency_s = planning_latency_s;
   if (world_.mission.active()) {
     result.task = TaskDiagnostic{
@@ -788,7 +824,7 @@ DecisionResult NavigationEngine::decide() {
       world_.mission.active()
           ? std::optional<domain::Point2D>(world_.mission.active()->target)
           : std::nullopt;
-  episode.viable_actions = decision_candidates;
+  episode.viable_actions = viable;
   episode.move_distances_m = action_space_.move_distances_m();
   episode.rotation_angles_rad = action_space_.rotation_angles_rad();
   registerSelection(result, std::move(episode));
@@ -823,6 +859,8 @@ void NavigationEngine::registerSelection(DecisionResult& result,
     throw std::overflow_error("action identifier space exhausted");
   result.decision_id = result.sequence;
   result.action_id = ++action_sequence_;
+  result.execution_id = result.action_id;
+  result.action_lifecycle_status = "selected";
   domain::SelectedActionRecord selection;
   selection.decision_id = result.decision_id;
   selection.action_id = result.action_id;
@@ -868,6 +906,38 @@ const std::vector<std::string>& NavigationEngine::executionDiagnostics() const
   return execution_diagnostics_;
 }
 
+void NavigationEngine::retainDecisionTrace(const DecisionResult& result) {
+  if (result.decision_id == 0U) return;
+  explanation_history_.insert_or_assign(result.decision_id, result);
+  if (result.action_id != 0U)
+    action_to_decision_.insert_or_assign(result.action_id, result.decision_id);
+  constexpr std::size_t maximum_history = 4096U;
+  while (explanation_history_.size() > maximum_history) {
+    const auto oldest = explanation_history_.begin();
+    if (oldest->second.action_id != 0U)
+      action_to_decision_.erase(oldest->second.action_id);
+    explanation_history_.erase(oldest);
+  }
+}
+
+const DecisionResult* NavigationEngine::decisionTrace(
+    domain::DecisionId id) const noexcept {
+  const auto found = explanation_history_.find(id);
+  return found == explanation_history_.end() ? nullptr : &found->second;
+}
+
+const DecisionResult* NavigationEngine::actionTrace(
+    domain::ActionId id) const noexcept {
+  const auto found = action_to_decision_.find(id);
+  return found == action_to_decision_.end() ? nullptr
+                                            : decisionTrace(found->second);
+}
+
+const DecisionResult* NavigationEngine::latestDecisionTrace() const noexcept {
+  return explanation_history_.empty() ? nullptr
+                                      : &explanation_history_.rbegin()->second;
+}
+
 domain::FeedbackDisposition NavigationEngine::onActionStarted(
     const domain::ActionStartedEvent& event) {
   if (terminalSeen(event.action_id)) return domain::FeedbackDisposition::Duplicate;
@@ -885,6 +955,9 @@ domain::FeedbackDisposition NavigationEngine::onActionStarted(
   world_.command_history.record(event);
   auto episode = pending_execution_->episode;
   learning_.observeActionStarted(std::move(episode));
+  if (auto found = explanation_history_.find(event.decision_id);
+      found != explanation_history_.end())
+    found->second.action_lifecycle_status = "started";
   return domain::FeedbackDisposition::Accepted;
 }
 
@@ -923,6 +996,15 @@ domain::FeedbackDisposition NavigationEngine::acceptTerminal(
   } else {
     result.start_pose = pending_execution_->selection.expected_start;
   }
+  if (auto found = explanation_history_.find(result.decision_id);
+      found != explanation_history_.end()) {
+    found->second.execution_result = result;
+    found->second.action_lifecycle_status =
+        result.status == domain::ExecutionCompletionStatus::Succeeded
+            ? "completed"
+            : std::string(domain::toString(result.status));
+    found->second.outcome_detail = result.cancellation_reason;
+  }
   world_.execution_history.record(result);
   domain::NavigationHistoryEntry history{
       result.final_pose, pending_execution_->episode.observation.laser,
@@ -953,9 +1035,17 @@ domain::FeedbackDisposition NavigationEngine::acceptTerminal(
   }
   if (!result.successful() && active_hierarchy_) {
     active_hierarchy_->validity = planning::PlanValidity::Stale;
+    ++active_hierarchy_->execution_revision;
     active_hierarchy_->diagnostics.push_back(
         "execution_invalidated_remaining_route:" +
         std::string(domain::toString(result.status)));
+    if (auto found = explanation_history_.find(result.decision_id);
+        found != explanation_history_.end()) {
+      found->second.plan_revision = active_hierarchy_->execution_revision;
+      found->second.plan_status = "stale";
+      found->second.plan_execution_events.push_back(
+          active_hierarchy_->diagnostics.back());
+    }
   }
 
   auto episode = pending_execution_->episode;

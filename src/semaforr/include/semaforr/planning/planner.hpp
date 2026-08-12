@@ -34,6 +34,22 @@ enum class PlanObjective {
   HighwayDistance
 };
 
+struct PlannerMetadata {
+  std::string name;
+  PlanFamily plan_family{PlanFamily::Grid};
+  PlanObjective primary_objective{PlanObjective::Distance};
+  std::string objective_name;
+  std::string objective_description;
+  std::vector<std::string> representation_dependencies;
+  bool requires_static_map{false};
+  bool supports_mapless_operation{false};
+
+  bool valid() const noexcept {
+    return !name.empty() && !objective_name.empty() &&
+           !objective_description.empty();
+  }
+};
+
 using ObjectiveCosts = std::map<PlanObjective, double>;
 
 struct WaypointStep {
@@ -83,9 +99,11 @@ using PlanStep = std::variant<WaypointStep, SubtrailStep, RegionStep,
                               FinalTargetStep>;
 
 enum class PlanValidity { Valid, Stale, Invalid, Complete };
+std::string_view toString(PlanValidity validity) noexcept;
 
 struct HierarchicalPlan {
   PlanId id = 0U;
+  domain::Revision execution_revision = 1U;
   PlanFamily family = PlanFamily::Grid;
   std::string planner;
   PlanObjective objective = PlanObjective::Distance;
@@ -117,6 +135,7 @@ struct HierarchicalPlan {
 
 std::optional<domain::Point2D> stepTarget(const PlanStep& step) noexcept;
 std::string_view toString(PlanObjective objective) noexcept;
+std::string_view objectiveDescription(PlanObjective objective) noexcept;
 
 enum class PlanStatus { Success, NoPath, InvalidRequest, PlannerUnavailable };
 
@@ -192,6 +211,7 @@ class Planner {
   // Custom/test planners default to geometric output; production planners
   // override this declaration explicitly.
   virtual PlanFamily planFamily() const noexcept { return PlanFamily::Grid; }
+  virtual PlannerMetadata metadata() const;
   virtual std::vector<domain::ModelDependency> dependencies(
       const PlanningRequest&) const {
     return {};

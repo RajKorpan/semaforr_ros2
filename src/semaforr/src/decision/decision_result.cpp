@@ -74,4 +74,37 @@ std::string_view toString(ActionOutcome outcome) noexcept {
   return "unknown";
 }
 
+std::string_view toString(RejectionKind kind) noexcept {
+  switch (kind) {
+    case RejectionKind::Safety: return "safety_rejection";
+    case RejectionKind::Cognitive: return "cognitive_veto";
+    case RejectionKind::NotViable: return "not_viable";
+  }
+  return "not_viable";
+}
+
+std::string_view toString(VetoCategory category) noexcept {
+  switch (category) {
+    case VetoCategory::Unsafe: return "unsafe";
+    case VetoCategory::ObstacleConflict: return "obstacle_conflict";
+    case VetoCategory::OpposesRecentOrientation:
+      return "opposes_recent_orientation";
+    case VetoCategory::IneffectivePrecedent:
+      return "previously_ineffective";
+    case VetoCategory::ReturnsToVisitedSpace:
+      return "returns_to_visited_space";
+    case VetoCategory::ActivePlanConflict: return "active_plan_conflict";
+    case VetoCategory::NoUsefulProgress: return "no_useful_progress";
+    case VetoCategory::NotViable: return "not_viable";
+    case VetoCategory::ReactiveControl: return "reactive_control";
+    case VetoCategory::ExplorationPreference:
+      return "exploration_preference";
+    case VetoCategory::CaseBasedPrecedent: return "case_based_precedent";
+    case VetoCategory::PlanEnforcement: return "plan_enforcement";
+    case VetoCategory::InvalidNavigationState:
+      return "invalid_navigation_state";
+  }
+  return "invalid_navigation_state";
+}
+
 }  // namespace semaforr::decision

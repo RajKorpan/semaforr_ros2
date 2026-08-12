@@ -26,6 +26,7 @@ struct PlannerDeclaration {
   bool supports_partial_sensor_occupancy{false};
   PlanObjective objective{PlanObjective::Distance};
   std::vector<domain::ModelDependency> revision_dependencies;
+  PlannerMetadata explanation_metadata;
 };
 class PlannerRegistry {
  public:

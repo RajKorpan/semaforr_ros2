@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <cmath>
 #include <map>
+#include <numeric>
 #include <semaforr/decision/decision_coordinator.hpp>
 #include <set>
 #include <stdexcept>
@@ -111,6 +112,7 @@ TierOnePass DecisionCoordinator::evaluateTierOne(
         event.outcome = "mandated_action";
         event.reason_code = decision->explanation;
         event.final_attribution = DecisionTier::TierOne;
+        event.remaining_actions = pass.survivors;
         event.order = pass.trace.size() + 1U;
         pass.trace.push_back(std::move(event));
         DecisionResult result;
@@ -127,6 +129,7 @@ TierOnePass DecisionCoordinator::evaluateTierOne(
       event.outcome = "no_mandate_continue";
     }
     event.order = pass.trace.size() + 1U;
+    event.remaining_actions = pass.survivors;
     pass.trace.push_back(std::move(event));
   }
 
@@ -142,6 +145,7 @@ TierOnePass DecisionCoordinator::evaluateTierOne(
     for (const auto& veto : event.vetoes) vetoed.insert(veto.action);
     std::erase_if(pass.survivors,
                   [&](const auto& action) { return vetoed.contains(action); });
+    event.remaining_actions = pass.survivors;
     event.outcome = event.vetoes.empty() ? "no_veto_continue"
                                          : "vetoes_applied_continue";
     event.order = pass.trace.size() + 1U;
@@ -265,6 +269,17 @@ DecisionResult DecisionCoordinator::decideTierThree(
     }
     const auto transformed = transformScores(
         evaluation, metadata.normalization, configuration_.scoring_policy);
+    const double advisor_mean =
+        transformed.empty()
+            ? 0.0
+            : std::accumulate(transformed.begin(), transformed.end(), 0.0) /
+                  static_cast<double>(transformed.size());
+    double advisor_variance = 0.0;
+    for (const double value : transformed)
+      advisor_variance += (value - advisor_mean) * (value - advisor_mean);
+    if (!transformed.empty())
+      advisor_variance /= static_cast<double>(transformed.size());
+    const double advisor_standard_deviation = std::sqrt(advisor_variance);
     for (std::size_t index = 0U; index < evaluation.scores.size(); ++index) {
       const auto& score = evaluation.scores[index];
       if (!std::binary_search(survivors.begin(), survivors.end(),
@@ -292,6 +307,13 @@ DecisionResult DecisionCoordinator::decideTierThree(
       contribution.action = score.action;
       contribution.raw_score = score.raw_score;
       contribution.normalized_score = transformed[index];
+      contribution.advisor_mean = advisor_mean;
+      contribution.advisor_standard_deviation = advisor_standard_deviation;
+      contribution.relative_support =
+          advisor_standard_deviation <= 1.0e-12
+              ? 0.0
+              : (transformed[index] - advisor_mean) /
+                    advisor_standard_deviation;
       contribution.weight = evaluation.weight;
       contribution.weighted_score = weighted;
       contribution.viable = true;
@@ -368,6 +390,72 @@ DecisionResult DecisionCoordinator::decideTierThree(
     result.tier_three_random_selection_index = selected_index;
   }
   result.action = tied[selected_index];
+  const double totals_mean =
+      std::accumulate(totals.begin(), totals.end(), 0.0,
+                      [](double sum, const auto& item) {
+                        return sum + item.second;
+                      }) /
+      static_cast<double>(totals.size());
+  double totals_variance = 0.0;
+  for (const auto& [action, total] : totals) {
+    static_cast<void>(action);
+    totals_variance += (total - totals_mean) * (total - totals_mean);
+  }
+  totals_variance /= static_cast<double>(totals.size());
+  const double totals_deviation = std::sqrt(totals_variance);
+  result.decision_confidence.standardized_total =
+      totals_deviation <= 1.0e-12
+          ? 0.0
+          : (maximum - totals_mean) / totals_deviation;
+  std::map<Action, double> preferred_counts;
+  std::map<std::string, std::pair<double, Action>> advisor_preferences;
+  for (const auto& contribution : result.contributions) {
+    const auto found = advisor_preferences.find(contribution.advisor);
+    if (found == advisor_preferences.end() ||
+        contribution.normalized_score > found->second.first)
+      advisor_preferences.insert_or_assign(
+          contribution.advisor,
+          std::pair{contribution.normalized_score, contribution.action});
+  }
+  for (const auto& [advisor, preference] : advisor_preferences) {
+    static_cast<void>(advisor);
+    preferred_counts[preference.second] += 1.0;
+  }
+  const double participating_advisors =
+      static_cast<double>(advisor_preferences.size());
+  double gini = 1.0;
+  if (participating_advisors > 0.0) {
+    gini = 1.0;
+    for (const auto& [action, count] : preferred_counts) {
+      static_cast<void>(action);
+      const double probability = count / participating_advisors;
+      gini -= probability * probability;
+    }
+  }
+  const double maximum_gini = totals.size() <= 1U
+                                  ? 1.0
+                                  : 1.0 - 1.0 /
+                                              static_cast<double>(totals.size());
+  result.decision_confidence.gini_agreement =
+      std::clamp(1.0 - gini / maximum_gini, 0.0, 1.0);
+  const auto selected_total = totals.at(result.action);
+  double runner_up = -std::numeric_limits<double>::infinity();
+  for (const auto& [action, total] : totals)
+    if (action != result.action) runner_up = std::max(runner_up, total);
+  result.decision_confidence.relative_support =
+      !std::isfinite(runner_up)
+          ? 1.0
+          : (selected_total - runner_up) /
+                std::max(1.0, std::abs(selected_total));
+  const double confidence_score =
+      0.45 * result.decision_confidence.gini_agreement +
+      0.35 * std::clamp(result.decision_confidence.standardized_total / 2.0,
+                        0.0, 1.0) +
+      0.20 * std::clamp(result.decision_confidence.relative_support, 0.0, 1.0);
+  result.decision_confidence.category =
+      confidence_score >= 0.75 ? "high"
+      : confidence_score >= 0.45 ? "moderate"
+                                 : "low";
   result.source = DecisionSource::TierThreeAdvisor;
   result.tier = DecisionTier::TierThree;
   result.selected_policy = "advisor_arbitration";

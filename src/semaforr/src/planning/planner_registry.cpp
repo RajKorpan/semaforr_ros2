@@ -30,6 +30,19 @@ PlannerDeclaration PlannerRegistry::declaration(
   if (found == entries_.end())
     throw std::invalid_argument("unknown planner '" + name + "'");
   auto planner = found->second.factory();
+  auto metadata = planner->metadata();
+  metadata.name = name;
+  metadata.requires_static_map =
+      found->second.map_requirement == StaticMapRequirement::Required;
+  metadata.supports_mapless_operation =
+      found->second.map_requirement != StaticMapRequirement::Required;
+  metadata.representation_dependencies.clear();
+  for (const auto dependency : planner->dependencies(request))
+    metadata.representation_dependencies.push_back(
+        std::string(domain::toString(dependency)));
+  if (!metadata.valid())
+    throw std::logic_error("planner '" + name +
+                           "' has incomplete explanation metadata");
   return {name,
           found->second.model,
           planner->planFamily(),
@@ -39,8 +52,8 @@ PlannerDeclaration PlannerRegistry::declaration(
                   OccupancyRequirement::SensedPartial ||
               found->second.occupancy_requirement ==
                   OccupancyRequirement::StaticOrSensedPartial,
-          planner->objective(),
-          planner->dependencies(request)};
+          planner->objective(), planner->dependencies(request),
+          std::move(metadata)};
 }
 StaticMapRequirement PlannerRegistry::mapRequirement(
     const std::string& name) const {

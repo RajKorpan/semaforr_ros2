@@ -1,0 +1,4 @@
+semaforr_msgs/DecisionAction action
+geometry_msgs/Pose2D predicted_pose
+bool viable
+string evidence_source

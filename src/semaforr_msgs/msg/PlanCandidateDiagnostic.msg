@@ -6,3 +6,10 @@ float64[] raw_costs
 float64[] normalized_costs
 float64 summed_score
 bool tied_for_best
+semaforr_msgs/PlannerMetadata metadata
+geometry_msgs/Point[] geometry
+semaforr_msgs/PlanStepTrace[] typed_steps
+semaforr_msgs/ModelRevision[] dependency_revisions
+uint64 planner_configuration_revision
+string operating_mode
+bool static_map_contributed
