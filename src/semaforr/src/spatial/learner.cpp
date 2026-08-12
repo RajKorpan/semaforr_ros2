@@ -588,7 +588,17 @@ void payload(std::ostream& output, const SpatialPayload& value) {
             stream << "{\"type\":" << static_cast<int>(value.type())
                    << ",\"magnitude\":" << value.magnitude_index() << '}';
           };
-          output << "{\"minimum_cluster_size\":"
+          output << "{\"schema_version\":2,\"learning_mode\":\""
+                 << domain::toString(model.learning_mode)
+                 << "\",\"model_version\":\"" << model.model_version
+                 << "\",\"classifier_version\":\""
+                 << model.classifier_version
+                 << "\",\"feature_version\":\"" << model.feature_version
+                 << "\",\"similarity_metric\":\""
+                 << model.similarity_metric
+                 << "\",\"reclustering_policy\":\""
+                 << model.reclustering_policy
+                 << "\",\"minimum_cluster_size\":"
                  << model.minimum_cluster_size
                  << ",\"minimum_case_evidence\":"
                  << model.minimum_case_evidence
@@ -607,6 +617,14 @@ void payload(std::ostream& output, const SpatialPayload& value) {
                          << ",\"evidence\":" << cluster.evidence
                          << ",\"assignment_confidence\":"
                          << cluster.assignment_confidence
+                         << ",\"creation_method\":\""
+                         << domain::toString(cluster.creation_method)
+                         << "\",\"model_version\":" << cluster.model_version
+                         << ",\"last_update_sequence\":"
+                         << cluster.last_update_sequence
+                         << ",\"revision\":" << cluster.revision
+                         << ",\"retired\":"
+                         << (cluster.retired ? "true" : "false")
                          << ",\"side_cells\":"
                          << cluster.centroid.side_cells
                          << ",\"resolution_m\":"
@@ -628,6 +646,7 @@ void payload(std::ostream& output, const SpatialPayload& value) {
                          << ",\"angle_bin\":" << item.key.angle_bin
                          << ",\"evidence\":" << item.evidence
                          << ",\"accuracy\":" << item.accuracy
+                         << ",\"revision\":" << item.revision
                          << ",\"action_pairs\":";
                   array(stream, item.action_pairs,
                         [&](std::ostream& pairs, const auto& pair) {
@@ -638,9 +657,60 @@ void payload(std::ostream& output, const SpatialPayload& value) {
                           pairs << ",\"occurrences\":" << pair.occurrences
                                 << '}';
                         });
+                  stream << ",\"actions\":";
+                  array(stream, item.actions,
+                        [&](std::ostream& actions, const auto& evidence) {
+                          actions << "{\"action\":";
+                          action(actions, evidence.action);
+                          actions << ",\"selected\":" << evidence.selected
+                                  << ",\"executed\":" << evidence.executed
+                                  << ",\"successful\":"
+                                  << evidence.successful
+                                  << ",\"failed\":" << evidence.failed
+                                  << ",\"partial\":" << evidence.partial
+                                  << ",\"cancellations\":"
+                                  << evidence.cancellations
+                                  << ",\"timeouts\":" << evidence.timeouts
+                                  << ",\"safety_interruptions\":"
+                                  << evidence.safety_interruptions
+                                  << ",\"preemptions\":"
+                                  << evidence.preemptions
+                                  << ",\"unknown\":" << evidence.unknown
+                                  << ",\"effective_evidence\":"
+                                  << evidence.effective_evidence
+                                  << ",\"success_credit\":"
+                                  << evidence.success_credit
+                                  << ",\"confidence\":"
+                                  << evidence.confidence
+                                  << ",\"accuracy\":" << evidence.accuracy
+                                  << ",\"last_outcome\":\""
+                                  << domain::toString(evidence.last_outcome)
+                                  << "\",\"last_update_sequence\":"
+                                  << evidence.last_update_sequence << '}';
+                        });
                   stream << '}';
                 });
-          output << '}';
+          output << ",\"migrations\":";
+          array(output, model.migrations,
+                [](std::ostream& stream, const auto& migration) {
+                  stream << "{\"previous_id\":" << migration.previous_id
+                         << ",\"new_id\":" << migration.new_id
+                         << ",\"operation\":\"" << migration.operation
+                         << "\",\"evidence_moved\":"
+                         << migration.evidence_moved
+                         << ",\"model_revision\":"
+                         << migration.model_revision << '}';
+                });
+          output << ",\"metrics\":{\"observations\":"
+                 << model.metrics.observations
+                 << ",\"assignments\":" << model.metrics.assignments
+                 << ",\"unmatched\":" << model.metrics.unmatched
+                 << ",\"assignment_rate\":"
+                 << model.metrics.assignmentRate()
+                 << ",\"average_assignment_confidence\":"
+                 << model.metrics.averageAssignmentConfidence()
+                 << ",\"reclusterings\":" << model.metrics.reclusterings
+                 << "}}";
         }
       },
       value);

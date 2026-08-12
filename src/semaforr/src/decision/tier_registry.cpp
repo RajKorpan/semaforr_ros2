@@ -214,6 +214,10 @@ PrecedentRule::PrecedentRule(domain::ActionSpace action_space,
                              PrecedentConfiguration configuration)
     : action_space_(std::move(action_space)), configuration_(configuration) {
   if (configuration_.minimum_case_evidence == 0U ||
+      configuration_.minimum_action_evidence == 0U ||
+      !std::isfinite(configuration_.minimum_assignment_confidence) ||
+      configuration_.minimum_assignment_confidence < 0.0 ||
+      configuration_.minimum_assignment_confidence > 1.0 ||
       !std::isfinite(configuration_.accuracy_threshold) ||
       configuration_.accuracy_threshold < 0.0 ||
       configuration_.accuracy_threshold > 1.0 ||
@@ -225,10 +229,15 @@ PrecedentRule::PrecedentRule(domain::ActionSpace action_space,
 
 std::vector<Veto> PrecedentRule::evaluate(
     const DecisionContext& context) const {
+  last_reason_.clear();
+  const auto abstain = [&](std::string reason) {
+    last_reason_ = "precedent:abstained:" + std::move(reason);
+    return std::vector<Veto>{};
+  };
   const auto& world = context.world;
   const auto& model = world.spatial.circumstances;
   if (!world.robot.laser || !world.mission.active() || model.clusters.empty())
-    return {};
+    return abstain("circumstance_input_unavailable");
   domain::SettingNormalizationConfiguration setting_configuration;
   setting_configuration.resolution_m =
       model.clusters.front().centroid.resolution_m;
@@ -243,14 +252,15 @@ std::vector<Veto> PrecedentRule::evaluate(
   const auto setting =
       domain::normalizeSetting(*world.robot.laser, setting_configuration);
   const auto match = domain::matchCircumstance(model, setting);
-  if (!match) return {};
+  if (!match) return abstain("no_confident_circumstance_match");
   const auto cluster = std::find_if(
       model.clusters.begin(), model.clusters.end(),
       [&](const auto& item) { return item.id == match->id; });
   if (cluster == model.clusters.end() ||
       cluster->evidence < model.minimum_cluster_size ||
-      match->confidence < model.assignment_confidence_threshold)
-    return {};
+      match->confidence < std::max(model.assignment_confidence_threshold,
+                                   configuration_.minimum_assignment_confidence))
+    return abstain("insufficient_circumstance_evidence_or_assignment_confidence");
   const auto key = domain::circumstanceCaseKey(
       match->id, world.robot.pose, world.mission.active()->target, model);
   const auto evidence =
@@ -267,13 +277,7 @@ std::vector<Veto> PrecedentRule::evaluate(
   if (evidence == model.cases.end() ||
       evidence->evidence < required_evidence ||
       evidence->accuracy < required_accuracy)
-    return {};
-  std::map<domain::Action, std::size_t> counts;
-  std::size_t maximum = 0U;
-  for (const auto& pair : evidence->action_pairs) {
-    counts[pair.hypothetical] += pair.occurrences;
-    maximum = std::max(maximum, counts[pair.hypothetical]);
-  }
+    return abstain("insufficient_case_evidence_or_accuracy");
   std::vector<domain::Action> actions{domain::Action::pause()};
   for (std::size_t index = 1U;
        index <= action_space_.move_distances_m().size(); ++index)
@@ -285,19 +289,36 @@ std::vector<Veto> PrecedentRule::evaluate(
   }
   std::vector<Veto> vetoes;
   for (const auto& action : actions) {
-    const double confidence =
-        (1.0 + static_cast<double>(counts[action])) /
-        (1.0 + static_cast<double>(maximum));
+    const auto* action_evidence = domain::findActionEvidence(*evidence, action);
+    if (!action_evidence ||
+        action_evidence->effective_evidence <
+            static_cast<double>(configuration_.minimum_action_evidence))
+      continue;
+    const double confidence = action_evidence->confidence;
     if (confidence < confidence_threshold)
       vetoes.push_back(
           {action, std::string(name()),
-           "precedent:action_confidence_below_threshold;evidence=" +
+           "precedent:previously_ineffective_in_similar_circumstance;" +
+               std::string("circumstance_id=") + std::to_string(match->id) +
+               " assignment_confidence=" +
+               std::to_string(match->confidence) + " evidence=" +
                std::to_string(evidence->evidence) +
+               " action_evidence=" +
+               std::to_string(action_evidence->effective_evidence) +
                " accuracy=" + std::to_string(evidence->accuracy) +
-               " action confidence=" + std::to_string(confidence),
+               " action_confidence=" + std::to_string(confidence) +
+               " minimum_case_evidence=" +
+               std::to_string(required_evidence) +
+               " minimum_action_evidence=" +
+               std::to_string(configuration_.minimum_action_evidence) +
+               " confidence_threshold=" +
+               std::to_string(confidence_threshold),
            RejectionKind::Cognitive,
            VetoCategory::CaseBasedPrecedent});
   }
+  last_reason_ = vetoes.empty()
+                     ? "precedent:abstained:no_action_had_sufficient_reliable_negative_evidence"
+                     : "precedent:learned_cognitive_vetoes_applied";
   return vetoes;
 }
 

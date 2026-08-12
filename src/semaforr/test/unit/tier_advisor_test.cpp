@@ -731,11 +731,26 @@ TEST(Precedent, VetoesOnlyLowConfidenceActionsAfterEvidenceGate) {
       0U, world.robot.pose, world.mission.active()->target, model);
   const domain::Action forward(domain::ActionType::Forward, 1U);
   const domain::Action left(domain::ActionType::TurnLeft, 1U);
-  model.cases.push_back(
-      {key, {{forward, forward, 9U}, {left, left, 1U}}, 10U, 1.0,
-       {{forward, 1.0}, {left, 0.2}}});
+  domain::CircumstanceCaseEvidence case_evidence;
+  case_evidence.key = key;
+  case_evidence.evidence = 20U;
+  case_evidence.accuracy = 0.9;
+  domain::ActionCaseEvidence forward_evidence;
+  forward_evidence.action = forward;
+  forward_evidence.executed = 10U;
+  forward_evidence.effective_evidence = 10.0;
+  forward_evidence.confidence = 0.9;
+  forward_evidence.accuracy = 0.9;
+  domain::ActionCaseEvidence left_evidence;
+  left_evidence.action = left;
+  left_evidence.executed = 10U;
+  left_evidence.effective_evidence = 10.0;
+  left_evidence.confidence = 0.1;
+  left_evidence.accuracy = 0.1;
+  case_evidence.actions = {forward_evidence, left_evidence};
+  model.cases.push_back(case_evidence);
 
-  decision::PrecedentRule rule(actions, {10U, 0.75, 0.25});
+  decision::PrecedentRule rule(actions, {10U, 5U, 0.95, 0.75, 0.25});
   const auto vetoes = rule.evaluate({world});
   const auto vetoed = [&](domain::Action action) {
     return std::any_of(vetoes.begin(), vetoes.end(),
@@ -743,7 +758,7 @@ TEST(Precedent, VetoesOnlyLowConfidenceActionsAfterEvidenceGate) {
   };
   EXPECT_FALSE(vetoed(forward));
   EXPECT_TRUE(vetoed(left));
-  EXPECT_TRUE(vetoed(domain::Action(domain::ActionType::TurnRight, 1U)));
+  EXPECT_FALSE(vetoed(domain::Action(domain::ActionType::TurnRight, 1U)));
 
   model.cases.front().evidence = 9U;
   EXPECT_TRUE(rule.evaluate({world}).empty());

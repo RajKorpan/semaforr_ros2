@@ -156,7 +156,9 @@ void validateNavigation(const NavigationConfiguration& configuration) {
       std::isfinite(circumstance.similarity_l1_threshold) &&
       std::isfinite(circumstance.accuracy_threshold) &&
       std::isfinite(circumstance.action_confidence_threshold) &&
-      std::isfinite(circumstance.distance_bin_base_m);
+      std::isfinite(circumstance.distance_bin_base_m) &&
+      std::isfinite(circumstance.partial_success_credit) &&
+      std::isfinite(circumstance.tier_three_maximum_influence);
   if (!circumstance_finite || circumstance.setting_resolution_m <= 0.0 ||
       circumstance.setting_radius_m <= 0.0 ||
       circumstance.minimum_cluster_size == 0U ||
@@ -165,6 +167,8 @@ void validateNavigation(const NavigationConfiguration& configuration) {
       circumstance.reclustering_threshold > 1000000U ||
       circumstance.minimum_case_evidence == 0U ||
       circumstance.minimum_case_evidence > 1000000U ||
+      circumstance.minimum_action_evidence == 0U ||
+      circumstance.minimum_action_evidence > 1000000U ||
       circumstance.assignment_confidence_threshold < 0.0 ||
       circumstance.assignment_confidence_threshold > 1.0 ||
       circumstance.similarity_l1_threshold <= 0.0 ||
@@ -172,12 +176,37 @@ void validateNavigation(const NavigationConfiguration& configuration) {
       circumstance.accuracy_threshold > 1.0 ||
       circumstance.action_confidence_threshold < 0.0 ||
       circumstance.action_confidence_threshold > 1.0 ||
+      circumstance.partial_success_credit < 0.0 ||
+      circumstance.partial_success_credit > 1.0 ||
+      circumstance.tier_three_maximum_influence < 0.0 ||
+      circumstance.tier_three_maximum_influence > 1.0 ||
       circumstance.distance_bin_base_m <= 0.0 ||
       circumstance.angle_bin_count == 0U ||
       circumstance.angle_bin_count > 360U)
     throw std::runtime_error(
         "configuration: circumstance normalization, clustering, confidence, "
         "accuracy, and evidence thresholds are outside valid ranges");
+  if (circumstance.learning_mode != "adapted_threshold" &&
+      circumstance.learning_mode != "dissertation_compatible")
+    throw std::runtime_error(
+        "configuration: circumstances.learning_mode must be "
+        "'adapted_threshold' or 'dissertation_compatible'");
+  if (circumstance.model_version.empty() ||
+      circumstance.feature_version.empty() ||
+      (circumstance.learning_mode == "dissertation_compatible" &&
+       circumstance.classifier_version.empty()))
+    throw std::runtime_error(
+        "configuration: circumstance model, feature, and classifier versions "
+        "must identify the active learning pipeline");
+  const std::set<std::string> persistence_policies{
+      "session_only", "load_save", "load_only", "save_only"};
+  if (!persistence_policies.contains(circumstance.persistence_policy))
+    throw std::runtime_error(
+        "configuration: unsupported circumstance persistence policy");
+  if (circumstance.persistence_policy != "session_only" &&
+      circumstance.model_path.empty())
+    throw std::runtime_error(
+        "configuration: persistent circumstance models require model_path");
   const std::set<std::string> selection_policies{
       "single", "minimum_normalized_cost", "range_vote", "pareto_then_vote",
       "shortest_valid"};
@@ -792,6 +821,7 @@ std::string configurationFingerprint(const Configuration& configuration) {
             << configuration.navigation.inclusion_grid_on << '|'
             << configuration.navigation.highways_on << '|'
             << configuration.navigation.circumstances_on << '|'
+            << configuration.navigation.circumstances.learning_mode << '|'
             << configuration.navigation.circumstances.setting_resolution_m
             << '|'
             << configuration.navigation.circumstances.setting_radius_m << '|'
@@ -808,11 +838,32 @@ std::string configurationFingerprint(const Configuration& configuration) {
             << '|'
             << configuration.navigation.circumstances.minimum_case_evidence
             << '|'
+            << configuration.navigation.circumstances.minimum_action_evidence
+            << '|'
             << configuration.navigation.circumstances.accuracy_threshold
             << '|'
             << configuration.navigation.circumstances
                    .action_confidence_threshold
             << '|'
+            << configuration.navigation.circumstances.partial_success_credit
+            << '|'
+            << configuration.navigation.circumstances
+                   .safety_interruption_is_negative_evidence
+            << '|'
+            << configuration.navigation.circumstances.precedent_veto_enabled
+            << '|'
+            << configuration.navigation.circumstances
+                   .tier_three_weighting_enabled
+            << '|'
+            << configuration.navigation.circumstances
+                   .tier_three_maximum_influence
+            << '|'
+            << configuration.navigation.circumstances.persistence_policy
+            << '|'
+            << configuration.navigation.circumstances.model_version << '|'
+            << configuration.navigation.circumstances.classifier_version
+            << '|'
+            << configuration.navigation.circumstances.feature_version << '|'
             << configuration.navigation.circumstances.distance_bin_base_m
             << '|'
             << configuration.navigation.circumstances.angle_bin_count << '|'
@@ -1064,6 +1115,12 @@ void validateConfiguration(const Configuration& configuration) {
       !configuration.navigation.circumstances_on)
     throw std::runtime_error(
         "configuration: Precedent requires the circumstances representation");
+  if (configuration.navigation.circumstances.tier_three_weighting_enabled &&
+      (!configuration.navigation.circumstances_on ||
+       !experiment.tiers.tier_three))
+    throw std::runtime_error(
+        "configuration: circumstance Tier-3 weighting requires both the "
+        "circumstances representation and Tier 3");
   if (!std::isfinite(experiment.safety_envelope.sensor_freshness_timeout_s) ||
       experiment.safety_envelope.sensor_freshness_timeout_s <= 0.0)
     throw std::runtime_error(

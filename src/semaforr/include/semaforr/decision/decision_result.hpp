@@ -161,6 +161,11 @@ struct TierThreeActionTotal {
   double total{0.0};
   bool viable{true};
   bool scored{false};
+  double pre_circumstance_total{0.0};
+  double circumstance_multiplier{1.0};
+  double post_circumstance_total{0.0};
+  std::size_t circumstance_action_evidence{0U};
+  double circumstance_action_confidence{0.0};
 
   bool operator==(const TierThreeActionTotal&) const = default;
 };
@@ -214,6 +219,16 @@ struct DecisionResult {
   std::vector<Veto> vetoes;
   std::vector<AdvisorContribution> contributions;
   std::vector<TierThreeActionTotal> tier_three_totals;
+  bool circumstance_match_available{false};
+  std::uint64_t circumstance_id{0U};
+  double circumstance_assignment_confidence{0.0};
+  std::string circumstance_learning_mode;
+  std::string circumstance_model_version;
+  std::string circumstance_classifier_version;
+  std::string circumstance_weighting_policy{"disabled"};
+  bool circumstance_weighting_applied{false};
+  bool circumstance_weighting_changed_winner{false};
+  std::string circumstance_reason;
   DecisionConfidence decision_confidence;
   std::string tier_three_scoring_policy;
   std::string tier_three_tie_policy;

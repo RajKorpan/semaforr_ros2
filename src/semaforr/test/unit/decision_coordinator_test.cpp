@@ -285,4 +285,73 @@ TEST(DecisionCoordinator, TierThreeRunsOnlyAfterTierOneContinues) {
   EXPECT_EQ(result.decision_cycle[2].outcome, "advisor_vote_selected");
 }
 
+TEST(DecisionCoordinator,
+     CircumstanceWeightingIsEvidenceGatedAndPreservesBaseTotals) {
+  auto model = world();
+  model.mission = semaforr::domain::Mission(
+      {{1U, {4.0, 0.0}}}, 100U);
+  ASSERT_TRUE(model.mission.activate_next());
+  semaforr::domain::LaserObservation laser;
+  laser.angle_min = semaforr::domain::Angle(-0.2);
+  laser.angle_increment = semaforr::domain::Angle(0.1);
+  laser.minimum_range = semaforr::domain::Distance(0.1);
+  laser.maximum_range = semaforr::domain::Distance(5.0);
+  laser.ranges_m = {2.0, 2.0, 2.0, 2.0, 2.0};
+  model.robot.laser = laser;
+  semaforr::domain::SettingNormalizationConfiguration normalization;
+  normalization.assignment_confidence_threshold = 0.5;
+  const auto setting = semaforr::domain::normalizeSetting(laser, normalization);
+  auto& circumstances = model.spatial.circumstances;
+  circumstances.minimum_cluster_size = 1U;
+  circumstances.minimum_case_evidence = 10U;
+  circumstances.assignment_confidence_threshold = 0.5;
+  circumstances.accuracy_threshold = 0.75;
+  circumstances.clusters.push_back({7U, setting, 20U, 1.0});
+  const auto key = semaforr::domain::circumstanceCaseKey(
+      7U, model.robot.pose, model.mission.active()->target, circumstances);
+  const Action forward(ActionType::Forward, 1U);
+  const Action left(ActionType::TurnLeft, 1U);
+  semaforr::domain::CircumstanceCaseEvidence evidence;
+  evidence.key = key;
+  evidence.evidence = 20U;
+  evidence.accuracy = 0.95;
+  semaforr::domain::ActionCaseEvidence good;
+  good.action = forward;
+  good.executed = 10U;
+  good.effective_evidence = 10.0;
+  good.confidence = 0.95;
+  semaforr::domain::ActionCaseEvidence poor;
+  poor.action = left;
+  poor.executed = 10U;
+  poor.effective_evidence = 10.0;
+  poor.confidence = 0.05;
+  evidence.actions = {good, poor};
+  circumstances.cases.push_back(evidence);
+
+  semaforr::decision::ArbitrationConfiguration configuration;
+  configuration.circumstance_weighting_enabled = true;
+  configuration.circumstance_minimum_evidence = 10U;
+  configuration.circumstance_minimum_action_evidence = 5U;
+  configuration.circumstance_minimum_assignment_confidence = 0.5;
+  configuration.circumstance_minimum_case_accuracy = 0.75;
+  configuration.circumstance_maximum_influence = 0.5;
+  configuration.tie_policy = semaforr::decision::TierThreeTiePolicy::Exact;
+  DecisionCoordinator coordinator(configuration);
+  coordinator.addAdvisor(std::make_unique<FixedAdvisor>(
+      "base", std::vector<ActionScore>{{forward, 1.0}, {left, 1.1}}));
+  const auto result = coordinator.decideTierThree(
+      {model}, std::vector<Action>{forward, left});
+  EXPECT_EQ(result.action, forward);
+  EXPECT_TRUE(result.circumstance_weighting_applied);
+  EXPECT_TRUE(result.circumstance_weighting_changed_winner);
+  ASSERT_EQ(result.tier_three_totals.size(), 2U);
+  const auto adjusted = std::find_if(
+      result.tier_three_totals.begin(), result.tier_three_totals.end(),
+      [&](const auto& total) { return total.action == forward; });
+  ASSERT_NE(adjusted, result.tier_three_totals.end());
+  EXPECT_DOUBLE_EQ(adjusted->pre_circumstance_total, 1.0);
+  EXPECT_GT(adjusted->circumstance_multiplier, 1.0);
+  EXPECT_EQ(adjusted->circumstance_action_evidence, 10U);
+}
+
 }  // namespace

@@ -3,7 +3,6 @@
 #include <limits>
 #include <map>
 #include <numeric>
-#include <semaforr/exploration/highway_explorer.hpp>
 #include <semaforr/spatial/learners/highway_learner.hpp>
 #include <set>
 #include <stdexcept>
@@ -28,6 +27,20 @@ double polylineLength(const std::vector<domain::Point2D>& points) {
   for (std::size_t index = 1U; index < points.size(); ++index)
     result += domain::distance(points[index - 1U], points[index]).meters();
   return result;
+}
+
+std::size_t scanPassageCount(const domain::LaserObservation& laser,
+                             double minimum_clearance_m) {
+  std::size_t run = 0U;
+  std::size_t passages = 0U;
+  for (const double range : laser.ranges_m) {
+    const double clear = std::isfinite(range)
+                             ? range
+                             : laser.maximum_range.meters();
+    run = clear >= minimum_clearance_m ? run + 1U : 0U;
+    if (run == 3U) ++passages;
+  }
+  return passages;
 }
 
 HighwayLearningConfiguration configurationWithThresholds(
@@ -461,9 +474,9 @@ void HighwayLearner::onObserve(const NavigationEpisode& episode) {
       }
     }
   }
-  const auto passages = exploration::HighwayExplorer::detectPassages(
+  const std::size_t passages = scanPassageCount(
       observation.laser, configuration_.passage_clearance_m);
-  if (passages.empty()) return;
+  if (passages == 0U) return;
   const auto point = observation.pose.position;
   if (configuration_.fixed_geometry.valid() &&
       !configuration_.fixed_geometry.contains(point))
@@ -501,7 +514,7 @@ void HighwayLearner::onObserve(const NavigationEpisode& episode) {
                   start.y_m + fraction * (point.y_m - start.y_m)});
     }
   }
-  if (passages.size() >= 3U && node > 1U) {
+  if (passages >= 3U && node > 1U) {
     std::size_t branch = 0U;
     double best = domain::distance(model_.nodes[0], point).meters();
     for (std::size_t candidate = 1U; candidate + 1U < node; ++candidate) {

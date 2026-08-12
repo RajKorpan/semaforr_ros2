@@ -226,6 +226,10 @@ semaforr:
         unknown_cost_multiplier: 8.0
 
     circumstances:
+      # adapted_threshold is deterministic normalized-L1 grouping;
+      # dissertation_compatible uses similarity-graph components and a
+      # softmax prototype classifier.
+      learning_mode: adapted_threshold
       setting_resolution_m: 1.0
       setting_radius_m: 10.0
       minimum_cluster_size: 50
@@ -233,8 +237,19 @@ semaforr:
       similarity_l1_threshold: 125.0
       reclustering_threshold: 100
       minimum_case_evidence: 10
+      minimum_action_evidence: 5
       accuracy_threshold: 0.75
       action_confidence_threshold: 0.25
+      partial_success_credit: 0.5
+      safety_interruption_is_negative_evidence: true
+      precedent_veto_enabled: true
+      tier3_weighting_enabled: false
+      tier3_maximum_influence: 0.5
+      persistence_policy: session_only
+      model_path: ""
+      model_version: circumstance_case_v2
+      classifier_version: centroid_softmax_v1
+      feature_version: robot_centered_heading_normalized_freespace_v1
       distance_bin_base_m: 2.0
       angle_bin_count: 8
     planners:

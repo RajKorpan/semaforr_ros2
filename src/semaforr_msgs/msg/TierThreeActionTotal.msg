@@ -2,3 +2,8 @@ semaforr_msgs/DecisionAction action
 float64 total
 bool viable
 bool scored
+float64 pre_circumstance_total
+float64 circumstance_multiplier
+float64 post_circumstance_total
+uint64 circumstance_action_evidence
+float64 circumstance_action_confidence

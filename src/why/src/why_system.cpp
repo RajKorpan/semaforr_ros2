@@ -315,6 +315,33 @@ ExplanationResponse UnifiedWhySystem::explainDecision(
            << contribution.weight << ", contribution "
            << contribution.weighted_score << ").";
     }
+    if (record.circumstance_match_available) {
+      text << " The setting matched a " << record.circumstance_learning_mode
+           << " circumstance with assignment confidence "
+           << record.circumstance_assignment_confidence << ".";
+      if (record.circumstance_weighting_applied) {
+        const auto selected = std::find_if(
+            record.tier_three_action_totals.begin(),
+            record.tier_three_action_totals.end(), [&](const auto& total) {
+              return sameAction(total.action, record.selected_action);
+            });
+        if (selected != record.tier_three_action_totals.end())
+          text << " Historical execution evidence ("
+               << selected->circumstance_action_evidence
+               << " effective outcomes, confidence "
+               << selected->circumstance_action_confidence
+               << ") multiplied its base total "
+               << selected->pre_circumstance_total << " by "
+               << selected->circumstance_multiplier << " to produce "
+               << selected->post_circumstance_total << ".";
+        text << (record.circumstance_weighting_changed_winner
+                     ? " This changed the Tier-3 winner."
+                     : " This did not change the Tier-3 winner.");
+      } else if (!record.circumstance_reason.empty()) {
+        text << " Circumstance weighting remained neutral: "
+             << record.circumstance_reason << ".";
+      }
+    }
   } else if (record.selected_tier == DecisionRecord::EXPLORATION) {
     response.primary_reasoning_source = "initial_exploration";
     text << "The exploration state machine selected it.";
@@ -338,6 +365,15 @@ ExplanationResponse UnifiedWhySystem::explainDecision(
       text << " Plan event: " << event << '.';
     }
   }
+  const auto precedent = std::find_if(
+      record.decision_cycle.begin(), record.decision_cycle.end(),
+      [](const auto& event) { return event.component == "Precedent"; });
+  if (precedent != record.decision_cycle.end() &&
+      precedent->reason_code.find("precedent:abstained:") == 0U)
+    text << " Precedent abstained ("
+         << precedent->reason_code.substr(
+                std::string("precedent:abstained:").size())
+         << "), so learned experience did not remove an action.";
   response.natural_language_response = text.str();
   return response;
 }
@@ -421,6 +457,17 @@ ExplanationResponse UnifiedWhySystem::explainCounterfactual(
               << " versus " << selected_total << ')';
   }
   rationale << ". It was not classified as unsafe.";
+  const auto alternative_trace = std::find_if(
+      record.tier_three_action_totals.begin(),
+      record.tier_three_action_totals.end(), [&](const auto& total) {
+        return sameAction(total.action, alternative);
+      });
+  if (alternative_trace != record.tier_three_action_totals.end() &&
+      record.circumstance_weighting_applied)
+    rationale << " Circumstance evidence changed its base support from "
+              << alternative_trace->pre_circumstance_total << " by multiplier "
+              << alternative_trace->circumstance_multiplier << " to "
+              << alternative_trace->post_circumstance_total << ".";
   for (const auto& contribution : record.advisor_contributions) {
     if (!sameAction(contribution.action, alternative)) continue;
     response.referenced_advisors.push_back(contribution.advisor);
@@ -451,6 +498,12 @@ ExplanationResponse UnifiedWhySystem::explainDecisionConfidence(
        << record.decision_relative_support
        << ". This is confidence in the reasoning outcome, not a guarantee "
           "that physical execution will succeed.";
+  if (record.circumstance_match_available)
+    text << " Circumstance assignment confidence was "
+         << record.circumstance_assignment_confidence << " under model "
+         << record.circumstance_model_version << " ("
+         << record.circumstance_learning_mode << "). "
+         << record.circumstance_reason << '.';
   response.natural_language_response = text.str();
   return response;
 }

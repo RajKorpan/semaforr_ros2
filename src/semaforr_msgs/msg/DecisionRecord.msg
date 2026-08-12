@@ -51,6 +51,16 @@ semaforr_msgs/DecisionCycleEvent[] decision_cycle
 semaforr_msgs/AdvisorContribution[] advisor_contributions
 semaforr_msgs/TierThreeActionTotal[] tier_three_action_totals
 string tier_three_scoring_policy
+bool circumstance_match_available
+uint64 circumstance_id
+float64 circumstance_assignment_confidence
+string circumstance_learning_mode
+string circumstance_model_version
+string circumstance_classifier_version
+string circumstance_weighting_policy
+bool circumstance_weighting_applied
+bool circumstance_weighting_changed_winner
+string circumstance_reason
 string tier_three_tie_policy
 float64 tier_three_tie_tolerance
 uint32 tier_three_random_seed

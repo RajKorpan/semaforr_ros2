@@ -523,7 +523,7 @@ if(BUILD_TESTING)
   )
   target_link_libraries(
     semaforr_tier_advisor_test
-    semaforr_navigation semaforr_advisors)
+    semaforr_navigation semaforr_advisors semaforr_exploration)
   semaforr_apply_project_options(semaforr_tier_advisor_test)
 
   ament_add_gtest(

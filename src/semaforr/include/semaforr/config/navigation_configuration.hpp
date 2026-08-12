@@ -203,6 +203,7 @@ struct CrowdLearningConfiguration {
 };
 
 struct CircumstanceConfiguration {
+  std::string learning_mode = "adapted_threshold";
   double setting_resolution_m = 1.0;
   double setting_radius_m = 10.0;
   std::size_t minimum_cluster_size = 50U;
@@ -210,8 +211,20 @@ struct CircumstanceConfiguration {
   double similarity_l1_threshold = 125.0;
   std::size_t reclustering_threshold = 100U;
   std::size_t minimum_case_evidence = 10U;
+  std::size_t minimum_action_evidence = 5U;
   double accuracy_threshold = 0.75;
   double action_confidence_threshold = 0.25;
+  double partial_success_credit = 0.5;
+  bool safety_interruption_is_negative_evidence = true;
+  bool precedent_veto_enabled = true;
+  bool tier_three_weighting_enabled = false;
+  double tier_three_maximum_influence = 0.5;
+  std::string persistence_policy = "session_only";
+  std::string model_path;
+  std::string model_version = "circumstance_case_v2";
+  std::string classifier_version = "centroid_softmax_v1";
+  std::string feature_version =
+      "robot_centered_heading_normalized_freespace_v1";
   double distance_bin_base_m = 2.0;
   std::size_t angle_bin_count = 8U;
 };

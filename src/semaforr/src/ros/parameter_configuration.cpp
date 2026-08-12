@@ -196,6 +196,8 @@ void declareConfigurationParameters(rclcpp::Node& node) {
   node.declare_parameter("grids.planning.turning_footprint_margin_m", 0.0);
   node.declare_parameter("grids.planning.dynamic_obstacle_margin_m", 0.10);
   node.declare_parameter("grids.planning.unknown_cost_multiplier", 8.0);
+  node.declare_parameter("circumstances.learning_mode",
+                         std::string{"adapted_threshold"});
   node.declare_parameter("circumstances.setting_resolution_m", 1.0);
   node.declare_parameter("circumstances.setting_radius_m", 10.0);
   node.declare_parameter("circumstances.minimum_cluster_size", 50);
@@ -203,8 +205,25 @@ void declareConfigurationParameters(rclcpp::Node& node) {
   node.declare_parameter("circumstances.similarity_l1_threshold", 125.0);
   node.declare_parameter("circumstances.reclustering_threshold", 100);
   node.declare_parameter("circumstances.minimum_case_evidence", 10);
+  node.declare_parameter("circumstances.minimum_action_evidence", 5);
   node.declare_parameter("circumstances.accuracy_threshold", 0.75);
   node.declare_parameter("circumstances.action_confidence_threshold", 0.25);
+  node.declare_parameter("circumstances.partial_success_credit", 0.5);
+  node.declare_parameter(
+      "circumstances.safety_interruption_is_negative_evidence", true);
+  node.declare_parameter("circumstances.precedent_veto_enabled", true);
+  node.declare_parameter("circumstances.tier3_weighting_enabled", false);
+  node.declare_parameter("circumstances.tier3_maximum_influence", 0.5);
+  node.declare_parameter("circumstances.persistence_policy",
+                         std::string{"session_only"});
+  node.declare_parameter("circumstances.model_path", std::string{});
+  node.declare_parameter("circumstances.model_version",
+                         std::string{"circumstance_case_v2"});
+  node.declare_parameter("circumstances.classifier_version",
+                         std::string{"centroid_softmax_v1"});
+  node.declare_parameter(
+      "circumstances.feature_version",
+      std::string{"robot_centered_heading_normalized_freespace_v1"});
   node.declare_parameter("circumstances.distance_bin_base_m", 2.0);
   node.declare_parameter("circumstances.angle_bin_count", 8);
 
@@ -348,6 +367,8 @@ config::Configuration configurationFromParameters(rclcpp::Node& node) {
   navigation.grids.unknown_cost_multiplier = node.get_parameter(
       "grids.planning.unknown_cost_multiplier").as_double();
   auto& circumstances = navigation.circumstances;
+  circumstances.learning_mode =
+      node.get_parameter("circumstances.learning_mode").as_string();
   circumstances.setting_resolution_m =
       node.get_parameter("circumstances.setting_resolution_m").as_double();
   circumstances.setting_radius_m =
@@ -362,10 +383,32 @@ config::Configuration configurationFromParameters(rclcpp::Node& node) {
       node.get_parameter("circumstances.reclustering_threshold").as_int());
   circumstances.minimum_case_evidence = static_cast<std::size_t>(
       node.get_parameter("circumstances.minimum_case_evidence").as_int());
+  circumstances.minimum_action_evidence = static_cast<std::size_t>(
+      node.get_parameter("circumstances.minimum_action_evidence").as_int());
   circumstances.accuracy_threshold =
       node.get_parameter("circumstances.accuracy_threshold").as_double();
   circumstances.action_confidence_threshold = node.get_parameter(
       "circumstances.action_confidence_threshold").as_double();
+  circumstances.partial_success_credit = node.get_parameter(
+      "circumstances.partial_success_credit").as_double();
+  circumstances.safety_interruption_is_negative_evidence = node.get_parameter(
+      "circumstances.safety_interruption_is_negative_evidence").as_bool();
+  circumstances.precedent_veto_enabled = node.get_parameter(
+      "circumstances.precedent_veto_enabled").as_bool();
+  circumstances.tier_three_weighting_enabled = node.get_parameter(
+      "circumstances.tier3_weighting_enabled").as_bool();
+  circumstances.tier_three_maximum_influence = node.get_parameter(
+      "circumstances.tier3_maximum_influence").as_double();
+  circumstances.persistence_policy = node.get_parameter(
+      "circumstances.persistence_policy").as_string();
+  circumstances.model_path =
+      node.get_parameter("circumstances.model_path").as_string();
+  circumstances.model_version =
+      node.get_parameter("circumstances.model_version").as_string();
+  circumstances.classifier_version =
+      node.get_parameter("circumstances.classifier_version").as_string();
+  circumstances.feature_version =
+      node.get_parameter("circumstances.feature_version").as_string();
   circumstances.distance_bin_base_m =
       node.get_parameter("circumstances.distance_bin_base_m").as_double();
   circumstances.angle_bin_count = static_cast<std::size_t>(

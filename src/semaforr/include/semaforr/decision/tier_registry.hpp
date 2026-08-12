@@ -80,6 +80,8 @@ class NotOppositeRule final : public VetoRule {
 
 struct PrecedentConfiguration {
   std::size_t minimum_case_evidence = 10U;
+  std::size_t minimum_action_evidence = 5U;
+  double minimum_assignment_confidence = 0.95;
   double accuracy_threshold = 0.75;
   double action_confidence_threshold = 0.25;
 };
@@ -94,10 +96,12 @@ class PrecedentRule final : public VetoRule {
     return {"circumstances"};
   }
   std::vector<Veto> evaluate(const DecisionContext&) const override;
+  std::string lastReason() const override { return last_reason_; }
 
  private:
   domain::ActionSpace action_space_;
   PrecedentConfiguration configuration_;
+  mutable std::string last_reason_;
 };
 
 enum class SpatialAdvisorObjective {

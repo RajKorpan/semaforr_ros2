@@ -50,7 +50,7 @@ payload into the world model.
 | `HighwayLearner` | HLE pose and detected passages | Builds touched grid rows/columns incrementally; at finalization performs local smoothing, minimum-extent extraction, intersection/spur conversion, and largest-component selection | Yes | `HighwayPlan`, `Enforcer` |
 | `KnownGridLearner` | Pose and laser visibility | Every observation into sparse construction cells | Yes | `Out`, grid planners |
 | `InclusionGridLearner` | Learned region area, region-skeleton supporting subtrails, and successful LLE traversal | Reproject after region/skeleton finalization; increment only after successful LLE translation | Yes | LLE and coverage diagnostics |
-| `CircumstanceLearner` | Terminal selected actions with explicit success/failure outcome | Collect after any terminal result; validate cases at end of target | No | `Precedent` |
+| `CircumstanceLearner` | Every normalized sensor setting, immutable decision-time circumstance/action context, and terminal execution outcomes | Cluster observations continuously; create pending cases at selection; mutate action evidence only after terminal feedback | Yes | `Precedent`, optional Tier-3 circumstance weighting, Why |
 
 Every learner declares this information at runtime through
 `ObservationContract`. `SpatialLearningCoordinator::inspect()` returns the

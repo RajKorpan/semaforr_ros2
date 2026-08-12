@@ -26,6 +26,12 @@ struct ArbitrationConfiguration {
   TierThreeScoringPolicy scoring_policy{
       TierThreeScoringPolicy::WeightedNormalized};
   TierThreeTiePolicy tie_policy{TierThreeTiePolicy::Tolerance};
+  bool circumstance_weighting_enabled{false};
+  std::size_t circumstance_minimum_evidence{10U};
+  std::size_t circumstance_minimum_action_evidence{5U};
+  double circumstance_minimum_assignment_confidence{0.95};
+  double circumstance_minimum_case_accuracy{0.75};
+  double circumstance_maximum_influence{0.5};
 };
 
 struct TierOnePass {

@@ -121,6 +121,8 @@ class SpatialLearningCoordinator {
 
   std::size_t automatic_rebuild_interval_;
   std::size_t observed_episodes_ = 0U;
+  std::size_t learning_event_sequence_ = 0U;
+  std::optional<std::size_t> last_legacy_observation_sequence_;
   std::vector<Entry> learners_;
   mutable SnapshotProjectionMetrics last_projection_metrics_;
   mutable SnapshotProjectionMetrics cumulative_projection_metrics_;

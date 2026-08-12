@@ -139,6 +139,7 @@ TierOnePass DecisionCoordinator::evaluateTierOne(
     event.component = std::string(rule->name());
     event.input_actions = pass.survivors;
     event.vetoes = rule->evaluate(context);
+    event.reason_code = rule->lastReason();
     pass.vetoes.insert(pass.vetoes.end(), event.vetoes.begin(),
                        event.vetoes.end());
     std::set<Action> vetoed;
@@ -356,11 +357,136 @@ DecisionResult DecisionCoordinator::decideTierThree(
     }
   }
 
+  const std::map<Action, double> pre_circumstance_totals = totals;
+  result.circumstance_weighting_policy =
+      configuration_.circumstance_weighting_enabled
+          ? "evidence_gated_laplace_confidence"
+          : "disabled";
+  const auto base_winner = [&]() -> std::optional<Action> {
+    if (pre_circumstance_totals.empty()) return std::nullopt;
+    return std::max_element(
+               pre_circumstance_totals.begin(),
+               pre_circumstance_totals.end(),
+               [](const auto& left, const auto& right) {
+                 return left.second < right.second;
+               })
+        ->first;
+  }();
+  std::map<Action, std::pair<double, const domain::ActionCaseEvidence*>>
+      circumstance_adjustments;
+  const auto& circumstance_model = context.world.spatial.circumstances;
+  result.circumstance_learning_mode =
+      std::string(domain::toString(circumstance_model.learning_mode));
+  result.circumstance_model_version = circumstance_model.model_version;
+  result.circumstance_classifier_version =
+      circumstance_model.classifier_version;
+  if (configuration_.circumstance_weighting_enabled &&
+      context.world.robot.laser && context.world.mission.active() &&
+      !circumstance_model.clusters.empty()) {
+    domain::SettingNormalizationConfiguration normalization;
+    normalization.resolution_m =
+        circumstance_model.clusters.front().centroid.resolution_m;
+    normalization.radius_m =
+        circumstance_model.clusters.front().centroid.radius_m;
+    normalization.assignment_confidence_threshold =
+        circumstance_model.assignment_confidence_threshold;
+    normalization.similarity_l1_threshold =
+        circumstance_model.similarity_l1_threshold;
+    normalization.distance_bin_base_m =
+        circumstance_model.distance_bin_base_m;
+    normalization.angle_bin_count = circumstance_model.angle_bin_count;
+    const auto setting = domain::normalizeSetting(
+        *context.world.robot.laser, normalization);
+    const auto match = domain::matchCircumstance(circumstance_model, setting);
+    if (match) {
+      result.circumstance_match_available = true;
+      result.circumstance_id = match->id;
+      result.circumstance_assignment_confidence = match->confidence;
+      const auto key = domain::circumstanceCaseKey(
+          match->id, context.world.robot.pose,
+          context.world.mission.active()->target, circumstance_model);
+      const auto case_evidence = std::find_if(
+          circumstance_model.cases.begin(), circumstance_model.cases.end(),
+          [&](const auto& item) { return item.key == key; });
+      const bool case_is_reliable =
+          match->confidence >=
+              configuration_.circumstance_minimum_assignment_confidence &&
+          case_evidence != circumstance_model.cases.end() &&
+          case_evidence->evidence >=
+              configuration_.circumstance_minimum_evidence &&
+          case_evidence->accuracy >=
+              configuration_.circumstance_minimum_case_accuracy;
+      if (case_is_reliable) {
+        for (auto& [action, total] : totals) {
+          const auto* action_evidence =
+              domain::findActionEvidence(*case_evidence, action);
+          double multiplier = 1.0;
+          if (action_evidence &&
+              action_evidence->effective_evidence >= static_cast<double>(
+                  configuration_.circumstance_minimum_action_evidence)) {
+            const double evidence_blend = std::min(
+                1.0, action_evidence->effective_evidence /
+                         (2.0 * static_cast<double>(
+                                    configuration_
+                                        .circumstance_minimum_action_evidence)));
+            multiplier = 1.0 +
+                         configuration_.circumstance_maximum_influence *
+                             evidence_blend *
+                             (2.0 * action_evidence->confidence - 1.0);
+          }
+          circumstance_adjustments[action] = {multiplier, action_evidence};
+          total *= multiplier;
+          result.circumstance_weighting_applied |=
+              std::abs(multiplier - 1.0) > 1.0e-12;
+        }
+        result.circumstance_reason =
+            result.circumstance_weighting_applied
+                ? "reliable circumstance case adjusted Tier-3 totals"
+                : "case matched but action evidence remained sparse or neutral";
+      } else {
+        result.circumstance_reason =
+            "neutral multiplier: circumstance or case evidence was insufficient";
+      }
+    } else {
+      result.circumstance_reason =
+          "neutral multiplier: current setting did not match a circumstance";
+    }
+  } else if (!configuration_.circumstance_weighting_enabled) {
+    result.circumstance_reason = "circumstance Tier-3 weighting disabled";
+  }
+  const auto adjusted_winner = totals.empty()
+                                   ? std::optional<Action>{}
+                                   : std::optional<Action>{
+                                         std::max_element(
+                                             totals.begin(), totals.end(),
+                                             [](const auto& left,
+                                                const auto& right) {
+                                               return left.second < right.second;
+                                             })
+                                             ->first};
+  result.circumstance_weighting_changed_winner =
+      base_winner && adjusted_winner && *base_winner != *adjusted_winner;
+
   for (const auto& action : survivors) {
     const auto total = totals.find(action);
-    result.tier_three_totals.push_back(
-        {action, total == totals.end() ? 0.0 : total->second, true,
-         scored.contains(action)});
+    TierThreeActionTotal trace{
+        action, total == totals.end() ? 0.0 : total->second, true,
+        scored.contains(action)};
+    const auto before = pre_circumstance_totals.find(action);
+    trace.pre_circumstance_total =
+        before == pre_circumstance_totals.end() ? 0.0 : before->second;
+    trace.post_circumstance_total = trace.total;
+    if (const auto adjustment = circumstance_adjustments.find(action);
+        adjustment != circumstance_adjustments.end()) {
+      trace.circumstance_multiplier = adjustment->second.first;
+      if (adjustment->second.second) {
+        trace.circumstance_action_evidence = static_cast<std::size_t>(
+            adjustment->second.second->effective_evidence);
+        trace.circumstance_action_confidence =
+            adjustment->second.second->confidence;
+      }
+    }
+    result.tier_three_totals.push_back(std::move(trace));
   }
   for (auto& contribution : result.contributions)
     contribution.final_total = totals.at(contribution.action);

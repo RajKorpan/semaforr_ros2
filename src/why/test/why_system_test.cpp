@@ -140,6 +140,36 @@ TEST(WhyDecision, PreservesTierThreeEvidenceAndConfidence) {
             std::string::npos);
 }
 
+TEST(WhyDecision, ExplainsCircumstanceEvidenceWithoutCallingItSafety) {
+  UnifiedWhySystem why;
+  auto record = tierThreeRecord();
+  record.circumstance_match_available = true;
+  record.circumstance_id = 42U;
+  record.circumstance_assignment_confidence = 0.97;
+  record.circumstance_learning_mode = "adapted_threshold";
+  record.circumstance_model_version = "circumstance_case_v2";
+  record.circumstance_weighting_policy =
+      "evidence_gated_laplace_confidence";
+  record.circumstance_weighting_applied = true;
+  record.circumstance_weighting_changed_winner = false;
+  auto& selected = record.tier_three_action_totals.front();
+  selected.pre_circumstance_total = 12.0;
+  selected.circumstance_multiplier = 1.1;
+  selected.post_circumstance_total = 13.2;
+  selected.circumstance_action_evidence = 20U;
+  selected.circumstance_action_confidence = 0.9;
+  why.record(record);
+  ExplanationQuestion question;
+  question.question_type = ExplanationQuestion::WHY_DECISION;
+  const auto answer = why.answer(question);
+  EXPECT_NE(answer.natural_language_response.find("20 effective outcomes"),
+            std::string::npos);
+  EXPECT_NE(answer.natural_language_response.find("did not change"),
+            std::string::npos);
+  EXPECT_EQ(answer.natural_language_response.find("unsafe"),
+            std::string::npos);
+}
+
 class TierOneMandateExplanation
     : public ::testing::TestWithParam<std::pair<std::string, std::string>> {};
 

@@ -69,23 +69,43 @@ social::CrowdFieldLearnerConfiguration crowdConfiguration(
 spatial::CircumstanceLearningConfiguration circumstanceConfiguration(
     const config::Configuration& configuration) {
   const auto& source = configuration.navigation.circumstances;
-  return {source.setting_resolution_m,
-          source.setting_radius_m,
-          source.minimum_cluster_size,
-          source.assignment_confidence_threshold,
-          source.similarity_l1_threshold,
-          source.reclustering_threshold,
-          source.minimum_case_evidence,
-          source.accuracy_threshold,
-          source.action_confidence_threshold,
-          source.distance_bin_base_m,
-          source.angle_bin_count};
+  spatial::CircumstanceLearningConfiguration result;
+  if (source.learning_mode == "dissertation_compatible")
+    result.mode = domain::CircumstanceLearningMode::DissertationCompatible;
+  else if (source.learning_mode == "adapted_threshold")
+    result.mode = domain::CircumstanceLearningMode::AdaptedThreshold;
+  else
+    throw std::runtime_error("unknown circumstance learning mode '" +
+                             source.learning_mode + "'");
+  result.setting_resolution_m = source.setting_resolution_m;
+  result.setting_radius_m = source.setting_radius_m;
+  result.minimum_cluster_size = source.minimum_cluster_size;
+  result.assignment_confidence_threshold =
+      source.assignment_confidence_threshold;
+  result.similarity_l1_threshold = source.similarity_l1_threshold;
+  result.reclustering_threshold = source.reclustering_threshold;
+  result.minimum_case_evidence = source.minimum_case_evidence;
+  result.minimum_action_evidence = source.minimum_action_evidence;
+  result.accuracy_threshold = source.accuracy_threshold;
+  result.action_confidence_threshold = source.action_confidence_threshold;
+  result.distance_bin_base_m = source.distance_bin_base_m;
+  result.angle_bin_count = source.angle_bin_count;
+  result.partial_success_credit = source.partial_success_credit;
+  result.safety_interruption_is_negative_evidence =
+      source.safety_interruption_is_negative_evidence;
+  result.model_version = source.model_version;
+  result.classifier_version = source.classifier_version;
+  result.feature_version = source.feature_version;
+  result.persistence_policy = source.persistence_policy;
+  result.model_path = source.model_path;
+  return result;
 }
 
 decision::PrecedentConfiguration precedentConfiguration(
     const config::Configuration& configuration) {
   const auto& source = configuration.navigation.circumstances;
-  return {source.minimum_case_evidence, source.accuracy_threshold,
+  return {source.minimum_case_evidence, source.minimum_action_evidence,
+          source.assignment_confidence_threshold, source.accuracy_threshold,
           source.action_confidence_threshold};
 }
 
@@ -253,6 +273,18 @@ decision::ArbitrationConfiguration arbitrationConfiguration(
     result.tie_policy = decision::TierThreeTiePolicy::Tolerance;
   else
     throw std::runtime_error("unknown Tier-3 tie policy '" + tie + "'");
+  result.circumstance_weighting_enabled =
+      configuration.navigation.circumstances.tier_three_weighting_enabled;
+  result.circumstance_minimum_evidence =
+      configuration.navigation.circumstances.minimum_case_evidence;
+  result.circumstance_minimum_action_evidence =
+      configuration.navigation.circumstances.minimum_action_evidence;
+  result.circumstance_minimum_assignment_confidence =
+      configuration.navigation.circumstances.assignment_confidence_threshold;
+  result.circumstance_minimum_case_accuracy =
+      configuration.navigation.circumstances.accuracy_threshold;
+  result.circumstance_maximum_influence =
+      configuration.navigation.circumstances.tier_three_maximum_influence;
   return result;
 }
 
@@ -288,6 +320,18 @@ class NavigationEngineAdapter::Impl {
     configureLearning();
     configurePlanning();
     configureDecisions();
+    const auto& circumstances = configuration_.navigation.circumstances;
+    map_diagnostics_.push_back(
+        "circumstance_learning_mode:" + circumstances.learning_mode);
+    map_diagnostics_.push_back(
+        "circumstance_model_version:" + circumstances.model_version);
+    map_diagnostics_.push_back(
+        "circumstance_classifier_version:" +
+        circumstances.classifier_version);
+    map_diagnostics_.push_back(
+        std::string("circumstance_tier3_weighting:") +
+        (circumstances.tier_three_weighting_enabled ? "enabled" :
+                                                       "disabled"));
     if (configuration_.navigation.crowd_learning.enabled) {
       crowd_learning_ = std::make_unique<social::CrowdFieldLearner>(
           crowdConfiguration(configuration_, world_.static_map));
@@ -503,6 +547,9 @@ class NavigationEngineAdapter::Impl {
                                      configuration_.advisors);
     if (configuration_.experiment.tiers.tier_one) {
       for (const auto& rule : configuration_.experiment.tiers.tier_one_rules) {
+        if (rule == "precedent" &&
+            !configuration_.navigation.circumstances.precedent_veto_enabled)
+          continue;
         switch (tier_one_registry.kind(rule)) {
           case decision::TierOneRegistry::Kind::Mandatory:
             decisions_.addMandatoryRule(

@@ -415,9 +415,22 @@ bool acceptsEvent(const ObservationContract& contract,
 
 void SpatialLearningCoordinator::dispatch(const NavigationEpisode& episode) {
   bool accepted = false;
+  std::optional<NavigationEpisode> sequenced;
   for (Entry& entry : learners_) {
-    if (entry.enabled && acceptsEvent(entry.learner->contract(), episode)) {
-      entry.learner->observe(episode);
+    const bool circumstance_event =
+        entry.learner->representation() ==
+            SpatialRepresentation::Circumstances &&
+        (episode.event == LearningEvent::SensorObservation ||
+         episode.event == LearningEvent::DecisionSelected ||
+         episode.event == LearningEvent::ActionTerminal);
+    if (entry.enabled &&
+        (circumstance_event ||
+         acceptsEvent(entry.learner->contract(), episode))) {
+      if (!sequenced) {
+        sequenced = episode;
+        sequenced->sequence = ++learning_event_sequence_;
+      }
+      entry.learner->observe(*sequenced);
       accepted = true;
     }
   }
@@ -429,6 +442,11 @@ void SpatialLearningCoordinator::dispatch(const NavigationEpisode& episode) {
 }
 
 void SpatialLearningCoordinator::observe(const NavigationEpisode& episode) {
+  if (last_legacy_observation_sequence_ &&
+      episode.sequence <= *last_legacy_observation_sequence_)
+    throw std::invalid_argument(
+        "navigation episodes must have strictly increasing sequence numbers");
+  last_legacy_observation_sequence_ = episode.sequence;
   NavigationEpisode sensed = episode;
   sensed.event = LearningEvent::SensorObservation;
   sensed.action_completed = false;

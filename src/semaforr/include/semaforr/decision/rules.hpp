@@ -32,6 +32,7 @@ class VetoRule {
   virtual std::string_view name() const noexcept { return "veto_rule"; }
   virtual std::vector<std::string_view> dependencies() const { return {}; }
   virtual std::vector<Veto> evaluate(const DecisionContext& context) const = 0;
+  virtual std::string lastReason() const { return {}; }
 };
 
 class PlanOperationalizer {

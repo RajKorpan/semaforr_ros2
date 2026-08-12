@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <numbers>
+#include <sstream>
 #include <semaforr/decision/navigation_engine.hpp>
 #include <semaforr/decision/tier_registry.hpp>
 #include <semaforr/spatial/spatial_learning_coordinator.hpp>
@@ -637,6 +638,7 @@ TEST(CircumstanceLearning, NormalizesSettingsAndLearnsQualifiedCases) {
   configuration.minimum_cluster_size = 2U;
   configuration.reclustering_threshold = 2U;
   configuration.minimum_case_evidence = 2U;
+  configuration.minimum_action_evidence = 2U;
   configuration.assignment_confidence_threshold = 0.8;
   CircumstanceLearner learner(configuration);
 
@@ -649,7 +651,18 @@ TEST(CircumstanceLearning, NormalizesSettingsAndLearnsQualifiedCases) {
         domain::Action(domain::ActionType::TurnLeft, 1U)};
     input.move_distances_m = {0.25};
     input.rotation_angles_rad = {0.2};
-    input.task_finished = index == 3U;
+    input.event = LearningEvent::SensorObservation;
+    input.sequence = index * 3U + 1U;
+    learner.observe(input);
+    input.selection = domain::SelectedActionRecord{
+        index + 1U, index + 1U, domain::TaskId{1U}, {},
+        input.observation.pose, *input.selected_action, "tier_three", "test",
+        0.25, 0.0, 0.0};
+    input.event = LearningEvent::DecisionSelected;
+    input.sequence = index * 3U + 2U;
+    learner.observe(input);
+    input.event = LearningEvent::ActionTerminal;
+    input.sequence = index * 3U + 3U;
     learner.observe(input);
   }
   learner.rebuild();
@@ -664,4 +677,111 @@ TEST(CircumstanceLearning, NormalizesSettingsAndLearnsQualifiedCases) {
   EXPECT_GE(model.cases.front().evidence, 2U);
   EXPECT_GE(model.cases.front().accuracy, configuration.accuracy_threshold);
   EXPECT_FALSE(model.cases.front().confidence.empty());
+  ASSERT_EQ(model.cases.front().actions.size(), 1U);
+  EXPECT_EQ(model.cases.front().actions.front().successful, 4U);
+  EXPECT_EQ(model.cases.front().actions.front().failed, 0U);
+  EXPECT_EQ(model.cases.front().actions.front().last_outcome,
+            domain::CaseOutcome::Successful);
+  EXPECT_EQ(model.learning_mode,
+            domain::CircumstanceLearningMode::AdaptedThreshold);
+  EXPECT_EQ(model.similarity_metric, "normalized_l1");
+}
+
+TEST(CircumstanceLearning, UsesOnlyTerminalOutcomesAndDistinguishesResults) {
+  using namespace semaforr;
+  using namespace semaforr::spatial;
+  CircumstanceLearningConfiguration configuration;
+  configuration.minimum_cluster_size = 1U;
+  configuration.reclustering_threshold = 1U;
+  configuration.assignment_confidence_threshold = 0.5;
+  configuration.minimum_case_evidence = 1U;
+  configuration.minimum_action_evidence = 1U;
+  CircumstanceLearner learner(configuration);
+
+  auto input = episode(1U, 0.0, true);
+  input.active_target = domain::Point2D{4.0, 0.0};
+  input.event = LearningEvent::SensorObservation;
+  input.sequence = 1U;
+  learner.observe(input);
+  input.selection = domain::SelectedActionRecord{
+      1U, 1U, domain::TaskId{1U}, {}, input.observation.pose,
+      *input.selected_action, "tier_three", "test", 0.25, 0.0, 0.0};
+  input.event = LearningEvent::DecisionSelected;
+  input.sequence = 2U;
+  learner.observe(input);
+  learner.rebuild();
+  EXPECT_TRUE(std::get<CircumstanceModel>(learner.snapshot().payload)
+                  .cases.empty());
+
+  input.execution_result->status =
+      domain::ExecutionCompletionStatus::PartialMovement;
+  input.event = LearningEvent::ActionTerminal;
+  input.sequence = 3U;
+  learner.observe(input);
+  input.sequence = 4U;
+  learner.observe(input);  // duplicate terminal feedback is idempotent
+  learner.rebuild();
+  const auto& model =
+      std::get<CircumstanceModel>(learner.snapshot().payload);
+  ASSERT_EQ(model.cases.size(), 1U);
+  ASSERT_EQ(model.cases.front().actions.size(), 1U);
+  const auto& action = model.cases.front().actions.front();
+  EXPECT_EQ(action.selected, 1U);
+  EXPECT_EQ(action.executed, 1U);
+  EXPECT_EQ(action.partial, 1U);
+  EXPECT_DOUBLE_EQ(action.success_credit, 0.5);
+  EXPECT_EQ(action.successful, 0U);
+}
+
+TEST(CircumstanceLearning, PersistencePreservesStableIdsCasesAndVersions) {
+  using namespace semaforr::domain;
+  CircumstanceModel model;
+  model.learning_mode = CircumstanceLearningMode::DissertationCompatible;
+  model.model_version = "circumstance_case_v2";
+  model.classifier_version = "centroid_softmax_v1";
+  model.feature_version = "robot_centered_heading_normalized_freespace_v1";
+  NormalizedSetting setting;
+  setting.side_cells = 1U;
+  setting.freespace = {1.0};
+  model.clusters.push_back(
+      {42U, setting, 75U, 0.99,
+       CircumstanceCreationMethod::OfflineSimilarityGraph, 3U, 100U, 2U,
+       false});
+  model.next_circumstance_id = 43U;
+  CircumstanceCaseEvidence evidence;
+  evidence.key = {42U, 1U, 2U};
+  evidence.evidence = 12U;
+  evidence.accuracy = 0.8;
+  ActionCaseEvidence action;
+  action.action = Action(ActionType::Forward, 1U);
+  action.selected = 12U;
+  action.executed = 12U;
+  action.successful = 10U;
+  action.failed = 2U;
+  action.effective_evidence = 12.0;
+  action.success_credit = 10.0;
+  action.confidence = 11.0 / 14.0;
+  action.accuracy = 10.0 / 12.0;
+  action.last_outcome = CaseOutcome::Successful;
+  evidence.actions.push_back(action);
+  model.cases.push_back(evidence);
+  model.migrations.push_back({7U, 42U, "merge", 12U, 4U});
+
+  std::stringstream encoded;
+  saveCircumstanceModel(model, encoded);
+  const auto restored = loadCircumstanceModel(
+      encoded, model.model_version, model.feature_version,
+      model.classifier_version);
+  ASSERT_EQ(restored.clusters.size(), 1U);
+  EXPECT_EQ(restored.clusters.front().id, 42U);
+  EXPECT_EQ(restored.next_circumstance_id, 43U);
+  ASSERT_EQ(restored.cases.size(), 1U);
+  ASSERT_EQ(restored.cases.front().actions.size(), 1U);
+  EXPECT_EQ(restored.cases.front().actions.front().successful, 10U);
+  ASSERT_EQ(restored.migrations.size(), 1U);
+  EXPECT_EQ(restored.migrations.front().previous_id, 7U);
+
+  std::stringstream incompatible(encoded.str());
+  EXPECT_THROW(loadCircumstanceModel(incompatible, "different_model"),
+               std::runtime_error);
 }

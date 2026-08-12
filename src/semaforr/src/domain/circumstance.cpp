@@ -2,6 +2,9 @@
 #include <cmath>
 #include <limits>
 #include <numbers>
+#include <iomanip>
+#include <istream>
+#include <ostream>
 #include <semaforr/domain/circumstance.hpp>
 #include <stdexcept>
 
@@ -29,6 +32,42 @@ void validate(const SettingNormalizationConfiguration& configuration) {
 }
 
 }  // namespace
+
+std::string_view toString(CircumstanceLearningMode mode) noexcept {
+  switch (mode) {
+    case CircumstanceLearningMode::DissertationCompatible:
+      return "dissertation_compatible";
+    case CircumstanceLearningMode::AdaptedThreshold:
+      return "adapted_threshold";
+  }
+  return "unknown";
+}
+
+std::string_view toString(CircumstanceCreationMethod method) noexcept {
+  switch (method) {
+    case CircumstanceCreationMethod::OfflineSimilarityGraph:
+      return "offline_similarity_graph";
+    case CircumstanceCreationMethod::OnlineReclustering:
+      return "online_reclustering";
+    case CircumstanceCreationMethod::LoadedModel:
+      return "loaded_model";
+  }
+  return "unknown";
+}
+
+std::string_view toString(CaseOutcome outcome) noexcept {
+  switch (outcome) {
+    case CaseOutcome::Successful: return "successful";
+    case CaseOutcome::Partial: return "partial";
+    case CaseOutcome::Failed: return "failed";
+    case CaseOutcome::Cancelled: return "cancelled";
+    case CaseOutcome::TimedOut: return "timed_out";
+    case CaseOutcome::SafetyInterrupted: return "safety_interrupted";
+    case CaseOutcome::Preempted: return "preempted";
+    case CaseOutcome::Unknown: return "unknown";
+  }
+  return "unknown";
+}
 
 NormalizedSetting normalizeSetting(
     const LaserObservation& laser,
@@ -82,23 +121,40 @@ std::optional<CircumstanceMatch> matchCircumstance(
     const CircumstanceModel& model, const NormalizedSetting& setting) {
   const CircumstanceCluster* best = nullptr;
   double best_distance = std::numeric_limits<double>::infinity();
+  std::vector<double> compatible_distances;
   for (const auto& cluster : model.clusters) {
-    if (!setting.compatibleWith(cluster.centroid)) continue;
+    if (cluster.retired || !setting.compatibleWith(cluster.centroid)) continue;
     const double distance = settingL1Distance(setting, cluster.centroid);
+    compatible_distances.push_back(distance);
     if (distance < best_distance) {
       best = &cluster;
       best_distance = distance;
     }
   }
-  const double confidence =
-      assignmentConfidence(best_distance, setting.freespace.size());
+  double confidence = assignmentConfidence(best_distance,
+                                           setting.freespace.size());
+  std::string semantics = "normalized_centroid_similarity";
+  if (best && model.learning_mode ==
+                  CircumstanceLearningMode::DissertationCompatible) {
+    // The compatibility classifier uses a softmax over negative normalized
+    // centroid distances. This preserves classifier-probability semantics
+    // while keeping the trained prototypes serializable with the model.
+    const double scale = std::max(1.0, model.similarity_l1_threshold);
+    double denominator = 0.0;
+    for (const double distance : compatible_distances)
+      denominator += std::exp(-distance / scale);
+    confidence = denominator <= 0.0
+                     ? 0.0
+                     : std::exp(-best_distance / scale) / denominator;
+    semantics = "centroid_softmax_probability";
+  }
   if (best == nullptr || best_distance >= model.similarity_l1_threshold ||
       confidence < model.assignment_confidence_threshold)
     return std::nullopt;
-  return CircumstanceMatch{best->id, best_distance, confidence};
+  return CircumstanceMatch{best->id, best_distance, confidence, semantics};
 }
 
-CircumstanceCaseKey circumstanceCaseKey(std::size_t circumstance_id,
+CircumstanceCaseKey circumstanceCaseKey(CircumstanceId circumstance_id,
                                         const Pose2D& pose, Point2D target,
                                         const CircumstanceModel& model) {
   const double target_distance = distance(pose.position, target).meters();
@@ -119,6 +175,179 @@ CircumstanceCaseKey circumstanceCaseKey(std::size_t circumstance_id,
   const std::size_t angle_bin = std::min(
       model.angle_bin_count - 1U, static_cast<std::size_t>(shifted / width));
   return {circumstance_id, distance_bin, angle_bin};
+}
+
+const ActionCaseEvidence* findActionEvidence(
+    const CircumstanceCaseEvidence& evidence, Action action) noexcept {
+  const auto found = std::find_if(
+      evidence.actions.begin(), evidence.actions.end(),
+      [&](const auto& item) { return item.action == action; });
+  return found == evidence.actions.end() ? nullptr : &*found;
+}
+
+void saveCircumstanceModel(const CircumstanceModel& model,
+                           std::ostream& output) {
+  output << "SEMAFORR_CIRCUMSTANCE_CASE 2\n"
+         << std::quoted(std::string(toString(model.learning_mode))) << ' '
+         << std::quoted(model.model_version) << ' '
+         << std::quoted(model.classifier_version) << ' '
+         << std::quoted(model.feature_version) << ' '
+         << std::quoted(model.similarity_metric) << ' '
+         << std::quoted(model.reclustering_policy) << '\n'
+         << model.next_circumstance_id << ' ' << model.minimum_cluster_size
+         << ' ' << model.minimum_case_evidence << ' '
+         << model.assignment_confidence_threshold << ' '
+         << model.similarity_l1_threshold << ' ' << model.accuracy_threshold
+         << ' ' << model.action_confidence_threshold << ' '
+         << model.distance_bin_base_m << ' ' << model.angle_bin_count << ' '
+         << model.revision << '\n';
+  output << model.clusters.size() << '\n';
+  for (const auto& cluster : model.clusters) {
+    output << cluster.id << ' ' << cluster.evidence << ' '
+           << cluster.assignment_confidence << ' '
+           << static_cast<int>(cluster.creation_method) << ' '
+           << cluster.model_version << ' ' << cluster.last_update_sequence
+           << ' ' << cluster.revision << ' ' << cluster.retired << ' '
+           << cluster.centroid.side_cells << ' '
+           << cluster.centroid.resolution_m << ' '
+           << cluster.centroid.radius_m << ' '
+           << cluster.centroid.freespace.size();
+    for (const double cell : cluster.centroid.freespace) output << ' ' << cell;
+    output << '\n';
+  }
+  output << model.cases.size() << '\n';
+  for (const auto& item : model.cases) {
+    output << item.key.circumstance_id << ' ' << item.key.distance_bin << ' '
+           << item.key.angle_bin << ' ' << item.evidence << ' '
+           << item.accuracy << ' ' << item.revision << ' '
+           << item.actions.size() << '\n';
+    for (const auto& action : item.actions)
+      output << static_cast<int>(action.action.type()) << ' '
+             << action.action.magnitude_index() << ' ' << action.selected << ' '
+             << action.executed << ' ' << action.successful << ' '
+             << action.failed << ' ' << action.partial << ' '
+             << action.cancellations << ' ' << action.timeouts << ' '
+             << action.safety_interruptions << ' ' << action.preemptions << ' '
+             << action.unknown << ' ' << action.effective_evidence << ' '
+             << action.success_credit << ' ' << action.confidence << ' '
+             << action.accuracy << ' '
+             << static_cast<int>(action.last_outcome) << ' '
+             << action.last_update_sequence << '\n';
+  }
+  output << model.migrations.size() << '\n';
+  for (const auto& migration : model.migrations)
+    output << migration.previous_id << ' ' << migration.new_id << ' '
+           << std::quoted(migration.operation) << ' '
+           << migration.evidence_moved << ' ' << migration.model_revision
+           << '\n';
+  output << model.metrics.observations << ' ' << model.metrics.assignments
+         << ' ' << model.metrics.unmatched << ' '
+         << model.metrics.assignment_confidence_sum << ' '
+         << model.metrics.reclusterings << ' '
+         << model.metrics.precedent_evaluations << ' '
+         << model.metrics.precedent_vetoes << ' '
+         << model.metrics.tier_three_weighted_decisions << ' '
+         << model.metrics.tier_three_changed_winners << '\n';
+  if (!output) throw std::runtime_error("failed to save circumstance model");
+}
+
+CircumstanceModel loadCircumstanceModel(
+    std::istream& input, std::string_view expected_model_version,
+    std::string_view expected_feature_version,
+    std::string_view expected_classifier_version) {
+  std::string magic;
+  int schema = 0;
+  input >> magic >> schema;
+  if (magic != "SEMAFORR_CIRCUMSTANCE_CASE" || schema != 2)
+    throw std::runtime_error("unsupported circumstance model schema");
+  CircumstanceModel model;
+  std::string mode;
+  input >> std::quoted(mode) >> std::quoted(model.model_version) >>
+      std::quoted(model.classifier_version) >>
+      std::quoted(model.feature_version) >>
+      std::quoted(model.similarity_metric) >>
+      std::quoted(model.reclustering_policy);
+  if (mode == "dissertation_compatible")
+    model.learning_mode = CircumstanceLearningMode::DissertationCompatible;
+  else if (mode == "adapted_threshold")
+    model.learning_mode = CircumstanceLearningMode::AdaptedThreshold;
+  else
+    throw std::runtime_error("unsupported circumstance learning mode");
+  if ((!expected_model_version.empty() &&
+       model.model_version != expected_model_version) ||
+      (!expected_feature_version.empty() &&
+       model.feature_version != expected_feature_version) ||
+      (!expected_classifier_version.empty() &&
+       model.learning_mode == CircumstanceLearningMode::DissertationCompatible &&
+       model.classifier_version != expected_classifier_version))
+    throw std::runtime_error(
+        "circumstance model feature, model, or classifier version mismatch");
+  input >> model.next_circumstance_id >> model.minimum_cluster_size >>
+      model.minimum_case_evidence >> model.assignment_confidence_threshold >>
+      model.similarity_l1_threshold >> model.accuracy_threshold >>
+      model.action_confidence_threshold >> model.distance_bin_base_m >>
+      model.angle_bin_count >> model.revision;
+  std::size_t count = 0U;
+  input >> count;
+  model.clusters.resize(count);
+  for (auto& cluster : model.clusters) {
+    int creation = 0;
+    std::size_t freespace_size = 0U;
+    input >> cluster.id >> cluster.evidence >>
+        cluster.assignment_confidence >> creation >> cluster.model_version >>
+        cluster.last_update_sequence >> cluster.revision >> cluster.retired >>
+        cluster.centroid.side_cells >> cluster.centroid.resolution_m >>
+        cluster.centroid.radius_m >> freespace_size;
+    if (creation < 0 || creation > 2)
+      throw std::runtime_error("invalid circumstance creation method");
+    cluster.creation_method =
+        static_cast<CircumstanceCreationMethod>(creation);
+    cluster.centroid.freespace.resize(freespace_size);
+    for (double& cell : cluster.centroid.freespace) input >> cell;
+  }
+  input >> count;
+  model.cases.resize(count);
+  for (auto& item : model.cases) {
+    std::size_t action_count = 0U;
+    input >> item.key.circumstance_id >> item.key.distance_bin >>
+        item.key.angle_bin >> item.evidence >> item.accuracy >> item.revision >>
+        action_count;
+    item.actions.resize(action_count);
+    for (auto& action : item.actions) {
+      int type = 0, outcome = 0;
+      std::size_t magnitude = 0U;
+      input >> type >> magnitude >> action.selected >> action.executed >>
+          action.successful >> action.failed >> action.partial >>
+          action.cancellations >> action.timeouts >>
+          action.safety_interruptions >> action.preemptions >> action.unknown >>
+          action.effective_evidence >> action.success_credit >>
+          action.confidence >> action.accuracy >> outcome >>
+          action.last_update_sequence;
+      if (type < static_cast<int>(ActionType::Forward) ||
+          type > static_cast<int>(ActionType::Pause) || outcome < 0 ||
+          outcome > static_cast<int>(CaseOutcome::Unknown))
+        throw std::runtime_error("invalid action evidence in circumstance model");
+      action.action = type == static_cast<int>(ActionType::Pause)
+                          ? Action::pause()
+                          : Action(static_cast<ActionType>(type), magnitude);
+      action.last_outcome = static_cast<CaseOutcome>(outcome);
+      item.confidence[action.action] = action.confidence;
+    }
+  }
+  input >> count;
+  model.migrations.resize(count);
+  for (auto& migration : model.migrations)
+    input >> migration.previous_id >> migration.new_id >>
+        std::quoted(migration.operation) >> migration.evidence_moved >>
+        migration.model_revision;
+  input >> model.metrics.observations >> model.metrics.assignments >>
+      model.metrics.unmatched >> model.metrics.assignment_confidence_sum >>
+      model.metrics.reclusterings >> model.metrics.precedent_evaluations >>
+      model.metrics.precedent_vetoes >>
+      model.metrics.tier_three_weighted_decisions >>
+      model.metrics.tier_three_changed_winners;
+  if (!input) throw std::runtime_error("malformed circumstance model");
+  return model;
 }
 
 }  // namespace semaforr::domain

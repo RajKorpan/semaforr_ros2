@@ -348,8 +348,30 @@ semaforr_msgs::msg::DecisionRecord toMessage(
     total.total = source_total.total;
     total.viable = source_total.viable;
     total.scored = source_total.scored;
+    total.pre_circumstance_total = source_total.pre_circumstance_total;
+    total.circumstance_multiplier = source_total.circumstance_multiplier;
+    total.post_circumstance_total = source_total.post_circumstance_total;
+    total.circumstance_action_evidence =
+        source_total.circumstance_action_evidence;
+    total.circumstance_action_confidence =
+        source_total.circumstance_action_confidence;
     result.tier_three_action_totals.push_back(std::move(total));
   }
+  result.circumstance_match_available = source.circumstance_match_available;
+  result.circumstance_id = source.circumstance_id;
+  result.circumstance_assignment_confidence =
+      source.circumstance_assignment_confidence;
+  result.circumstance_learning_mode = source.circumstance_learning_mode;
+  result.circumstance_model_version = source.circumstance_model_version;
+  result.circumstance_classifier_version =
+      source.circumstance_classifier_version;
+  result.circumstance_weighting_policy =
+      source.circumstance_weighting_policy;
+  result.circumstance_weighting_applied =
+      source.circumstance_weighting_applied;
+  result.circumstance_weighting_changed_winner =
+      source.circumstance_weighting_changed_winner;
+  result.circumstance_reason = source.circumstance_reason;
   result.tier_three_tie_policy = source.tier_three_tie_policy;
   result.tier_three_tie_tolerance = source.tier_three_tie_tolerance;
   result.tier_three_random_seed = source.tier_three_random_seed;
