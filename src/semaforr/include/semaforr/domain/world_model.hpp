@@ -91,6 +91,7 @@ struct RobotState {
 
 struct NavigationHistoryEntry {
   Pose2D pose;
+  Pose2D observation_pose;
   LaserObservation laser;
   Action action = Action::pause();
   std::optional<TaskId> task_id;
@@ -106,6 +107,7 @@ struct NavigationHistoryEntry {
                          Action action_value,
                          std::optional<TaskId> task_value = std::nullopt)
       : pose(std::move(pose_value)),
+        observation_pose(pose),
         laser(std::move(laser_value)),
         action(action_value),
         task_id(task_value) {}

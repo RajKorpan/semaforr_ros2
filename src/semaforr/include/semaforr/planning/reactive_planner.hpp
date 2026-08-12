@@ -15,7 +15,7 @@
 
 namespace semaforr::planning {
 
-enum class ReactiveStatus { NotApplicable, Action, RequestReplan };
+enum class ReactiveStatus { NotApplicable, Action, InstallPlan, RequestReplan };
 enum class InterruptionReason { TargetSensed, NewPlanAvailable, SensorLost,
                                 MissionChanged, Disabled };
 enum class ReactiveCompletionReason {
@@ -40,11 +40,30 @@ struct ReactivePlanUpdate {
   ReactiveCompletionReason completion_reason = ReactiveCompletionReason::None;
   std::optional<std::uint64_t> candidate_id;
   std::string explanation;
+  std::vector<domain::Point2D> prepend_waypoints;
+
+  ReactivePlanUpdate() = default;
+  ReactivePlanUpdate(
+      ReactiveStatus update_status, std::optional<domain::Action> update_action,
+      LowLevelExplorationState update_state =
+          LowLevelExplorationState::DetectMissingGuidance,
+      ReactiveCompletionReason reason = ReactiveCompletionReason::None,
+      std::optional<std::uint64_t> update_candidate_id = std::nullopt,
+      std::string update_explanation = {},
+      std::vector<domain::Point2D> waypoints = {})
+      : status(update_status),
+        action(update_action),
+        state(update_state),
+        completion_reason(reason),
+        candidate_id(update_candidate_id),
+        explanation(std::move(update_explanation)),
+        prepend_waypoints(std::move(waypoints)) {}
 };
 
 struct ReactiveRequest {
   const domain::WorldModel& world;
   const domain::ActionSpace& action_space;
+  std::span<const domain::Action> viable_actions{};
 };
 
 struct ReactiveResult {
@@ -53,6 +72,20 @@ struct ReactiveResult {
   std::string planner;
   std::string explanation;
   ReactiveCompletionReason completion_reason = ReactiveCompletionReason::None;
+  std::vector<domain::Point2D> prepend_waypoints;
+
+  ReactiveResult() = default;
+  ReactiveResult(ReactiveStatus result_status,
+                 std::optional<domain::Action> result_action,
+                 std::string result_planner, std::string result_explanation,
+                 ReactiveCompletionReason reason,
+                 std::vector<domain::Point2D> waypoints = {})
+      : status(result_status),
+        action(result_action),
+        planner(std::move(result_planner)),
+        explanation(std::move(result_explanation)),
+        completion_reason(reason),
+        prepend_waypoints(std::move(waypoints)) {}
 };
 
 class ReactivePlanner {
@@ -119,7 +152,7 @@ class Out final : public ReactivePlanner {
   void cancel(InterruptionReason) override;
 
  private:
-  enum class State { Idle, Survey, Escape };
+  enum class State { Idle, Survey };
   void reset() noexcept;
   void buildEscape(const domain::WorldModel&);
 

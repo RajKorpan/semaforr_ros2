@@ -25,7 +25,8 @@ ctest -L behavior_mode:compatibility-contract
 |---|---|
 | Action construction and ordering | `domain_types_test`, `characterization_test` |
 | Angles, expected poses, laser endpoints, goal tolerance | `navigation_behavior_test` |
-| Obstacle vetoes | `navigation_behavior_test`, `navigation_scenario_test` |
+| Victory, AvoidObstacles/hard safety, NotOpposite, Behind, Out, and Forward | `tier_one_component_test` |
+| Obstacle vetoes | `tier_one_component_test`, `navigation_behavior_test`, `navigation_scenario_test` |
 | Mission and task transitions | `domain_types_test`, `component_strategy_test` |
 | Advisor scoring, weighting, tie/fallback safety | `decision_coordinator_test`, `component_strategy_test` |
 | A* and unreachable graphs | `domain_planning_test` |

@@ -74,6 +74,7 @@ TierOnePass DecisionCoordinator::evaluateTierOne(
                              decision->action)) {
         event.mandate = decision->action;
         event.outcome = "mandated_action";
+        event.reason_code = decision->explanation;
         event.final_attribution = DecisionTier::TierOne;
         event.order = pass.trace.size() + 1U;
         pass.trace.push_back(std::move(event));
@@ -137,7 +138,8 @@ TierOnePass DecisionCoordinator::evaluateTierOne(
     result.decision_cycle.push_back(
         {result.decision_cycle.size() + 1U, "tier1", "viable_action_set",
          pass.survivors, pass.survivors.front(), {},
-         "single_survivor_selected", false, DecisionTier::TierOne});
+         "single_survivor_selected", false, DecisionTier::TierOne,
+         "tier1:only_surviving_action"});
     pass.decision = std::move(result);
   }
   return pass;

@@ -68,6 +68,7 @@ struct DecisionCycleEvent {
   std::string outcome;
   bool returned_to_earlier_tier{false};
   std::optional<DecisionTier> final_attribution;
+  std::string reason_code;
 
   DecisionCycleEvent() = default;
   DecisionCycleEvent(
@@ -76,7 +77,8 @@ struct DecisionCycleEvent {
       std::optional<domain::Action> event_mandate,
       std::vector<Veto> event_vetoes, std::string event_outcome = {},
       bool returned = false,
-      std::optional<DecisionTier> attribution = std::nullopt)
+      std::optional<DecisionTier> attribution = std::nullopt,
+      std::string event_reason_code = {})
       : order(event_order),
         tier(std::move(event_tier)),
         component(std::move(event_component)),
@@ -85,7 +87,8 @@ struct DecisionCycleEvent {
         vetoes(std::move(event_vetoes)),
         outcome(std::move(event_outcome)),
         returned_to_earlier_tier(returned),
-        final_attribution(attribution) {}
+        final_attribution(attribution),
+        reason_code(std::move(event_reason_code)) {}
 
   bool operator==(const DecisionCycleEvent&) const = default;
 };

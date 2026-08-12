@@ -6,6 +6,8 @@
 #include <semaforr/decision/rules.hpp>
 #include <semaforr/planning/reactive_planner.hpp>
 #include <semaforr/decision/enforcer.hpp>
+#include <cstdint>
+#include <set>
 #include <stdexcept>
 
 namespace semaforr::decision {
@@ -18,7 +20,7 @@ class VictoryRule final : public MandatoryRule {
       : tolerance_(tolerance), action_space_(std::move(action_space)) {}
   std::string_view name() const noexcept override { return "Victory"; }
   std::vector<std::string_view> dependencies() const override {
-    return {"active_task", "robot_pose"};
+    return {"active_task", "robot_pose", "laser", "action_space"};
   }
   std::optional<Decision> evaluate(
       const DecisionContext& context) const override;
@@ -52,7 +54,9 @@ class ForwardRule final : public VetoRule {
   double visited_grid_resolution_m_;
   mutable std::optional<domain::TaskId> task_id_;
   mutable std::size_t history_cursor_ = 0U;
-  mutable std::vector<domain::Point2D> visited_plan_positions_;
+  using VisitedCell = std::pair<std::int64_t, std::int64_t>;
+  VisitedCell visitedCell(domain::Point2D) const noexcept;
+  mutable std::set<VisitedCell> visited_footprint_cells_;
 };
 
 class NotOppositeRule final : public VetoRule {

@@ -36,12 +36,32 @@ order is `victory`, `avoid_obstacles`, `not_opposite`, `enforcer`, `thru`,
 
 Mandatory rules return an optional decision. They are evaluated in configured
 order and the first applicable result wins. `Victory` either stops within goal
-tolerance or directly turns/moves toward a visible unobstructed target.
+tolerance or directly turns/moves toward a visible unobstructed target. Its
+stable reasons are `victory:target_within_tolerance`,
+`victory:turn_toward_visible_target`, and
+`victory:move_toward_visible_target`.
 
 Veto rules return zero or more action/reason pairs. `AvoidObstacles` removes
 unsafe motions, `NotOpposite` suppresses immediate orientation reversal, and
 `Forward` prevents orientation regression along the installed plan. Vetoes are
 accumulated before Tier 3 runs and are copied into the decision record.
+`NotOpposite` reads only terminal, execution-confirmed orientations.
+`Forward` stores successful executed plan motion in footprint-sized cells;
+selected or failed actions do not mark cells.
+
+`Behind` uses a distance threshold of 1.5 metres plus the radius of a region
+containing the waypoint. When the waypoint is absent from the current and
+previous executed views, it prefers an available 90-degree right turn, then
+an available left turn. An execution-confirmed quarter turn suppresses an
+immediate repeat. History retains the laser observation pose independently
+from the terminal action pose, so the previous visibility test uses the frame
+in which that scan was actually observed.
+
+`Out` evaluates the most recent `10+n/50` execution records, where `n` is the
+available navigation-history length. It surveys with four right quarter turns,
+builds a reverse subtrail from successful executed motion, prepends that
+subtrail to the remaining mission plan, and returns control to Enforcer. It
+never directly pursues the escape points.
 
 The separate Tier-1 contracts are `MandatoryRule`, `VetoRule`,
 `PlanOperationalizer`, `ReactivePlanner`, and `ReplanningTrigger`. `Enforcer`
@@ -100,6 +120,10 @@ vetoes, Tier 3 contributions, complete `decision_cycle` trace, optional
 planner, sequence number, latency, and execution outcome. The ROS adapter projects it to
 `semaforr_msgs/msg/DecisionRecord`; decision logic never depends on that ROS
 message.
+
+Mandatory trace events expose a stable `reason_code`; every Tier-1 veto stores
+its stable reason code in the veto explanation field. Human-facing prose may
+be layered on these codes without making experiment analysis depend on prose.
 
 To add a rule, planner, or advisor, implement its narrow interface, register
 the factory name, add validated configuration, and add deterministic unit

@@ -526,6 +526,15 @@ if(BUILD_TESTING)
     semaforr_navigation semaforr_advisors)
   semaforr_apply_project_options(semaforr_tier_advisor_test)
 
+  ament_add_gtest(
+    semaforr_tier_one_component_test
+    test/unit/tier_one_component_test.cpp
+  )
+  target_link_libraries(
+    semaforr_tier_one_component_test
+    semaforr_navigation semaforr_advisors)
+  semaforr_apply_project_options(semaforr_tier_one_component_test)
+
   ament_add_pytest_test(semaforr_source_contract_test
     test/contracts/test_source_contract.py
     ENV "SEMAFORR_SOURCE_DIR=${PROJECT_SOURCE_DIR}"

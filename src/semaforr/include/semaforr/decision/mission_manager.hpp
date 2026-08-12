@@ -17,6 +17,7 @@ class MissionManager {
   bool completeActiveTask();
   bool skipActiveTask();
   void installPlan(std::vector<domain::Point2D> plan);
+  void prependPlan(std::vector<domain::Point2D> prefix);
   void clearPlan();
   bool advanceWaypoint(const domain::Pose2D& pose, domain::Distance tolerance);
   bool complete() const noexcept;

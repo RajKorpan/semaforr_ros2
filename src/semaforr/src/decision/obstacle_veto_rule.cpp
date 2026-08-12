@@ -54,7 +54,8 @@ std::vector<Veto> ObstacleVetoRule::evaluate(
   for (std::size_t index = 0U; index < move_distances_m_.size(); ++index) {
     if (move_distances_m_[index] + clearance_m_ >= nearest_longitudinal_m) {
       vetoes.push_back({domain::Action(domain::ActionType::Forward, index + 1U),
-                        "avoid_obstacles", "forward corridor is obstructed"});
+                        "AvoidObstacles",
+                        "avoid_obstacles:forward_corridor_obstructed"});
     }
   }
   return vetoes;

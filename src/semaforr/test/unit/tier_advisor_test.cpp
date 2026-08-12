@@ -417,10 +417,14 @@ TEST(Behind, DoesNotRepeatAQuarterTurn) {
   auto view = laser();
   view.angle_min = semaforr::domain::Angle(-0.5);
   world.robot.laser = view;
-  world.navigation_history.record(
-      {world.robot.pose, view,
-       semaforr::domain::Action(
-           semaforr::domain::ActionType::TurnRight, 1U)});
+  semaforr::domain::NavigationHistoryEntry quarter_turn{
+      world.robot.pose, view,
+      semaforr::domain::Action(
+          semaforr::domain::ActionType::TurnRight, 1U)};
+  quarter_turn.execution_status =
+      semaforr::domain::ExecutionCompletionStatus::Succeeded;
+  quarter_turn.rotation_achieved_rad = 1.5707963267948966;
+  world.navigation_history.record(std::move(quarter_turn));
   semaforr::planning::Behind behind;
   EXPECT_EQ(behind.evaluate({world, actions}).status,
             semaforr::planning::ReactiveStatus::NotApplicable);
@@ -604,10 +608,15 @@ TEST(TierOneRules, VictoryForwardAndNotOppositeAreTyped) {
       semaforr::domain::ActionSpace(
           {2.0}, {1.5707963267948966, 3.1415926535897932}));
   EXPECT_TRUE(forward.evaluate({visible}).empty());
-  visible.navigation_history.record(
-      {{{-2.0, 0.0}, semaforr::domain::Angle::zero()}, laser(),
-       semaforr::domain::Action(
-           semaforr::domain::ActionType::Forward, 1U)});
+  semaforr::domain::NavigationHistoryEntry successful_forward{
+      {{-2.0, 0.0}, semaforr::domain::Angle::zero()}, laser(),
+      semaforr::domain::Action(
+          semaforr::domain::ActionType::Forward, 1U),
+      visible.mission.active()->id};
+  successful_forward.execution_status =
+      semaforr::domain::ExecutionCompletionStatus::Succeeded;
+  successful_forward.distance_achieved_m = 2.0;
+  visible.navigation_history.record(std::move(successful_forward));
   EXPECT_FALSE(forward.evaluate({visible}).empty());
   world.navigation_history.record(
       {world.robot.pose, laser(),

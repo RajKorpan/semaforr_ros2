@@ -66,7 +66,7 @@ std::optional<Decision> VictoryRule::evaluate(
       domain::distance(context.world.robot.pose.position, target).meters();
   if (distance <= tolerance_.meters())
     return Decision{domain::Action::pause(), std::string(name()),
-                    "target reached"};
+                    "victory:target_within_tolerance"};
   if (!context.world.robot.laser ||
       context.world.robot.laser->ranges_m.empty())
     return std::nullopt;
@@ -89,7 +89,7 @@ std::optional<Decision> VictoryRule::evaluate(
         domain::Action(error < 0.0 ? domain::ActionType::TurnRight
                                    : domain::ActionType::TurnLeft,
                        magnitude),
-        std::string(name()), "turn directly toward visible target"};
+        std::string(name()), "victory:turn_toward_visible_target"};
   }
   const auto& moves = action_space_.move_distances_m();
   if (moves.empty()) return std::nullopt;
@@ -100,14 +100,14 @@ std::optional<Decision> VictoryRule::evaluate(
           : static_cast<std::size_t>(found - moves.begin());
   return Decision{domain::Action(domain::ActionType::Forward, magnitude),
                   std::string(name()),
-                  "move directly toward visible unobstructed target"};
+                  "victory:move_toward_visible_target"};
 }
 
 std::vector<Veto> ForwardRule::evaluate(
     const DecisionContext& context) const {
   if (!waypoint(context.world)) return {};
   synchronizeVisitedGrid(context.world);
-  if (visited_plan_positions_.empty()) return {};
+  if (visited_footprint_cells_.empty()) return {};
   const auto& pose = context.world.robot.pose;
   std::vector<Veto> vetoes;
   std::size_t rotations = 0U;
@@ -125,19 +125,14 @@ std::vector<Veto> ForwardRule::evaluate(
           expected.position.y_m + lookahead_m *
                                       std::sin(expected.heading.radians())};
       ++rotations;
-      if (std::any_of(visited_plan_positions_.begin(),
-                      visited_plan_positions_.end(), [&](const auto& point) {
-                        return domain::distance(projected, point).meters() <=
-                               std::sqrt(2.0) * visited_grid_resolution_m_ +
-                                   domain::geometry_tolerance_m;
-                      }))
+      if (visited_footprint_cells_.contains(visitedCell(projected)))
         vetoes.push_back(
             {action, std::string(name()),
-             "one-step lookahead returns to the executed plan"});
+             "forward:projected_footprint_already_visited"});
     }
   }
   if (vetoes.size() == rotations) {
-    visited_plan_positions_.clear();
+    visited_footprint_cells_.clear();
     return {};
   }
   return vetoes;
@@ -148,22 +143,37 @@ void ForwardRule::synchronizeVisitedGrid(
   if (!world.mission.active()) {
     task_id_.reset();
     history_cursor_ = 0U;
-    visited_plan_positions_.clear();
+    visited_footprint_cells_.clear();
     return;
   }
   const auto current_task = world.mission.active()->id;
   if (!task_id_ || *task_id_ != current_task) {
     task_id_ = current_task;
     history_cursor_ = world.navigation_history.entries().size();
-    visited_plan_positions_.clear();
+    visited_footprint_cells_.clear();
   }
   const auto& history = world.navigation_history.entries();
   if (!world.mission.active()->plan.empty()) {
-    for (; history_cursor_ < history.size(); ++history_cursor_)
-      visited_plan_positions_.push_back(history[history_cursor_].pose.position);
+    for (; history_cursor_ < history.size(); ++history_cursor_) {
+      const auto& entry = history[history_cursor_];
+      if (entry.task_id == current_task &&
+          entry.execution_status ==
+              domain::ExecutionCompletionStatus::Succeeded &&
+          (entry.distance_achieved_m > domain::geometry_tolerance_m ||
+           entry.rotation_achieved_rad > domain::geometry_tolerance_m))
+        visited_footprint_cells_.insert(visitedCell(entry.pose.position));
+    }
   } else {
     history_cursor_ = history.size();
   }
+}
+
+ForwardRule::VisitedCell ForwardRule::visitedCell(
+    domain::Point2D point) const noexcept {
+  return {static_cast<std::int64_t>(
+              std::floor(point.x_m / visited_grid_resolution_m_)),
+          static_cast<std::int64_t>(
+              std::floor(point.y_m / visited_grid_resolution_m_))};
 }
 
 std::vector<Veto> NotOppositeRule::evaluate(
@@ -189,7 +199,8 @@ std::vector<Veto> NotOppositeRule::evaluate(
                                orientation_tolerance_rad_;
                       }))
         vetoes.push_back(
-            {action, std::string(name()), "avoid a recently occupied orientation"});
+            {action, std::string(name()),
+             "not_opposite:predicted_heading_recently_executed"});
     }
   }
   return vetoes;
@@ -276,7 +287,8 @@ std::vector<Veto> PrecedentRule::evaluate(
     if (confidence < confidence_threshold)
       vetoes.push_back(
           {action, std::string(name()),
-           "case evidence=" + std::to_string(evidence->evidence) +
+           "precedent:action_confidence_below_threshold;evidence=" +
+               std::to_string(evidence->evidence) +
                " accuracy=" + std::to_string(evidence->accuracy) +
                " action confidence=" + std::to_string(confidence)});
   }
@@ -465,8 +477,10 @@ void registerTierFactories(TierOneRegistry& tier_one,
       "low_level_exploration",
       [] { return std::make_unique<planning::LowLevelExplorer>(); }, true);
   tier_one.registerVeto(
-      "forward", [action_space] {
-        return std::make_unique<ForwardRule>(action_space);
+      "forward", [action_space, robot_radius_m] {
+        return std::make_unique<ForwardRule>(
+            action_space,
+            std::max(2.0 * robot_radius_m, domain::geometry_tolerance_m));
       });
   tier_one.registerVeto(
       "precedent", [action_space, precedent] {

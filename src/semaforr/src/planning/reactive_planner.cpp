@@ -46,6 +46,32 @@ bool targetSensed(const domain::WorldModel& world) {
                 world.mission.active()->target);
 }
 
+double containingRegionRadius(const domain::SpatialModel& spatial,
+                              domain::Point2D point) {
+  double radius_m = 0.0;
+  for (const auto& region : spatial.regions) {
+    if (region.boundary.contains(point))
+      radius_m = std::max(radius_m, region.boundary.radius.meters());
+  }
+  for (const auto& region : spatial.learned_regions) {
+    if (region.contains(point))
+      radius_m = std::max(radius_m, region.radius.meters());
+  }
+  return radius_m;
+}
+
+bool available(const decision::DecisionContext& context,
+               domain::Action action) {
+  return context.viable_actions.empty() ||
+         std::find(context.viable_actions.begin(),
+                   context.viable_actions.end(), action) !=
+             context.viable_actions.end();
+}
+
+std::size_t recentOutWindow(std::size_t history_size) noexcept {
+  return std::min(history_size, 10U + history_size / 50U);
+}
+
 bool sensed(const domain::Pose2D& pose,
             const domain::LaserObservation& laser,
             domain::Point2D point) {
@@ -117,13 +143,15 @@ domain::Action stepToward(const domain::Pose2D& pose,
 ReactiveResult resultFrom(std::string_view planner,
                           ReactivePlanUpdate update) {
   return {update.status, update.action, std::string(planner),
-          std::move(update.explanation), update.completion_reason};
+          std::move(update.explanation), update.completion_reason,
+          std::move(update.prepend_waypoints)};
 }
 
 }  // namespace
 
 ReactiveResult ReactivePlanner::evaluate(const ReactiveRequest& request) {
-  decision::DecisionContext context{request.world, &request.action_space};
+  decision::DecisionContext context{request.world, &request.action_space,
+                                    request.viable_actions};
   if (!evaluateTrigger(context).triggered) return {};
   return resultFrom(name(), update(context));
 }
@@ -268,27 +296,36 @@ void Thru::cancel(InterruptionReason) {
 TriggerEvaluation Behind::evaluateTrigger(
     const decision::DecisionContext& context) const {
   const auto target = waypoint(context.world);
-  if (!target || !context.world.robot.laser ||
-      domain::distance(context.world.robot.pose.position, *target).meters() >
-          1.5)
-    return {};
+  if (!target || !context.world.robot.laser)
+    return {false, "behind:missing_waypoint_or_laser"};
+  const double trigger_distance_m =
+      1.5 + containingRegionRadius(context.world.spatial, *target);
+  if (domain::distance(context.world.robot.pose.position, *target).meters() >
+      trigger_distance_m)
+    return {false, "behind:waypoint_outside_distance_threshold"};
   const auto& history = context.world.navigation_history.entries();
   const bool visible_now = sensed(context.world.robot.pose,
                                   *context.world.robot.laser, *target);
   const bool visible_before = !history.empty() &&
-      sensed(history.back().pose, history.back().laser, *target);
+      sensed(history.back().observation_pose, history.back().laser, *target);
   bool last_was_quarter_turn = false;
   if (!history.empty() && context.action_space &&
+      history.back().execution_status ==
+          domain::ExecutionCompletionStatus::Succeeded &&
       (history.back().action.type() == domain::ActionType::TurnLeft ||
        history.back().action.type() == domain::ActionType::TurnRight)) {
     const auto magnitude = history.back().action.magnitude_index();
     const auto& turns = context.action_space->rotation_angles_rad();
     last_was_quarter_turn =
         magnitude > 0U && magnitude <= turns.size() &&
-        std::abs(turns[magnitude - 1U] - 1.5707963267948966) <= 0.1;
+        std::abs(history.back().rotation_achieved_rad -
+                 1.5707963267948966) <= 0.1;
   }
-  return {!visible_now && !visible_before && !last_was_quarter_turn,
-          "nearby waypoint was outside both recent views"};
+  if (visible_now) return {false, "behind:waypoint_visible_now"};
+  if (visible_before) return {false, "behind:waypoint_visible_in_recent_view"};
+  if (last_was_quarter_turn)
+    return {false, "behind:quarter_turn_already_executed"};
+  return {true, "behind:nearby_waypoint_outside_recent_views"};
 }
 
 ReactivePlanUpdate Behind::update(
@@ -307,10 +344,19 @@ ReactivePlanUpdate Behind::update(
     return {};
   const auto magnitude =
       static_cast<std::size_t>(closest - turns.begin()) + 1U;
-  return {ReactiveStatus::Action,
-          domain::Action(domain::ActionType::TurnRight, magnitude),
-          {}, ReactiveCompletionReason::None, std::nullopt,
-          "turn 90 degrees to reveal the nearby waypoint"};
+  const domain::Action right(domain::ActionType::TurnRight, magnitude);
+  const domain::Action left(domain::ActionType::TurnLeft, magnitude);
+  if (available(context, right))
+    return {ReactiveStatus::Action, right, {},
+            ReactiveCompletionReason::None, std::nullopt,
+            "behind:turn_right_to_reveal_waypoint"};
+  if (available(context, left))
+    return {ReactiveStatus::Action, left, {},
+            ReactiveCompletionReason::None, std::nullopt,
+            "behind:turn_left_when_right_unavailable"};
+  return {ReactiveStatus::NotApplicable, std::nullopt, {},
+          ReactiveCompletionReason::None, std::nullopt,
+          "behind:no_quarter_turn_available"};
 }
 
 Out::Out(std::size_t coverage_threshold, double covered_fraction,
@@ -325,21 +371,17 @@ Out::Out(std::size_t coverage_threshold, double covered_fraction,
 
 TriggerEvaluation Out::evaluateTrigger(
     const decision::DecisionContext& context) const {
-  if (state_ != State::Idle) return {true, "Out recovery is active"};
+  if (state_ != State::Idle) return {true, "out:survey_active"};
   const auto& grid = context.world.spatial.known_grid;
-  const auto nonzero = grid.observedCellCount();
-  const auto well_covered = grid.cells.empty()
-                                ? static_cast<std::size_t>(std::count_if(
-                                      grid.sparseCells().begin(),
-                                      grid.sparseCells().end(),
-                                      [&](const auto& cell) {
-                                        return cell.value >= coverage_threshold_;
-                                      }))
-                                : static_cast<std::size_t>(std::count_if(
-                                      grid.cells.begin(), grid.cells.end(),
-                                      [&](std::uint32_t value) {
-                                        return value >= coverage_threshold_;
-                                      }));
+  const auto& history = context.world.navigation_history.entries();
+  const std::size_t window = recentOutWindow(history.size());
+  const std::size_t first = history.size() - window;
+  const auto well_covered = static_cast<std::size_t>(std::count_if(
+      history.begin() + static_cast<std::ptrdiff_t>(first), history.end(),
+      [&](const auto& entry) {
+        const auto index = gridIndex(grid, entry.pose.position);
+        return index && grid.valueAt(*index) >= coverage_threshold_;
+      }));
   std::size_t new_cells = 0U;
   std::vector<std::size_t> observed_new_cells;
   if (context.world.robot.laser) {
@@ -354,12 +396,15 @@ TriggerEvaluation Out::evaluateTrigger(
   }
   new_cells = observed_new_cells.size();
   const bool repeatedly_confined =
-      nonzero > 0U &&
-      static_cast<double>(well_covered) / static_cast<double>(nonzero) >=
+      window > 0U &&
+      static_cast<double>(well_covered) / static_cast<double>(window) >=
           covered_fraction_ &&
       new_cells <= maximum_new_cells_;
-  return {context.world.recovery.confined || repeatedly_confined,
-          "recent known-grid support is repeatedly confined"};
+  if (context.world.recovery.confined)
+    return {true, "out:explicit_confinement_signal"};
+  return {repeatedly_confined,
+          repeatedly_confined ? "out:recent_window_confined"
+                              : "out:recent_window_not_confined"};
 }
 
 ReactivePlanUpdate Out::update(
@@ -387,51 +432,49 @@ ReactivePlanUpdate Out::update(
       reset();
       return {ReactiveStatus::NotApplicable, std::nullopt, {},
               ReactiveCompletionReason::NewPlanAvailable, std::nullopt,
-              "survey revealed new freespace; cede control"};
+              "out:survey_revealed_new_freespace"};
     }
     if (rotations_ < 4U) {
       ++rotations_;
       return {ReactiveStatus::Action,
               turn(-1.5707963267948966, *context.action_space), {},
               ReactiveCompletionReason::None, std::nullopt,
-              "survey confinement with a 90 degree rotation"};
+              "out:survey_turn_right"};
     }
     buildEscape(context.world);
-    state_ = State::Escape;
-  }
-  if (escape_cursor_ >= escape_points_.size()) {
+    if (escape_points_.empty()) {
+      reset();
+      return {ReactiveStatus::NotApplicable, std::nullopt, {},
+              ReactiveCompletionReason::CandidateExhausted, std::nullopt,
+              "out:no_execution_confirmed_reverse_subtrail"};
+    }
+    auto reverse_subtrail = escape_points_;
     reset();
-    return {ReactiveStatus::NotApplicable, std::nullopt, {},
-            ReactiveCompletionReason::CandidateExhausted, std::nullopt,
-            "no uncovered path-history point is available"};
+    return {ReactiveStatus::InstallPlan, std::nullopt, {},
+            ReactiveCompletionReason::None, std::nullopt,
+            "out:prepend_reverse_subtrail_for_enforcer",
+            std::move(reverse_subtrail)};
   }
-  while (escape_cursor_ < escape_points_.size() &&
-         domain::distance(context.world.robot.pose.position,
-                          escape_points_[escape_cursor_]).meters() <= 0.5)
-    ++escape_cursor_;
-  if (escape_cursor_ >= escape_points_.size()) {
-    reset();
-    return {};
-  }
-  return {ReactiveStatus::Action,
-          stepToward(context.world.robot.pose, escape_points_[escape_cursor_],
-                     *context.action_space, 0.8),
-          {}, ReactiveCompletionReason::None, std::nullopt,
-          "follow the reverse subtrail out of known confinement"};
+  return {};
 }
 
 void Out::buildEscape(const domain::WorldModel& world) {
   escape_points_.clear();
   escape_cursor_ = 0U;
-  const auto& grid = world.spatial.known_grid;
   const auto& history = world.navigation_history.entries();
-  for (auto entry = history.rbegin(); entry != history.rend(); ++entry) {
+  const std::size_t window = recentOutWindow(history.size());
+  const auto stop = history.rend() - static_cast<std::ptrdiff_t>(
+                                      history.size() - window);
+  for (auto entry = history.rbegin(); entry != stop; ++entry) {
+    if (entry->execution_status !=
+            domain::ExecutionCompletionStatus::Succeeded ||
+        (entry->distance_achieved_m <= domain::geometry_tolerance_m &&
+         entry->rotation_achieved_rad <= domain::geometry_tolerance_m))
+      continue;
     if (escape_points_.empty() ||
         domain::distance(escape_points_.back(), entry->pose.position).meters() >=
             0.75)
       escape_points_.push_back(entry->pose.position);
-    const auto index = gridIndex(grid, entry->pose.position);
-    if (!index || grid.valueAt(*index) < coverage_threshold_) break;
   }
 }
 
@@ -473,7 +516,8 @@ ReactivePlannerCoordinator::evaluateDetailed(
     const ReactiveRequest& request,
     std::span<const domain::Action> viable_actions) {
   Evaluation evaluation;
-  decision::DecisionContext context{request.world, &request.action_space};
+  decision::DecisionContext context{request.world, &request.action_space,
+                                    viable_actions};
   for (const auto& planner : planners_) {
     decision::DecisionCycleEvent event;
     event.tier = "tier1";
@@ -493,10 +537,13 @@ ReactivePlannerCoordinator::evaluateDetailed(
         std::find(viable_actions.begin(), viable_actions.end(),
                   *result.action) != viable_actions.end();
     event.mandate = result.action;
+    event.reason_code = result.explanation;
     event.outcome = !action_viable
                         ? "reactive_action_not_viable_continue"
                     : result.status == ReactiveStatus::Action
                         ? "reactive_action_selected"
+                    : result.status == ReactiveStatus::InstallPlan
+                        ? "reactive_plan_install_requested"
                     : result.status == ReactiveStatus::RequestReplan
                         ? "reactive_replan_requested"
                         : "triggered_without_action_continue";

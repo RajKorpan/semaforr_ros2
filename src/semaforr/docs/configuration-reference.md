@@ -138,6 +138,13 @@ indices, and forward actions that violate collision clearance. The
 configurable Tier-1 `avoid_obstacles` rule remains available for cognitive
 behavior and diagnostics, but is not the platform safety boundary.
 
+The complete order is: generate typed candidates; run hard safety; run the
+cognitive tiers; validate the selected action while constructing the execution
+request; enforce velocity, acceleration, finite-command, timeout, and odometry
+invariants inside `CommandExecutor`; then perform the publisher's final finite
+and velocity-bound check. Thus `avoid_obstacles` is ablatable, while the hard
+filter and command/controller checks are not.
+
 Immediately before command publication, the sensor synchronizer cancels
 execution when pose or laser data is stale or incoherent. `CommandExecutor`
 then validates action indices and finite targets, ramps commands within

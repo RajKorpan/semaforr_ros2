@@ -29,6 +29,17 @@ void MissionManager::installPlan(std::vector<domain::Point2D> plan) {
   mission_.install_active_plan(std::move(plan));
 }
 
+void MissionManager::prependPlan(std::vector<domain::Point2D> prefix) {
+  if (!mission_.active())
+    throw std::logic_error("cannot prepend a plan without an active task");
+  const auto& task = *mission_.active();
+  prefix.insert(prefix.end(),
+                task.plan.begin() +
+                    static_cast<std::ptrdiff_t>(task.waypoint_index),
+                task.plan.end());
+  mission_.install_active_plan(std::move(prefix));
+}
+
 void MissionManager::clearPlan() { mission_.install_active_plan({}); }
 
 bool MissionManager::advanceWaypoint(const domain::Pose2D& pose,

@@ -16,20 +16,24 @@ SafetyFilterResult HardSafetyFilter::filter(
       observed_at <= now && now - observed_at <= sensor_freshness_timeout_;
   if (fresh && context.world.robot.laser) {
     result.vetoes = obstacle_filter_.evaluate(context);
+    for (auto& veto : result.vetoes) {
+      veto.rule = "HardSafetyFilter";
+      veto.explanation = "hard_safety:collision_clearance";
+    }
   }
   std::set<domain::Action> unsafe;
   for (const auto& veto : result.vetoes) unsafe.insert(veto.action);
   for (const auto& action : candidates) {
     if (!action_space_.contains(action)) {
       result.vetoes.push_back(
-          {action, "hard_safety", "action index is outside the action space"});
+          {action, "HardSafetyFilter", "hard_safety:invalid_action_index"});
       continue;
     }
     if ((!fresh || !context.world.robot.laser) &&
         action.type() != domain::ActionType::Pause) {
       result.vetoes.push_back(
-          {action, "hard_safety",
-           "fresh pose and laser observation is unavailable"});
+          {action, "HardSafetyFilter",
+           "hard_safety:sensor_stale_or_missing"});
       continue;
     }
     if (!unsafe.contains(action)) result.safe_actions.push_back(action);

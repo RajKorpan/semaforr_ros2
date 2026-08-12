@@ -137,6 +137,7 @@ void NavigationEngine::appendCycleDiagnostics(DecisionResult& result) const {
                << ",vetoes=" << event.vetoes.size()
                << ",mandate=" << (event.mandate ? "true" : "false")
                << ",outcome=" << event.outcome
+               << ",reason=" << event.reason_code
                << ",return="
                << (event.returned_to_earlier_tier ? "true" : "false");
     result.phase_events.push_back(diagnostic.str());
@@ -528,7 +529,9 @@ DecisionResult NavigationEngine::decide() {
                             : "no_viable_operational_action_continue",
                      false,
                      action ? std::optional<DecisionTier>(DecisionTier::TierOne)
-                            : std::nullopt});
+                            : std::nullopt,
+                     action ? "enforcer:operationalized_active_waypoint"
+                            : "enforcer:no_viable_operational_action"});
     if (action) {
       result.action = *action;
       result.source = DecisionSource::MandatoryRule;
@@ -539,9 +542,39 @@ DecisionResult NavigationEngine::decide() {
   }
 
   if (!decided) {
-    auto reactive = reactive_.evaluateDetailed({world_, action_space_}, viable);
+    auto reactive = reactive_.evaluateDetailed(
+        {world_, action_space_, viable}, viable);
     cycle.insert(cycle.end(), reactive.trace.begin(), reactive.trace.end());
-    if (reactive.result.status == planning::ReactiveStatus::Action &&
+    if (reactive.result.status == planning::ReactiveStatus::InstallPlan &&
+        !reactive.result.prepend_waypoints.empty() && world_.mission.active()) {
+      mission_.prependPlan(std::move(reactive.result.prepend_waypoints));
+      mission_.advanceWaypoint(world_.robot.pose, goal_tolerance_);
+      world_.recovery.confined = false;
+      world_.recovery.plan_available =
+          world_.mission.active()->waypoint().has_value();
+      if (!cycle.empty()) {
+        cycle.back().outcome =
+            "reverse_subtrail_installed_return_to_enforcer";
+        cycle.back().returned_to_earlier_tier = true;
+      }
+      const auto enforced = enforcerAction(viable);
+      cycle.push_back(
+          {0U, "tier1", "Enforcer", viable, enforced, {},
+           enforced ? "recovery_plan_action_selected"
+                    : "recovery_plan_has_no_viable_action_continue",
+           false,
+           enforced ? std::optional<DecisionTier>(DecisionTier::TierOne)
+                    : std::nullopt,
+           enforced ? "enforcer:operationalized_out_reverse_subtrail"
+                    : "enforcer:out_reverse_subtrail_not_operationalizable"});
+      if (enforced) {
+        result.action = *enforced;
+        result.source = DecisionSource::MandatoryRule;
+        result.tier = DecisionTier::TierOne;
+        result.selected_policy = "mandatory_rule:Enforcer:out_reverse_subtrail";
+        decided = true;
+      }
+    } else if (reactive.result.status == planning::ReactiveStatus::Action &&
         reactive.result.action &&
         std::find(viable.begin(), viable.end(), *reactive.result.action) !=
             viable.end()) {
@@ -562,6 +595,7 @@ DecisionResult NavigationEngine::decide() {
         lle.status != planning::ReactiveStatus::Action || !lle.action ||
         std::find(viable.begin(), viable.end(), *lle.action) != viable.end();
     DecisionCycleEvent event{0U, "tier1", "LLE", viable, lle.action, {}};
+    event.reason_code = lle.explanation;
     event.outcome = !lle_action_viable
                         ? "reactive_action_not_viable_continue"
                     : lle.status == planning::ReactiveStatus::Action
@@ -777,6 +811,7 @@ domain::FeedbackDisposition NavigationEngine::acceptTerminal(
   domain::NavigationHistoryEntry history{
       result.final_pose, pending_execution_->episode.observation.laser,
       pending_execution_->selection.action, result.task_id};
+  history.observation_pose = pending_execution_->episode.observation.pose;
   history.decision_id = result.decision_id;
   history.action_id = result.action_id;
   history.execution_status = result.status;
