@@ -290,7 +290,8 @@ TEST(SkeletonCompatibility, NodesAreRegionsAndEdgesCarryShortestSubtrails) {
   EXPECT_TRUE(std::any_of(
       plan.hierarchical->steps.begin(), plan.hierarchical->steps.end(),
       [](const auto& step) {
-        return std::holds_alternative<semaforr::planning::SubtrailStep>(step);
+        return std::holds_alternative<
+            semaforr::planning::SkeletonTransitionStep>(step);
       }));
   EXPECT_NE(plan.explanation.find("region-skeleton"), std::string::npos);
 }

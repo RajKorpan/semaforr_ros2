@@ -126,6 +126,44 @@ std::optional<domain::Action> NavigationEngine::enforcerAction(
   return std::nullopt;
 }
 
+PlanEnforcementResult NavigationEngine::enforceActivePlan(
+    std::span<const domain::Action> viable_actions) {
+  if (!active_hierarchy_) {
+    PlanEnforcementResult missing;
+    missing.reason_code = "enforcer:no_active_tier2_plan";
+    return missing;
+  }
+  auto traversal = traversability_;
+  traversal.current_sensor_origin = world_.robot.pose.position;
+  traversal.current_sensor_range_m =
+      world_.robot.laser ? world_.robot.laser->maximum_range.meters() : 0.0;
+  PlanEnforcementContext context{world_.spatial,
+                                 &world_.crowd,
+                                 world_.static_map,
+                                 world_.robot.pose,
+                                 action_space_,
+                                 viable_actions,
+                                 traversal,
+                                 goal_tolerance_,
+                                 world_.mission.active()
+                                     ? std::optional<domain::TaskId>(
+                                           world_.mission.active()->id)
+                                     : std::nullopt};
+  if (auto* typed = dynamic_cast<Enforcer*>(enforcer_.get()))
+    return typed->enforce(*active_hierarchy_, context);
+
+  PlanEnforcementResult result;
+  result.mode = active_hierarchy_->family == planning::PlanFamily::Grid
+                    ? EnforcerMode::Grid
+                    : EnforcerMode::Model;
+  result.operational_target = enforcer_->operationalizeNext(
+      *active_hierarchy_, world_.spatial, world_.robot.pose, goal_tolerance_);
+  result.step_index = active_hierarchy_->cursor;
+  result.step_type = "custom_operationalizer";
+  result.validation_evidence = "custom_plan_operationalizer";
+  return LocalActionEvaluator{}.evaluate(std::move(result), context);
+}
+
 void NavigationEngine::appendCycleDiagnostics(DecisionResult& result) const {
   for (std::size_t index = 0U; index < result.decision_cycle.size(); ++index) {
     auto& event = result.decision_cycle[index];
@@ -216,6 +254,7 @@ void NavigationEngine::observe(const domain::RobotObservation& observation) {
   }
   if (had_active_task && !world_.mission.active()) {
     active_hierarchy_.reset();
+    active_selection_evidence_.reset();
     hierarchy_task_.reset();
     learning_.finalizeTarget();
     learning_.applyTo(world_.spatial);
@@ -246,23 +285,16 @@ std::optional<std::string> NavigationEngine::preparePlan(MissionStep step) {
             .meters() > goal_tolerance_.meters())
       stale.push_back("target_moved_beyond_tolerance");
     if (stale.empty()) {
-      const auto next = enforcer_->operationalizeNext(
-          *active_hierarchy_, world_.spatial, world_.robot.pose,
-          goal_tolerance_);
-      if (next) {
-        mission_.installPlan({*next});
-        mission_.advanceWaypoint(world_.robot.pose, goal_tolerance_);
-        world_.recovery.planning_attempted = true;
-        world_.recovery.plan_available =
-            world_.mission.active()->waypoint().has_value();
-        return active_hierarchy_->planner;
-      }
+      world_.recovery.planning_attempted = true;
+      world_.recovery.plan_available = true;
+      return active_hierarchy_->planner;
     } else {
       active_hierarchy_->validity = planning::PlanValidity::Stale;
       active_hierarchy_->diagnostics.insert(
           active_hierarchy_->diagnostics.end(), stale.begin(), stale.end());
     }
     active_hierarchy_.reset();
+    active_selection_evidence_.reset();
     hierarchy_task_.reset();
   }
   auto traversal = traversability_;
@@ -281,12 +313,12 @@ std::optional<std::string> NavigationEngine::preparePlan(MissionStep step) {
   }
   if (enforcer_enabled_ && selected->result.hierarchical) {
     active_hierarchy_ = *selected->result.hierarchical;
+    active_selection_evidence_ = selected->evidence;
     hierarchy_task_ = world_.mission.active()->id;
-    const auto next = enforcer_->operationalizeNext(
-        *active_hierarchy_, world_.spatial, world_.robot.pose, goal_tolerance_);
-    mission_.installPlan(next ? std::vector<domain::Point2D>{*next}
-                              : selected->result.path);
+    mission_.installPlan(selected->result.path);
   } else {
+    active_hierarchy_.reset();
+    active_selection_evidence_.reset();
     mission_.installPlan(selected->result.path);
   }
   mission_.advanceWaypoint(world_.robot.pose, goal_tolerance_);
@@ -522,21 +554,74 @@ DecisionResult NavigationEngine::decide() {
   }
 
   if (!decided && enforcer_enabled_ && world_.mission.active() &&
-      world_.mission.active()->waypoint()) {
-    const auto action = enforcerAction(viable);
-    cycle.push_back({0U, "tier1", "Enforcer", viable, action, {},
-                     action ? "operational_action_selected"
-                            : "no_viable_operational_action_continue",
+      active_hierarchy_) {
+    auto enforcement = enforceActivePlan(viable);
+    if (enforcement.status == EnforcementStatus::Stale ||
+        enforcement.status == EnforcementStatus::Invalid) {
+      cycle.push_back({0U, "tier1", "Enforcer", viable, std::nullopt, {},
+                       "plan_invalidated_return_to_tier2", true,
+                       std::nullopt, enforcement.reason_code});
+      mission_.clearPlan();
+      active_hierarchy_.reset();
+      active_selection_evidence_.reset();
+      hierarchy_task_.reset();
+      world_.recovery.planning_attempted = false;
+      world_.recovery.plan_available = false;
+      const auto replanner = preparePlan(MissionStep::Ready);
+      if (replanner && active_hierarchy_) {
+        selected_planner = replanner;
+        enforcement = enforceActivePlan(viable);
+      }
+    }
+    const auto action = enforcement.action;
+    const std::string mode = enforcement.mode == EnforcerMode::Grid
+                                 ? "GridPlanEnforcer"
+                                 : "ModelPlanEnforcer";
+    cycle.push_back({0U, "tier1", mode, viable, action, {},
+                     action ? "plan_action_selected"
+                            : "plan_not_operationalizable_continue",
                      false,
                      action ? std::optional<DecisionTier>(DecisionTier::TierOne)
                             : std::nullopt,
-                     action ? "enforcer:operationalized_active_waypoint"
-                            : "enforcer:no_viable_operational_action"});
+                     enforcement.reason_code});
+    if (action) {
+      result.action = *action;
+      result.source = DecisionSource::MandatoryRule;
+      result.tier = DecisionTier::TierOne;
+      result.selected_policy = "mandatory_rule:Enforcer:" +
+                               std::string(enforcement.mode == EnforcerMode::Grid
+                                               ? "grid"
+                                               : "model");
+      result.enforcer_mode = enforcement.mode == EnforcerMode::Grid
+                                 ? "grid"
+                                 : "model";
+      result.active_plan_step = enforcement.step_index;
+      result.operational_target = enforcement.operational_target;
+      result.enforcer_reason = enforcement.reason_code;
+      decided = true;
+    }
+  } else if (!decided && enforcer_enabled_ && world_.mission.active() &&
+             world_.mission.active()->waypoint()) {
+    // Backward-compatible path for externally supplied custom planners that
+    // have not yet adopted the explicit plan schema. All built-in planners
+    // publish a typed grid or model plan and use the modes above.
+    const auto action = enforcerAction(viable);
+    cycle.push_back({0U, "tier1", "Enforcer", viable, action, {},
+                     action ? "legacy_custom_plan_action_selected"
+                            : "legacy_custom_plan_not_operationalizable",
+                     false,
+                     action ? std::optional<DecisionTier>(DecisionTier::TierOne)
+                            : std::nullopt,
+                     action ? "enforcer:custom_grid_waypoint_progress"
+                            : "enforcer:custom_grid_waypoint_unavailable"});
     if (action) {
       result.action = *action;
       result.source = DecisionSource::MandatoryRule;
       result.tier = DecisionTier::TierOne;
       result.selected_policy = "mandatory_rule:Enforcer";
+      result.enforcer_mode = "grid";
+      result.operational_target = world_.mission.active()->waypoint();
+      result.enforcer_reason = "enforcer:custom_grid_waypoint_progress";
       decided = true;
     }
   }
@@ -650,6 +735,22 @@ DecisionResult NavigationEngine::decide() {
   appendCycleDiagnostics(result);
   result.candidates = decision_candidates;
   result.planner = selected_planner;
+  if (active_hierarchy_) {
+    if (!result.planner) result.planner = active_hierarchy_->planner;
+    result.plan_id = active_hierarchy_->id;
+    result.plan_family = active_hierarchy_->family;
+  }
+  if (active_selection_evidence_) {
+    result.planning_tie_candidates =
+        active_selection_evidence_->tie_candidates;
+    result.planning_tie_break_reason =
+        active_selection_evidence_->tie_break_reason;
+    for (const auto& candidate : active_selection_evidence_->candidates)
+      result.planning_candidates.push_back(
+          {candidate.plan_id, candidate.planner, candidate.family,
+           candidate.raw_costs, candidate.normalized_costs,
+           candidate.summed_score, candidate.tied_for_best});
+  }
   result.planning_latency_s = planning_latency_s;
   if (world_.mission.active()) {
     result.task = TaskDiagnostic{

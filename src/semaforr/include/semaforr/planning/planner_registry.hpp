@@ -11,7 +11,22 @@
 namespace semaforr::planning {
 enum class PlannerInputModel { Grid, AffordanceModifiedGrid, Freespace };
 enum class StaticMapRequirement { Required, Optional, Independent };
-enum class OccupancyRequirement { None, StaticMap, SensedPartial };
+enum class OccupancyRequirement {
+  None,
+  StaticMap,
+  SensedPartial,
+  StaticOrSensedPartial
+};
+struct PlannerDeclaration {
+  std::string name;
+  PlannerInputModel input_model{PlannerInputModel::Grid};
+  PlanFamily plan_family{PlanFamily::Grid};
+  StaticMapRequirement static_map{StaticMapRequirement::Independent};
+  OccupancyRequirement occupancy{OccupancyRequirement::None};
+  bool supports_partial_sensor_occupancy{false};
+  PlanObjective objective{PlanObjective::Distance};
+  std::vector<domain::ModelDependency> revision_dependencies;
+};
 class PlannerRegistry {
  public:
   using Factory = std::function<std::unique_ptr<Planner>()>;
@@ -24,6 +39,8 @@ class PlannerRegistry {
   PlannerInputModel inputModel(const std::string& name) const;
   StaticMapRequirement mapRequirement(const std::string& name) const;
   OccupancyRequirement occupancyRequirement(const std::string& name) const;
+  PlannerDeclaration declaration(const std::string& name,
+                                 const PlanningRequest& request) const;
   std::vector<std::string> names(PlannerInputModel model) const;
 
  private:

@@ -10,6 +10,7 @@ class SkeletonPlan final : public Planner {
  public:
   PlanResult plan(const PlanningRequest& request) override;
   std::string_view name() const noexcept override { return "skeleton_plan"; }
+  PlanFamily planFamily() const noexcept override { return PlanFamily::Model; }
   PlanObjective objective() const noexcept override {
     return PlanObjective::SkeletonDistance;
   }
@@ -21,6 +22,7 @@ class HighwayPlan final : public Planner {
  public:
   PlanResult plan(const PlanningRequest& request) override;
   std::string_view name() const noexcept override { return "highway_plan"; }
+  PlanFamily planFamily() const noexcept override { return PlanFamily::Model; }
   PlanObjective objective() const noexcept override {
     return PlanObjective::HighwayDistance;
   }

@@ -12,6 +12,13 @@ and fail-closed configuration test carries
 reproduction. The machine-readable suite declaration is
 `test/compatibility_modes.yaml`.
 
+`tier_two_enforcer_test.cpp` is the focused Phase-15 suite. It verifies grid
+lookahead, obstacle-safe shortcuts, deviation and completion, exact dependency
+invalidation, typed skeleton/highway execution, planner declarations, and full
+range-vote evidence. The exploration, Chapter-3 representation, spatial
+learning, and revision-dependency suites cover the connected lifecycle and
+Tier ordering.
+
 Run a claim-specific suite with:
 
 ```sh

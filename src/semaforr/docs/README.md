@@ -7,6 +7,7 @@
 - [Decision-tier guide](decision-tiers.md)
 - [Advisor catalog](advisor-catalog.md)
 - [Planner catalog](planner-catalog.md)
+- [Tier-2 planning and Tier-1 plan enforcement](tier-two-planning-and-enforcement.md)
 - [Configuration reference](configuration-reference.md)
 - [Optional static maps](map-operation.md)
 - [Grid layers and traversability](grid-layers.md)

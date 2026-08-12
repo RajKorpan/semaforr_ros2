@@ -51,6 +51,17 @@ uint8 selected_source
 string selected_policy
 bool has_planner
 string selected_planner
+bool has_plan
+uint64 active_plan_id
+string plan_family
+string enforcer_mode
+uint64 active_plan_step
+bool has_operational_target
+geometry_msgs/Point operational_target
+string enforcer_reason
+semaforr_msgs/PlanCandidateDiagnostic[] planning_candidates
+string[] planning_tie_candidates
+string planning_tie_break_reason
 semaforr_msgs/DecisionAction selected_action
 float64 decision_latency_s
 float64 planning_latency_s

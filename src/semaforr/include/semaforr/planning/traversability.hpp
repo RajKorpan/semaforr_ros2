@@ -11,7 +11,9 @@ namespace semaforr::planning {
 enum class OccupancySourceMode {
   StaticMapWithSensors,
   SensorDerivedPartial,
-  LearnedFreespaceWithOptionalOccupancy
+  // Prefer static-map occupancy and otherwise require incrementally sensed
+  // occupancy. Familiarity and learned graphs are never substituted.
+  StaticOrSensorDerived
 };
 
 struct TraversabilityConfiguration {

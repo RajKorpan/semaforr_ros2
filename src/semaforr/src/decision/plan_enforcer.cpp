@@ -1,6 +1,9 @@
 #include <algorithm>
 #include <cmath>
+#include <limits>
 #include <semaforr/decision/enforcer.hpp>
+#include <semaforr/domain/motion_model.hpp>
+#include <semaforr/planning/traversability.hpp>
 #include <sstream>
 
 namespace semaforr::decision {
@@ -62,7 +65,256 @@ void record(planning::HierarchicalPlan& plan, std::string operation,
     item.dependency_revisions[dependency] = spatial.revisionOf(dependency);
   plan.operationalizations.push_back(std::move(item));
 }
+
+planning::PlanningRequest requestFor(
+    const planning::HierarchicalPlan& plan,
+    const PlanEnforcementContext& context) {
+  return {context.pose, plan.planned_goal, &context.spatial, context.crowd,
+          context.static_map, context.traversability, context.task_id,
+          plan.planner_configuration_revision};
+}
+
+std::vector<std::string> dependencyChanges(
+    const planning::HierarchicalPlan& plan,
+    const PlanEnforcementContext& context) {
+  return planning::dependencyChangeReasons(plan.dependency_revisions,
+                                           requestFor(plan, context));
+}
+
+bool segmentTraversable(const domain::TraversabilityGrid& grid,
+                        domain::Point2D from, domain::Point2D to,
+                        std::string& evidence) {
+  const double length = domain::distance(from, to).meters();
+  const double stride = std::max(0.02, grid.geometry.resolution_m * 0.5);
+  const std::size_t samples =
+      std::max<std::size_t>(1U, static_cast<std::size_t>(std::ceil(length / stride)));
+  for (std::size_t i = 0U; i <= samples; ++i) {
+    const double t = static_cast<double>(i) / static_cast<double>(samples);
+    const domain::Point2D point{from.x_m + (to.x_m - from.x_m) * t,
+                                from.y_m + (to.y_m - from.y_m) * t};
+    const auto cell = grid.geometry.index(point);
+    if (!cell || !grid.cells[*cell].permitsTraversal()) {
+      evidence = !cell ? "outside_planning_extent"
+                       : "prohibited_or_inflated_cell";
+      return false;
+    }
+  }
+  evidence = "segment_cells_traversable";
+  return true;
+}
+
+std::string stepName(const planning::PlanStep& step) {
+  return std::visit(
+      [](const auto& value) -> std::string {
+        using T = std::decay_t<decltype(value)>;
+        if constexpr (std::is_same_v<T, planning::WaypointStep>) return "waypoint";
+        if constexpr (std::is_same_v<T, planning::SubtrailStep>) return "subtrail";
+        if constexpr (std::is_same_v<T, planning::RegionStep>) return "region";
+        if constexpr (std::is_same_v<T, planning::HighwayStep>) return "highway";
+        if constexpr (std::is_same_v<T, planning::IntersectionStep>) return "intersection";
+        if constexpr (std::is_same_v<T, planning::HighwayEntryStep>) return "highway_entry";
+        if constexpr (std::is_same_v<T, planning::HighwayExitStep>) return "highway_exit";
+        if constexpr (std::is_same_v<T, planning::SkeletonTransitionStep>) return "skeleton_transition";
+        return "final_target";
+      }, step);
+}
 }  // namespace
+
+PlanEnforcementResult LocalActionEvaluator::evaluate(
+    PlanEnforcementResult result,
+    const PlanEnforcementContext& context) const {
+  if (!result.operational_target) return result;
+  const auto target = *result.operational_target;
+  const auto score = [&](const domain::Pose2D& pose) {
+    const double heading = std::atan2(target.y_m - pose.position.y_m,
+                                      target.x_m - pose.position.x_m);
+    return domain::distance(pose.position, target).meters() +
+           0.25 * std::abs(domain::Angle::normalize(
+                      heading - pose.heading.radians()));
+  };
+  const double before = score(context.pose);
+  std::optional<std::size_t> best;
+  double best_progress = 1e-6;
+  for (const auto action : context.viable_actions) {
+    const auto predicted = domain::expectedPoseAfterAction(
+        context.pose, action, context.action_space);
+    const double progress = before - score(predicted);
+    result.candidates.push_back({action, predicted, progress, false});
+    if (progress > best_progress) {
+      best_progress = progress;
+      best = result.candidates.size() - 1U;
+    }
+  }
+  if (!best) {
+    result.status = EnforcementStatus::CannotOperationalize;
+    result.reason_code = "enforcer:no_local_action_makes_valid_progress";
+    return result;
+  }
+  result.candidates[*best].selected = true;
+  result.action = result.candidates[*best].action;
+  result.status = EnforcementStatus::Mandated;
+  result.reason_code = result.mode == EnforcerMode::Grid
+                           ? "enforcer:grid_path_progress"
+                           : "enforcer:model_step_progress";
+  return result;
+}
+
+PlanEnforcementResult GridPlanEnforcer::enforce(
+    planning::HierarchicalPlan& plan,
+    const PlanEnforcementContext& context) const {
+  PlanEnforcementResult result;
+  result.mode = EnforcerMode::Grid;
+  result.dependency_revisions = plan.dependency_revisions;
+  if (plan.family != planning::PlanFamily::Grid) {
+    result.status = EnforcementStatus::Invalid;
+    result.reason_code = "enforcer:grid_family_mismatch";
+    return result;
+  }
+  const auto changed = dependencyChanges(plan, context);
+  if (!changed.empty()) {
+    plan.validity = planning::PlanValidity::Stale;
+    plan.diagnostics.insert(plan.diagnostics.end(), changed.begin(), changed.end());
+    result.status = EnforcementStatus::Stale;
+    result.reason_code = "enforcer:grid_dependency_changed:" + changed.front();
+    return result;
+  }
+  const auto& path = plan.geometric_path;
+  if (path.empty()) {
+    plan.validity = planning::PlanValidity::Invalid;
+    result.status = EnforcementStatus::Invalid;
+    result.reason_code = "enforcer:grid_path_empty";
+    return result;
+  }
+  const double deviation_limit = std::max(2.0, 4.0 * context.tolerance.meters());
+  double nearest = std::numeric_limits<double>::infinity();
+  std::size_t nearest_index = plan.cursor;
+  for (std::size_t i = plan.cursor; i < path.size(); ++i) {
+    const double candidate =
+        domain::distance(context.pose.position, path[i]).meters();
+    if (candidate < nearest) {
+      nearest = candidate;
+      nearest_index = i;
+    }
+  }
+  if (nearest > deviation_limit) {
+    plan.validity = planning::PlanValidity::Invalid;
+    result.status = EnforcementStatus::Invalid;
+    result.reason_code = "enforcer:grid_path_deviation";
+    return result;
+  }
+  const std::size_t original = plan.cursor;
+  plan.cursor = nearest_index;
+  while (plan.cursor < path.size() && reached(context.pose, path[plan.cursor],
+                                               context.tolerance))
+    ++plan.cursor;
+  if (plan.cursor >= path.size()) {
+    plan.validity = planning::PlanValidity::Complete;
+    result.status = EnforcementStatus::Complete;
+    result.reason_code = "enforcer:grid_plan_complete";
+    return result;
+  }
+  auto source = plan.static_map_contributed
+                    ? planning::OccupancySourceMode::StaticMapWithSensors
+                    : planning::OccupancySourceMode::SensorDerivedPartial;
+  auto config = context.traversability;
+  if (source == planning::OccupancySourceMode::SensorDerivedPartial)
+    config.unknown_policy = config.sensor_unknown_policy;
+  const auto traversal = planning::deriveTraversability(
+      source, context.static_map, &context.spatial.sensed_occupancy, config);
+  if (!traversal.grid.valid()) {
+    result.status = EnforcementStatus::CannotOperationalize;
+    result.reason_code = "enforcer:grid_traversability_unavailable";
+    result.validation_evidence = traversal.diagnostic;
+    return result;
+  }
+  std::size_t selected = plan.cursor;
+  std::string evidence;
+  for (std::size_t i = plan.cursor; i < path.size(); ++i) {
+    std::string candidate_evidence;
+    if (!segmentTraversable(traversal.grid, context.pose.position, path[i],
+                            candidate_evidence))
+      break;
+    selected = i;
+    evidence = std::move(candidate_evidence);
+  }
+  if (selected > plan.cursor) {
+    result.shortcut = "grid_path_lookahead";
+    result.skipped_elements = selected - plan.cursor;
+    plan.operationalizations.push_back(
+        {plan.cursor, "grid_path_lookahead_shortcut",
+         plan.dependency_revisions});
+    plan.cursor = selected;
+  }
+  result.step_index = plan.cursor;
+  if (!result.shortcut) result.skipped_elements = plan.cursor - original;
+  result.operational_target = path[plan.cursor];
+  result.lookahead_m =
+      domain::distance(context.pose.position, *result.operational_target).meters();
+  result.step_type = "grid_waypoint";
+  result.validation_evidence = evidence.empty() ? "next_path_cell_traversable"
+                                                : evidence;
+  return LocalActionEvaluator{}.evaluate(std::move(result), context);
+}
+
+PlanEnforcementResult ModelPlanEnforcer::enforce(
+    planning::HierarchicalPlan& plan,
+    const PlanEnforcementContext& context) const {
+  PlanEnforcementResult result;
+  result.mode = EnforcerMode::Model;
+  result.dependency_revisions = plan.dependency_revisions;
+  if (plan.family != planning::PlanFamily::Model) {
+    result.status = EnforcementStatus::Invalid;
+    result.reason_code = "enforcer:model_family_mismatch";
+    return result;
+  }
+  const auto changed = dependencyChanges(plan, context);
+  if (!changed.empty()) {
+    plan.validity = planning::PlanValidity::Stale;
+    plan.diagnostics.insert(plan.diagnostics.end(), changed.begin(), changed.end());
+    result.status = EnforcementStatus::Stale;
+    result.reason_code = "enforcer:model_dependency_changed:" + changed.front();
+    return result;
+  }
+  const std::size_t before = plan.cursor;
+  const auto target = Enforcer{}.operationalizeNext(
+      plan, context.spatial, context.pose, context.tolerance);
+  if (!target) {
+    result.status = plan.validity == planning::PlanValidity::Complete
+                        ? EnforcementStatus::Complete
+                    : plan.validity == planning::PlanValidity::Stale
+                        ? EnforcementStatus::Stale
+                    : plan.validity == planning::PlanValidity::Invalid
+                        ? EnforcementStatus::Invalid
+                        : EnforcementStatus::CannotOperationalize;
+    result.reason_code = "enforcer:model_step_not_operationalizable";
+    return result;
+  }
+  result.step_index = plan.cursor;
+  result.skipped_elements = plan.cursor > before ? plan.cursor - before : 0U;
+  result.operational_target = *target;
+  result.lookahead_m = domain::distance(context.pose.position, *target).meters();
+  result.step_type = plan.cursor < plan.steps.size()
+                         ? stepName(plan.steps[plan.cursor])
+                         : "complete";
+  result.validation_evidence = "typed_step_and_visibility_validated";
+  if (!plan.operationalizations.empty()) {
+    const auto& operation = plan.operationalizations.back().operation;
+    if (operation.find("shortcut") != std::string::npos)
+      result.shortcut = operation;
+    if (operation.find("repair") != std::string::npos ||
+        operation.find("replaced") != std::string::npos)
+      result.repair = operation;
+  }
+  return LocalActionEvaluator{}.evaluate(std::move(result), context);
+}
+
+PlanEnforcementResult Enforcer::enforce(
+    planning::HierarchicalPlan& plan,
+    const PlanEnforcementContext& context) const {
+  return plan.family == planning::PlanFamily::Grid
+             ? grid_.enforce(plan, context)
+             : model_.enforce(plan, context);
+}
 
 std::vector<domain::Point2D> Enforcer::operationalize(
     const planning::HierarchicalPlan& plan) const {
@@ -138,6 +390,42 @@ std::optional<domain::Point2D> Enforcer::operationalizeNext(
         break;
       }
     return trail->waypoints[trail->cursor];
+  }
+  if (auto* transition =
+          std::get_if<planning::SkeletonTransitionStep>(&current)) {
+    if (transition->supporting_subtrail.empty()) {
+      plan.validity = planning::PlanValidity::Invalid;
+      plan.diagnostics.push_back("invalid_skeleton_transition_no_subtrail");
+      return std::nullopt;
+    }
+    current = planning::SubtrailStep{transition->supporting_subtrail,
+                                     std::nullopt, 0U};
+    record(plan, "skeleton_transition_operationalized_as_subtrail", spatial,
+           {domain::ModelDependency::Skeleton,
+            domain::ModelDependency::Trails});
+    return operationalizeNext(plan, spatial, pose, tolerance);
+  }
+  if (auto* entry = std::get_if<planning::HighwayEntryStep>(&current)) {
+    if (!entry->supporting_subtrail.empty()) {
+      current = planning::SubtrailStep{entry->supporting_subtrail,
+                                       std::nullopt, 0U};
+      record(plan, "highway_entry_operationalized_as_subtrail", spatial,
+             {domain::ModelDependency::Skeleton,
+              domain::ModelDependency::Highways});
+      return operationalizeNext(plan, spatial, pose, tolerance);
+    }
+    return entry->entry;
+  }
+  if (auto* exit = std::get_if<planning::HighwayExitStep>(&current)) {
+    if (!exit->supporting_subtrail.empty()) {
+      current = planning::SubtrailStep{exit->supporting_subtrail,
+                                       std::nullopt, 0U};
+      record(plan, "highway_exit_operationalized_as_subtrail", spatial,
+             {domain::ModelDependency::Skeleton,
+              domain::ModelDependency::Highways});
+      return operationalizeNext(plan, spatial, pose, tolerance);
+    }
+    return exit->exit;
   }
   if (auto* region = std::get_if<planning::RegionStep>(&current)) {
     if (region->region_id >= spatial.learned_regions.size()) {

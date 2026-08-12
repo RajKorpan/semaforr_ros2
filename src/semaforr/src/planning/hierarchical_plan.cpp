@@ -58,6 +58,7 @@ PlanResult buildNetworkPlan(
   if (!path.succeeded()) return {PlanStatus::NoPath, {}, 0.0, path.explanation};
 
   HierarchicalPlan hierarchy;
+  hierarchy.family = PlanFamily::Model;
   hierarchy.planner = strategy;
   hierarchy.objective = highway ? PlanObjective::HighwayDistance
                                 : PlanObjective::SkeletonDistance;
@@ -127,17 +128,53 @@ PlanResult buildNetworkPlan(
       typed.push_back(step);
     }
     hierarchy.steps = std::move(typed);
+    const auto first_highway = std::find_if(
+        hierarchy.steps.begin(), hierarchy.steps.end(), [](const auto& step) {
+          return std::holds_alternative<HighwayStep>(step);
+        });
+    if (first_highway != hierarchy.steps.end()) {
+      const auto highway_id = std::get<HighwayStep>(*first_highway).highway_id;
+      std::optional<std::size_t> first_index, last_index;
+      for (std::size_t index = 0U; index < hierarchy.steps.size(); ++index)
+        if (std::holds_alternative<IntersectionStep>(hierarchy.steps[index])) {
+          if (!first_index) first_index = index;
+          last_index = index;
+        }
+      if (first_index && last_index) {
+        const auto entry =
+            std::get<IntersectionStep>(hierarchy.steps[*first_index]).centroid;
+        const auto exit =
+            std::get<IntersectionStep>(hierarchy.steps[*last_index]).centroid;
+        hierarchy.steps.insert(
+            hierarchy.steps.begin() +
+                static_cast<std::ptrdiff_t>(*last_index + 1U),
+            HighwayExitStep{highway_id, exit, {}});
+        hierarchy.steps.insert(
+            hierarchy.steps.begin() +
+                static_cast<std::ptrdiff_t>(*first_index),
+            HighwayEntryStep{highway_id, entry, {}});
+      }
+    }
   }
   hierarchy.estimated_objective_costs[hierarchy.objective] = path.cost;
-  return {PlanStatus::Success, std::move(waypoints), path.cost,
-          "hierarchical " + hierarchy.planner, std::move(hierarchy)};
+  hierarchy.geometric_path = waypoints;
+  if (hierarchy.steps.empty() ||
+      !std::holds_alternative<FinalTargetStep>(hierarchy.steps.back()))
+    hierarchy.steps.emplace_back(FinalTargetStep{request.goal});
+  PlanResult result{PlanStatus::Success, std::move(waypoints), path.cost,
+                    "hierarchical " + hierarchy.planner,
+                    std::move(hierarchy)};
+  result.family = PlanFamily::Model;
+  return result;
 }
 
 }  // namespace
 
 std::vector<domain::ModelDependency> SkeletonPlan::dependencies(
     const PlanningRequest&) const {
-  return {domain::ModelDependency::Skeleton, domain::ModelDependency::Regions};
+  return {domain::ModelDependency::Skeleton, domain::ModelDependency::Regions,
+          domain::ModelDependency::Trails,
+          domain::ModelDependency::VisibilityGeometry};
 }
 
 std::vector<domain::ModelDependency> HighwayPlan::dependencies(
@@ -152,9 +189,19 @@ PlanResult SkeletonPlan::plan(const PlanningRequest& request) {
             {},
             0.0,
             "spatial model is unavailable"};
-  auto result = buildNetworkPlan(request, request.spatial_model->skeleton_nodes,
-                                 request.spatial_model->skeleton_edges,
+  std::vector<domain::Point2D> region_nodes;
+  std::vector<std::pair<std::size_t, std::size_t>> region_edges;
+  for (const auto& node : request.spatial_model->region_skeleton_nodes)
+    region_nodes.push_back(node.center);
+  for (const auto& edge : request.spatial_model->region_skeleton_edges)
+    region_edges.emplace_back(edge.from, edge.to);
+  if (region_nodes.empty())
+    return {PlanStatus::PlannerUnavailable, {}, 0.0,
+            "region skeleton is unavailable; sampled path graphs are not "
+            "accepted by SkeletonPlan"};
+  auto result = buildNetworkPlan(request, region_nodes, region_edges,
                                  "skeleton", false);
+  if (result.hierarchical) result.hierarchical->planner = std::string(name());
   if (result.hierarchical &&
       !request.spatial_model->region_skeleton_edges.empty()) {
     std::vector<PlanStep> operational;
@@ -174,8 +221,8 @@ PlanResult SkeletonPlan::plan(const PlanningRequest& request) {
           if (edge != request.spatial_model->region_skeleton_edges.end()) {
             auto subtrail = edge->supporting_subtrail;
             if (edge->to == *previous_region) std::reverse(subtrail.begin(), subtrail.end());
-            operational.emplace_back(
-                SubtrailStep{std::move(subtrail), std::nullopt, 0U});
+            operational.emplace_back(SkeletonTransitionStep{
+                *previous_region, region->region_id, std::move(subtrail)});
           }
         }
         previous_region = region->region_id;
@@ -200,6 +247,8 @@ PlanResult HighwayPlan::plan(const PlanningRequest& request) {
             "spatial model is unavailable"};
   const auto& spatial = *request.spatial_model;
   const auto finish = [&](PlanResult result) {
+    if (result.hierarchical)
+      result.hierarchical->planner = std::string(name());
     attachDependencySnapshot(result, request, dependencies(request));
     return result;
   };
@@ -221,23 +270,28 @@ PlanResult HighwayPlan::plan(const PlanningRequest& request) {
       highway_edges.emplace_back(edge.from, edge.to);
   }
 
-  PlanResult skeleton =
-      buildNetworkPlan(request, spatial.skeleton_nodes, spatial.skeleton_edges,
-                       "skeleton", false);
+  std::vector<domain::Point2D> skeleton_nodes;
+  std::vector<std::pair<std::size_t, std::size_t>> skeleton_edges;
+  for (const auto& node : spatial.region_skeleton_nodes)
+    skeleton_nodes.push_back(node.center);
+  for (const auto& edge : spatial.region_skeleton_edges)
+    skeleton_edges.emplace_back(edge.from, edge.to);
+  PlanResult skeleton = buildNetworkPlan(request, skeleton_nodes,
+                                         skeleton_edges, "skeleton", false);
   if (highway_nodes.empty()) return finish(std::move(skeleton));
 
-  if (spatial.skeleton_nodes.empty()) {
+  if (skeleton_nodes.empty()) {
     PlanResult highway = buildNetworkPlan(request, highway_nodes, highway_edges,
                                           "highway", true, intersections);
     return finish(highway.succeeded() ? std::move(highway)
                                       : std::move(skeleton));
   }
 
-  std::vector<domain::Point2D> combined = spatial.skeleton_nodes;
+  std::vector<domain::Point2D> combined = skeleton_nodes;
   const std::size_t highway_offset = combined.size();
   combined.insert(combined.end(), highway_nodes.begin(), highway_nodes.end());
   std::vector<std::pair<std::size_t, std::size_t>> edges =
-      spatial.skeleton_edges;
+      skeleton_edges;
   for (const auto& edge : highway_edges)
     edges.emplace_back(edge.first + highway_offset,
                        edge.second + highway_offset);
@@ -248,10 +302,10 @@ PlanResult HighwayPlan::plan(const PlanningRequest& request) {
     std::size_t nearest = 0U;
     double best = std::numeric_limits<double>::infinity();
     for (std::size_t skeleton_node = 0U;
-         skeleton_node < spatial.skeleton_nodes.size(); ++skeleton_node) {
+         skeleton_node < skeleton_nodes.size(); ++skeleton_node) {
       const double candidate =
           domain::distance(highway_nodes[highway],
-                           spatial.skeleton_nodes[skeleton_node])
+                           skeleton_nodes[skeleton_node])
               .meters();
       if (candidate < best) {
         best = candidate;
@@ -263,7 +317,7 @@ PlanResult HighwayPlan::plan(const PlanningRequest& request) {
   for (auto& intersection : intersections) intersection.node += highway_offset;
   PlanResult assisted = buildNetworkPlan(
       request, combined, edges, "highway_assisted", true, intersections,
-      spatial.skeleton_nodes.size(), highway_offset);
+      skeleton_nodes.size(), highway_offset);
   if (!assisted.succeeded()) return finish(std::move(skeleton));
   if (!skeleton.succeeded() || assisted.cost_m < skeleton.cost_m)
     return finish(std::move(assisted));

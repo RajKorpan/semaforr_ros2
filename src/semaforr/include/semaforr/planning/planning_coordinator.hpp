@@ -20,10 +20,26 @@ PlanSelectionPolicy planSelectionPolicyFromString(std::string_view value);
 std::string_view toString(PlanSelectionPolicy value) noexcept;
 
 struct SelectedPlan {
+  struct CandidateEvidence {
+    PlanId plan_id = 0U;
+    std::string planner;
+    PlanFamily family = PlanFamily::Grid;
+    ObjectiveCosts raw_costs;
+    ObjectiveCosts normalized_costs;
+    double summed_score = 0.0;
+    bool tied_for_best = false;
+  };
+  struct SelectionEvidence {
+    std::vector<CandidateEvidence> candidates;
+    std::vector<std::string> tie_candidates;
+    std::string tie_break_reason;
+    std::uint64_t random_seed = 0U;
+  };
   PlanResult result;
   std::string planner;
   PlanSelectionPolicy policy = PlanSelectionPolicy::RangeVote;
   double normalized_vote = 0.0;
+  SelectionEvidence evidence;
 };
 
 class PlanningCoordinator {
@@ -54,6 +70,7 @@ class PlanningCoordinator {
   PlanSelectionPolicy policy_;
   std::size_t cache_hits_ = 0U;
   domain::Revision configuration_revision_ = 1U;
+  PlanId next_plan_id_ = 1U;
 };
 }  // namespace semaforr::planning
 #endif

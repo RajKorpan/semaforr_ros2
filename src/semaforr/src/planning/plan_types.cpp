@@ -3,6 +3,15 @@
 
 namespace semaforr::planning {
 
+std::string_view toString(PlanFamily family) noexcept {
+  return family == PlanFamily::Grid ? "grid" : "model";
+}
+
+std::string_view toString(PlanningOperatingMode mode) noexcept {
+  return mode == PlanningOperatingMode::MapEnabled ? "map_enabled"
+                                                   : "mapless";
+}
+
 std::optional<domain::Point2D> stepTarget(const PlanStep& step) noexcept {
   return std::visit(
       [](const auto& value) -> std::optional<domain::Point2D> {
@@ -13,6 +22,15 @@ std::optional<domain::Point2D> stepTarget(const PlanStep& step) noexcept {
           return value.center;
         } else if constexpr (std::is_same_v<T, IntersectionStep>) {
           return value.centroid;
+        } else if constexpr (std::is_same_v<T, HighwayEntryStep>) {
+          return value.entry;
+        } else if constexpr (std::is_same_v<T, HighwayExitStep>) {
+          return value.exit;
+        } else if constexpr (std::is_same_v<T, FinalTargetStep>) {
+          return value.target;
+        } else if constexpr (std::is_same_v<T, SkeletonTransitionStep>) {
+          if (value.supporting_subtrail.empty()) return std::nullopt;
+          return value.supporting_subtrail.front();
         } else if constexpr (std::is_same_v<T, SubtrailStep>) {
           if (value.waypoints.empty()) return std::nullopt;
           return value
@@ -123,13 +141,25 @@ void attachDependencySnapshot(
   plan.task_id = request.task_id;
   plan.planner_configuration_revision =
       request.planner_configuration_revision;
+  plan.operating_mode = request.static_map
+                            ? PlanningOperatingMode::MapEnabled
+                            : PlanningOperatingMode::Mapless;
+  plan.static_map_contributed = request.static_map != nullptr;
+  if (plan.created_at == std::chrono::steady_clock::time_point{})
+    plan.created_at = std::chrono::steady_clock::now();
   if (plan.hierarchical) {
+    plan.hierarchical->id = plan.plan_id;
+    plan.hierarchical->family = plan.family;
     plan.hierarchical->dependency_revisions = plan.dependency_revisions;
     plan.hierarchical->planned_start = request.start;
     plan.hierarchical->planned_goal = request.goal;
     plan.hierarchical->task_id = request.task_id;
     plan.hierarchical->planner_configuration_revision =
         request.planner_configuration_revision;
+    plan.hierarchical->created_at = plan.created_at;
+    plan.hierarchical->operating_mode = plan.operating_mode;
+    plan.hierarchical->static_map_contributed = plan.static_map_contributed;
+    plan.hierarchical->geometric_path = plan.path;
   }
 }
 

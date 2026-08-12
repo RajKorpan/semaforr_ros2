@@ -1,6 +1,7 @@
 #ifndef SEMAFORR_PLANNING_PLANNER_HPP
 #define SEMAFORR_PLANNING_PLANNER_HPP
 
+#include <chrono>
 #include <map>
 #include <optional>
 #include <semaforr/domain/highway.hpp>
@@ -13,6 +14,12 @@
 #include <vector>
 
 namespace semaforr::planning {
+
+using PlanId = std::uint64_t;
+enum class PlanFamily { Grid, Model };
+enum class PlanningOperatingMode { MapEnabled, Mapless };
+std::string_view toString(PlanFamily family) noexcept;
+std::string_view toString(PlanningOperatingMode mode) noexcept;
 
 enum class PlanObjective {
   Distance,
@@ -51,13 +58,35 @@ struct IntersectionStep {
   domain::IntersectionId intersection_id = 0U;
   domain::Point2D centroid;
 };
+struct HighwayEntryStep {
+  domain::HighwayId highway_id = 0U;
+  domain::Point2D entry;
+  std::vector<domain::Point2D> supporting_subtrail;
+};
+struct HighwayExitStep {
+  domain::HighwayId highway_id = 0U;
+  domain::Point2D exit;
+  std::vector<domain::Point2D> supporting_subtrail;
+};
+struct SkeletonTransitionStep {
+  std::size_t from_region = 0U;
+  std::size_t to_region = 0U;
+  std::vector<domain::Point2D> supporting_subtrail;
+};
+struct FinalTargetStep {
+  domain::Point2D target;
+};
 
 using PlanStep = std::variant<WaypointStep, SubtrailStep, RegionStep,
-                              HighwayStep, IntersectionStep>;
+                              HighwayStep, IntersectionStep, HighwayEntryStep,
+                              HighwayExitStep, SkeletonTransitionStep,
+                              FinalTargetStep>;
 
 enum class PlanValidity { Valid, Stale, Invalid, Complete };
 
 struct HierarchicalPlan {
+  PlanId id = 0U;
+  PlanFamily family = PlanFamily::Grid;
   std::string planner;
   PlanObjective objective = PlanObjective::Distance;
   std::vector<PlanStep> steps;
@@ -67,6 +96,10 @@ struct HierarchicalPlan {
   domain::Point2D planned_goal;
   std::optional<domain::TaskId> task_id;
   domain::Revision planner_configuration_revision = 0U;
+  std::chrono::steady_clock::time_point created_at{};
+  PlanningOperatingMode operating_mode{PlanningOperatingMode::Mapless};
+  bool static_map_contributed{false};
+  std::vector<domain::Point2D> geometric_path;
   struct OperationalizationRecord {
     std::size_t step_index = 0U;
     std::string operation;
@@ -116,6 +149,8 @@ struct PlanningRequest {
 };
 
 struct PlanResult {
+  PlanId plan_id = 0U;
+  PlanFamily family = PlanFamily::Grid;
   PlanStatus status{PlanStatus::PlannerUnavailable};
   std::vector<domain::Point2D> path;
   double cost_m{0.0};
@@ -128,6 +163,9 @@ struct PlanResult {
   domain::Point2D planned_goal;
   std::optional<domain::TaskId> task_id;
   domain::Revision planner_configuration_revision = 0U;
+  std::chrono::steady_clock::time_point created_at{};
+  PlanningOperatingMode operating_mode{PlanningOperatingMode::Mapless};
+  bool static_map_contributed{false};
   std::vector<std::string> stale_reasons;
 
   PlanResult() = default;
@@ -151,6 +189,9 @@ class Planner {
   virtual PlanObjective objective() const noexcept {
     return PlanObjective::Distance;
   }
+  // Custom/test planners default to geometric output; production planners
+  // override this declaration explicitly.
+  virtual PlanFamily planFamily() const noexcept { return PlanFamily::Grid; }
   virtual std::vector<domain::ModelDependency> dependencies(
       const PlanningRequest&) const {
     return {};

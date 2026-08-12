@@ -24,6 +24,24 @@ OccupancyRequirement PlannerRegistry::occupancyRequirement(
     throw std::invalid_argument("unknown planner '" + name + "'");
   return found->second.occupancy_requirement;
 }
+PlannerDeclaration PlannerRegistry::declaration(
+    const std::string& name, const PlanningRequest& request) const {
+  const auto found = entries_.find(name);
+  if (found == entries_.end())
+    throw std::invalid_argument("unknown planner '" + name + "'");
+  auto planner = found->second.factory();
+  return {name,
+          found->second.model,
+          planner->planFamily(),
+          found->second.map_requirement,
+          found->second.occupancy_requirement,
+          found->second.occupancy_requirement ==
+                  OccupancyRequirement::SensedPartial ||
+              found->second.occupancy_requirement ==
+                  OccupancyRequirement::StaticOrSensedPartial,
+          planner->objective(),
+          planner->dependencies(request)};
+}
 StaticMapRequirement PlannerRegistry::mapRequirement(
     const std::string& name) const {
   const auto found = entries_.find(name);
@@ -79,9 +97,10 @@ PlannerRegistry defaultPlannerRegistry() {
         [name, objective] {
           return std::make_unique<DomainPlanner>(
               name, objective,
-              OccupancySourceMode::LearnedFreespaceWithOptionalOccupancy);
+              OccupancySourceMode::StaticOrSensorDerived);
         },
-        StaticMapRequirement::Optional, OccupancyRequirement::None);
+        StaticMapRequirement::Optional,
+        OccupancyRequirement::StaticOrSensedPartial);
   };
   learned("region", PlanObjective::RegionPreference);
   learned("hallway", PlanObjective::HallwayPreference);

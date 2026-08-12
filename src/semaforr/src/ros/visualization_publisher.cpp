@@ -182,6 +182,39 @@ semaforr_msgs::msg::DecisionRecord toMessage(
   result.selected_policy = source.selected_policy;
   result.has_planner = source.planner.has_value();
   result.selected_planner = source.planner.value_or("");
+  result.has_plan = source.plan_id.has_value();
+  result.active_plan_id = source.plan_id.value_or(0U);
+  result.plan_family = source.plan_family
+                           ? std::string(planning::toString(*source.plan_family))
+                           : "";
+  result.enforcer_mode = source.enforcer_mode.value_or("");
+  result.active_plan_step = source.active_plan_step.value_or(0U);
+  result.has_operational_target = source.operational_target.has_value();
+  if (source.operational_target) {
+    result.operational_target.x = source.operational_target->x_m;
+    result.operational_target.y = source.operational_target->y_m;
+  }
+  result.enforcer_reason = source.enforcer_reason;
+  result.planning_candidates.reserve(source.planning_candidates.size());
+  for (const auto& candidate : source.planning_candidates) {
+    semaforr_msgs::msg::PlanCandidateDiagnostic diagnostic;
+    diagnostic.plan_id = candidate.plan_id;
+    diagnostic.planner = candidate.planner;
+    diagnostic.plan_family = std::string(planning::toString(candidate.family));
+    for (const auto& [objective, cost] : candidate.raw_costs) {
+      diagnostic.objectives.emplace_back(planning::toString(objective));
+      diagnostic.raw_costs.push_back(cost);
+      const auto normalized = candidate.normalized_costs.find(objective);
+      diagnostic.normalized_costs.push_back(
+          normalized == candidate.normalized_costs.end() ? 0.0
+                                                         : normalized->second);
+    }
+    diagnostic.summed_score = candidate.summed_score;
+    diagnostic.tied_for_best = candidate.tied_for_best;
+    result.planning_candidates.push_back(std::move(diagnostic));
+  }
+  result.planning_tie_candidates = source.planning_tie_candidates;
+  result.planning_tie_break_reason = source.planning_tie_break_reason;
   result.selected_action = toMessage(source.action);
   result.decision_latency_s = source.decision_latency_s;
   result.planning_latency_s = source.planning_latency_s;

@@ -160,7 +160,7 @@ std::vector<domain::Point2D> completePath(
 }  // namespace
 
 std::vector<domain::ModelDependency> DomainPlanner::dependencies(
-    const PlanningRequest&) const {
+    const PlanningRequest& request) const {
   using D = domain::ModelDependency;
   std::vector<D> result;
   if (source_mode_ == OccupancySourceMode::StaticMapWithSensors) {
@@ -168,8 +168,11 @@ std::vector<domain::ModelDependency> DomainPlanner::dependencies(
               D::SensedOccupancy};
   } else if (source_mode_ == OccupancySourceMode::SensorDerivedPartial) {
     result = {D::SensedOccupancy};
+  } else if (request.static_map && request.static_map->occupancyAvailable()) {
+    result = {D::StaticMapGeometry, D::StaticOccupancy,
+              D::SensedOccupancy};
   } else {
-    result = {D::Skeleton};
+    result = {D::SensedOccupancy};
   }
   switch (objective_) {
     case PlanObjective::CrowdDensity:
@@ -231,21 +234,25 @@ PlanResult DomainPlanner::plan(const PlanningRequest& request) {
     return {
         PlanStatus::InvalidRequest, {}, 0.0, "start and goal must be finite"};
   std::optional<TraversabilityBuildResult> traversability;
-  if (source_mode_ !=
-      OccupancySourceMode::LearnedFreespaceWithOptionalOccupancy) {
+  {
     auto traversal_configuration = request.traversability;
-    if (source_mode_ == OccupancySourceMode::SensorDerivedPartial)
+    auto effective_source = source_mode_;
+    if (source_mode_ == OccupancySourceMode::StaticOrSensorDerived)
+      effective_source = request.static_map && request.static_map->occupancyAvailable()
+                             ? OccupancySourceMode::StaticMapWithSensors
+                             : OccupancySourceMode::SensorDerivedPartial;
+    if (effective_source == OccupancySourceMode::SensorDerivedPartial)
       traversal_configuration.unknown_policy =
           traversal_configuration.sensor_unknown_policy;
     traversability = deriveTraversability(
-        source_mode_, request.static_map,
+        effective_source, request.static_map,
         request.spatial_model ? &request.spatial_model->sensed_occupancy
                               : nullptr,
         traversal_configuration);
     if (!traversability->grid.valid())
       return {PlanStatus::PlannerUnavailable, {}, 0.0,
               traversability->diagnostic};
-    if (source_mode_ == OccupancySourceMode::StaticMapWithSensors &&
+    if (effective_source == OccupancySourceMode::StaticMapWithSensors &&
         (!request.static_map->bounds.contains(request.start.position) ||
          !request.static_map->bounds.contains(request.goal)))
       return {PlanStatus::InvalidRequest, {}, 0.0,
@@ -292,16 +299,10 @@ PlanResult DomainPlanner::plan(const PlanningRequest& request) {
                                node_for_cell[cell + grid.geometry.columns]);
         }
     }
-  } else if (request.spatial_model) {
-    nodes = request.spatial_model->skeleton_nodes;
-    node_costs.assign(nodes.size(), 1.0F);
-    edges = request.spatial_model->skeleton_edges;
   }
   if (nodes.empty()) {
     return {PlanStatus::PlannerUnavailable, {}, 0.0,
-            traversability
-                ? "derived traversability contains no permitted cells"
-                : "learned freespace graph is unavailable"};
+            "derived traversability contains no permitted cells"};
   }
   const std::size_t original = nodes.size(), start = nodes.size();
   nodes.push_back(request.start.position);
@@ -373,17 +374,19 @@ PlanResult DomainPlanner::plan(const PlanningRequest& request) {
   result.primary_objective = objective_;
   result.objective_costs = evaluatePathObjectives(request, result.path);
   result.explanation = "Dijkstra over " +
-                       (traversability ? traversability->diagnostic
-                                       : "learned freespace representation") +
+                       traversability->diagnostic +
                        " using the " + std::string(toString(objective_)) +
                        " objective";
   HierarchicalPlan hierarchy;
+  hierarchy.family = PlanFamily::Grid;
   hierarchy.planner = name_;
   hierarchy.objective = objective_;
   hierarchy.provenance = result.explanation;
   hierarchy.estimated_objective_costs = result.objective_costs;
+  hierarchy.geometric_path = result.path;
   for (auto p : result.path) hierarchy.steps.emplace_back(WaypointStep{p});
   result.hierarchical = std::move(hierarchy);
+  result.family = PlanFamily::Grid;
   attachDependencySnapshot(result, request, dependencies(request));
   return result;
 }

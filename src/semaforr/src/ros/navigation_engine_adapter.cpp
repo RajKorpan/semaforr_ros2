@@ -446,9 +446,14 @@ class NavigationEngineAdapter::Impl {
         continue;
       }
       planning_.registerPlanner(registry.create(name));
+      const auto occupancy = registry.occupancyRequirement(name);
+      const bool waits_for_sensor =
+          occupancy == planning::OccupancyRequirement::SensedPartial ||
+          (occupancy ==
+               planning::OccupancyRequirement::StaticOrSensedPartial &&
+           !world_.map_capabilities.map_occupancy_available);
       map_diagnostics_.push_back(
-          registry.occupancyRequirement(name) ==
-                  planning::OccupancyRequirement::SensedPartial
+          waits_for_sensor
               ? "planner_registered_dormant_until_sensed_occupancy:" + name
               : "planner_enabled:" + name);
     }

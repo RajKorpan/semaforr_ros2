@@ -110,7 +110,7 @@ TEST(DomainPlanner, SearchesValidatedStaticOccupancy) {
             semaforr::planning::PlanStatus::PlannerUnavailable);
 }
 
-TEST(DomainPlanner, LearnedAffordancePlannerWorksWithoutStaticOccupancy) {
+TEST(DomainPlanner, AffordancePlannerNeverSubstitutesTheLearnedSkeleton) {
   semaforr::domain::SpatialModel spatial;
   spatial.skeleton_nodes = {{0.5, 0.5}, {1.5, 0.5}, {2.5, 0.5}};
   spatial.skeleton_edges = {{0U, 1U}, {1U, 2U}};
@@ -119,11 +119,20 @@ TEST(DomainPlanner, LearnedAffordancePlannerWorksWithoutStaticOccupancy) {
   semaforr::planning::DomainPlanner planner(
       "region", semaforr::planning::PlanObjective::RegionPreference,
       semaforr::planning::OccupancySourceMode::
-          LearnedFreespaceWithOptionalOccupancy);
+          StaticOrSensorDerived);
+  const auto unavailable = planner.plan(
+      {{{0.5, 0.5}, semaforr::domain::Angle::zero()}, {2.5, 0.5}, &spatial});
+  EXPECT_EQ(unavailable.status,
+            semaforr::planning::PlanStatus::PlannerUnavailable);
+
+  spatial.sensed_occupancy.geometry = {3U, 1U, 1.0, {0.0, 0.0}};
+  spatial.sensed_occupancy.cells.resize(3U);
+  for (auto& cell : spatial.sensed_occupancy.cells)
+    cell.state = semaforr::domain::SensedOccupancyState::ObservedFree;
   const auto result = planner.plan(
       {{{0.5, 0.5}, semaforr::domain::Angle::zero()}, {2.5, 0.5}, &spatial});
   ASSERT_TRUE(result.succeeded());
-  EXPECT_NE(result.explanation.find("learned freespace"), std::string::npos);
+  EXPECT_NE(result.explanation.find("sensor-derived"), std::string::npos);
 }
 
 }  // namespace

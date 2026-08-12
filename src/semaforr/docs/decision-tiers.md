@@ -128,3 +128,9 @@ be layered on these codes without making experiment analysis depend on prose.
 To add a rule, planner, or advisor, implement its narrow interface, register
 the factory name, add validated configuration, and add deterministic unit
 tests. Do not add dispatch branches to the ROS node.
+
+Enforcer dispatches by the active plan's explicit family. `GridPlanEnforcer`
+interprets occupancy-derived geometric paths, while `ModelPlanEnforcer`
+interprets SkeletonPlan and HighwayPlan typed steps. Both reuse one predictive
+local-action evaluator and directly mandate Tier-1 actions. See
+`tier-two-planning-and-enforcement.md` for the full contract.

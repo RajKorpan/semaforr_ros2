@@ -76,6 +76,8 @@ class NavigationEngine {
   bool terminalSeen(domain::ActionId action_id) const noexcept;
   std::optional<domain::Action> enforcerAction(
       std::span<const domain::Action> viable_actions) const;
+  PlanEnforcementResult enforceActivePlan(
+      std::span<const domain::Action> viable_actions);
   void appendCycleDiagnostics(DecisionResult&) const;
 
   struct PendingExecution {
@@ -108,6 +110,8 @@ class NavigationEngine {
   domain::Distance goal_tolerance_;
   std::optional<domain::RobotObservation> observation_;
   std::optional<planning::HierarchicalPlan> active_hierarchy_;
+  std::optional<planning::SelectedPlan::SelectionEvidence>
+      active_selection_evidence_;
   std::optional<domain::TaskId> hierarchy_task_;
   std::vector<std::string> pending_phase_events_;
   std::uint64_t decision_sequence_{0U};

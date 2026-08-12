@@ -12,6 +12,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/DecisionVeto.msg"
   "msg/AdvisorContribution.msg"
   "msg/TaskDiagnostic.msg"
+  "msg/PlanCandidateDiagnostic.msg"
   "msg/DecisionRecord.msg"
   "msg/NavigationState.msg"
   DEPENDENCIES builtin_interfaces geometry_msgs std_msgs

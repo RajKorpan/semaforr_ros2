@@ -7,6 +7,7 @@
 #include <semaforr/domain/action_execution.hpp>
 #include <semaforr/domain/geometry.hpp>
 #include <semaforr/navigation/navigation_phase.hpp>
+#include <semaforr/planning/planner.hpp>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -114,6 +115,16 @@ struct TaskDiagnostic {
   bool operator==(const TaskDiagnostic&) const = default;
 };
 
+struct PlanCandidateDiagnostic {
+  planning::PlanId plan_id = 0U;
+  std::string planner;
+  planning::PlanFamily family = planning::PlanFamily::Grid;
+  planning::ObjectiveCosts raw_costs;
+  planning::ObjectiveCosts normalized_costs;
+  double summed_score = 0.0;
+  bool tied_for_best = false;
+};
+
 struct DecisionResult {
   std::uint64_t sequence{0U};
   domain::DecisionId decision_id{0U};
@@ -134,6 +145,15 @@ struct DecisionResult {
   std::vector<AdvisorContribution> contributions;
   std::vector<DecisionCycleEvent> decision_cycle;
   std::optional<std::string> planner;
+  std::optional<planning::PlanId> plan_id;
+  std::optional<planning::PlanFamily> plan_family;
+  std::optional<std::string> enforcer_mode;
+  std::optional<std::size_t> active_plan_step;
+  std::optional<domain::Point2D> operational_target;
+  std::string enforcer_reason;
+  std::vector<PlanCandidateDiagnostic> planning_candidates;
+  std::vector<std::string> planning_tie_candidates;
+  std::string planning_tie_break_reason;
   double decision_latency_s{0.0};
   double planning_latency_s{0.0};
   double model_update_cost_s{0.0};

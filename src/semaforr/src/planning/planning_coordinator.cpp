@@ -86,6 +86,7 @@ std::optional<SelectedPlan> PlanningCoordinator::selectPlan(
     PlanResult result;
     std::string planner;
     double vote = 0.0;
+    ObjectiveCosts normalized;
   };
   std::vector<Candidate> candidates;
   std::vector<PlanObjective> objectives;
@@ -119,6 +120,9 @@ std::optional<SelectedPlan> PlanningCoordinator::selectPlan(
       ++cache_hits_;
     } else {
       result = planner->plan(effective);
+      result.family = planner->planFamily();
+      if (result.succeeded() && result.plan_id == 0U)
+        result.plan_id = next_plan_id_++;
       attachDependencySnapshot(result, effective, declared);
       cache_.erase(
           std::remove_if(cache_.begin(), cache_.end(),
@@ -139,7 +143,7 @@ std::optional<SelectedPlan> PlanningCoordinator::selectPlan(
     result.primary_objective = planner->objective();
     result.objective_costs = evaluatePathObjectives(request, result.path);
     objectives.push_back(planner->objective());
-    candidates.push_back({std::move(result), name, 0.0});
+    candidates.push_back({std::move(result), name, 0.0, {}});
   }
   if (candidates.empty()) return std::nullopt;
   std::sort(objectives.begin(), objectives.end(), [](auto a, auto b) {
@@ -161,9 +165,27 @@ std::optional<SelectedPlan> PlanningCoordinator::selectPlan(
     }
     candidates = std::move(frontier);
   }
+  const auto selected = [&](std::size_t winner) {
+    SelectedPlan::SelectionEvidence evidence;
+    const double best_score = candidates[winner].vote;
+    for (const auto& candidate : candidates) {
+      const bool tied = std::abs(candidate.vote - best_score) <= 1e-12;
+      evidence.candidates.push_back(
+          {candidate.result.plan_id, candidate.planner,
+           candidate.result.family, candidate.result.objective_costs,
+           candidate.normalized, candidate.vote, tied});
+      if (tied) evidence.tie_candidates.push_back(candidate.planner);
+    }
+    evidence.tie_break_reason =
+        evidence.tie_candidates.size() > 1U
+            ? "lexicographically_smallest_planner_name"
+            : "unique_lowest_combined_score";
+    return SelectedPlan{candidates[winner].result, candidates[winner].planner,
+                        policy_, candidates[winner].vote,
+                        std::move(evidence)};
+  };
   if (policy_ == PlanSelectionPolicy::Single) {
-    const auto& c = candidates.front();
-    return SelectedPlan{c.result, c.planner, policy_, 0.0};
+    return selected(0U);
   }
   if (policy_ == PlanSelectionPolicy::ShortestValid) {
     auto best = std::min_element(
@@ -174,9 +196,8 @@ std::optional<SelectedPlan> PlanningCoordinator::selectPlan(
                            b.result.objective_costs.at(PlanObjective::Distance);
           return ac != bc ? ac < bc : a.planner < b.planner;
         });
-    return SelectedPlan{
-        best->result, best->planner, policy_,
-        best->result.objective_costs.at(PlanObjective::Distance)};
+    best->vote = best->result.objective_costs.at(PlanObjective::Distance);
+    return selected(static_cast<std::size_t>(best - candidates.begin()));
   }
   for (auto objective : objectives) {
     double low = std::numeric_limits<double>::infinity(),
@@ -186,11 +207,15 @@ std::optional<SelectedPlan> PlanningCoordinator::selectPlan(
       low = std::min(low, value);
       high = std::max(high, value);
     }
-    for (auto& c : candidates)
-      c.vote += (high - low) <= 1e-12
-                    ? 0.0
-                    : 10.0 * (c.result.objective_costs.at(objective) - low) /
-                          (high - low);
+    for (auto& c : candidates) {
+      const double normalized =
+          (high - low) <= 1e-12
+              ? 0.0
+              : 10.0 * (c.result.objective_costs.at(objective) - low) /
+                    (high - low);
+      c.normalized[objective] = normalized;
+      c.vote += normalized;
+    }
   }
   if (policy_ == PlanSelectionPolicy::MinimumNormalizedCost)
     for (auto& c : candidates)
@@ -200,6 +225,6 @@ std::optional<SelectedPlan> PlanningCoordinator::selectPlan(
       candidates.begin(), candidates.end(), [](const auto& a, const auto& b) {
         return a.vote != b.vote ? a.vote < b.vote : a.planner < b.planner;
       });
-  return SelectedPlan{best->result, best->planner, policy_, best->vote};
+  return selected(static_cast<std::size_t>(best - candidates.begin()));
 }
 }  // namespace semaforr::planning

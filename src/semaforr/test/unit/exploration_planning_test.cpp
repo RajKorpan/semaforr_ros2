@@ -549,6 +549,12 @@ TEST(HierarchicalPlans, HighwayPlanChoosesBestValidNetworkAlternative) {
   semaforr::domain::SpatialModel spatial;
   spatial.skeleton_nodes = {{0.0, 0.0}, {0.0, 10.0}, {10.0, 10.0}, {10.0, 0.0}};
   spatial.skeleton_edges = {{0U, 1U}, {1U, 2U}, {2U, 3U}};
+  for (std::size_t id = 0U; id < spatial.skeleton_nodes.size(); ++id)
+    spatial.region_skeleton_nodes.push_back(
+        {id, id, spatial.skeleton_nodes[id], {}});
+  spatial.region_skeleton_edges = {
+      {0U, 1U, {}, 10.0, 0U}, {1U, 2U, {}, 10.0, 0U},
+      {2U, 3U, {}, 10.0, 0U}};
   spatial.highways.graph.vertices = {{0U, {0, 0}, {0.0, 0.0}, true},
                                      {1U, {0, 10}, {10.0, 0.0}, true}};
   spatial.highways.graph.edges = {
@@ -561,7 +567,9 @@ TEST(HierarchicalPlans, HighwayPlanChoosesBestValidNetworkAlternative) {
                     nullptr});
   ASSERT_TRUE(assisted.succeeded());
   ASSERT_TRUE(assisted.hierarchical);
-  EXPECT_EQ(assisted.hierarchical->planner, "highway_assisted");
+  EXPECT_EQ(assisted.hierarchical->planner, "highway_plan");
+  EXPECT_NE(assisted.hierarchical->provenance.find("highway_assisted"),
+            std::string::npos);
   EXPECT_TRUE(std::any_of(
       assisted.hierarchical->steps.begin(), assisted.hierarchical->steps.end(),
       [](const auto& step) {
@@ -578,7 +586,9 @@ TEST(HierarchicalPlans, HighwayPlanChoosesBestValidNetworkAlternative) {
                     nullptr});
   ASSERT_TRUE(skeleton.succeeded());
   ASSERT_TRUE(skeleton.hierarchical);
-  EXPECT_EQ(skeleton.hierarchical->planner, "skeleton");
+  EXPECT_EQ(skeleton.hierarchical->planner, "highway_plan");
+  EXPECT_NE(skeleton.hierarchical->provenance.find("skeleton"),
+            std::string::npos);
 }
 
 TEST(PlanCache, ReusesExactRevisionAndInvalidatesOnConsumedRevision) {
