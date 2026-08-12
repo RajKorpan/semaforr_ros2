@@ -332,7 +332,8 @@ class NavigationEngineAdapter::Impl {
             configuration_.navigation.grids.turning_footprint_margin_m,
             configuration_.navigation.grids.dynamic_obstacle_margin_m,
             static_cast<float>(
-                configuration_.navigation.grids.unknown_cost_multiplier)});
+                configuration_.navigation.grids.unknown_cost_multiplier)},
+        configuration_.experiment.tiers.maximum_planning_attempts_per_task);
   }
 
   void configureStaticMap() {

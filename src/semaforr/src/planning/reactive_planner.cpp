@@ -465,13 +465,52 @@ void ReactivePlannerCoordinator::add(
 
 ReactiveResult ReactivePlannerCoordinator::evaluate(
     const ReactiveRequest& request) {
+  return evaluateDetailed(request, {}).result;
+}
+
+ReactivePlannerCoordinator::Evaluation
+ReactivePlannerCoordinator::evaluateDetailed(
+    const ReactiveRequest& request,
+    std::span<const domain::Action> viable_actions) {
+  Evaluation evaluation;
   decision::DecisionContext context{request.world, &request.action_space};
   for (const auto& planner : planners_) {
-    if (!planner->evaluateTrigger(context).triggered) continue;
+    decision::DecisionCycleEvent event;
+    event.tier = "tier1";
+    event.component = std::string(planner->name());
+    event.input_actions.assign(viable_actions.begin(), viable_actions.end());
+    const auto trigger = planner->evaluateTrigger(context);
+    if (!trigger.triggered) {
+      event.outcome = "trigger_false_continue";
+      event.order = evaluation.trace.size() + 1U;
+      evaluation.trace.push_back(std::move(event));
+      continue;
+    }
     auto result = resultFrom(planner->name(), planner->update(context));
-    if (result.status != ReactiveStatus::NotApplicable) return result;
+    const bool action_viable =
+        result.status != ReactiveStatus::Action || !result.action ||
+        viable_actions.empty() ||
+        std::find(viable_actions.begin(), viable_actions.end(),
+                  *result.action) != viable_actions.end();
+    event.mandate = result.action;
+    event.outcome = !action_viable
+                        ? "reactive_action_not_viable_continue"
+                    : result.status == ReactiveStatus::Action
+                        ? "reactive_action_selected"
+                    : result.status == ReactiveStatus::RequestReplan
+                        ? "reactive_replan_requested"
+                        : "triggered_without_action_continue";
+    if (result.status == ReactiveStatus::Action && action_viable)
+      event.final_attribution = decision::DecisionTier::TierOne;
+    event.order = evaluation.trace.size() + 1U;
+    evaluation.trace.push_back(std::move(event));
+    if (!action_viable) continue;
+    if (result.status != ReactiveStatus::NotApplicable) {
+      evaluation.result = std::move(result);
+      return evaluation;
+    }
   }
-  return {};
+  return evaluation;
 }
 
 void ReactivePlannerCoordinator::cancelAll(InterruptionReason reason) {

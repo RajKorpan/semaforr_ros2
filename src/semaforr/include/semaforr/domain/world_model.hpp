@@ -153,6 +153,9 @@ struct RecoveryState {
   bool planning_attempted = false;
   bool plan_available = false;
   bool completed_plan_failed_target = false;
+  std::size_t tier_two_attempts = 0U;
+  std::size_t consecutive_immediate_plan_failures = 0U;
+  bool plan_abandoned = false;
 };
 
 using FreespaceGrid = SparseCountGrid;

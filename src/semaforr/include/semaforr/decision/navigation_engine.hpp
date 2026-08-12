@@ -17,6 +17,7 @@
 #include <semaforr/planning/reactive_planner.hpp>
 #include <semaforr/social/crowd_field_learner.hpp>
 #include <semaforr/spatial/spatial_learning_coordinator.hpp>
+#include <span>
 #include <string>
 #include <vector>
 
@@ -41,7 +42,8 @@ class NavigationEngine {
       exploration::HighLevelExplorationConfiguration hle_configuration = {},
       std::unique_ptr<planning::ReactivePlanner> low_level_explorer = nullptr,
       std::unique_ptr<PlanOperationalizer> plan_operationalizer = nullptr,
-      planning::TraversabilityConfiguration traversability = {});
+      planning::TraversabilityConfiguration traversability = {},
+      std::size_t maximum_planning_attempts_per_task = 3U);
 
   void observe(const domain::RobotObservation& observation);
   DecisionResult decide();
@@ -72,6 +74,9 @@ class NavigationEngine {
   domain::FeedbackDisposition acceptTerminal(
       domain::ActionExecutionResult result);
   bool terminalSeen(domain::ActionId action_id) const noexcept;
+  std::optional<domain::Action> enforcerAction(
+      std::span<const domain::Action> viable_actions) const;
+  void appendCycleDiagnostics(DecisionResult&) const;
 
   struct PendingExecution {
     domain::SelectedActionRecord selection;
@@ -112,6 +117,7 @@ class NavigationEngine {
   std::deque<domain::ActionId> terminal_action_ids_;
   std::vector<std::string> execution_diagnostics_;
   bool finalize_initial_exploration_after_action_{false};
+  std::size_t maximum_planning_attempts_per_task_{3U};
 };
 
 }  // namespace semaforr::decision

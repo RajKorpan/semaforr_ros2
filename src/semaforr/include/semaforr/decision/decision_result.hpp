@@ -9,6 +9,7 @@
 #include <semaforr/navigation/navigation_phase.hpp>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 namespace semaforr::decision {
@@ -57,6 +58,38 @@ struct Veto {
   bool operator==(const Veto&) const = default;
 };
 
+struct DecisionCycleEvent {
+  std::size_t order{0U};
+  std::string tier;
+  std::string component;
+  std::vector<domain::Action> input_actions;
+  std::optional<domain::Action> mandate;
+  std::vector<Veto> vetoes;
+  std::string outcome;
+  bool returned_to_earlier_tier{false};
+  std::optional<DecisionTier> final_attribution;
+
+  DecisionCycleEvent() = default;
+  DecisionCycleEvent(
+      std::size_t event_order, std::string event_tier,
+      std::string event_component, std::vector<domain::Action> inputs,
+      std::optional<domain::Action> event_mandate,
+      std::vector<Veto> event_vetoes, std::string event_outcome = {},
+      bool returned = false,
+      std::optional<DecisionTier> attribution = std::nullopt)
+      : order(event_order),
+        tier(std::move(event_tier)),
+        component(std::move(event_component)),
+        input_actions(std::move(inputs)),
+        mandate(event_mandate),
+        vetoes(std::move(event_vetoes)),
+        outcome(std::move(event_outcome)),
+        returned_to_earlier_tier(returned),
+        final_attribution(attribution) {}
+
+  bool operator==(const DecisionCycleEvent&) const = default;
+};
+
 struct AdvisorContribution {
   std::string advisor;
   domain::Action action;
@@ -96,6 +129,7 @@ struct DecisionResult {
   std::string selected_policy;
   std::vector<Veto> vetoes;
   std::vector<AdvisorContribution> contributions;
+  std::vector<DecisionCycleEvent> decision_cycle;
   std::optional<std::string> planner;
   double decision_latency_s{0.0};
   double planning_latency_s{0.0};

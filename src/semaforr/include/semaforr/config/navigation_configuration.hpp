@@ -77,6 +77,7 @@ struct TierConfiguration {
       "forward", "precedent"};
   std::vector<std::string> reactive_planners{"thru", "behind", "out",
                                              "low_level_exploration"};
+  std::size_t maximum_planning_attempts_per_task = 3U;
 };
 
 struct SafetyEnvelopeConfiguration {

@@ -17,8 +17,9 @@ deviations, and the unavailable compatibility target are defined in the
    intersections, and the highway graph after initial exploration.
 4. Emit `initial_model_finalized` and `target_navigation_started`, then allow
    `MissionManager` to activate the first target.
-5. Process each target through hard safety, ordered Tier 1 and reactive
-   control, Tier-2 planning, Tier-3 arbitration, and command validation.
+5. Process each target through hard safety; ordered Tier-1 mandates and
+   vetoes; bounded Tier-2 planning with an explicit return to Tier 1;
+   Enforcer; reactive planners; Tier-3 arbitration; and command validation.
 6. Allow reactive planners to interrupt action selection without blocking.
    Low-level exploration returns control after requesting replanning or
    reaching an explicit terminal condition.
@@ -56,3 +57,11 @@ The validated Tier-1 order is `victory`, `avoid_obstacles`, `not_opposite`,
 disabled. Initial exploration owns its phase, reactive exploration is an
 interruptible planner, and exploration-oriented advisors remain ordinary
 Tier-3 heuristics.
+
+At runtime, Victory receives the first mandated-action opportunity. Enforcer
+receives the first plan-operationalization opportunity after Tier 2 returns.
+Only then may Thru, Behind, Out, and LLE act. Tier 3 is unreachable after any
+successful Tier-1 selection. Immediate Tier-2 failures are limited by
+`tiers.tier2.maximum_planning_attempts_per_task`; reaching the limit abandons
+the plan attempt and makes LLE eligible. `DecisionCycleEvent` records make
+every run, continuation, Tier-2 return, and final attribution observable.

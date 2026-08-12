@@ -747,6 +747,8 @@ std::string configurationFingerprint(const Configuration& configuration) {
       << '|'
       << configuration.experiment.reactive_exploration_closest_target_bin_m
       << '|'
+      << configuration.experiment.tiers.maximum_planning_attempts_per_task
+      << '|'
       << configuration.experiment.opportunistic_exploration << '|'
       << configuration.experiment.social.enabled << '|'
       << configuration.experiment.social.observations << '|'
@@ -884,6 +886,9 @@ std::vector<std::string> componentManifest(const Configuration& configuration) {
       std::string("lle_stalled_history_extension:") +
       (experiment.reactive_exploration_stalled_history_extension ? "true"
                                                                   : "false"));
+  result.push_back(
+      "tier2_maximum_planning_attempts_per_task:" +
+      std::to_string(experiment.tiers.maximum_planning_attempts_per_task));
   if (experiment.tiers.tier_one) result.push_back("tier:tier_one");
   if (experiment.tiers.tier_two) result.push_back("tier:tier_two");
   if (experiment.tiers.tier_three) result.push_back("tier:tier_three");
@@ -1081,6 +1086,10 @@ void validateConfiguration(const Configuration& configuration) {
     throw std::runtime_error(
         "configuration: exploration.reactive.closest_target_bin_m must be "
         "finite and positive");
+  if (experiment.tiers.maximum_planning_attempts_per_task == 0U)
+    throw std::runtime_error(
+        "configuration: tiers.tier2.maximum_planning_attempts_per_task must "
+        "be positive");
   if (configuration.navigation.planners.highway &&
       !configuration.navigation.highways_on)
     throw std::runtime_error(

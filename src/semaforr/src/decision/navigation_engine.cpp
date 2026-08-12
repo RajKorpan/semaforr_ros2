@@ -6,6 +6,7 @@
 #include <semaforr/domain/motion_model.hpp>
 #include <semaforr/spatial/coverage.hpp>
 #include <limits>
+#include <sstream>
 #include <stdexcept>
 #include <utility>
 
@@ -26,7 +27,8 @@ NavigationEngine::NavigationEngine(
     exploration::HighLevelExplorationConfiguration hle_configuration,
     std::unique_ptr<planning::ReactivePlanner> low_level_explorer,
     std::unique_ptr<PlanOperationalizer> plan_operationalizer,
-    planning::TraversabilityConfiguration traversability)
+    planning::TraversabilityConfiguration traversability,
+    std::size_t maximum_planning_attempts_per_task)
     : world_(world),
       action_space_(action_space),
       decisions_(decisions),
@@ -47,7 +49,12 @@ NavigationEngine::NavigationEngine(
       low_level_exploration_enabled_(low_level_exploration_enabled),
       enforcer_enabled_(enforcer_enabled),
       traversability_(std::move(traversability)),
-      goal_tolerance_(goal_tolerance) {
+      goal_tolerance_(goal_tolerance),
+      maximum_planning_attempts_per_task_(
+          maximum_planning_attempts_per_task) {
+  if (maximum_planning_attempts_per_task_ == 0U)
+    throw std::invalid_argument(
+        "maximum planning attempts per task must be positive");
   exploration_.setModelFinalizer([this] {
     learning_.finalizeInitialExploration();
     learning_.applyTo(world_.spatial);
@@ -70,6 +77,70 @@ std::vector<domain::Action> NavigationEngine::candidates() const {
     actions.emplace_back(domain::ActionType::TurnLeft, index);
   }
   return actions;
+}
+
+std::optional<domain::Action> NavigationEngine::enforcerAction(
+    std::span<const domain::Action> viable_actions) const {
+  if (!world_.mission.active()) return std::nullopt;
+  const auto waypoint = world_.mission.active()->waypoint();
+  if (!waypoint) return std::nullopt;
+  const auto& pose = world_.robot.pose;
+  const double heading = std::atan2(waypoint->y_m - pose.position.y_m,
+                                    waypoint->x_m - pose.position.x_m);
+  const double error = domain::Angle::normalize(
+      heading - pose.heading.radians());
+  domain::Action desired = domain::Action::pause();
+  if (std::abs(error) > 0.2) {
+    const auto& turns = action_space_.rotation_angles_rad();
+    if (turns.empty()) return std::nullopt;
+    const auto found = std::lower_bound(turns.begin(), turns.end(),
+                                        std::abs(error));
+    const std::size_t magnitude =
+        found == turns.end()
+            ? turns.size()
+            : static_cast<std::size_t>(found - turns.begin()) + 1U;
+    desired = domain::Action(error < 0.0 ? domain::ActionType::TurnRight
+                                         : domain::ActionType::TurnLeft,
+                             magnitude);
+  } else {
+    const auto& moves = action_space_.move_distances_m();
+    if (moves.empty()) return std::nullopt;
+    const double remaining = domain::distance(pose.position, *waypoint).meters();
+    const auto found = std::upper_bound(moves.begin(), moves.end(), remaining);
+    const std::size_t magnitude =
+        found == moves.begin()
+            ? 1U
+            : static_cast<std::size_t>(found - moves.begin());
+    desired = domain::Action(domain::ActionType::Forward, magnitude);
+  }
+  if (std::find(viable_actions.begin(), viable_actions.end(), desired) !=
+      viable_actions.end())
+    return desired;
+  for (std::size_t magnitude = desired.magnitude_index(); magnitude > 1U;
+       --magnitude) {
+    const domain::Action shorter(desired.type(), magnitude - 1U);
+    if (std::find(viable_actions.begin(), viable_actions.end(), shorter) !=
+        viable_actions.end())
+      return shorter;
+  }
+  return std::nullopt;
+}
+
+void NavigationEngine::appendCycleDiagnostics(DecisionResult& result) const {
+  for (std::size_t index = 0U; index < result.decision_cycle.size(); ++index) {
+    auto& event = result.decision_cycle[index];
+    event.order = index + 1U;
+    std::ostringstream diagnostic;
+    diagnostic << "decision_cycle:" << event.order << ":tier=" << event.tier
+               << ",component=" << event.component
+               << ",inputs=" << event.input_actions.size()
+               << ",vetoes=" << event.vetoes.size()
+               << ",mandate=" << (event.mandate ? "true" : "false")
+               << ",outcome=" << event.outcome
+               << ",return="
+               << (event.returned_to_earlier_tier ? "true" : "false");
+    result.phase_events.push_back(diagnostic.str());
+  }
 }
 
 void NavigationEngine::observe(const domain::RobotObservation& observation) {
@@ -125,6 +196,9 @@ void NavigationEngine::observe(const domain::RobotObservation& observation) {
     world_.recovery.planning_attempted = false;
     world_.recovery.plan_available = false;
     world_.recovery.completed_plan_failed_target = false;
+    world_.recovery.tier_two_attempts = 0U;
+    world_.recovery.consecutive_immediate_plan_failures = 0U;
+    world_.recovery.plan_abandoned = false;
     if (mission_.completeActiveTask()) {
       world_.path_history.finish(true, false, observation.observed_at);
       pending_phase_events_.push_back("target_completed");
@@ -330,6 +404,9 @@ DecisionResult NavigationEngine::decide() {
     world_.recovery.planning_attempted = false;
     world_.recovery.plan_available = false;
     world_.recovery.completed_plan_failed_target = false;
+    world_.recovery.tier_two_attempts = 0U;
+    world_.recovery.consecutive_immediate_plan_failures = 0U;
+    world_.recovery.plan_abandoned = false;
   }
   if (world_.mission.skipped().size() > skipped_before) {
     world_.path_history.finish(false, true, std::chrono::steady_clock::now());
@@ -348,65 +425,185 @@ DecisionResult NavigationEngine::decide() {
     finalize_measurements(result);
     return result;
   }
-  const auto planning_started = std::chrono::steady_clock::now();
-  const std::optional<std::string> selected_planner = preparePlan(mission_step);
-  const double planning_latency_s =
-      std::chrono::duration<double>(std::chrono::steady_clock::now() -
-                                    planning_started)
-          .count();
   const auto available = candidates();
   std::vector<domain::Action> decision_candidates = available;
   std::vector<Veto> hard_vetoes;
+  std::vector<DecisionCycleEvent> cycle;
   if (hard_safety_) {
     auto filtered = hard_safety_->filter(DecisionContext{world_}, available);
     decision_candidates = std::move(filtered.safe_actions);
     hard_vetoes = std::move(filtered.vetoes);
+    cycle.push_back({0U, "safety", "HardSafetyFilter", available,
+                     std::nullopt, hard_vetoes,
+                     hard_vetoes.empty() ? "no_veto_continue"
+                                         : "safety_vetoes_applied_continue"});
   }
-  const auto mandated =
-      decisions_.mandatoryDecision(DecisionContext{world_}, decision_candidates);
-  if (mandated && mandated->selected_policy == "mandatory_rule:Victory")
-    lle_->cancel(planning::InterruptionReason::TargetSensed);
-  const planning::ReactiveResult lle =
-      !mandated && low_level_exploration_enabled_
-          ? lle_->evaluate({world_, action_space_})
-          : planning::ReactiveResult{};
-  if (lle.status == planning::ReactiveStatus::RequestReplan &&
-      world_.mission.active()) {
-    mission_.clearPlan();
-    planning_.clearCache();
-    world_.recovery.confined = true;
-    world_.recovery.planning_attempted = false;
-    world_.recovery.plan_available = false;
-    world_.recovery.completed_plan_failed_target = false;
-  }
-  const planning::ReactiveResult reactive =
-      mandated || lle.status == planning::ReactiveStatus::Action
-          ? planning::ReactiveResult{}
-          : reactive_.evaluate({world_, action_space_});
+  auto tier_one =
+      decisions_.evaluateTierOne(DecisionContext{world_}, decision_candidates);
+  cycle.insert(cycle.end(), tier_one.trace.begin(), tier_one.trace.end());
+  std::vector<Veto> cognitive_vetoes = tier_one.vetoes;
+  std::vector<domain::Action> viable = tier_one.survivors;
   DecisionResult result;
-  if (mandated) {
-    result = *mandated;
-  } else if (lle.status == planning::ReactiveStatus::Action && lle.action &&
-      std::find(decision_candidates.begin(), decision_candidates.end(),
-                *lle.action) != decision_candidates.end()) {
-    result.action = *lle.action;
-    result.source = DecisionSource::MandatoryRule;
-    result.tier = DecisionTier::TierOne;
-    result.selected_policy = "reactive:LLE";
-    if (const auto* explorer =
-            dynamic_cast<const planning::LowLevelExplorer*>(lle_.get()))
-      result.selected_policy += ":" + explorer->lastTriggerReasonCode();
-  } else if (reactive.status == planning::ReactiveStatus::Action &&
-             reactive.action &&
-             std::find(decision_candidates.begin(), decision_candidates.end(),
-                       *reactive.action) != decision_candidates.end()) {
-    result.action = *reactive.action;
-    result.source = DecisionSource::MandatoryRule;
-    result.tier = DecisionTier::TierOne;
-    result.selected_policy = "reactive:" + reactive.planner;
-  } else {
-    result = decisions_.decide(DecisionContext{world_}, decision_candidates);
+  bool decided = false;
+  if (tier_one.decision) {
+    result = *tier_one.decision;
+    decided = true;
+    if (result.selected_policy == "mandatory_rule:Victory") {
+      reactive_.cancelAll(planning::InterruptionReason::TargetSensed);
+      lle_->cancel(planning::InterruptionReason::TargetSensed);
+    }
   }
+
+  std::optional<std::string> selected_planner;
+  double planning_latency_s = 0.0;
+  const auto* active_lle =
+      dynamic_cast<const planning::LowLevelExplorer*>(lle_.get());
+  const bool lle_in_progress =
+      active_lle &&
+      active_lle->state() !=
+          planning::LowLevelExplorationState::DetectMissingGuidance &&
+      active_lle->state() != planning::LowLevelExplorationState::Complete;
+  if (!decided && world_.mission.active() &&
+      !world_.mission.active()->waypoint()) {
+    if (world_.recovery.plan_abandoned) {
+      cycle.push_back(
+          {0U, "tier2", "PlanningCoordinator", viable, std::nullopt, {},
+           "planning_abandoned_lle_eligible"});
+    } else if (world_.recovery.completed_plan_failed_target) {
+      cycle.push_back(
+          {0U, "tier2", "PlanningCoordinator", viable, std::nullopt, {},
+           "completed_plan_failed_lle_eligible"});
+    } else if (lle_in_progress) {
+      cycle.push_back({0U, "tier2", "PlanningCoordinator", viable,
+                       std::nullopt, {},
+                       "active_lle_retains_control_no_repeat_plan"});
+    } else {
+      const auto planning_started = std::chrono::steady_clock::now();
+      ++world_.recovery.tier_two_attempts;
+      selected_planner = preparePlan(mission_step);
+      planning_latency_s =
+          std::chrono::duration<double>(std::chrono::steady_clock::now() -
+                                        planning_started)
+              .count();
+      const bool plan_available =
+          world_.mission.active()->waypoint().has_value();
+      if (plan_available) {
+        world_.recovery.consecutive_immediate_plan_failures = 0U;
+      } else {
+        ++world_.recovery.consecutive_immediate_plan_failures;
+        world_.recovery.plan_abandoned =
+            world_.recovery.consecutive_immediate_plan_failures >=
+            maximum_planning_attempts_per_task_;
+      }
+      cycle.push_back(
+          {0U, "tier2",
+           selected_planner.value_or("PlanningCoordinator"), viable,
+           std::nullopt, {},
+           plan_available
+               ? "plan_created_return_to_tier1:attempt=" +
+                     std::to_string(world_.recovery.tier_two_attempts)
+               : (world_.recovery.plan_abandoned
+                      ? "immediate_plan_failure_abandoned_lle_eligible:attempt=" +
+                            std::to_string(world_.recovery.tier_two_attempts)
+                      : "immediate_plan_failure_return_to_tier1:attempt=" +
+                            std::to_string(world_.recovery.tier_two_attempts)),
+           true});
+      auto returned = decisions_.evaluateTierOne(DecisionContext{world_},
+                                                 decision_candidates);
+      cycle.insert(cycle.end(), returned.trace.begin(), returned.trace.end());
+      cognitive_vetoes = returned.vetoes;
+      viable = returned.survivors;
+      if (returned.decision) {
+        result = *returned.decision;
+        decided = true;
+      }
+    }
+  }
+
+  if (!decided && enforcer_enabled_ && world_.mission.active() &&
+      world_.mission.active()->waypoint()) {
+    const auto action = enforcerAction(viable);
+    cycle.push_back({0U, "tier1", "Enforcer", viable, action, {},
+                     action ? "operational_action_selected"
+                            : "no_viable_operational_action_continue",
+                     false,
+                     action ? std::optional<DecisionTier>(DecisionTier::TierOne)
+                            : std::nullopt});
+    if (action) {
+      result.action = *action;
+      result.source = DecisionSource::MandatoryRule;
+      result.tier = DecisionTier::TierOne;
+      result.selected_policy = "mandatory_rule:Enforcer";
+      decided = true;
+    }
+  }
+
+  if (!decided) {
+    auto reactive = reactive_.evaluateDetailed({world_, action_space_}, viable);
+    cycle.insert(cycle.end(), reactive.trace.begin(), reactive.trace.end());
+    if (reactive.result.status == planning::ReactiveStatus::Action &&
+        reactive.result.action &&
+        std::find(viable.begin(), viable.end(), *reactive.result.action) !=
+            viable.end()) {
+      result.action = *reactive.result.action;
+      result.source = DecisionSource::MandatoryRule;
+      result.tier = DecisionTier::TierOne;
+      result.selected_policy = "reactive:" + reactive.result.planner;
+      decided = true;
+    }
+  }
+
+  const bool lle_eligible = world_.recovery.plan_abandoned ||
+                            world_.recovery.completed_plan_failed_target ||
+                            lle_in_progress;
+  if (!decided && low_level_exploration_enabled_ && lle_eligible) {
+    const auto lle = lle_->evaluate({world_, action_space_});
+    const bool lle_action_viable =
+        lle.status != planning::ReactiveStatus::Action || !lle.action ||
+        std::find(viable.begin(), viable.end(), *lle.action) != viable.end();
+    DecisionCycleEvent event{0U, "tier1", "LLE", viable, lle.action, {}};
+    event.outcome = !lle_action_viable
+                        ? "reactive_action_not_viable_continue"
+                    : lle.status == planning::ReactiveStatus::Action
+                        ? "reactive_action_selected"
+                    : lle.status == planning::ReactiveStatus::RequestReplan
+                        ? "replan_requested_continue"
+                        : "not_applicable_continue";
+    if (lle.status == planning::ReactiveStatus::Action && lle_action_viable)
+      event.final_attribution = DecisionTier::TierOne;
+    cycle.push_back(std::move(event));
+    if (lle.status == planning::ReactiveStatus::RequestReplan &&
+        world_.mission.active()) {
+      mission_.clearPlan();
+      planning_.clearCache();
+      world_.recovery.confined = true;
+      world_.recovery.planning_attempted = false;
+      world_.recovery.plan_available = false;
+      world_.recovery.completed_plan_failed_target = false;
+      world_.recovery.tier_two_attempts = 0U;
+      world_.recovery.consecutive_immediate_plan_failures = 0U;
+      world_.recovery.plan_abandoned = false;
+    } else if (lle.status == planning::ReactiveStatus::Action && lle.action &&
+               std::find(viable.begin(), viable.end(), *lle.action) !=
+                   viable.end()) {
+      result.action = *lle.action;
+      result.source = DecisionSource::MandatoryRule;
+      result.tier = DecisionTier::TierOne;
+      result.selected_policy = "reactive:LLE";
+      if (const auto* explorer =
+              dynamic_cast<const planning::LowLevelExplorer*>(lle_.get()))
+        result.selected_policy += ":" + explorer->lastTriggerReasonCode();
+      decided = true;
+    }
+  }
+
+  if (!decided) {
+    result = decisions_.decideTierThree(DecisionContext{world_}, viable);
+    cycle.insert(cycle.end(), result.decision_cycle.begin(),
+                 result.decision_cycle.end());
+  }
+  result.decision_cycle = std::move(cycle);
+  result.vetoes = std::move(cognitive_vetoes);
   result.vetoes.insert(result.vetoes.begin(),
                        std::make_move_iterator(hard_vetoes.begin()),
                        std::make_move_iterator(hard_vetoes.end()));
@@ -416,6 +613,7 @@ DecisionResult NavigationEngine::decide() {
   result.configuration_fingerprint = configuration_fingerprint_;
   result.component_manifest = component_manifest_;
   result.phase_events.swap(pending_phase_events_);
+  appendCycleDiagnostics(result);
   result.candidates = decision_candidates;
   result.planner = selected_planner;
   result.planning_latency_s = planning_latency_s;

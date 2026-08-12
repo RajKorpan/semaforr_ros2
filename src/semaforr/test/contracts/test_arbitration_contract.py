@@ -29,5 +29,6 @@ def test_vetoed_actions_cannot_reenter_aggregation():
     source = (SOURCE_DIR / "src/decision/decision_coordinator.cpp").read_text(
         encoding="utf-8"
     )
-    assert "vetoed.contains(candidate)" in source
+    assert "std::erase_if(pass.survivors" in source
+    assert "vetoed.contains(action)" in source
     assert "scored an unavailable or vetoed action" in source

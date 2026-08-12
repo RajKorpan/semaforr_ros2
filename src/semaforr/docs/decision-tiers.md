@@ -3,6 +3,30 @@
 SemaFORR uses a strict hierarchy. Higher tiers constrain or bypass lower tiers;
 an action vetoed by Tier 1 cannot re-enter Tier 3 aggregation.
 
+## Compatibility decision cycle
+
+Target-navigation decisions execute this observable cycle:
+
+1. Hard safety removes actions that violate the platform envelope.
+2. Tier-1 mandatory rules run in registered order. The first viable mandate
+   ends the cycle immediately.
+3. Tier-1 veto rules successively reduce the viable action set. No survivors
+   produces a safe stop; exactly one survivor selects that action as Tier 1.
+4. If the task has no waypoint, Tier 2 gets one planning attempt and returns
+   control to Tier 1. Mandatory rules and vetoes are evaluated again against
+   the same hard-safe candidate set.
+5. When a plan exists, Enforcer gets the first opportunity to operationalize
+   its current waypoint.
+6. Only if Enforcer cannot act are `Thru`, `Behind`, `Out`, and then LLE
+   evaluated. Reactive state persists between cycles, but does not preempt a
+   newly applicable Victory or Enforcer decision.
+7. Tier 3 scores the surviving actions only when Tier 1 has not selected one.
+
+Every step appends a `DecisionCycleEvent` with its ordinal, tier, component,
+input action set, mandate, vetoes, continuation/return reason, and final tier
+attribution. The same compact trace is exposed in runtime phase diagnostics as
+`decision_cycle:*` records.
+
 ## Tier 1: mandatory rules and vetoes
 
 Every configured Tier-1 name is resolved by `TierOneRegistry`; the adapter
@@ -33,6 +57,15 @@ planners receive a `PlanningRequest` and return a typed result:
 records the selected planner, and installs waypoints. A failed planner cannot
 silently leave a partially mutated plan.
 
+Immediate planning failure is bounded by
+`tiers.tier2.maximum_planning_attempts_per_task` (default `3`). Each failure
+returns to Tier 1 for the current cycle. Once the consecutive-failure limit is
+reached, the plan is marked abandoned and LLE becomes eligible. A successful
+plan resets consecutive failures. A task transition resets all attempt state;
+an LLE connectivity-triggered replan explicitly starts a fresh attempt series.
+This prevents an unbounded Tier-2/Tier-1 loop while preserving a traceable
+recovery point.
+
 Reactive planners use a common trigger/update/cancel contract. LLE is stateful
 and temporarily owns Tier-1 actions while it assembles and pursues candidates
 from unfinished HLE cues, the current scan, stored region visibility, and
@@ -41,9 +74,9 @@ replanning request. Target sensing, a new plan, candidate exhaustion, absence
 of candidates, budget exhaustion, sensor loss, and mission changes remain
 distinct completion or cancellation reasons.
 
-Registered mandatory rules are evaluated before LLE. Victory therefore owns
-direct visible-target motion, and an Enforcer-produced waypoint counts as
-available guidance. LLE's selected-policy diagnostic includes its trigger
+Registered mandatory rules and a successful Enforcer action are evaluated
+before LLE. Victory therefore owns direct visible-target motion, and an
+Enforcer-produced waypoint counts as available guidance. LLE's selected-policy diagnostic includes its trigger
 reason (`no_plan_available`, `completed_plan_failed_target`, or the explicitly
 modernized `stalled_history_extension`).
 
@@ -63,8 +96,8 @@ fallback is used. If no candidate survives, the result is a safe `Pause`.
 ## Decision result
 
 Every cycle returns a value containing the action, `DecisionSource`, Tier 1
-vetoes, Tier 3 contributions, optional planner, sequence number, latency, and
-execution outcome. The ROS adapter projects it to
+vetoes, Tier 3 contributions, complete `decision_cycle` trace, optional
+planner, sequence number, latency, and execution outcome. The ROS adapter projects it to
 `semaforr_msgs/msg/DecisionRecord`; decision logic never depends on that ROS
 message.
 

@@ -82,6 +82,78 @@ class CapturingLearner final : public semaforr::spatial::SpatialLearner {
       semaforr::spatial::UpdateSchedule::AfterSuccessfulActionCompletion};
 };
 
+class CountingReactive final : public semaforr::planning::ReactivePlanner {
+ public:
+  explicit CountingReactive(semaforr::domain::Action action)
+      : action_(action) {}
+  std::string_view name() const noexcept override { return "counting_reactive"; }
+  std::vector<std::string_view> dependencies() const override { return {}; }
+  semaforr::planning::TriggerEvaluation evaluateTrigger(
+      const semaforr::decision::DecisionContext&) const override {
+    ++trigger_count;
+    return {true, "always active for ordering test"};
+  }
+  semaforr::planning::ReactivePlanUpdate update(
+      const semaforr::decision::DecisionContext&) override {
+    ++update_count;
+    semaforr::planning::ReactivePlanUpdate result;
+    result.status = semaforr::planning::ReactiveStatus::Action;
+    result.action = action_;
+    result.explanation = "ordering test action";
+    return result;
+  }
+  void cancel(semaforr::planning::InterruptionReason) override {
+    ++cancel_count;
+  }
+
+  mutable std::size_t trigger_count = 0U;
+  std::size_t update_count = 0U;
+  std::size_t cancel_count = 0U;
+
+ private:
+  semaforr::domain::Action action_;
+};
+
+class FixedPlanner final : public semaforr::planning::Planner {
+ public:
+  explicit FixedPlanner(bool succeeds) : succeeds_(succeeds) {}
+  std::string_view name() const noexcept override { return "fixed_planner"; }
+  semaforr::planning::PlanResult plan(
+      const semaforr::planning::PlanningRequest& request) override {
+    ++calls;
+    if (!succeeds_)
+      return {semaforr::planning::PlanStatus::NoPath, {}, 0.0, "no path"};
+    return {semaforr::planning::PlanStatus::Success, {request.goal},
+            semaforr::domain::distance(request.start.position, request.goal)
+                .meters(),
+            "test plan"};
+  }
+
+  std::size_t calls = 0U;
+
+ private:
+  bool succeeds_;
+};
+
+void completeSelectedAction(semaforr::decision::NavigationEngine& engine,
+                            const semaforr::decision::DecisionResult& result,
+                            const semaforr::domain::Pose2D& pose) {
+  const auto now = std::chrono::steady_clock::now();
+  ASSERT_EQ(engine.onActionStarted(
+                {result.decision_id, result.action_id, now, pose}),
+            semaforr::domain::FeedbackDisposition::Accepted);
+  semaforr::domain::ActionExecutionResult execution;
+  execution.decision_id = result.decision_id;
+  execution.action_id = result.action_id;
+  execution.task_id = semaforr::domain::TaskId{1U};
+  execution.finished_at = now;
+  execution.status = semaforr::domain::ExecutionCompletionStatus::Succeeded;
+  execution.start_pose = pose;
+  execution.final_pose = pose;
+  ASSERT_EQ(engine.onActionCompleted(execution),
+            semaforr::domain::FeedbackDisposition::Accepted);
+}
+
 }  // namespace
 
 TEST(SpatialLearning, DefaultModulesDeclareLifecycleAndConsumers) {
@@ -411,6 +483,128 @@ TEST(NavigationEngine, VictoryPrecedesLowLevelExplorationWhenNoPlanExists) {
   const auto result = engine.decide(input);
   EXPECT_EQ(result.selected_policy, "mandatory_rule:Victory");
   EXPECT_EQ(result.selected_policy.find("LLE"), std::string::npos);
+}
+
+TEST(NavigationEngine, VictoryStopsBeforeEnforcerAndReactivePlanners) {
+  using namespace semaforr;
+  domain::WorldModel world;
+  world.mission = domain::Mission({{1U, {2.0, 0.0}}}, 10U);
+  ASSERT_TRUE(world.mission.activate_next());
+  world.mission.install_active_plan({{1.0, 0.0}});
+  const domain::ActionSpace action_space({0.2, 1.0}, {0.5});
+  decision::DecisionCoordinator decisions;
+  decisions.addMandatoryRule(std::make_unique<decision::VictoryRule>(
+      domain::Distance(0.2), action_space));
+  decision::MissionManager mission(world.mission);
+  planning::PlanningCoordinator planning;
+  spatial::SpatialLearningCoordinator learning(100U);
+  auto reactive = std::make_unique<CountingReactive>(
+      domain::Action(domain::ActionType::TurnLeft, 1U));
+  CountingReactive* reactive_observer = reactive.get();
+  std::vector<std::unique_ptr<planning::ReactivePlanner>> reactives;
+  reactives.push_back(std::move(reactive));
+  decision::NavigationEngine engine(
+      world, action_space, decisions, mission, planning, learning, nullptr,
+      domain::Distance(0.2), nullptr, nullptr, {}, {}, std::move(reactives),
+      true, true);
+  auto input = episode(1U, 0.0, true).observation;
+  input.laser.ranges_m = {5.0, 5.0, 2.0, 5.0, 5.0};
+
+  const auto result = engine.decide(input);
+  EXPECT_EQ(result.selected_policy, "mandatory_rule:Victory");
+  EXPECT_EQ(reactive_observer->trigger_count, 0U);
+  EXPECT_EQ(reactive_observer->update_count, 0U);
+  ASSERT_FALSE(result.decision_cycle.empty());
+  EXPECT_EQ(result.decision_cycle.front().component, "Victory");
+  EXPECT_EQ(result.decision_cycle.front().final_attribution,
+            decision::DecisionTier::TierOne);
+}
+
+TEST(NavigationEngine, TierTwoReturnsToTierOneAndEnforcerPrecedesReactive) {
+  using namespace semaforr;
+  domain::WorldModel world;
+  world.mission = domain::Mission({{1U, {4.0, 0.0}}}, 10U);
+  const domain::ActionSpace action_space({0.2, 1.0}, {0.5});
+  decision::DecisionCoordinator decisions;
+  decision::MissionManager mission(world.mission);
+  planning::PlanningCoordinator planning;
+  auto planner = std::make_unique<FixedPlanner>(true);
+  FixedPlanner* planner_observer = planner.get();
+  planning.registerPlanner(std::move(planner));
+  spatial::SpatialLearningCoordinator learning(100U);
+  auto reactive = std::make_unique<CountingReactive>(
+      domain::Action(domain::ActionType::TurnLeft, 1U));
+  CountingReactive* reactive_observer = reactive.get();
+  std::vector<std::unique_ptr<planning::ReactivePlanner>> reactives;
+  reactives.push_back(std::move(reactive));
+  decision::NavigationEngine engine(
+      world, action_space, decisions, mission, planning, learning, nullptr,
+      domain::Distance(0.2), nullptr, nullptr, {}, {}, std::move(reactives),
+      true, true);
+  auto input = episode(1U, 0.0, true).observation;
+  input.laser.ranges_m.assign(input.laser.ranges_m.size(), 1.0);
+
+  const auto result = engine.decide(input);
+  EXPECT_EQ(planner_observer->calls, 1U);
+  EXPECT_EQ(result.selected_policy, "mandatory_rule:Enforcer");
+  EXPECT_EQ(result.tier, decision::DecisionTier::TierOne);
+  EXPECT_EQ(reactive_observer->trigger_count, 0U);
+  const auto tier_two = std::find_if(
+      result.decision_cycle.begin(), result.decision_cycle.end(),
+      [](const auto& event) { return event.tier == "tier2"; });
+  const auto enforcer = std::find_if(
+      result.decision_cycle.begin(), result.decision_cycle.end(),
+      [](const auto& event) { return event.component == "Enforcer"; });
+  ASSERT_NE(tier_two, result.decision_cycle.end());
+  ASSERT_NE(enforcer, result.decision_cycle.end());
+  EXPECT_TRUE(tier_two->returned_to_earlier_tier);
+  EXPECT_LT(tier_two->order, enforcer->order);
+  EXPECT_NE(tier_two->outcome.find("attempt=1"), std::string::npos);
+}
+
+TEST(NavigationEngine, RepeatedImmediateTierTwoFailureIsBounded) {
+  using namespace semaforr;
+  domain::WorldModel world;
+  world.mission = domain::Mission({{1U, {4.0, 0.0}}}, 10U);
+  const domain::ActionSpace action_space({0.2, 1.0}, {0.5});
+  decision::DecisionCoordinator decisions;
+  decision::MissionManager mission(world.mission);
+  planning::PlanningCoordinator planning;
+  auto planner = std::make_unique<FixedPlanner>(false);
+  FixedPlanner* planner_observer = planner.get();
+  planning.registerPlanner(std::move(planner));
+  spatial::SpatialLearningCoordinator learning(100U);
+  decision::NavigationEngine engine(
+      world, action_space, decisions, mission, planning, learning, nullptr,
+      domain::Distance(0.2), nullptr, nullptr, {}, {}, {}, false, true, {},
+      nullptr, nullptr, {}, 2U);
+  auto input = episode(1U, 0.0, true).observation;
+  input.laser.ranges_m.assign(input.laser.ranges_m.size(), 1.0);
+
+  const auto first = engine.decide(input);
+  EXPECT_FALSE(world.recovery.plan_abandoned);
+  completeSelectedAction(engine, first, input.pose);
+  const auto second = engine.decide(input);
+  EXPECT_TRUE(world.recovery.plan_abandoned);
+  EXPECT_EQ(world.recovery.tier_two_attempts, 2U);
+  // The second Tier-2 attempt reuses the revision-keyed NoPath result; the
+  // attempt counter still advances even though the planner body need not run.
+  EXPECT_EQ(planner_observer->calls, 1U);
+  const auto failure = std::find_if(
+      second.decision_cycle.begin(), second.decision_cycle.end(),
+      [](const auto& event) {
+        return event.outcome.find("abandoned_lle_eligible:attempt=2") !=
+               std::string::npos;
+      });
+  ASSERT_NE(failure, second.decision_cycle.end());
+  completeSelectedAction(engine, second, input.pose);
+  const auto third = engine.decide(input);
+  EXPECT_EQ(planner_observer->calls, 1U);
+  EXPECT_TRUE(std::any_of(
+      third.decision_cycle.begin(), third.decision_cycle.end(),
+      [](const auto& event) {
+        return event.outcome == "planning_abandoned_lle_eligible";
+      }));
 }
 
 TEST(SpatialLearning, InitialExplorationFinalizationPublishesGraphModels) {

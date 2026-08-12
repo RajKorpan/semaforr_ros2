@@ -8,6 +8,7 @@
 #include <random>
 #include <semaforr/decision/context.hpp>
 #include <semaforr/decision/rules.hpp>
+#include <span>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -135,11 +136,18 @@ class Out final : public ReactivePlanner {
 
 class ReactivePlannerCoordinator {
  public:
+  struct Evaluation {
+    ReactiveResult result;
+    std::vector<decision::DecisionCycleEvent> trace;
+  };
   ReactivePlannerCoordinator();
   explicit ReactivePlannerCoordinator(
       std::vector<std::unique_ptr<ReactivePlanner>> planners);
   void add(std::unique_ptr<ReactivePlanner> planner);
   ReactiveResult evaluate(const ReactiveRequest& request);
+  Evaluation evaluateDetailed(
+      const ReactiveRequest& request,
+      std::span<const domain::Action> viable_actions);
   void cancelAll(InterruptionReason);
 
  private:

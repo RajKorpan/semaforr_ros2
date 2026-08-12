@@ -18,6 +18,7 @@ semaforr:
         reactive_planners: [thru, behind, out, low_level_exploration]
       tier2:
         enabled: true
+        maximum_planning_attempts_per_task: 3
       tier3:
         enabled: true
 

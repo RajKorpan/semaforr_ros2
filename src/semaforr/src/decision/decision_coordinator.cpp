@@ -55,6 +55,94 @@ std::optional<DecisionResult> DecisionCoordinator::mandatoryDecision(
   return std::nullopt;
 }
 
+TierOnePass DecisionCoordinator::evaluateTierOne(
+    const DecisionContext& context,
+    std::span<const Action> candidates) const {
+  TierOnePass pass;
+  pass.survivors.assign(candidates.begin(), candidates.end());
+  std::sort(pass.survivors.begin(), pass.survivors.end());
+  pass.survivors.erase(
+      std::unique(pass.survivors.begin(), pass.survivors.end()),
+      pass.survivors.end());
+  for (const auto& rule : mandatory_rules_) {
+    DecisionCycleEvent event;
+    event.tier = "tier1";
+    event.component = std::string(rule->name());
+    event.input_actions = pass.survivors;
+    if (auto decision = rule->evaluate(context)) {
+      if (std::binary_search(pass.survivors.begin(), pass.survivors.end(),
+                             decision->action)) {
+        event.mandate = decision->action;
+        event.outcome = "mandated_action";
+        event.final_attribution = DecisionTier::TierOne;
+        event.order = pass.trace.size() + 1U;
+        pass.trace.push_back(std::move(event));
+        DecisionResult result;
+        result.action = decision->action;
+        result.source = DecisionSource::MandatoryRule;
+        result.tier = DecisionTier::TierOne;
+        result.selected_policy = "mandatory_rule:" + decision->rule;
+        result.decision_cycle = pass.trace;
+        pass.decision = std::move(result);
+        return pass;
+      }
+      event.outcome = "mandate_not_viable_continue";
+    } else {
+      event.outcome = "no_mandate_continue";
+    }
+    event.order = pass.trace.size() + 1U;
+    pass.trace.push_back(std::move(event));
+  }
+
+  for (const auto& rule : veto_rules_) {
+    DecisionCycleEvent event;
+    event.tier = "tier1";
+    event.component = std::string(rule->name());
+    event.input_actions = pass.survivors;
+    event.vetoes = rule->evaluate(context);
+    pass.vetoes.insert(pass.vetoes.end(), event.vetoes.begin(),
+                       event.vetoes.end());
+    std::set<Action> vetoed;
+    for (const auto& veto : event.vetoes) vetoed.insert(veto.action);
+    std::erase_if(pass.survivors,
+                  [&](const auto& action) { return vetoed.contains(action); });
+    event.outcome = event.vetoes.empty() ? "no_veto_continue"
+                                         : "vetoes_applied_continue";
+    event.order = pass.trace.size() + 1U;
+    pass.trace.push_back(std::move(event));
+  }
+  std::sort(pass.vetoes.begin(), pass.vetoes.end(), vetoLess);
+
+  if (pass.survivors.empty()) {
+    DecisionResult result;
+    result.action = Action::pause();
+    result.source = DecisionSource::SafeStop;
+    result.tier = DecisionTier::SafeStop;
+    result.selected_policy = "no_safe_candidate";
+    result.vetoes = pass.vetoes;
+    result.decision_cycle = pass.trace;
+    result.decision_cycle.push_back(
+        {result.decision_cycle.size() + 1U, "tier1", "viable_action_set", {},
+         std::nullopt, {}, "no_survivor_safe_stop", false,
+         DecisionTier::SafeStop});
+    pass.decision = std::move(result);
+  } else if (pass.survivors.size() == 1U) {
+    DecisionResult result;
+    result.action = pass.survivors.front();
+    result.source = DecisionSource::MandatoryRule;
+    result.tier = DecisionTier::TierOne;
+    result.selected_policy = "tier1:only_surviving_action";
+    result.vetoes = pass.vetoes;
+    result.decision_cycle = pass.trace;
+    result.decision_cycle.push_back(
+        {result.decision_cycle.size() + 1U, "tier1", "viable_action_set",
+         pass.survivors, pass.survivors.front(), {},
+         "single_survivor_selected", false, DecisionTier::TierOne});
+    pass.decision = std::move(result);
+  }
+  return pass;
+}
+
 void DecisionCoordinator::addMandatoryRule(
     std::unique_ptr<MandatoryRule> rule) {
   if (!rule) {
@@ -77,31 +165,10 @@ void DecisionCoordinator::addAdvisor(std::unique_ptr<Advisor> advisor) {
   advisors_.push_back(std::move(advisor));
 }
 
-DecisionResult DecisionCoordinator::decide(const DecisionContext& context,
-                                           std::span<const Action> candidates) {
-  if (auto mandatory = mandatoryDecision(context, candidates))
-    return *mandatory;
-
+DecisionResult DecisionCoordinator::decideTierThree(
+    const DecisionContext& context, std::span<const Action> candidates) {
   DecisionResult result;
-  for (const auto& rule : veto_rules_) {
-    auto vetoes = rule->evaluate(context);
-    result.vetoes.insert(result.vetoes.end(),
-                         std::make_move_iterator(vetoes.begin()),
-                         std::make_move_iterator(vetoes.end()));
-  }
-  std::sort(result.vetoes.begin(), result.vetoes.end(), vetoLess);
-
-  std::set<Action> vetoed;
-  for (const auto& veto : result.vetoes) {
-    vetoed.insert(veto.action);
-  }
-
-  std::vector<Action> survivors;
-  for (const Action& candidate : candidates) {
-    if (!vetoed.contains(candidate)) {
-      survivors.push_back(candidate);
-    }
-  }
+  std::vector<Action> survivors(candidates.begin(), candidates.end());
   std::sort(survivors.begin(), survivors.end());
   survivors.erase(std::unique(survivors.begin(), survivors.end()),
                   survivors.end());
@@ -110,6 +177,9 @@ DecisionResult DecisionCoordinator::decide(const DecisionContext& context,
     result.source = DecisionSource::SafeStop;
     result.tier = DecisionTier::SafeStop;
     result.selected_policy = "no_safe_candidate";
+    result.decision_cycle.push_back(
+        {1U, "tier3", "viable_action_set", {}, std::nullopt, {},
+         "no_survivor_safe_stop", false, DecisionTier::SafeStop});
     return result;
   }
 
@@ -127,6 +197,12 @@ DecisionResult DecisionCoordinator::decide(const DecisionContext& context,
 
   for (const auto& advisor : advisors_) {
     const AdvisorEvaluation evaluation = advisor->evaluate(context, survivors);
+    result.decision_cycle.push_back(
+        {result.decision_cycle.size() + 1U, "tier3",
+         std::string(advisor->name()), survivors, std::nullopt, {},
+         evaluation.participated ? "advisor_scored_continue"
+                                : "advisor_not_applicable_continue",
+         false, std::nullopt});
     if (!evaluation.participated) {
       continue;
     }
@@ -173,6 +249,10 @@ DecisionResult DecisionCoordinator::decide(const DecisionContext& context,
       result.tier = DecisionTier::SafeStop;
       result.selected_policy = "no_advisor_score";
     }
+    result.decision_cycle.push_back(
+        {result.decision_cycle.size() + 1U, "tier3", "tier3_fallback",
+         survivors, result.action, {}, result.selected_policy, false,
+         result.tier});
     return result;
   }
 
@@ -203,6 +283,23 @@ DecisionResult DecisionCoordinator::decide(const DecisionContext& context,
   result.source = DecisionSource::TierThreeAdvisor;
   result.tier = DecisionTier::TierThree;
   result.selected_policy = "advisor_arbitration";
+  result.decision_cycle.push_back(
+      {result.decision_cycle.size() + 1U, "tier3", "advisor_arbitration",
+       survivors, result.action, {}, "advisor_vote_selected", false,
+       DecisionTier::TierThree});
+  return result;
+}
+
+DecisionResult DecisionCoordinator::decide(
+    const DecisionContext& context, std::span<const Action> candidates) {
+  auto tier_one = evaluateTierOne(context, candidates);
+  if (tier_one.decision) return *tier_one.decision;
+  auto result = decideTierThree(context, tier_one.survivors);
+  result.vetoes = std::move(tier_one.vetoes);
+  result.decision_cycle.insert(result.decision_cycle.begin(),
+                               tier_one.trace.begin(), tier_one.trace.end());
+  for (std::size_t index = 0U; index < result.decision_cycle.size(); ++index)
+    result.decision_cycle[index].order = index + 1U;
   return result;
 }
 

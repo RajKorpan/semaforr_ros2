@@ -113,6 +113,7 @@ void declareConfigurationParameters(rclcpp::Node& node) {
       "exploration.reactive.stalled_history_extension", true);
   node.declare_parameter("exploration.reactive.closest_target_bin_m", 1.0);
   node.declare_parameter("exploration.opportunistic.enabled", false);
+  node.declare_parameter("tiers.tier2.maximum_planning_attempts_per_task", 3);
   node.declare_parameter("social.enabled", true);
   node.declare_parameter("social.observations.enabled", true);
   node.declare_parameter("social.advisors.enabled", true);
@@ -549,6 +550,13 @@ config::Configuration configurationFromParameters(rclcpp::Node& node) {
           .as_double();
   configuration.experiment.opportunistic_exploration =
       node.get_parameter("exploration.opportunistic.enabled").as_bool();
+  const auto maximum_planning_attempts = node.get_parameter(
+      "tiers.tier2.maximum_planning_attempts_per_task").as_int();
+  if (maximum_planning_attempts <= 0)
+    throw std::runtime_error(
+        "tiers.tier2.maximum_planning_attempts_per_task must be positive");
+  configuration.experiment.tiers.maximum_planning_attempts_per_task =
+      static_cast<std::size_t>(maximum_planning_attempts);
   configuration.experiment.social_enabled =
       node.get_parameter("social.enabled").as_bool();
   configuration.experiment.social.enabled =

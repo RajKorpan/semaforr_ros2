@@ -23,6 +23,13 @@ struct ArbitrationConfiguration {
   std::uint32_t random_seed{0U};
 };
 
+struct TierOnePass {
+  std::optional<DecisionResult> decision;
+  std::vector<domain::Action> survivors;
+  std::vector<Veto> vetoes;
+  std::vector<DecisionCycleEvent> trace;
+};
+
 class DecisionCoordinator {
  public:
   explicit DecisionCoordinator(ArbitrationConfiguration configuration = {});
@@ -36,6 +43,12 @@ class DecisionCoordinator {
   std::optional<DecisionResult> mandatoryDecision(
       const DecisionContext& context,
       std::span<const domain::Action> candidates) const;
+  TierOnePass evaluateTierOne(
+      const DecisionContext& context,
+      std::span<const domain::Action> candidates) const;
+  DecisionResult decideTierThree(
+      const DecisionContext& context,
+      std::span<const domain::Action> candidates);
 
  private:
   ArbitrationConfiguration configuration_;

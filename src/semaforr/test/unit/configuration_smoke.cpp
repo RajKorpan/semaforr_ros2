@@ -70,6 +70,9 @@ int main() {
                    "behavior_mode:modernized") != manifest.end());
   assert(std::find(manifest.begin(), manifest.end(),
                    "spatial_learning_profile:modernized") != manifest.end());
+  assert(std::find(manifest.begin(), manifest.end(),
+                   "tier2_maximum_planning_attempts_per_task:3") !=
+         manifest.end());
   for (const std::string profile :
        {"full", "tier1_only", "tier1_tier3", "tier3_only",
         "tier1_tier2_tier3", "no_initial_exploration",
@@ -136,6 +139,23 @@ int main() {
           semaforr::config::validateConfiguration(unavailable);
         },
         "compatibility' is reserved but not operational");
+  }
+  {
+    auto invalid = valid;
+    invalid.experiment.tiers.maximum_planning_attempts_per_task = 0U;
+    assertThrowsContaining(
+        [&invalid]() { semaforr::config::validateConfiguration(invalid); },
+        "maximum_planning_attempts_per_task");
+  }
+  {
+    auto changed = valid;
+    changed.experiment.tiers.maximum_planning_attempts_per_task = 7U;
+    assert(semaforr::config::configurationFingerprint(changed) !=
+           semaforr::config::configurationFingerprint(valid));
+    const auto changed_manifest = semaforr::config::componentManifest(changed);
+    assert(std::find(changed_manifest.begin(), changed_manifest.end(),
+                     "tier2_maximum_planning_attempts_per_task:7") !=
+           changed_manifest.end());
   }
   {
     auto invalid = valid;

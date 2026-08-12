@@ -100,7 +100,9 @@ TEST(ObstacleVetoRule, VetoesOnlyForwardActionsThatReachTheObstacle) {
   ASSERT_EQ(result.vetoes.size(), 2U);
   EXPECT_EQ(result.vetoes[0].action, Action(ActionType::Forward, 2U));
   EXPECT_EQ(result.vetoes[1].action, Action(ActionType::Forward, 3U));
-  EXPECT_EQ(result.action, Action::pause());
+  EXPECT_EQ(result.action, Action(ActionType::Forward, 1U));
+  EXPECT_EQ(result.tier, semaforr::decision::DecisionTier::TierOne);
+  EXPECT_EQ(result.selected_policy, "tier1:only_surviving_action");
 }
 
 TEST(SpatialRelationships, RegionsAndDoorsUseTheSameMetricGeometry) {
