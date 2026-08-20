@@ -51,7 +51,10 @@ class FixedAdvisor final : public Advisor {
 
 class FixedVeto final : public VetoRule {
  public:
-  explicit FixedVeto(Action action) : action_(action) {}
+  explicit FixedVeto(Action action, std::string name = "veto_rule")
+      : action_(action), name_(std::move(name)) {}
+
+  std::string_view name() const noexcept override { return name_; }
 
   std::vector<Veto> evaluate(const DecisionContext&) const override {
     return {{action_, "test-veto", "blocked for test"}};
@@ -59,6 +62,7 @@ class FixedVeto final : public VetoRule {
 
  private:
   Action action_;
+  std::string name_;
 };
 
 class FixedMandatory final : public MandatoryRule {
@@ -262,6 +266,45 @@ TEST(DecisionCoordinator, MandateStopsBeforeVetoesAndTierThree) {
   EXPECT_EQ(result.decision_cycle.front().outcome, "mandated_action");
   EXPECT_EQ(result.decision_cycle.front().final_attribution,
             DecisionTier::TierOne);
+}
+
+TEST(DecisionCoordinator, StagedTierOnePreservesRegisteredSemanticOrder) {
+  auto model = world();
+  const Action forward(ActionType::Forward, 1U);
+  const Action left(ActionType::TurnLeft, 1U);
+  const Action right(ActionType::TurnRight, 1U);
+  const std::vector<Action> candidates{forward, left, right};
+  DecisionCoordinator coordinator;
+  coordinator.addMandatoryRule(
+      std::make_unique<FixedMandatory>("Victory", std::nullopt));
+  coordinator.addVetoRule(
+      std::make_unique<FixedVeto>(Action::pause(), "AvoidObstacles"));
+  coordinator.addVetoRule(
+      std::make_unique<FixedVeto>(Action::pause(), "NotOpposite"));
+  coordinator.addVetoRule(
+      std::make_unique<FixedVeto>(forward, "Forward"));
+  coordinator.addVetoRule(
+      std::make_unique<FixedVeto>(left, "Precedent"));
+
+  const auto early = coordinator.evaluateTierOneStage(
+      DecisionContext{model}, candidates,
+      semaforr::decision::TierOneStage::BeforeEnforcer);
+  ASSERT_EQ(early.trace.size(), 3U);
+  EXPECT_EQ(early.trace[0].component, "Victory");
+  EXPECT_EQ(early.trace[1].component, "AvoidObstacles");
+  EXPECT_EQ(early.trace[2].component, "NotOpposite");
+  auto ordered_candidates = candidates;
+  std::sort(ordered_candidates.begin(), ordered_candidates.end());
+  EXPECT_EQ(early.survivors, ordered_candidates);
+
+  const auto late = coordinator.evaluateTierOneStage(
+      DecisionContext{model}, early.survivors,
+      semaforr::decision::TierOneStage::AfterLowLevelExploration);
+  ASSERT_EQ(late.trace.size(), 2U);
+  EXPECT_EQ(late.trace[0].component, "Forward");
+  EXPECT_EQ(late.trace[1].component, "Precedent");
+  ASSERT_EQ(late.survivors.size(), 1U);
+  EXPECT_EQ(late.survivors.front(), right);
 }
 
 TEST(DecisionCoordinator, TierThreeRunsOnlyAfterTierOneContinues) {

@@ -41,6 +41,12 @@ struct TierOnePass {
   std::vector<DecisionCycleEvent> trace;
 };
 
+// The rules owned by DecisionCoordinator surround the Tier-1 components that
+// are stateful engine subsystems (Enforcer, reactive planners, and LLE).
+// Keeping these stages explicit prevents C++ interface type (mandatory versus
+// veto) from changing the cognitive order.
+enum class TierOneStage { BeforeEnforcer, AfterLowLevelExploration, All };
+
 class DecisionCoordinator {
  public:
   explicit DecisionCoordinator(ArbitrationConfiguration configuration = {});
@@ -57,15 +63,26 @@ class DecisionCoordinator {
   TierOnePass evaluateTierOne(
       const DecisionContext& context,
       std::span<const domain::Action> candidates) const;
+  TierOnePass evaluateTierOneStage(
+      const DecisionContext& context,
+      std::span<const domain::Action> candidates,
+      TierOneStage stage) const;
   DecisionResult decideTierThree(
       const DecisionContext& context,
       std::span<const domain::Action> candidates);
 
  private:
+  enum class RegisteredRuleKind { Mandatory, Veto };
+  struct RegisteredRule {
+    RegisteredRuleKind kind;
+    std::size_t index;
+  };
+
   ArbitrationConfiguration configuration_;
   std::mt19937 random_;
   std::vector<std::unique_ptr<MandatoryRule>> mandatory_rules_;
   std::vector<std::unique_ptr<VetoRule>> veto_rules_;
+  std::vector<RegisteredRule> tier_one_order_;
   std::vector<std::unique_ptr<Advisor>> advisors_;
 };
 

@@ -473,8 +473,9 @@ DecisionResult NavigationEngine::decide() {
                      hard_vetoes.empty() ? "no_veto_continue"
                                          : "safety_vetoes_applied_continue"});
   }
-  auto tier_one =
-      decisions_.evaluateTierOne(DecisionContext{world_}, decision_candidates);
+  auto tier_one = decisions_.evaluateTierOneStage(
+      DecisionContext{world_}, decision_candidates,
+      TierOneStage::BeforeEnforcer);
   cycle.insert(cycle.end(), tier_one.trace.begin(), tier_one.trace.end());
   std::vector<Veto> cognitive_vetoes = tier_one.vetoes;
   std::vector<domain::Action> viable = tier_one.survivors;
@@ -489,6 +490,16 @@ DecisionResult NavigationEngine::decide() {
       lle_->cancel(planning::InterruptionReason::TargetSensed);
     }
   }
+  if (!decided && viable.empty()) {
+    result.action = domain::Action::pause();
+    result.source = DecisionSource::SafeStop;
+    result.tier = DecisionTier::SafeStop;
+    result.selected_policy = "no_safe_candidate";
+    cycle.push_back({0U, "tier1", "viable_action_set", {}, std::nullopt, {},
+                     "no_survivor_safe_stop", false,
+                     DecisionTier::SafeStop});
+    decided = true;
+  }
 
   std::optional<std::string> selected_planner;
   double planning_latency_s = 0.0;
@@ -499,70 +510,13 @@ DecisionResult NavigationEngine::decide() {
       active_lle->state() !=
           planning::LowLevelExplorationState::DetectMissingGuidance &&
       active_lle->state() != planning::LowLevelExplorationState::Complete;
-  if (!decided && world_.mission.active() &&
-      !world_.mission.active()->waypoint()) {
-    if (world_.recovery.plan_abandoned) {
-      cycle.push_back(
-          {0U, "tier2", "PlanningCoordinator", viable, std::nullopt, {},
-           "planning_abandoned_lle_eligible"});
-    } else if (world_.recovery.completed_plan_failed_target) {
-      cycle.push_back(
-          {0U, "tier2", "PlanningCoordinator", viable, std::nullopt, {},
-           "completed_plan_failed_lle_eligible"});
-    } else if (lle_in_progress) {
-      cycle.push_back({0U, "tier2", "PlanningCoordinator", viable,
-                       std::nullopt, {},
-                       "active_lle_retains_control_no_repeat_plan"});
-    } else {
-      const auto planning_started = std::chrono::steady_clock::now();
-      ++world_.recovery.tier_two_attempts;
-      selected_planner = preparePlan(mission_step);
-      planning_latency_s =
-          std::chrono::duration<double>(std::chrono::steady_clock::now() -
-                                        planning_started)
-              .count();
-      const bool plan_available =
-          world_.mission.active()->waypoint().has_value();
-      if (plan_available) {
-        world_.recovery.consecutive_immediate_plan_failures = 0U;
-      } else {
-        ++world_.recovery.consecutive_immediate_plan_failures;
-        world_.recovery.plan_abandoned =
-            world_.recovery.consecutive_immediate_plan_failures >=
-            maximum_planning_attempts_per_task_;
-      }
-      cycle.push_back(
-          {0U, "tier2",
-           selected_planner.value_or("PlanningCoordinator"), viable,
-           std::nullopt, {},
-           plan_available
-               ? "plan_created_return_to_tier1:attempt=" +
-                     std::to_string(world_.recovery.tier_two_attempts)
-               : (world_.recovery.plan_abandoned
-                      ? "immediate_plan_failure_abandoned_lle_eligible:attempt=" +
-                            std::to_string(world_.recovery.tier_two_attempts)
-                      : "immediate_plan_failure_return_to_tier1:attempt=" +
-                            std::to_string(world_.recovery.tier_two_attempts)),
-           true});
-      auto returned = decisions_.evaluateTierOne(DecisionContext{world_},
-                                                 decision_candidates);
-      cycle.insert(cycle.end(), returned.trace.begin(), returned.trace.end());
-      cognitive_vetoes = returned.vetoes;
-      viable = returned.survivors;
-      if (returned.decision) {
-        result = *returned.decision;
-        decided = true;
-      }
-    }
-  }
-
   if (!decided && enforcer_enabled_ && world_.mission.active() &&
       active_hierarchy_) {
     auto enforcement = enforceActivePlan(viable);
     if (enforcement.status == EnforcementStatus::Stale ||
         enforcement.status == EnforcementStatus::Invalid) {
       cycle.push_back({0U, "tier1", "Enforcer", viable, std::nullopt, {},
-                       "plan_invalidated_return_to_tier2", true,
+                       "plan_invalidated_continue_to_later_tier1", false,
                        std::nullopt, enforcement.reason_code});
       mission_.clearPlan();
       active_hierarchy_.reset();
@@ -570,11 +524,6 @@ DecisionResult NavigationEngine::decide() {
       hierarchy_task_.reset();
       world_.recovery.planning_attempted = false;
       world_.recovery.plan_available = false;
-      const auto replanner = preparePlan(MissionStep::Ready);
-      if (replanner && active_hierarchy_) {
-        selected_planner = replanner;
-        enforcement = enforceActivePlan(viable);
-      }
     }
     const auto action = enforcement.action;
     if (enforcement.operational_target) {
@@ -638,6 +587,10 @@ DecisionResult NavigationEngine::decide() {
       result.enforcer_reason = "enforcer:custom_grid_waypoint_progress";
       decided = true;
     }
+  } else if (!decided && enforcer_enabled_) {
+    cycle.push_back({0U, "tier1", "Enforcer", viable, std::nullopt, {},
+                     "no_active_plan_continue", false, std::nullopt,
+                     "enforcer:no_active_plan"});
   }
 
   if (!decided) {
@@ -667,28 +620,18 @@ DecisionResult NavigationEngine::decide() {
           world_.mission.active()->waypoint().has_value();
       if (!cycle.empty()) {
         cycle.back().outcome =
-            "reverse_subtrail_installed_return_to_enforcer";
-        cycle.back().returned_to_earlier_tier = true;
+            "reverse_subtrail_installed_cycle_end";
+        cycle.back().returned_to_earlier_tier = false;
+        cycle.back().final_attribution = DecisionTier::TierOne;
       }
-      const auto enforced = active_hierarchy_
-                                ? enforceActivePlan(viable).action
-                                : enforcerAction(viable);
-      cycle.push_back(
-          {0U, "tier1", "Enforcer", viable, enforced, {},
-           enforced ? "recovery_plan_action_selected"
-                    : "recovery_plan_has_no_viable_action_continue",
-           false,
-           enforced ? std::optional<DecisionTier>(DecisionTier::TierOne)
-                    : std::nullopt,
-           enforced ? "enforcer:operationalized_out_reverse_subtrail"
-                    : "enforcer:out_reverse_subtrail_not_operationalizable"});
-      if (enforced) {
-        result.action = *enforced;
-        result.source = DecisionSource::MandatoryRule;
-        result.tier = DecisionTier::TierOne;
-        result.selected_policy = "mandatory_rule:Enforcer:out_reverse_subtrail";
-        decided = true;
-      }
+      // Enforcer has already had its ordered opportunity this cycle.  The
+      // inserted recovery plan is deliberately operationalized on the next
+      // cycle, which restarts at HardSafety/Victory.
+      result.action = domain::Action::pause();
+      result.source = DecisionSource::MandatoryRule;
+      result.tier = DecisionTier::TierOne;
+      result.selected_policy = "reactive:Out:recovery_plan_installed";
+      decided = true;
     } else if (reactive.result.status == planning::ReactiveStatus::Action &&
         reactive.result.action &&
         std::find(viable.begin(), viable.end(), *reactive.result.action) !=
@@ -744,15 +687,144 @@ DecisionResult NavigationEngine::decide() {
         result.selected_policy += ":" + explorer->lastTriggerReasonCode();
       decided = true;
     }
+  } else if (!decided && low_level_exploration_enabled_) {
+    cycle.push_back({0U, "tier1", "LLE", viable, std::nullopt, {},
+                     "trigger_false_continue", false, std::nullopt,
+                     "lle:target_guidance_not_missing"});
+  }
+
+  // Forward and Precedent are deliberately evaluated only after Enforcer,
+  // the reactive group, and LLE.  Their veto interface no longer moves them
+  // ahead of those semantically earlier components.
+  if (!decided) {
+    auto late_tier_one = decisions_.evaluateTierOneStage(
+        DecisionContext{world_}, viable,
+        TierOneStage::AfterLowLevelExploration);
+    cycle.insert(cycle.end(), late_tier_one.trace.begin(),
+                 late_tier_one.trace.end());
+    cognitive_vetoes.insert(cognitive_vetoes.end(),
+                            late_tier_one.vetoes.begin(),
+                            late_tier_one.vetoes.end());
+    viable = std::move(late_tier_one.survivors);
+    if (late_tier_one.decision) {
+      result = *late_tier_one.decision;
+      decided = true;
+    }
+  }
+
+  // Veto rules continue the ordered Tier-1 pass even when only one action is
+  // left.  Selection from the reduced set happens once all Tier-1 components
+  // have received their opportunity.
+  if (!decided && viable.empty()) {
+    result.action = domain::Action::pause();
+    result.source = DecisionSource::SafeStop;
+    result.tier = DecisionTier::SafeStop;
+    result.selected_policy = "no_safe_candidate";
+    cycle.push_back({0U, "tier1", "viable_action_set", {}, std::nullopt, {},
+                     "no_survivor_safe_stop", false,
+                     DecisionTier::SafeStop});
+    decided = true;
+  } else if (!decided && viable.size() == 1U) {
+    result.action = viable.front();
+    result.source = DecisionSource::MandatoryRule;
+    result.tier = DecisionTier::TierOne;
+    result.selected_policy = "tier1:only_surviving_action";
+    cycle.push_back({0U, "tier1", "viable_action_set", viable,
+                     viable.front(), {}, "single_survivor_selected", false,
+                     DecisionTier::TierOne,
+                     "tier1:only_surviving_action"});
+    decided = true;
+  }
+
+  bool tier_two_failed = false;
+  const bool tier_two_planners_enabled = planning_.plannerCount() > 0U;
+  const auto active_plan_available = [&]() {
+    const bool waypoint = world_.mission.active() &&
+                          world_.mission.active()->waypoint().has_value();
+    const bool hierarchy =
+        active_hierarchy_ &&
+        active_hierarchy_->validity == planning::PlanValidity::Valid &&
+        active_hierarchy_->cursor < active_hierarchy_->steps.size();
+    return waypoint || hierarchy;
+  };
+  if (!decided && world_.mission.active() && !active_plan_available() &&
+      tier_two_planners_enabled) {
+    if (world_.recovery.plan_abandoned ||
+        world_.recovery.completed_plan_failed_target) {
+      tier_two_failed = true;
+      cycle.push_back(
+          {0U, "tier2", "PlanningCoordinator", viable, std::nullopt, {},
+           world_.recovery.plan_abandoned
+               ? "prior_planning_failure_lle_exhausted_tier3_eligible"
+               : "completed_plan_failed_lle_exhausted_tier3_eligible"});
+    } else {
+      const auto planning_started = std::chrono::steady_clock::now();
+      ++world_.recovery.tier_two_attempts;
+      selected_planner = preparePlan(mission_step);
+      planning_latency_s =
+          std::chrono::duration<double>(std::chrono::steady_clock::now() -
+                                        planning_started)
+              .count();
+      const bool plan_available = active_plan_available();
+      tier_two_failed = !plan_available;
+      if (plan_available) {
+        world_.recovery.consecutive_immediate_plan_failures = 0U;
+      } else {
+        ++world_.recovery.consecutive_immediate_plan_failures;
+        world_.recovery.plan_abandoned =
+            world_.recovery.consecutive_immediate_plan_failures >=
+            maximum_planning_attempts_per_task_;
+      }
+      DecisionCycleEvent planning_event{
+          0U, "tier2",
+          selected_planner.value_or("PlanningCoordinator"), viable,
+          std::nullopt, {},
+          plan_available
+              ? "plan_created_cycle_end:attempt=" +
+                    std::to_string(world_.recovery.tier_two_attempts)
+              : (world_.recovery.plan_abandoned
+                     ? "no_valid_plan_abandoned_tier3_eligible:attempt=" +
+                           std::to_string(world_.recovery.tier_two_attempts)
+                     : "no_valid_plan_tier3_eligible:attempt=" +
+                           std::to_string(world_.recovery.tier_two_attempts))};
+      if (plan_available) {
+        planning_event.final_attribution = DecisionTier::TierTwo;
+        result.action = domain::Action::pause();
+        result.source = DecisionSource::Planner;
+        result.tier = DecisionTier::TierTwo;
+        result.selected_policy = "tier2:plan_created_cycle_end";
+        decided = true;
+      }
+      cycle.push_back(std::move(planning_event));
+    }
+  } else if (!decided && world_.mission.active() &&
+             !active_plan_available() &&
+             !tier_two_planners_enabled) {
+    cycle.push_back({0U, "tier2", "PlanningCoordinator", viable,
+                     std::nullopt, {},
+                     "no_planners_enabled_tier3_eligible"});
   }
 
   if (!decided) {
-    result = decisions_.decideTierThree(
-        DecisionContext{world_, &action_space_, viable,
-                        std::move(tier_three_objective)},
-        viable);
-    cycle.insert(cycle.end(), result.decision_cycle.begin(),
-                 result.decision_cycle.end());
+    const bool tier_three_eligible =
+        active_plan_available() || !tier_two_planners_enabled ||
+        tier_two_failed;
+    if (tier_three_eligible) {
+      result = decisions_.decideTierThree(
+          DecisionContext{world_, &action_space_, viable,
+                          std::move(tier_three_objective)},
+          viable);
+      cycle.insert(cycle.end(), result.decision_cycle.begin(),
+                   result.decision_cycle.end());
+    } else {
+      result.action = domain::Action::pause();
+      result.source = DecisionSource::SafeStop;
+      result.tier = DecisionTier::SafeStop;
+      result.selected_policy = "tier3_not_eligible_safe_stop";
+      cycle.push_back({0U, "fallback", "DecisionCoordinator", viable,
+                       result.action, {}, "tier3_not_eligible_safe_stop",
+                       false, DecisionTier::SafeStop});
+    }
   }
   result.decision_cycle = std::move(cycle);
   result.vetoes = std::move(cognitive_vetoes);

@@ -31,10 +31,14 @@ must not include ROS headers.
 2. `SemaFORRNode` passes the observation and latest valid social snapshot to
    `NavigationEngineAdapter`, which owns the world model and invokes
    `NavigationEngine`.
-3. `MissionManager` activates or advances tasks. `PlanningCoordinator`
-   generates typed `PlanResult` values and installs the selected waypoints.
-4. `DecisionCoordinator` applies Tier 1 mandatory rules and vetoes, then Tier 3
-   arbitration when no mandatory decision wins. Tier 3 explicitly selects
+3. `MissionManager` activates or advances tasks. `NavigationEngine` executes
+   the semantic Tier-1 sequence across `DecisionCoordinator`, Enforcer, and
+   reactive-planner boundaries without regrouping components by interface.
+4. If Tier 1 does not decide and no plan exists, `PlanningCoordinator`
+   generates typed `PlanResult` values. Successful plan installation ends the
+   cycle; Enforcer first consumes the plan on the next cycle. Tier 3 runs only
+   after Tier 1 declines and planning is unnecessary, unavailable, or failed.
+   Tier 3 explicitly selects
    unweighted `[0,10]` compatibility comments with exact ties or normalized,
    weighted scoring with tolerance ties. Plan-sensitive advisors receive the
    current Enforcer operational target rather than silently using the final

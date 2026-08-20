@@ -8,19 +8,21 @@ an action vetoed by Tier 1 cannot re-enter Tier 3 aggregation.
 Target-navigation decisions execute this observable cycle:
 
 1. Hard safety removes actions that violate the platform envelope.
-2. Tier-1 mandatory rules run in registered order. The first viable mandate
-   ends the cycle immediately.
-3. Tier-1 veto rules successively reduce the viable action set. No survivors
-   produces a safe stop; exactly one survivor selects that action as Tier 1.
-4. If the task has no waypoint, Tier 2 gets one planning attempt and returns
-   control to Tier 1. Mandatory rules and vetoes are evaluated again against
-   the same hard-safe candidate set.
-5. When a plan exists, Enforcer gets the first opportunity to operationalize
-   its current waypoint.
-6. Only if Enforcer cannot act are `Thru`, `Behind`, `Out`, and then LLE
-   evaluated. Reactive state persists between cycles, but does not preempt a
-   newly applicable Victory or Enforcer decision.
-7. Tier 3 scores the surviving actions only when Tier 1 has not selected one.
+2. Tier 1 runs in semantic order, independent of C++ interface category:
+   `Victory`, `AvoidObstacles`, `NotOpposite`, Enforcer, `Thru`, `Behind`,
+   `Out`, LLE, `Forward`, and `Precedent`. A mandate ends the cycle
+   immediately; a veto modifies the viable set and processing continues.
+3. After the complete Tier-1 pass, no survivors produces a safe stop and one
+   survivor is selected as Tier 1.
+4. Tier 2 runs only when Tier 1 made no decision, no plan is active, and at
+   least one planner is registered. Successful plan creation stores the plan
+   and ends the cycle with a typed pause; the next cycle restarts at hard
+   safety and Enforcer can then operationalize the plan. Enforcer is never
+   rerun on a newly created plan in the planning cycle.
+5. A failed Tier-2 attempt records that no valid plan was produced and may
+   fall through to Tier 3. With an existing plan, or with no registered Tier-2
+   planners, Tier 3 is also eligible after Tier 1 declines to decide.
+6. Tier 3 never runs in the cycle that successfully creates a plan.
 
 Every step appends a `DecisionCycleEvent` with its ordinal, tier, component,
 input action set, mandate, vetoes, continuation/return reason, and final tier
@@ -101,12 +103,13 @@ silently leave a partially mutated plan.
 
 Immediate planning failure is bounded by
 `tiers.tier2.maximum_planning_attempts_per_task` (default `3`). Each failure
-returns to Tier 1 for the current cycle. Once the consecutive-failure limit is
-reached, the plan is marked abandoned and LLE becomes eligible. A successful
-plan resets consecutive failures. A task transition resets all attempt state;
-an LLE connectivity-triggered replan explicitly starts a fresh attempt series.
-This prevents an unbounded Tier-2/Tier-1 loop while preserving a traceable
-recovery point.
+is explicitly recorded and can make Tier 3 eligible for that cycle. Once the
+consecutive-failure limit is reached, the plan is marked abandoned and LLE
+becomes eligible on the next cycle. A successful plan resets consecutive
+failures. A task transition resets all attempt state; an LLE
+connectivity-triggered replan explicitly starts a fresh attempt series. This
+prevents an unbounded planning loop while preserving a traceable recovery
+point.
 
 Reactive planners use a common trigger/update/cancel contract. LLE is stateful
 and temporarily owns Tier-1 actions while it assembles and pursues candidates

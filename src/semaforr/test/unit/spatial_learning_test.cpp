@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 
 #include <algorithm>
+#include <iterator>
 #include <numbers>
 #include <sstream>
 #include <semaforr/decision/navigation_engine.hpp>
@@ -92,7 +93,8 @@ class CountingReactive final : public semaforr::planning::ReactivePlanner {
   semaforr::planning::TriggerEvaluation evaluateTrigger(
       const semaforr::decision::DecisionContext&) const override {
     ++trigger_count;
-    return {true, "always active for ordering test"};
+    return {triggered, triggered ? "active for ordering test"
+                                 : "inactive for ordering test"};
   }
   semaforr::planning::ReactivePlanUpdate update(
       const semaforr::decision::DecisionContext&) override {
@@ -110,9 +112,55 @@ class CountingReactive final : public semaforr::planning::ReactivePlanner {
   mutable std::size_t trigger_count = 0U;
   std::size_t update_count = 0U;
   std::size_t cancel_count = 0U;
+  bool triggered = true;
 
  private:
   semaforr::domain::Action action_;
+};
+
+class PassiveReactive final : public semaforr::planning::ReactivePlanner {
+ public:
+  explicit PassiveReactive(std::string name) : name_(std::move(name)) {}
+  std::string_view name() const noexcept override { return name_; }
+  std::vector<std::string_view> dependencies() const override { return {}; }
+  semaforr::planning::TriggerEvaluation evaluateTrigger(
+      const semaforr::decision::DecisionContext&) const override {
+    return {false, "ordering fixture inactive"};
+  }
+  semaforr::planning::ReactivePlanUpdate update(
+      const semaforr::decision::DecisionContext&) override {
+    return {};
+  }
+  void cancel(semaforr::planning::InterruptionReason) override {}
+
+ private:
+  std::string name_;
+};
+
+class TraceMandatory final : public semaforr::decision::MandatoryRule {
+ public:
+  explicit TraceMandatory(std::string name) : name_(std::move(name)) {}
+  std::string_view name() const noexcept override { return name_; }
+  std::optional<semaforr::decision::Decision> evaluate(
+      const semaforr::decision::DecisionContext&) const override {
+    return std::nullopt;
+  }
+
+ private:
+  std::string name_;
+};
+
+class TraceVeto final : public semaforr::decision::VetoRule {
+ public:
+  explicit TraceVeto(std::string name) : name_(std::move(name)) {}
+  std::string_view name() const noexcept override { return name_; }
+  std::vector<semaforr::decision::Veto> evaluate(
+      const semaforr::decision::DecisionContext&) const override {
+    return {};
+  }
+
+ private:
+  std::string name_;
 };
 
 class FixedPlanner final : public semaforr::planning::Planner {
@@ -569,7 +617,81 @@ TEST(NavigationEngine, VictoryStopsBeforeEnforcerAndReactivePlanners) {
             decision::DecisionTier::TierOne);
 }
 
-TEST(NavigationEngine, TierTwoReturnsToTierOneAndEnforcerPrecedesReactive) {
+TEST(NavigationEngine, CognitiveTraceFollowsSemanticOrderBeforeTierThree) {
+  using namespace semaforr;
+  domain::WorldModel world;
+  world.mission = domain::Mission({{1U, {4.0, 0.0}}}, 10U);
+  const domain::ActionSpace action_space({0.2, 1.0}, {0.5});
+  decision::DecisionCoordinator decisions;
+  decisions.addMandatoryRule(std::make_unique<TraceMandatory>("Victory"));
+  decisions.addVetoRule(std::make_unique<TraceVeto>("AvoidObstacles"));
+  decisions.addVetoRule(std::make_unique<TraceVeto>("NotOpposite"));
+  decisions.addVetoRule(std::make_unique<TraceVeto>("Forward"));
+  decisions.addVetoRule(std::make_unique<TraceVeto>("Precedent"));
+  decision::MissionManager mission(world.mission);
+  planning::PlanningCoordinator planning;
+  spatial::SpatialLearningCoordinator learning(100U);
+  std::vector<std::unique_ptr<planning::ReactivePlanner>> reactives;
+  reactives.push_back(std::make_unique<PassiveReactive>("Thru"));
+  reactives.push_back(std::make_unique<PassiveReactive>("Behind"));
+  reactives.push_back(std::make_unique<PassiveReactive>("Out"));
+  decision::NavigationEngine engine(
+      world, action_space, decisions, mission, planning, learning, nullptr,
+      domain::Distance(0.2), nullptr, nullptr, {}, {}, std::move(reactives),
+      true, true);
+  auto input = episode(1U, 0.0, true).observation;
+  input.laser.ranges_m.assign(input.laser.ranges_m.size(), 1.0);
+
+  const auto result = engine.decide(input);
+  std::vector<std::string> components;
+  for (const auto& event : result.decision_cycle)
+    components.push_back(event.component);
+  const std::vector<std::string> expected{
+      "Victory",          "AvoidObstacles", "NotOpposite",
+      "Enforcer",         "Thru",           "Behind",
+      "Out",              "LLE",            "Forward",
+      "Precedent",        "PlanningCoordinator",
+      "tier3_fallback"};
+  EXPECT_EQ(components, expected);
+  EXPECT_EQ(result.selected_policy, "no_advisor_score");
+}
+
+TEST(NavigationEngine, ReactiveMandateStopsLleLateVetoesAndLowerTiers) {
+  using namespace semaforr;
+  domain::WorldModel world;
+  world.mission = domain::Mission({{1U, {4.0, 0.0}}}, 10U);
+  const domain::ActionSpace action_space({0.2, 1.0}, {0.5});
+  decision::DecisionCoordinator decisions;
+  decisions.addVetoRule(std::make_unique<TraceVeto>("Forward"));
+  decisions.addVetoRule(std::make_unique<TraceVeto>("Precedent"));
+  decision::MissionManager mission(world.mission);
+  planning::PlanningCoordinator planning;
+  spatial::SpatialLearningCoordinator learning(100U);
+  auto reactive = std::make_unique<CountingReactive>(
+      domain::Action(domain::ActionType::TurnLeft, 1U));
+  CountingReactive* observer = reactive.get();
+  std::vector<std::unique_ptr<planning::ReactivePlanner>> reactives;
+  reactives.push_back(std::move(reactive));
+  decision::NavigationEngine engine(
+      world, action_space, decisions, mission, planning, learning, nullptr,
+      domain::Distance(0.2), nullptr, nullptr, {}, {}, std::move(reactives),
+      true, true);
+  auto input = episode(1U, 0.0, true).observation;
+
+  const auto result = engine.decide(input);
+  EXPECT_EQ(result.selected_policy, "reactive:counting_reactive");
+  EXPECT_EQ(observer->trigger_count, 1U);
+  EXPECT_EQ(observer->update_count, 1U);
+  EXPECT_TRUE(std::none_of(
+      result.decision_cycle.begin(), result.decision_cycle.end(),
+      [](const auto& event) {
+        return event.component == "LLE" || event.component == "Forward" ||
+               event.component == "Precedent" || event.tier == "tier2" ||
+               event.tier == "tier3";
+      }));
+}
+
+TEST(NavigationEngine, TierTwoPlanCreationEndsCycleBeforeEnforcer) {
   using namespace semaforr;
   domain::WorldModel world;
   world.mission = domain::Mission({{1U, {4.0, 0.0}}}, 10U);
@@ -584,6 +706,7 @@ TEST(NavigationEngine, TierTwoReturnsToTierOneAndEnforcerPrecedesReactive) {
   auto reactive = std::make_unique<CountingReactive>(
       domain::Action(domain::ActionType::TurnLeft, 1U));
   CountingReactive* reactive_observer = reactive.get();
+  reactive_observer->triggered = false;
   std::vector<std::unique_ptr<planning::ReactivePlanner>> reactives;
   reactives.push_back(std::move(reactive));
   decision::NavigationEngine engine(
@@ -595,9 +718,10 @@ TEST(NavigationEngine, TierTwoReturnsToTierOneAndEnforcerPrecedesReactive) {
 
   const auto result = engine.decide(input);
   EXPECT_EQ(planner_observer->calls, 1U);
-  EXPECT_EQ(result.selected_policy, "mandatory_rule:Enforcer");
-  EXPECT_EQ(result.tier, decision::DecisionTier::TierOne);
-  EXPECT_EQ(reactive_observer->trigger_count, 0U);
+  EXPECT_EQ(result.selected_policy, "tier2:plan_created_cycle_end");
+  EXPECT_EQ(result.tier, decision::DecisionTier::TierTwo);
+  EXPECT_EQ(reactive_observer->trigger_count, 1U);
+  EXPECT_EQ(reactive_observer->update_count, 0U);
   const auto tier_two = std::find_if(
       result.decision_cycle.begin(), result.decision_cycle.end(),
       [](const auto& event) { return event.tier == "tier2"; });
@@ -606,9 +730,29 @@ TEST(NavigationEngine, TierTwoReturnsToTierOneAndEnforcerPrecedesReactive) {
       [](const auto& event) { return event.component == "Enforcer"; });
   ASSERT_NE(tier_two, result.decision_cycle.end());
   ASSERT_NE(enforcer, result.decision_cycle.end());
-  EXPECT_TRUE(tier_two->returned_to_earlier_tier);
-  EXPECT_LT(tier_two->order, enforcer->order);
+  EXPECT_EQ(enforcer->outcome, "no_active_plan_continue");
+  EXPECT_LT(enforcer->order, tier_two->order);
+  EXPECT_TRUE(std::none_of(
+      std::next(tier_two), result.decision_cycle.end(),
+      [](const auto& event) { return event.component == "Enforcer"; }));
+  EXPECT_TRUE(std::none_of(
+      std::next(tier_two), result.decision_cycle.end(),
+      [](const auto& event) { return event.tier == "tier3"; }));
+  EXPECT_EQ(tier_two->outcome.find("plan_created_cycle_end"), 0U);
   EXPECT_NE(tier_two->outcome.find("attempt=1"), std::string::npos);
+
+  completeSelectedAction(engine, result, input.pose);
+  reactive_observer->triggered = true;
+  const auto next = engine.decide(input);
+  EXPECT_EQ(planner_observer->calls, 1U);
+  EXPECT_EQ(next.selected_policy, "mandatory_rule:Enforcer");
+  EXPECT_EQ(next.tier, decision::DecisionTier::TierOne);
+  EXPECT_EQ(reactive_observer->trigger_count, 1U);
+  const auto next_enforcer = std::find_if(
+      next.decision_cycle.begin(), next.decision_cycle.end(),
+      [](const auto& event) { return event.component == "Enforcer"; });
+  ASSERT_NE(next_enforcer, next.decision_cycle.end());
+  EXPECT_EQ(next_enforcer->outcome, "legacy_custom_plan_action_selected");
 }
 
 TEST(NavigationEngine, RepeatedImmediateTierTwoFailureIsBounded) {
@@ -632,6 +776,17 @@ TEST(NavigationEngine, RepeatedImmediateTierTwoFailureIsBounded) {
 
   const auto first = engine.decide(input);
   EXPECT_FALSE(world.recovery.plan_abandoned);
+  const auto first_failure = std::find_if(
+      first.decision_cycle.begin(), first.decision_cycle.end(),
+      [](const auto& event) {
+        return event.outcome.find("no_valid_plan_tier3_eligible") == 0U;
+      });
+  const auto first_tier_three = std::find_if(
+      first.decision_cycle.begin(), first.decision_cycle.end(),
+      [](const auto& event) { return event.tier == "tier3"; });
+  ASSERT_NE(first_failure, first.decision_cycle.end());
+  ASSERT_NE(first_tier_three, first.decision_cycle.end());
+  EXPECT_LT(first_failure->order, first_tier_three->order);
   completeSelectedAction(engine, first, input.pose);
   const auto second = engine.decide(input);
   EXPECT_TRUE(world.recovery.plan_abandoned);
@@ -642,7 +797,7 @@ TEST(NavigationEngine, RepeatedImmediateTierTwoFailureIsBounded) {
   const auto failure = std::find_if(
       second.decision_cycle.begin(), second.decision_cycle.end(),
       [](const auto& event) {
-        return event.outcome.find("abandoned_lle_eligible:attempt=2") !=
+        return event.outcome.find("no_valid_plan_abandoned_tier3_eligible:attempt=2") !=
                std::string::npos;
       });
   ASSERT_NE(failure, second.decision_cycle.end());
@@ -652,7 +807,13 @@ TEST(NavigationEngine, RepeatedImmediateTierTwoFailureIsBounded) {
   EXPECT_TRUE(std::any_of(
       third.decision_cycle.begin(), third.decision_cycle.end(),
       [](const auto& event) {
-        return event.outcome == "planning_abandoned_lle_eligible";
+        return event.component == "LLE";
+      }));
+  EXPECT_TRUE(std::none_of(
+      third.decision_cycle.begin(), third.decision_cycle.end(),
+      [](const auto& event) {
+        return event.tier == "tier2" &&
+               event.outcome.find("attempt=3") != std::string::npos;
       }));
 }
 

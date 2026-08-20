@@ -1186,9 +1186,13 @@ void validateConfiguration(const Configuration& configuration) {
     first_rule = false;
     previous = position;
   }
-  const std::set<std::string> registered_reactive{"thru", "behind", "out",
-                                                  "low_level_exploration"};
+  const std::vector<std::string> reactive_order{
+      "thru", "behind", "out", "low_level_exploration"};
+  const std::set<std::string> registered_reactive(reactive_order.begin(),
+                                                  reactive_order.end());
   std::set<std::string> configured_reactive;
+  std::size_t previous_reactive = 0U;
+  bool first_reactive = true;
   for (const auto& planner : experiment.tiers.reactive_planners) {
     if (!registered_reactive.contains(planner))
       throw std::runtime_error("configuration: unknown reactive planner '" +
@@ -1196,6 +1200,16 @@ void validateConfiguration(const Configuration& configuration) {
     if (!configured_reactive.insert(planner).second)
       throw std::runtime_error("configuration: duplicate reactive planner '" +
                                planner + "'");
+    const auto found =
+        std::find(reactive_order.begin(), reactive_order.end(), planner);
+    const std::size_t position =
+        static_cast<std::size_t>(found - reactive_order.begin());
+    if (!first_reactive && position <= previous_reactive)
+      throw std::runtime_error(
+          "configuration: reactive planners must preserve the semantic "
+          "order thru, behind, out, low_level_exploration");
+    first_reactive = false;
+    previous_reactive = position;
   }
   if (!experiment.safety_envelope.enabled)
     throw std::runtime_error(

@@ -97,71 +97,8 @@ std::optional<DecisionResult> DecisionCoordinator::mandatoryDecision(
 TierOnePass DecisionCoordinator::evaluateTierOne(
     const DecisionContext& context,
     std::span<const Action> candidates) const {
-  TierOnePass pass;
-  pass.survivors.assign(candidates.begin(), candidates.end());
-  std::sort(pass.survivors.begin(), pass.survivors.end());
-  pass.survivors.erase(
-      std::unique(pass.survivors.begin(), pass.survivors.end()),
-      pass.survivors.end());
-  for (const auto& rule : mandatory_rules_) {
-    DecisionCycleEvent event;
-    event.tier = "tier1";
-    event.component = std::string(rule->name());
-    event.input_actions = pass.survivors;
-    const DecisionContext rule_context{
-        context.world, context.action_space, pass.survivors,
-        context.active_plan_objective};
-    if (auto decision = rule->evaluate(rule_context)) {
-      if (std::binary_search(pass.survivors.begin(), pass.survivors.end(),
-                             decision->action)) {
-        event.mandate = decision->action;
-        event.outcome = "mandated_action";
-        event.reason_code = decision->explanation;
-        event.final_attribution = DecisionTier::TierOne;
-        event.remaining_actions = pass.survivors;
-        event.order = pass.trace.size() + 1U;
-        pass.trace.push_back(std::move(event));
-        DecisionResult result;
-        result.action = decision->action;
-        result.source = DecisionSource::MandatoryRule;
-        result.tier = DecisionTier::TierOne;
-        result.selected_policy = "mandatory_rule:" + decision->rule;
-        result.decision_cycle = pass.trace;
-        pass.decision = std::move(result);
-        return pass;
-      }
-      event.outcome = "mandate_not_viable_continue";
-    } else {
-      event.outcome = "no_mandate_continue";
-    }
-    event.order = pass.trace.size() + 1U;
-    event.remaining_actions = pass.survivors;
-    pass.trace.push_back(std::move(event));
-  }
-
-  for (const auto& rule : veto_rules_) {
-    DecisionCycleEvent event;
-    event.tier = "tier1";
-    event.component = std::string(rule->name());
-    event.input_actions = pass.survivors;
-    const DecisionContext rule_context{
-        context.world, context.action_space, pass.survivors,
-        context.active_plan_objective};
-    event.vetoes = rule->evaluate(rule_context);
-    event.reason_code = rule->lastReason();
-    pass.vetoes.insert(pass.vetoes.end(), event.vetoes.begin(),
-                       event.vetoes.end());
-    std::set<Action> vetoed;
-    for (const auto& veto : event.vetoes) vetoed.insert(veto.action);
-    std::erase_if(pass.survivors,
-                  [&](const auto& action) { return vetoed.contains(action); });
-    event.remaining_actions = pass.survivors;
-    event.outcome = event.vetoes.empty() ? "no_veto_continue"
-                                         : "vetoes_applied_continue";
-    event.order = pass.trace.size() + 1U;
-    pass.trace.push_back(std::move(event));
-  }
-  std::sort(pass.vetoes.begin(), pass.vetoes.end(), vetoLess);
+  auto pass = evaluateTierOneStage(context, candidates, TierOneStage::All);
+  if (pass.decision) return pass;
 
   if (pass.survivors.empty()) {
     DecisionResult result;
@@ -194,12 +131,89 @@ TierOnePass DecisionCoordinator::evaluateTierOne(
   return pass;
 }
 
+TierOnePass DecisionCoordinator::evaluateTierOneStage(
+    const DecisionContext& context, std::span<const Action> candidates,
+    TierOneStage stage) const {
+  TierOnePass pass;
+  pass.survivors.assign(candidates.begin(), candidates.end());
+  std::sort(pass.survivors.begin(), pass.survivors.end());
+  pass.survivors.erase(
+      std::unique(pass.survivors.begin(), pass.survivors.end()),
+      pass.survivors.end());
+  const auto component_stage = [](std::string_view name) {
+    return name == "Forward" || name == "Precedent"
+               ? TierOneStage::AfterLowLevelExploration
+               : TierOneStage::BeforeEnforcer;
+  };
+  for (const auto& registered : tier_one_order_) {
+    const std::string_view name =
+        registered.kind == RegisteredRuleKind::Mandatory
+            ? mandatory_rules_[registered.index]->name()
+            : veto_rules_[registered.index]->name();
+    if (stage != TierOneStage::All && component_stage(name) != stage) continue;
+
+    DecisionCycleEvent event;
+    event.tier = "tier1";
+    event.component = std::string(name);
+    event.input_actions = pass.survivors;
+    const DecisionContext rule_context{
+        context.world, context.action_space, pass.survivors,
+        context.active_plan_objective};
+    if (registered.kind == RegisteredRuleKind::Mandatory) {
+      const auto& rule = mandatory_rules_[registered.index];
+      if (auto decision = rule->evaluate(rule_context)) {
+        if (std::binary_search(pass.survivors.begin(), pass.survivors.end(),
+                               decision->action)) {
+          event.mandate = decision->action;
+          event.outcome = "mandated_action";
+          event.reason_code = decision->explanation;
+          event.final_attribution = DecisionTier::TierOne;
+          event.remaining_actions = pass.survivors;
+          event.order = pass.trace.size() + 1U;
+          pass.trace.push_back(std::move(event));
+          DecisionResult result;
+          result.action = decision->action;
+          result.source = DecisionSource::MandatoryRule;
+          result.tier = DecisionTier::TierOne;
+          result.selected_policy = "mandatory_rule:" + decision->rule;
+          result.decision_cycle = pass.trace;
+          pass.decision = std::move(result);
+          return pass;
+        }
+        event.outcome = "mandate_not_viable_continue";
+      } else {
+        event.outcome = "no_mandate_continue";
+      }
+    } else {
+      const auto& rule = veto_rules_[registered.index];
+      event.vetoes = rule->evaluate(rule_context);
+      event.reason_code = rule->lastReason();
+      pass.vetoes.insert(pass.vetoes.end(), event.vetoes.begin(),
+                         event.vetoes.end());
+      std::set<Action> vetoed;
+      for (const auto& veto : event.vetoes) vetoed.insert(veto.action);
+      std::erase_if(
+          pass.survivors,
+          [&](const auto& action) { return vetoed.contains(action); });
+      event.outcome = event.vetoes.empty() ? "no_veto_continue"
+                                           : "vetoes_applied_continue";
+    }
+    event.remaining_actions = pass.survivors;
+    event.order = pass.trace.size() + 1U;
+    pass.trace.push_back(std::move(event));
+  }
+  std::sort(pass.vetoes.begin(), pass.vetoes.end(), vetoLess);
+  return pass;
+}
+
 void DecisionCoordinator::addMandatoryRule(
     std::unique_ptr<MandatoryRule> rule) {
   if (!rule) {
     throw std::invalid_argument("mandatory rule must not be null");
   }
   mandatory_rules_.push_back(std::move(rule));
+  tier_one_order_.push_back(
+      {RegisteredRuleKind::Mandatory, mandatory_rules_.size() - 1U});
 }
 
 void DecisionCoordinator::addVetoRule(std::unique_ptr<VetoRule> rule) {
@@ -207,6 +221,8 @@ void DecisionCoordinator::addVetoRule(std::unique_ptr<VetoRule> rule) {
     throw std::invalid_argument("veto rule must not be null");
   }
   veto_rules_.push_back(std::move(rule));
+  tier_one_order_.push_back(
+      {RegisteredRuleKind::Veto, veto_rules_.size() - 1U});
 }
 
 void DecisionCoordinator::addAdvisor(std::unique_ptr<Advisor> advisor) {

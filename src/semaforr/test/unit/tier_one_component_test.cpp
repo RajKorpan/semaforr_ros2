@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 
 #include <chrono>
+#include <iterator>
 #include <memory>
 #include <semaforr/decision/decision_coordinator.hpp>
 #include <semaforr/decision/hard_safety_filter.hpp>
@@ -425,7 +426,7 @@ TEST(Out, PartialOrFailedSuffixDoesNotCreateRecoveryMarkers) {
   EXPECT_FALSE(recovery.learned_recovery_trail);
 }
 
-TEST(Out, NavigationEnginePrependsRecoveryAndReturnsToEnforcer) {
+TEST(Out, NavigationEnginePrependsRecoveryForNextCycleEnforcer) {
   using namespace semaforr;
   domain::WorldModel world;
   world.mission = domain::Mission({{1U, {10.0, 0.0}}}, 20U);
@@ -449,7 +450,7 @@ TEST(Out, NavigationEnginePrependsRecoveryAndReturnsToEnforcer) {
 
   const auto result = engine.decide(observation);
   EXPECT_EQ(result.selected_policy,
-            "mandatory_rule:Enforcer:out_reverse_subtrail");
+            "reactive:Out:recovery_plan_installed");
   EXPECT_EQ(result.tier, decision::DecisionTier::TierOne);
   ASSERT_TRUE(world.mission.active()->waypoint());
   EXPECT_EQ(*world.mission.active()->waypoint(),
@@ -458,15 +459,13 @@ TEST(Out, NavigationEnginePrependsRecoveryAndReturnsToEnforcer) {
       result.decision_cycle.begin(), result.decision_cycle.end(),
       [](const auto& event) { return event.component == "Out"; });
   ASSERT_NE(out_event, result.decision_cycle.end());
-  EXPECT_TRUE(out_event->returned_to_earlier_tier);
+  EXPECT_FALSE(out_event->returned_to_earlier_tier);
   EXPECT_EQ(out_event->outcome,
-            "reverse_subtrail_installed_return_to_enforcer");
+            "reverse_subtrail_installed_cycle_end");
   const auto enforcer_event = std::find_if(
-      out_event, result.decision_cycle.end(),
+      std::next(out_event), result.decision_cycle.end(),
       [](const auto& event) { return event.component == "Enforcer"; });
-  ASSERT_NE(enforcer_event, result.decision_cycle.end());
-  EXPECT_EQ(enforcer_event->reason_code,
-            "enforcer:operationalized_out_reverse_subtrail");
+  EXPECT_EQ(enforcer_event, result.decision_cycle.end());
 }
 
 TEST(Forward, UsesOnlyEnforcerSelectionsAndMarksTheThreeByThreeNeighborhood) {

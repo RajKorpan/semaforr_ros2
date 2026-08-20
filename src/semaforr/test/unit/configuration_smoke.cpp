@@ -200,6 +200,14 @@ int main() {
   }
   {
     auto invalid = valid;
+    invalid.experiment.tiers.reactive_planners = {
+        "behind", "thru", "out", "low_level_exploration"};
+    assertThrowsContaining(
+        [&invalid]() { semaforr::config::validateConfiguration(invalid); },
+        "must preserve the semantic order");
+  }
+  {
+    auto invalid = valid;
     invalid.experiment.reactive_exploration_enabled = true;
     invalid.navigation.planners = {};
     invalid.navigation.planners.distance = false;
