@@ -594,6 +594,10 @@ if(BUILD_TESTING)
     test/contracts/test_configuration_contract.py
     ENV "SEMAFORR_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
   )
+  ament_add_pytest_test(semaforr_documentation_contract_test
+    test/contracts/test_documentation_contract.py
+    ENV "SEMAFORR_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
+  )
   ament_add_pytest_test(semaforr_controller_decomposition_test
     test/contracts/test_controller_decomposition.py
     ENV "SEMAFORR_SOURCE_DIR=${PROJECT_SOURCE_DIR}"

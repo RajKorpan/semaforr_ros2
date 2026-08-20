@@ -55,8 +55,10 @@ Unknown policies are `prohibited`, `high_cost`, `within_sensor_range`, and
 - `distance`, `density`, `risk`, and `flow` require valid static occupancy.
 - `sensor_distance` is an explicitly partial planner. It remains unavailable
   until sensed occupancy exists and includes only policy-permitted cells.
-- Region, hallway, trail, conveyor, skeleton, and highway planners use learned
-  representations. A map may supplement validation but is not their base graph.
+- Region, hallway, trail, and conveyor planners modify an explicit static or
+  partial sensed traversability graph with their learned representation.
+- Skeleton and highway planners use their learned graph structures directly;
+  occupancy may validate local execution but is not their base graph.
 - Reactive safety uses the current sensor view and robot footprint regardless
   of map access.
 

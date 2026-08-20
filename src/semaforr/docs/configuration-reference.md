@@ -108,7 +108,8 @@ Spatial representations are individually controlled by `features.trails`,
 `sensed_occupancy`, `inclusion_grid`, `highways`, and `circumstances`. Global
 planners are individually selected in `planners.enabled`, including
 `distance`, `sensor_distance`, `skeleton`, `highway`, `density`, `risk`, and
-`flow`.
+`flow`, plus the affordance-modified `region`, `hallway`, `trail`, and
+`conveyor` planners.
 
 `features.spatial_learning_profile` is `modernized` (incremental adapted
 learners) or `chapter3_compatibility` (target-boundary compatibility learners).
@@ -175,24 +176,30 @@ values configure CUSUM. `random_seed` makes stochastic estimators reproducible.
 
 Startup fails with a parameter name and actionable reason when:
 
-- map or mission paths are empty, missing, or malformed;
+- a required mission path is empty, missing, or malformed, or map access was
+  requested and the map cannot be resolved under its configured failure policy;
 - numeric values are non-finite or outside their allowed range;
 - action magnitudes are empty, non-positive, or unsorted;
 - advisor arrays have inconsistent sizes, a name is unknown, or no active
   decision-producing advisor remains;
 - an enabled planner is unknown or lacks its required supporting model;
-- HighwayPlan is enabled without the highway graph, or highway learning has
-  neither HLE output nor a configured loaded model;
+- HighwayPlan is enabled without online highway learning, HLE is unavailable
+  to produce the graph, or `features.loaded_highway_model` is nonempty (the
+  field is rejected because no highway-model loader is implemented);
 - LLE lacks the inclusion grid, Tier 2, its reactive registration, or any
   global replanning strategy;
 - the invariant `safety.command_envelope.enabled` boundary is disabled;
 - a spatial or social advisor lacks its declared representation or social
   subsystem;
-- crowd-cost planning is enabled without the skeleton and crowd learner;
+- crowd-cost planning is enabled without map planning, social planners, or
+  the corresponding crowd-learning capability;
 - QoS policy, frame name, topic name, or estimator is invalid;
 - map dimensions or granularity are inconsistent with the parsed map.
 
-The node never continues with partially initialized configuration.
+`map.on_load_failure: disable_map` is the one explicit degradation policy: a
+failed requested map is reported, static-map planners are disabled, and the
+adapter continues with mapless capabilities. No planner is registered over an
+empty static grid.
 
 ## Overriding a deployment
 

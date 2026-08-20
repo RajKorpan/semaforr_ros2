@@ -12,7 +12,8 @@ ros2 launch semaforr stage_tutorial.launch.py
 ```
 
 Unknown advisor/planner names are case-sensitive. Crowd-cost planners require
-`skeleton` and `social.learning.enabled`.
+map-enabled planning, `social.planners.enabled`, and
+`social.learning.enabled`; they do not require the skeleton planner.
 
 ## It stays in `WaitingForSensors`
 

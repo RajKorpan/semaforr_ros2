@@ -7,29 +7,30 @@ adapter library.
 
 ```text
 semaforr_node
-  -> semaforr::ros_adapters
-       -> SensorSynchronizer / CommandExecutor / VisualizationPublisher
-       -> domain message and parameter adapters
-       -> semaforr::navigation
-            -> NavigationEngine / MissionManager
-            -> semaforr::exploration
-            -> semaforr::advisors
-            -> semaforr::planning
-            -> semaforr::spatial
-                 -> semaforr::domain / WorldModel
+  owns SensorSynchronizer / SocialObservationBuffer / CommandExecutor
+  owns VisualizationPublisher / NavigationEngineAdapter
+       NavigationEngineAdapter owns Configuration / ActionSpace / WorldModel
+       owns optional immutable StaticMap and all coordinators
+       owns NavigationEngine
+            borrows WorldModel, ActionSpace, and coordinator references
+            owns active exploration/reactive/Enforcer execution state
+       -> exploration / advisors / planning / spatial / validation
+            -> domain value types and immutable snapshots
 ```
 
 The public targets are `semaforr::domain`, `semaforr::planning`,
 `semaforr::spatial`, `semaforr::exploration`, `semaforr::advisors`,
-`semaforr::navigation`, and `semaforr::ros_adapters`. ROS-independent code
+`semaforr::navigation`, `semaforr::validation`, and
+`semaforr::ros_adapters`. ROS-independent code
 must not include ROS headers.
 
 ## One cognitive cycle
 
 1. `SensorSynchronizer` accepts stamped pose and scan messages, transforms the
    pose to the global frame, and emits only coherent, fresh observations.
-2. `SemaFORRNode` passes the observation and the latest valid social snapshot
-   to `NavigationEngine`.
+2. `SemaFORRNode` passes the observation and latest valid social snapshot to
+   `NavigationEngineAdapter`, which owns the world model and invokes
+   `NavigationEngine`.
 3. `MissionManager` activates or advances tasks. `PlanningCoordinator`
    generates typed `PlanResult` values and installs the selected waypoints.
 4. `DecisionCoordinator` applies Tier 1 mandatory rules and vetoes, then Tier 3
@@ -53,11 +54,28 @@ ordered diagnostics. See
 
 ## Ownership and failure boundaries
 
-The navigation engine owns its mission and world model. Coordinators own
-exclusive polymorphic components with `std::unique_ptr`; required dependencies
-are references. Decision APIs return values and do not expose mutable
-side-channel pointers. Configuration is fully parsed and validated before the
-engine is constructed.
+`SemaFORRNode::Impl` owns ROS subscriptions, publishers, TF, synchronization,
+social buffering, command execution, visualization, and one
+`NavigationEngineAdapter`. The adapter owns the configuration, action space,
+shared world model, mission/planning/decision/spatial/phase coordinators, hard
+safety filter, optional crowd learner, optional immutable static map, replay
+recorder, and the engine instance. `MissionManager` references the mission
+inside that world model. `NavigationEngine` references adapter-owned objects
+whose lifetime exceeds its own; it owns only its exploration coordinator,
+reactive planners, Enforcer, pending execution state, and explanation history.
+
+Spatial learners exclusively mutate their construction state and publish
+immutable snapshots through `SpatialLearningCoordinator`; planners and
+advisors read the adapter-owned world projection. The simulator owns its
+environment geometry independently. It may parse the same file as the adapter,
+but simulator map access never supplies a static map to the robot implicitly.
+The adapter's static map is immutable after successful startup.
+
+Polymorphic components use `std::unique_ptr`; intentional shared ownership is
+limited to immutable snapshot handles and ROS APIs. Decision APIs return
+values and do not expose mutable side-channel pointers. Configuration is
+parsed and statically validated before adapter construction, while map and
+planner capability validation completes during adapter startup.
 
 Invalid configuration is a startup error. Missing or stale sensors produce a
 zero velocity command. Missing or stale social data disables social

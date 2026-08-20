@@ -34,6 +34,19 @@ contains no name-specific construction branches. The validated execution
 order is `victory`, `avoid_obstacles`, `not_opposite`, `enforcer`, `thru`,
 `behind`, `out`, `low_level_exploration`, `forward`, `precedent`.
 
+| Registered name | Contract | Current role |
+|---|---|---|
+| `victory` | MandatoryRule | Pauses within target tolerance or turns/moves directly toward a sensed target. |
+| `avoid_obstacles` | VetoRule | Applies the configurable cognitive obstacle veto; it is distinct from non-ablatable hard safety. |
+| `not_opposite` | VetoRule | Rejects turns whose predicted heading repeats either of the two latest execution-confirmed orientations. |
+| `enforcer` | PlanOperationalizer | Converts the active grid or typed hierarchical plan step into a local mandate. |
+| `thru` | ReactivePlanner | Pursues the clearer side of a tight opening with interruption and budget handling. |
+| `behind` | ReactivePlanner | Recovers a nearby unseen waypoint by preferring an available quarter turn right, then left. |
+| `out` | ReactivePlanner | Surveys confinement, constructs an execution-confirmed reverse subtrail, and prepends it for Enforcer. |
+| `low_level_exploration` | ReactivePlanner and ReplanningTrigger | Searches missing knowledge and requests Tier-2 replanning after inclusion/connectivity growth. |
+| `forward` | VetoRule | Rejects projected turns into footprint cells visited during successful plan execution. |
+| `precedent` | VetoRule | Rejects actions only after circumstance assignment, case evidence, accuracy, and action-confidence gates pass. |
+
 Mandatory rules return an optional decision. They are evaluated in configured
 order and the first applicable result wins. `Victory` either stops within goal
 tolerance or directly turns/moves toward a visible unobstructed target. Its

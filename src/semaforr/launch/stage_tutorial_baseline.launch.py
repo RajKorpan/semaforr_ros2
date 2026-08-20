@@ -20,8 +20,6 @@ def generate_launch_description():
     sensor_cutoff = LaunchConfiguration("sensor_cutoff")
     profile = LaunchConfiguration("profile")
     random_seed = LaunchConfiguration("random_seed")
-    profile = LaunchConfiguration("profile")
-    random_seed = LaunchConfiguration("random_seed")
 
     semaforr = Node(
         package="semaforr",
@@ -37,8 +35,6 @@ def generate_launch_description():
                 "experiment.random_seed": ParameterValue(
                     random_seed, value_type=int
                 ),
-                "experiment.mode": profile,
-                "experiment.random_seed": random_seed,
             }
         ],
     )
@@ -73,16 +69,6 @@ def generate_launch_description():
 
     return LaunchDescription(
         [
-            DeclareLaunchArgument(
-                "profile",
-                default_value="full",
-                description="Named controller profile to evaluate",
-            ),
-            DeclareLaunchArgument(
-                "random_seed",
-                default_value="0",
-                description="Deterministic arbitration seed",
-            ),
             DeclareLaunchArgument(
                 "profile",
                 default_value="full",

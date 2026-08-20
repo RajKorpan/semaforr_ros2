@@ -2,9 +2,11 @@
 
 ## Ownership and data flow
 
-The navigation engine owns the mutable navigation state and produces immutable
-decision records. It retains the most recent 4096 records in the active process
-and indexes them by stable decision and action IDs. The ROS adapter publishes
+The navigation adapter owns the shared mutable world model and coordinators.
+The navigation engine references that state, owns pending execution and its
+bounded explanation history, and produces immutable decision records. It
+retains the most recent 4096 records in the active process and indexes them by
+stable decision and action IDs. The ROS adapter publishes
 the same decision ID as its lifecycle advances through selected, commanded,
 started, and a terminal execution state. The Why package upserts those records
 and indexes task, planning episode, plan, decision, action, and execution IDs.

@@ -9,10 +9,12 @@ installed example.
 | Parameter / default | Type | Contract |
 |---|---|---|
 | `topics.pose`: `pose` | `geometry_msgs/msg/PoseStamped` | Stamped robot pose. TF converts non-global frames to `frames.global`. |
-| `topics.scan`: `scan_raw` | `sensor_msgs/msg/LaserScan` | Finite ranges in `frames.scan`; its timestamp must synchronize with pose. |
+| `topics.scan`: `scan_raw` | `sensor_msgs/msg/LaserScan` | Range scan in `frames.scan`; NaN, infinity, and out-of-range beams are classified and ignored or integrated according to the laser contract rather than rejecting the whole scan. Its timestamp must synchronize with pose. |
 | `topics.social_observations`: `social_observations` | `social_context_msgs/msg/SocialObservation` | Canonical pedestrian IDs, positions, velocities, stamped predictions, confidence/covariance, and source age. |
 
-Pose and scan use `qos.sensors.*`. A pair is coherent only when both are fresh
+Pose and scan subscriptions always exist and use `qos.sensors.*`. The social
+subscription is constructed only when `social.enabled` and
+`social.observations.enabled` are both true. A pose/scan pair is coherent only when both are fresh
 and their timestamps differ by no more than
 `timing.sensor_sync_tolerance_s`. Stale or missing data changes the state to
 `WaitingForSensors` and publishes a zero command.
@@ -26,17 +28,32 @@ and their timestamps differ by no more than
 | `topics.decision_records`: `decision_records` | `semaforr_msgs/msg/DecisionRecord` | Replayable reasoning and execution trace for one stable decision ID; lifecycle updates reuse that ID. |
 | `topics.crowd_field`: `crowd_field` | `social_context_msgs/msg/CrowdField` | Derived learned crowd diagnostic, never a second navigation input. |
 
-The separate `why` node consumes `decision_records`, accepts
+The separately installed `why` node consumes `decision_records`, accepts
 `semaforr_msgs/msg/ExplanationQuestion` on `why_questions`, and publishes
-`semaforr_msgs/msg/ExplanationResponse` on `why_responses`. These explanation
-topic names are parameters of the Why node rather than navigation-engine input
-topics.
+`semaforr_msgs/msg/ExplanationResponse` on `why_responses`. Its parameters are
+`records_topic`, `questions_topic`, and `responses_topic`; they are not
+navigation-engine input parameters.
 
-Visualization topics include `target_point`, `waypoint`, `all_targets`,
-`remaining_targets`, `plan`, `original_plan`, `decision_pose`,
-`decision_laser`, `region`, `door`, `trail`, `conveyor`, `hallway1` through
-`hallway4`, `barrier`, `skeleton`, and graph marker topics. They are diagnostic
-outputs in `frames.global`.
+## Visualization outputs
+
+These are the visualization publishers currently constructed by
+`VisualizationPublisher`. Names without a `topics.*` parameter are fixed
+relative topic names and may still be remapped by ROS.
+
+| Topic | Type | Publication condition |
+|---|---|---|
+| `target_point` | `geometry_msgs/msg/PointStamped` | An active mission target exists. |
+| `waypoint` | `geometry_msgs/msg/PointStamped` | The active mission has an installed waypoint. |
+| `plan` | `nav_msgs/msg/Path` | A plan geometry is available. |
+| `decision_pose` | `geometry_msgs/msg/PoseStamped` | A decision is published. |
+| `static_map_geometry` | `visualization_msgs/msg/Marker` | `map.visualizations.enabled` and static geometry are available. |
+| `static_map_occupancy` | `visualization_msgs/msg/Marker` | Map visualization is enabled and static occupancy is available. |
+| `familiarity_grid` | `visualization_msgs/msg/Marker` | `grids.visualizations.enabled` and familiarity cells exist. |
+| `sensed_occupancy_free` | `visualization_msgs/msg/Marker` | Grid visualization is enabled and sensed-free cells exist. |
+| `sensed_occupancy_occupied` | `visualization_msgs/msg/Marker` | Grid visualization is enabled and sensed-occupied cells exist. |
+
+Other learned-representation marker publishers are not part of the current
+runtime topic contract.
 
 ## Frames and TF
 

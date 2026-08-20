@@ -48,18 +48,21 @@ Run the complete deterministic example from installed package data:
 ros2 launch semaforr example_simulation.launch.py
 ```
 
-It supplies map, mission, pose, and scan inputs and writes a structured trace
-to `~/.ros/semaforr/example-simulation.json`. Use `rviz:=true` for the installed
-RViz layout. `stage_tutorial.launch.py` is the navigation-only launch for a
-real robot or external simulator.
+It supplies simulator geometry, a mission, pose, and scan inputs and writes a
+structured trace to `~/.ros/semaforr/example-simulation.json`. By default the
+simulator map is hidden from SemaFORR; use the documented map-mode launch
+arguments to grant the robot static-map access. Use `rviz:=true` for the
+installed RViz layout. `stage_tutorial.launch.py` is the navigation-only launch
+for a real robot or external simulator.
 
 ## Configuration
 
 `config/semaforr.yaml` is the supported runtime configuration. It defines typed
 action magnitudes, safety limits, mission policy, feature flags, planners,
 advisors, and installed map/task paths as ROS parameters. Configuration parsing
-is ROS-independent after the parameter boundary and completes before the
-controller is constructed. Missing files, unknown names, duplicate settings,
+is ROS-independent after the parameter boundary. Static validation completes
+before adapter construction; map and planner capability validation completes
+during adapter startup. Missing files, unknown names, duplicate settings,
 non-finite or unsorted values, inconsistent array sizes, and malformed map/task
 data fail at startup with an actionable diagnostic.
 

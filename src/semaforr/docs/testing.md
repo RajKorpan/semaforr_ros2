@@ -16,7 +16,7 @@ and fail-closed configuration test carries
 reproduction. The machine-readable suite declaration is
 `test/compatibility_modes.yaml`.
 
-`tier_two_enforcer_test.cpp` is the focused Phase-15 suite. It verifies grid
+`tier_two_enforcer_test.cpp` is the focused planning/enforcement suite. It verifies grid
 lookahead, obstacle-safe shortcuts, deviation and completion, exact dependency
 invalidation, typed skeleton/highway execution, planner declarations, and full
 range-vote evidence. The exploration, Chapter-3 representation, spatial
@@ -32,7 +32,7 @@ ctest -L behavior_mode:compatibility-contract
 
 ## Dependency-ordered coverage map
 
-Phase-24 tests follow production dependencies. A failure in an earlier row is
+Tests follow production dependencies. A failure in an earlier row is
 resolved before interpreting results from a later row.
 
 | Order | Boundary | Executable evidence |
@@ -45,6 +45,7 @@ resolved before interpreting results from a later row.
 | 6 | Explanation golden fixtures | `why_system_test` and `why_explanations.golden` |
 | 7 | Comparable performance measurements | `semaforr_performance_regression_test`, `semaforr_snapshot_projection_test` |
 | 8 | End-to-end deterministic environments | `semaforr_navigation_scenario_test`, `semaforr_environment_regression_test` |
+| 9 | Documentation/catalog/topic/configuration consistency | `semaforr_documentation_contract_test` |
 
 ### Representation evidence matrix
 
@@ -78,7 +79,7 @@ without claiming that diagnostic JSON can be reloaded as a world model.
 
 | Requirement | Test |
 |---|---|
-| Action construction and ordering | `domain_types_test`, `characterization_test` |
+| Action construction and ordering | `semaforr_domain_types_test` |
 | Angles, expected poses, laser endpoints, goal tolerance | `navigation_behavior_test` |
 | Victory, AvoidObstacles/hard safety, NotOpposite, Behind, Out, and Forward | `tier_one_component_test` |
 | Obstacle vetoes | `tier_one_component_test`, `navigation_behavior_test`, `navigation_scenario_test` |
@@ -86,10 +87,10 @@ without claiming that diagnostic JSON can be reloaded as a world model.
 | Advisor scoring, weighting, tie/fallback safety | `decision_coordinator_test`, `component_strategy_test` |
 | A* and unreachable graphs | `domain_planning_test` |
 | Region and door geometry | `navigation_behavior_test` |
-| Configuration validation | `configuration_test` |
+| Configuration validation | `semaforr_configuration_test`, `semaforr_configuration_contract_test` |
 | Tier 1, Tier 3, planning, spatial learning, execution | component GTests |
 | Action feedback lifecycle, stable IDs, failure learning, duplicates, preemption, and controller restart | `semaforr_action_execution_lifecycle_test` |
-| Fifteen navigation situations | `navigation_scenario_test`, `environment_regression_test`, `ros_execution_test` |
+| Deterministic navigation situations | `navigation_scenario_test`, `environment_regression_test`, `ros_execution_test` |
 | Baseline decision trace | `navigation_strategy_test` |
 
 The integration scenarios are deterministic equivalents to ROS bags. Their
@@ -116,7 +117,7 @@ against those claims.
 Run the non-flaky measurement suites with:
 
 ```sh
-ctest -L test_kind:performance --output-junit phase24-performance.xml
+ctest -L test_kind:performance --output-junit performance.xml
 ```
 
 GoogleTest properties record mean decision latency, allocation count and bytes,
@@ -164,34 +165,15 @@ The coverage gate applies an 80% line threshold to the files listed in
 static-analysis policy. Modern component targets and production files
 compile with warnings promoted to errors.
 
-## Verified result
+## Reporting verification
 
-Verified in ROS 2 Humble on 2026-08-19:
+Do not copy a historical test count or coverage percentage into a publication
+as if it described the current checkout. Record the source revision and attach
+the output of `colcon test-result --verbose`, the claim-specific CTest labels,
+the replay/configuration fingerprint, and the coverage artifact produced by
+that revision. The CI workflow and test inventory in `CMakeLists.txt` are the
+authority for the current suite.
 
-- Phase-24 isolated `semaforr` and `why` profile: 48 CTest targets containing
-  349 test cases, 0 errors, 0 failures, 0 skipped.
-- Earlier fresh-image whole-workspace reference: 10 packages and 193 test
-  cases, 0 errors, 0 failures, 4 intentional skips.
-- Earlier ASan/UBSan/LeakSanitizer reference: 29 CTest targets containing 131
-  test cases, 0 errors, 0 failures, 0 skipped. The new Phase-24-only test code
-  has not yet been used to refresh the sanitizer reference.
-- Regression trace: 11 exact matches and no classified or unclassified
-  differences.
-- Overall instrumented production line coverage: 57.5%; the enforced
-  modified-core threshold is 80%.
-- Modified-code line coverage:
-  - `navigation_configuration.cpp`: 94.6%
-  - `decision_coordinator.cpp`: 92.2%
-  - `mission_manager.cpp`: 85.0%
-  - `navigation_advisor.cpp`: 95.8%
-  - `navigation_engine.cpp`: 81.8%
-  - `obstacle_veto_rule.cpp`: 86.1%
-  - `motion_model.cpp`: 94.7%
-  - `domain_planner.cpp`: 86.5%
-  - `planning_coordinator.cpp`: 100.0%
-
-Every production library now uses the warning-as-error profile. The warnings
-in `test/fixtures/baseline/build_warnings.md` describe the removed ROS1
-baseline and remain only as characterization evidence. Formatting, static
-analysis, sanitizer, coverage, and replay commands are enforced by the CI
-profiles documented above.
+Production libraries use the warning-as-error profile. The warnings in
+`test/fixtures/baseline/build_warnings.md` describe the removed baseline and
+remain characterization evidence only.

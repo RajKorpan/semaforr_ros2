@@ -1,6 +1,7 @@
 # SemaFORR documentation
 
 - [Build and deployment](deployment.md)
+- [Build targets and package layout](build-and-package.md)
 - [Architecture overview](architecture.md)
 - [Navigation behavioral contract](behavioral-contract.md)
 - [Behavioral compatibility matrix](compatibility-matrix.md)
@@ -18,6 +19,8 @@
 - [High-level exploration](high-level-exploration.md)
 - [Chapter 3 spatial representation profiles](chapter3-spatial-representations.md)
 - [Action execution and learning lifecycle](action-execution-lifecycle.md)
+- [Circumstance learning and Precedent](circumstance-case-reasoning.md)
+- [Why explanations](explanations.md)
 - [Representation revisions and dependency tracking](revision-dependencies.md)
 - [Immutable snapshots and projection performance](snapshot-sharing.md)
 - [Social navigation](social-navigation.md)
@@ -27,6 +30,7 @@
 - [Testing strategy and quality gates](testing.md)
 - [Experimental validation](experimental-validation.md)
 - [Replay and experiment reproducibility](reproducibility.md)
+- [Licensing](licensing.md)
 
 These documents are the maintained operational and design contracts. Git
 history contains superseded implementation reports.

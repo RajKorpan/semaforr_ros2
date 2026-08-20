@@ -3,13 +3,18 @@
 This document defines what implementation claims mean. A component name is
 not evidence that a particular algorithm is present. The status and behavior
 mode recorded here are the authority for publications, experiments, and
-regression review.
+regression review. Status is an implementation target, not proof of
+experimental equivalence. A `Dissertation-faithful` label is always qualified
+by the row's **Exact reproduction?** evidence and by the global fail-closed
+compatibility mode. No current whole-system run may be reported as an exact
+dissertation reproduction.
 
 ## Status vocabulary
 
-- **Dissertation-faithful** reproduces the published algorithm, inputs,
-  lifecycle, ordering, and observable behavior closely enough for the
-  compatibility acceptance suite.
+- **Dissertation-faithful** means the component is intended to reproduce the
+  published algorithm, inputs, lifecycle, ordering, and observable behavior.
+  It is verified only when the row names an adequate oracle or acceptance
+  suite; component tests alone do not establish publication-level equivalence.
 - **Functionally adapted** intentionally uses a different algorithm while
   preserving the component's purpose. It is supported in modernized mode but
   must not be described as an exact reproduction.
@@ -92,17 +97,17 @@ they are not fidelity claims.
 
 | Planner | Status | Published algorithm | Current implementation | Intentional? | Behavioral consequence | Exact reproduction? | Planned resolution |
 |---|---|---|---|---|---|---|---|
-| Distance / A* | Temporary approximation | A* on a metric occupancy cost graph | Dijkstra on nonzero known-grid cells, sampled skeleton fallback, or direct fallback | No | Static obstacles and unknown/free semantics differ | No | Load map occupancy and provide the published graph/search policy |
-| Crowd density | Functionally adapted | Crowd-sensitive occupancy cost graph | Shared graph with learned density multiplier | Yes | Uses a unified learned crowd model | No | Retain modernized; add legacy objective adapter only if reproduction requires it |
-| Crowd risk | Functionally adapted | Penalize risky crowd encounters | Shared graph with learned encounter-risk multiplier | Yes | Risk estimator differs | No | Retain modernized |
-| Crowd flow | Functionally adapted | Penalize travel against crowd flow | Shared graph with learned flow-alignment multiplier | Yes | Flow source and normalization differ | No | Retain modernized |
-| RegionPlan | Temporary approximation | Published Table 3.1 weights over occupancy graph and faithful regions/doors/exits | Similar weights over known-grid graph and adapted regions/openings | No | Candidate paths and objective costs differ | No | Resolve occupancy, region, door, and exit blockers |
-| HallwayPlan | Temporary approximation | Published hallway edge weights over occupancy graph | Similar weights using centerline proximity over known-grid graph | No | Different hallway geometry and base graph | No | Use compatibility hallway aggregates and occupancy graph |
-| TrailPlan | Temporary approximation | Published trail-marker weights over occupancy graph | Similar marker proximity over known-grid graph | No | Adapted trails change preferred routes | No | Use faithful trails and occupancy graph |
-| ConveyorPlan | Temporary approximation | Published conveyor-cell weights over occupancy graph | Segment proximity and aggregate traversal counts | No | Objective is not the published cell-frequency cost | No | Add conveyor grid objective |
+| Distance / A* | Functionally adapted | A* on a metric occupancy cost graph | Dijkstra over explicit static-plus-sensed traversability; unknown-space policy, inflation, and bounds are explicit; no familiarity or skeleton fallback exists | Dijkstra and safety layers are intentional | Equal-cost tie behavior and routes may differ from the published A* implementation | No published-map oracle yet | Add published scenario/path oracles before changing status |
+| Crowd density | Functionally adapted | Crowd-sensitive occupancy cost graph | Static-map traversability with a versioned learned-density edge objective | Yes | Uses the unified modern crowd-field estimator | No | Retain modernized; add legacy objective adapter only if reproduction requires it |
+| Crowd risk | Functionally adapted | Penalize risky crowd encounters | Static-map traversability with learned encounter-risk edge cost | Yes | Risk estimator and normalization differ | No | Retain modernized |
+| Crowd flow | Functionally adapted | Penalize travel against crowd flow | Static-map traversability with learned opposing-flow edge cost | Yes | Flow source and normalization differ | No | Retain modernized |
+| RegionPlan | Temporary approximation | Published Table 3.1 weights over an occupancy graph and learned regions/doors/exits | Dijkstra over explicit static or partial sensed traversability with region and door/exit edge costs | Base occupancy correction is complete; objective calibration is not verified | Routes no longer depend on familiarity, but published weights/ties may differ | No published-route oracle | Calibrate objective weights against published fixtures |
+| HallwayPlan | Temporary approximation | Published hallway edge weights over occupancy graph | Dijkstra over explicit static or partial sensed traversability with hallway-proximity cost | Base occupancy correction is complete; geometry/profile remains selectable | Compatibility and modernized hallway geometry can yield different routes | No published-route oracle | Validate compatibility hallway routes and objective scale |
+| TrailPlan | Temporary approximation | Published trail-marker weights over occupancy graph | Dijkstra over explicit static or partial sensed traversability with trail proximity | Base occupancy correction is complete | The selected trail profile changes preferred routes | No published-route oracle | Validate compatibility trail routes and objective scale |
+| ConveyorPlan | Temporary approximation | Published conveyor-cell frequency weights over occupancy graph | Dijkstra over explicit static or partial sensed traversability; uses the conveyor frequency grid when available and segment fallback in modernized mode | Grid support is intentional; segment fallback is adapted | Compatibility and modernized profiles can choose different routes | No published-route oracle | Add published frequency-route fixtures and exclude fallback in compatibility mode |
 | SkeletonPlan | Dissertation-faithful with typed execution | Dijkstra/A* over region graph using visibility surrogates and supporting subtrails | Uses only region-skeleton nodes and direct transition edges; emits typed region, skeleton-transition, and final-target steps | Typed schema and deterministic A* are intentional engineering choices | Sampled path geometry can no longer be mislabeled as SkeletonPlan | Algorithm-level | Expand surrogate-selection fixtures |
 | HighwayPlan | Functionally adapted | Skeleton connection, shortest highway graph path, skeleton connection; compare with SkeletonPlan | Combines the region skeleton with highway intersections and operational edge subtrails; emits explicit entry, highway, intersection, exit, and final-target steps | Yes at graph-search and typed-interface level | Route may differ through deterministic attachment rules | Algorithm-level | Expand multiple-entry and unusable-connection repairs |
-| Tier-2 range voting | Dissertation-faithful | Each objective evaluates every plan, normalize costs to `[0,10]`, minimize summed score | Same range-vote structure with deterministic planner-name tie break | Yes, tie adapted | Ties differ; ordinary non-tied selection should match given identical plans/costs | Pending oracle tests | Random tie policy in compatibility mode; retain deterministic option in modernized mode |
+| Tier-2 range voting | Dissertation-faithful target with engineering tie controls | Each objective evaluates every plan, normalizes costs to `[0,10]`, and minimizes summed score | Same range-vote structure; `seeded_exact` records and randomly resolves exact ties, while modernized deterministic mode uses planner-name order | Seeded reproducibility and deterministic option are intentional | Compatibility-target ties are replayable; objective implementations can still differ | Pending numeric and route oracle tests | Keep both policies and validate the compatibility-target matrix against published examples |
 | Other selection policies | Engineering extension | Not described | Single, normalized minimum, Pareto-then-vote, shortest-valid | Yes | Enables new experiments | No | Modernized mode only |
 | Plan cache and revision invalidation | Engineering extension | Not described | Caches by task and start/target surrogates plus exact declared representation and policy revisions | Yes | Relevant mutations invalidate precisely; unrelated layers remain cached | Potentially | Implemented and covered by exact-dependency regression tests |
 
@@ -118,19 +123,19 @@ signed normalization instead of unweighted `[0,10]` comments.
 | ElbowRoom | Functionally adapted | Stay far from obstacles | Scores predicted nearest laser endpoint | No | Freeze published metric and scale |
 | Novelty | Functionally adapted | Avoid locations visited on current target | Uses target-tagged navigation history | No | Add published distance/comment mapping |
 | GoAround | Functionally adapted | Turn away from nearby obstacle | Maximizes heading separation from nearest scan endpoint | No | Add published lookahead and scale |
-| Greedy | Functionally adapted | Approach target or active plan step | Uses mission waypoint correctly, but normalized weighted score differs | No | Compatibility `[0,10]` comment implementation |
+| Greedy | Functionally adapted | Approach target or active plan step | Uses the active Enforcer objective, then waypoint/target fallback; normalized weighted scoring remains the modernized default | No published comment oracle | Validate the compatibility `[0,10]` transform against published examples |
 | Curiosity | Functionally adapted | Visit locations never visited in experiment | Uses all navigation history | No | Compatibility comment scale |
 | Enfilade | Functionally adapted | Return toward recent locations | Uses last ten sufficiently distinct positions | No | Match published history window and score |
 | VisualScan | Functionally adapted | Rotate toward orientations with least prior view overlap | Samples unseen angular coverage in nearby history | No | Match published overlap calculation |
-| Convey | Functionally adapted | Approach frequent distant conveyors | Uses segment frequency rather than conveyor cells | No | Depends on faithful conveyor grid |
-| Enter | Temporary approximation | Enter target/plan-step region | Uses final target region rather than every operationalized plan step | No | Pass typed active plan step to advisor context |
-| Exit | Temporary approximation | Leave a region without target/plan step | Uses final target and adapted regions | No | Pass plan step and faithful regions |
-| Trailer | Temporary approximation | Follow trail segment that approaches target/plan step | Selects useful adapted trail segment toward final target | No | Use plan step and faithful trails |
+| Convey | Functionally adapted | Approach frequent distant conveyors | Uses frequency-aware conveyor segments; the compatibility conveyor grid is consumed by ConveyorPlan but not directly by this advisor | No | Add a compatibility advisor path over conveyor cells if required by an oracle |
+| Enter | Functionally adapted | Enter target/plan-step region | Uses the active Enforcer plan-step objective, then waypoint/target fallback, with the selected region profile | No published comment oracle | Validate score scale against published examples |
+| Exit | Functionally adapted | Leave a region without target/plan step | Uses the active Enforcer plan-step objective and current region membership | No published comment oracle | Validate score scale against published examples |
+| Trailer | Functionally adapted | Follow trail segment that approaches target/plan step | Selects the trail segment and endpoint that improve the active local objective | No published comment oracle | Validate score scale with compatibility trails |
 | Unlikely | Temporary approximation | Avoid dead-end regions | Infers low-door regions instead of skeleton degree | No | Use region skeleton degree |
-| Access | Temporary approximation | Approach regions with many doors | Counts scan-derived openings near adapted regions | No | Use faithful doors/regions |
+| Access | Functionally adapted | Approach regions with many doors | Counts the currently projected door segments near learned regions; compatibility mode supplies exit-derived doors, modernized mode may supply sensor openings | No | Require exit-derived door provenance for a future compatibility runtime |
 | Crossroads | Functionally adapted | Approach hallways with many overlaps | Computes centerline overlap dynamically | No | Use faithful hallway aggregate labels |
-| Follow | Temporary approximation | Follow target-relevant hallway | Uses final target and adapted centerlines | No | Use active plan step and faithful hallway model |
-| LeastAngle | Temporary approximation | Leave a region through skeleton branch best aligned to target/plan step | Uses nearest sampled skeleton node and final target | No | Use current region, adjacent regions, and active plan step |
+| Follow | Functionally adapted | Follow target-relevant hallway | Selects the hallway nearest the active local plan objective and follows its useful endpoint | No published comment oracle | Validate with compatibility hallway aggregates |
+| LeastAngle | Functionally adapted | Leave a region through the skeleton branch best aligned to target/plan step | Uses the nearest projected region-skeleton node, its adjacent edges, and the active local objective | No published comment oracle | Validate current-region surrogate and score scale against published examples |
 | SpatialLearner | Functionally adapted | Prefer locations absent from regions and high conveyors | Uses inclusion, adapted regions, and segment flows | No | Rebase on faithful representations |
 | Stay | Functionally adapted | Remain in current hallway | Uses distance to nearest centerline | No | Use faithful hallway area membership |
 | Weighted signed voting | Engineering extension | Unweighted `[0,10]` range voting with random tie break | Advisor utilities normalize to `[-1,1]`, receive weights, and use seeded tolerance ties | Yes | Changes coalition strength and decisions | No | Add unweighted `[0,10]` compatibility policy |

@@ -7,8 +7,8 @@ knowledge for comparison planners; it is not the learned world model.
 
 | Mode | Simulator geometry | SemaFORR static map | Grid planners |
 |---|---|---|---|
-| Mapless/live | independent or absent | absent | disabled |
-| Hidden simulation map | loaded by simulator | absent | disabled |
+| Mapless/live | independent or absent | absent | Static-map planners disabled; partial sensor-grid planners optional |
+| Hidden simulation map | loaded by simulator | absent | Static-map planners disabled; partial sensor-grid planners optional |
 | Map-enabled simulation | loaded by simulator | loaded independently | configurable |
 | Known real-world map | not applicable | loaded | configurable |
 
@@ -20,9 +20,12 @@ continue according to their own switches.
 `map.mode=map_enabled` resolves and parses `map.path`, validates geometry
 against the configured origin and bounds, rasterizes immutable occupancy, and
 publishes the four capabilities `map_available`, `map_geometry_available`,
-`map_occupancy_available`, and `map_based_planning_available`. Grid and
-affordance-grid planners require the last capability. Skeleton and highway
-planners consume learned representations and remain map-independent.
+`map_occupancy_available`, and `map_based_planning_available`. `distance` and
+the crowd grid planners require the last capability. `sensor_distance` uses
+only partial sensed occupancy. Region, hallway, trail, and conveyor planners
+use static occupancy when available and otherwise may use partial sensed
+occupancy. Skeleton and highway planners consume learned representations and
+remain map-independent.
 
 ## Resolution and formats
 
@@ -48,8 +51,9 @@ developer-specific file.
 
 ## Ownership and provenance
 
-The ROS composition layer resolves and owns the optional robot map before
-planner registration. `WorldModel` holds a non-owning `const StaticMap*` view
+`NavigationEngineAdapter` resolves and exclusively owns the optional robot map
+before planner registration. `WorldModel` holds a non-owning
+`const StaticMap*` view
 whose lifetime is bounded by that composition root. The object contains its canonical
 source, format, bounds, wall segments, polygons, occupancy, revision, and
 `StaticMap` provenance. It cannot be mutated through the world model.

@@ -27,16 +27,25 @@ ros2 run semaforr run_experiment_matrix.py \
   --runs 2 --duration 20 --seed 0
 ```
 
-Each trace includes the configuration fingerprint, selected policy, decision
-tier, planning and model-update latency, decision latency, process allocation
-count and requested bytes, covered cells, traveled distance, and intervention
-frequency. Allocation measurements count calls to the process-wide C++
+The matrix writes one baseline scenario JSON per run plus a manifest containing
+profile, seed, output path, and return code. Baseline JSON records selected
+policy, decision tier, planning and model-update latency, decision latency,
+process allocation count and requested bytes, covered cells, traveled distance,
+target outcomes, and intervention frequency. It is a simulator/metrics trace,
+not the versioned offline-replay format. Allocation measurements count calls to the process-wide C++
 allocation operators during each decision; they are not resident-memory
 samples. Coverage counts the union of one-metre cells overlapped by learned
 regions and trails. Runtime traces report the numerator; the ROS-independent
 collector divides it by the scenario's freespace-cell count. Target success is
 derived from explicit `target_completed` events, while activated targets that
 do not complete remain failed attempts.
+
+For decision replay, separately enable `reproducibility.recording.enabled` and
+set `reproducibility.trace_path`. That versioned trace records the expanded
+configuration and fingerprint, scoped seeds, source/test revisions, map
+checksum, task sequence, model versions, component manifest, sensor inputs,
+controller outcomes, plans, decisions, advisor-score digest, and explanation
+digest. See [Replay and experiment reproducibility](reproducibility.md).
 
 For comparisons, retain the behavior mode, profile, random seed, source
 revision, test-suite revision, map checksum, ordered target sequence, decision
