@@ -1,8 +1,11 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include <map>
 #include <semaforr/planning/reactive_planner.hpp>
 #include <semaforr/domain/motion_model.hpp>
+#include <semaforr/spatial/chapter3_learning.hpp>
+#include <set>
 #include <stdexcept>
 
 namespace semaforr::planning {
@@ -70,6 +73,107 @@ bool available(const decision::DecisionContext& context,
 
 std::size_t recentOutWindow(std::size_t history_size) noexcept {
   return std::min(history_size, 10U + history_size / 50U);
+}
+
+using ObservationCell = std::pair<std::int64_t, std::int64_t>;
+using ObservationCellSet = std::set<ObservationCell>;
+using RecentObservationGrid = std::map<ObservationCell, std::uint32_t>;
+
+struct OutGridGeometry {
+  double resolution_m{1.0};
+  domain::Point2D origin;
+};
+
+OutGridGeometry outGridGeometry(const domain::WorldModel& world) {
+  const auto& known = world.spatial.known_grid;
+  return {std::isfinite(known.resolution_m) && known.resolution_m > 0.0
+              ? known.resolution_m
+              : 1.0,
+          known.origin.finite() ? known.origin : domain::Point2D{}};
+}
+
+ObservationCell observationCell(const OutGridGeometry& geometry,
+                                domain::Point2D point) {
+  return {static_cast<std::int64_t>(std::floor(
+              (point.x_m - geometry.origin.x_m) / geometry.resolution_m)),
+          static_cast<std::int64_t>(std::floor(
+              (point.y_m - geometry.origin.y_m) / geometry.resolution_m))};
+}
+
+bool validObservationRay(const domain::LaserObservation& laser,
+                         double measured) {
+  return !std::isnan(measured) && measured >= laser.minimum_range.meters() &&
+         (std::isfinite(measured)
+              ? measured <= laser.maximum_range.meters()
+              : measured > 0.0);
+}
+
+ObservationCellSet observedCells(const domain::Pose2D& pose,
+                                 const domain::LaserObservation& laser,
+                                 const OutGridGeometry& geometry) {
+  ObservationCellSet cells;
+  const double step = geometry.resolution_m * 0.5;
+  for (std::size_t ray = 0U; ray < laser.ranges_m.size(); ++ray) {
+    const double measured = laser.ranges_m[ray];
+    if (!validObservationRay(laser, measured)) continue;
+    const double extent = std::isfinite(measured)
+                              ? measured
+                              : laser.maximum_range.meters();
+    const double angle = pose.heading.radians() +
+                         laser.angle_min.radians() +
+                         static_cast<double>(ray) *
+                             laser.angle_increment.radians();
+    for (double distance = 0.0; distance < extent; distance += step)
+      cells.insert(observationCell(
+          geometry,
+          {pose.position.x_m + std::cos(angle) * distance,
+           pose.position.y_m + std::sin(angle) * distance}));
+    cells.insert(observationCell(
+        geometry,
+        {pose.position.x_m + std::cos(angle) * extent,
+         pose.position.y_m + std::sin(angle) * extent}));
+  }
+  return cells;
+}
+
+std::vector<const domain::NavigationHistoryEntry*> targetHistory(
+    const domain::WorldModel& world) {
+  std::vector<const domain::NavigationHistoryEntry*> result;
+  if (!world.mission.active()) return result;
+  const auto task = world.mission.active()->id;
+  for (const auto& entry : world.navigation_history.entries())
+    if (entry.task_id == task) result.push_back(&entry);
+  return result;
+}
+
+RecentObservationGrid recentObservationGrid(const domain::WorldModel& world) {
+  RecentObservationGrid result;
+  const auto history = targetHistory(world);
+  const auto window = recentOutWindow(history.size());
+  const auto first = history.size() - window;
+  const auto geometry = outGridGeometry(world);
+  for (std::size_t index = first; index < history.size(); ++index) {
+    const auto cells = observedCells(history[index]->observation_pose,
+                                     history[index]->laser, geometry);
+    for (const auto& cell : cells) {
+      auto& count = result[cell];
+      if (count != std::numeric_limits<std::uint32_t>::max()) ++count;
+    }
+  }
+  return result;
+}
+
+ObservationCellSet currentObservationGrid(const domain::WorldModel& world) {
+  if (!world.robot.laser) return {};
+  return observedCells(world.robot.pose, *world.robot.laser,
+                       outGridGeometry(world));
+}
+
+std::size_t newObservationCells(const ObservationCellSet& current,
+                                const RecentObservationGrid& recent) {
+  return static_cast<std::size_t>(std::count_if(
+      current.begin(), current.end(),
+      [&](const auto& cell) { return !recent.contains(cell); }));
 }
 
 bool sensed(const domain::Pose2D& pose,
@@ -144,7 +248,8 @@ ReactiveResult resultFrom(std::string_view planner,
                           ReactivePlanUpdate update) {
   return {update.status, update.action, std::string(planner),
           std::move(update.explanation), update.completion_reason,
-          std::move(update.prepend_waypoints)};
+          std::move(update.prepend_waypoints),
+          std::move(update.learned_recovery_trail)};
 }
 
 }  // namespace
@@ -372,32 +477,17 @@ Out::Out(std::size_t coverage_threshold, double covered_fraction,
 TriggerEvaluation Out::evaluateTrigger(
     const decision::DecisionContext& context) const {
   if (state_ != State::Idle) return {true, "out:survey_active"};
-  const auto& grid = context.world.spatial.known_grid;
-  const auto& history = context.world.navigation_history.entries();
-  const std::size_t window = recentOutWindow(history.size());
-  const std::size_t first = history.size() - window;
+  const auto recent = recentObservationGrid(context.world);
+  const auto current = currentObservationGrid(context.world);
+  const std::size_t nonzero = recent.size();
   const auto well_covered = static_cast<std::size_t>(std::count_if(
-      history.begin() + static_cast<std::ptrdiff_t>(first), history.end(),
-      [&](const auto& entry) {
-        const auto index = gridIndex(grid, entry.pose.position);
-        return index && grid.valueAt(*index) >= coverage_threshold_;
+      recent.begin(), recent.end(), [&](const auto& item) {
+        return item.second >= coverage_threshold_;
       }));
-  std::size_t new_cells = 0U;
-  std::vector<std::size_t> observed_new_cells;
-  if (context.world.robot.laser) {
-    for (const auto& endpoint : domain::laserEndpoints(
-             context.world.robot.pose, *context.world.robot.laser)) {
-      const auto index = gridIndex(grid, endpoint);
-      if (index && grid.valueAt(*index) == 0U &&
-          std::find(observed_new_cells.begin(), observed_new_cells.end(),
-                    *index) == observed_new_cells.end())
-        observed_new_cells.push_back(*index);
-    }
-  }
-  new_cells = observed_new_cells.size();
+  const std::size_t new_cells = newObservationCells(current, recent);
   const bool repeatedly_confined =
-      window > 0U &&
-      static_cast<double>(well_covered) / static_cast<double>(window) >=
+      nonzero > 0U &&
+      static_cast<double>(well_covered) / static_cast<double>(nonzero) >=
           covered_fraction_ &&
       new_cells <= maximum_new_cells_;
   if (context.world.recovery.confined)
@@ -410,7 +500,6 @@ TriggerEvaluation Out::evaluateTrigger(
 ReactivePlanUpdate Out::update(
     const decision::DecisionContext& context) {
   if (!context.action_space || !evaluateTrigger(context).triggered) return {};
-  const auto& grid = context.world.spatial.known_grid;
   if (!context.world.mission.active()) {
     reset();
     return {};
@@ -423,12 +512,12 @@ ReactivePlanUpdate Out::update(
     mission_id_ = context.world.mission.active()->id;
     state_ = State::Survey;
     rotations_ = 0U;
-    baseline_known_cells_ = grid.observedCellCount();
   }
   if (state_ == State::Survey) {
-    const auto known = grid.observedCellCount();
+    const auto recent = recentObservationGrid(context.world);
+    const auto current = currentObservationGrid(context.world);
     if (rotations_ > 0U &&
-        known > baseline_known_cells_ + maximum_new_cells_) {
+        newObservationCells(current, recent) > maximum_new_cells_) {
       reset();
       return {ReactiveStatus::NotApplicable, std::nullopt, {},
               ReactiveCompletionReason::NewPlanAvailable, std::nullopt,
@@ -449,42 +538,92 @@ ReactivePlanUpdate Out::update(
               "out:no_execution_confirmed_reverse_subtrail"};
     }
     auto reverse_subtrail = escape_points_;
+    auto recovery_trail = recovery_trail_;
     reset();
     return {ReactiveStatus::InstallPlan, std::nullopt, {},
             ReactiveCompletionReason::None, std::nullopt,
             "out:prepend_reverse_subtrail_for_enforcer",
-            std::move(reverse_subtrail)};
+            std::move(reverse_subtrail), std::move(recovery_trail)};
   }
   return {};
 }
 
 void Out::buildEscape(const domain::WorldModel& world) {
   escape_points_.clear();
-  escape_cursor_ = 0U;
-  const auto& history = world.navigation_history.entries();
-  const std::size_t window = recentOutWindow(history.size());
-  const auto stop = history.rend() - static_cast<std::ptrdiff_t>(
-                                      history.size() - window);
-  for (auto entry = history.rbegin(); entry != stop; ++entry) {
-    if (entry->execution_status !=
-            domain::ExecutionCompletionStatus::Succeeded ||
-        (entry->distance_achieved_m <= domain::geometry_tolerance_m &&
-         entry->rotation_achieved_rad <= domain::geometry_tolerance_m))
-      continue;
-    if (escape_points_.empty() ||
-        domain::distance(escape_points_.back(), entry->pose.position).meters() >=
-            0.75)
-      escape_points_.push_back(entry->pose.position);
+  recovery_trail_.reset();
+  if (!world.path_history.active() || !world.mission.active()) return;
+  const auto recent = recentObservationGrid(world);
+  const auto geometry = outGridGeometry(world);
+  const auto& active = *world.path_history.active();
+  if (active.task_id != world.mission.active()->id) return;
+
+  // Recovery may only traverse a contiguous suffix of execution-confirmed,
+  // fully successful movement. A failed or partial action ends that suffix.
+  std::size_t suffix_begin = active.decision_points.size();
+  for (std::size_t index = active.decision_points.size(); index > 0U; --index) {
+    const auto& point = active.decision_points[index - 1U];
+    if (!point.successfulTraversal()) break;
+    suffix_begin = index - 1U;
   }
+  if (suffix_begin == active.decision_points.size()) return;
+
+  std::optional<std::size_t> recovery_index;
+  for (std::size_t index = active.decision_points.size(); index > suffix_begin;
+       --index) {
+    const auto& point = active.decision_points[index - 1U];
+    const auto cell = observationCell(geometry, point.selection.expected_start.position);
+    if (!recent.contains(cell)) {
+      recovery_index = index - 1U;
+      break;
+    }
+  }
+  if (!recovery_index) return;
+
+  domain::CompletedPath segment;
+  segment.id = active.id;
+  segment.task_id = active.task_id;
+  segment.target = active.target;
+  segment.decision_points.assign(
+      active.decision_points.begin() +
+          static_cast<std::ptrdiff_t>(*recovery_index),
+      active.decision_points.end());
+  auto trail = spatial::learnVisibilityTrail(
+      segment, static_cast<domain::TrailId>(active.id),
+      spatial::TrailLearningConfiguration{0.05, 0.0, false});
+  if (trail.markers.size() < 2U) return;
+  std::reverse(trail.markers.begin(), trail.markers.end());
+  trail.subtrail_geometry.clear();
+  trail.length_m = 0.0;
+  for (std::size_t index = 1U; index < trail.markers.size(); ++index) {
+    auto& previous = trail.markers[index - 1U];
+    previous.visibility_to_next.reset();
+    domain::RobotObservation observation;
+    observation.pose = previous.pose;
+    observation.laser = previous.view;
+    domain::VisibilityEvidence visibility;
+    if (spatial::historicallyVisible(
+            observation, trail.markers[index].pose.position, 0.05,
+            &visibility))
+      previous.visibility_to_next = visibility;
+    trail.subtrail_geometry.push_back(
+        {previous.pose.position, trail.markers[index].pose.position});
+    trail.length_m +=
+        domain::distance(previous.pose.position,
+                         trail.markers[index].pose.position).meters();
+  }
+  trail.markers.back().visibility_to_next.reset();
+  trail.target = trail.markers.back().pose.position;
+  for (const auto& marker : trail.markers)
+    escape_points_.push_back(marker.pose.position);
+  recovery_trail_ = std::move(trail);
 }
 
 void Out::reset() noexcept {
   state_ = State::Idle;
   mission_id_.reset();
   rotations_ = 0U;
-  baseline_known_cells_ = 0U;
   escape_points_.clear();
-  escape_cursor_ = 0U;
+  recovery_trail_.reset();
 }
 
 void Out::cancel(InterruptionReason) { reset(); }

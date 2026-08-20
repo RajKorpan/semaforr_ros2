@@ -672,19 +672,15 @@ TEST(TierOneRules, VictoryForwardAndNotOppositeAreTyped) {
   ASSERT_TRUE(direct.evaluate({visible}));
   EXPECT_EQ(direct.evaluate({visible})->action.type(),
             semaforr::domain::ActionType::Forward);
-  semaforr::decision::ForwardRule forward(
-      semaforr::domain::ActionSpace(
-          {2.0}, {1.5707963267948966, 3.1415926535897932}));
+  semaforr::decision::ForwardRule forward(semaforr::domain::ActionSpace(
+      {2.0}, {1.5707963267948966, 3.1415926535897932}));
   EXPECT_TRUE(forward.evaluate({visible}).empty());
-  semaforr::domain::NavigationHistoryEntry successful_forward{
-      {{-2.0, 0.0}, semaforr::domain::Angle::zero()}, laser(),
-      semaforr::domain::Action(
-          semaforr::domain::ActionType::Forward, 1U),
-      visible.mission.active()->id};
-  successful_forward.execution_status =
-      semaforr::domain::ExecutionCompletionStatus::Succeeded;
-  successful_forward.distance_achieved_m = 2.0;
-  visible.navigation_history.record(std::move(successful_forward));
+  semaforr::domain::SelectedActionRecord enforced;
+  enforced.task_id = visible.mission.active()->id;
+  enforced.expected_start =
+      {{-2.0, 0.0}, semaforr::domain::Angle::zero()};
+  enforced.provenance = "mandatory_rule:Enforcer";
+  visible.decision_history.record(std::move(enforced));
   EXPECT_FALSE(forward.evaluate({visible}).empty());
   world.navigation_history.record(
       {world.robot.pose, laser(),

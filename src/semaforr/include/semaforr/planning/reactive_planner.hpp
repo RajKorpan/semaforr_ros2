@@ -41,6 +41,7 @@ struct ReactivePlanUpdate {
   std::optional<std::uint64_t> candidate_id;
   std::string explanation;
   std::vector<domain::Point2D> prepend_waypoints;
+  std::optional<domain::LearnedTrail> learned_recovery_trail;
 
   ReactivePlanUpdate() = default;
   ReactivePlanUpdate(
@@ -50,14 +51,16 @@ struct ReactivePlanUpdate {
       ReactiveCompletionReason reason = ReactiveCompletionReason::None,
       std::optional<std::uint64_t> update_candidate_id = std::nullopt,
       std::string update_explanation = {},
-      std::vector<domain::Point2D> waypoints = {})
+      std::vector<domain::Point2D> waypoints = {},
+      std::optional<domain::LearnedTrail> recovery_trail = std::nullopt)
       : status(update_status),
         action(update_action),
         state(update_state),
         completion_reason(reason),
         candidate_id(update_candidate_id),
         explanation(std::move(update_explanation)),
-        prepend_waypoints(std::move(waypoints)) {}
+        prepend_waypoints(std::move(waypoints)),
+        learned_recovery_trail(std::move(recovery_trail)) {}
 };
 
 struct ReactiveRequest {
@@ -73,19 +76,23 @@ struct ReactiveResult {
   std::string explanation;
   ReactiveCompletionReason completion_reason = ReactiveCompletionReason::None;
   std::vector<domain::Point2D> prepend_waypoints;
+  std::optional<domain::LearnedTrail> learned_recovery_trail;
 
   ReactiveResult() = default;
   ReactiveResult(ReactiveStatus result_status,
                  std::optional<domain::Action> result_action,
                  std::string result_planner, std::string result_explanation,
                  ReactiveCompletionReason reason,
-                 std::vector<domain::Point2D> waypoints = {})
+                 std::vector<domain::Point2D> waypoints = {},
+                 std::optional<domain::LearnedTrail> recovery_trail =
+                     std::nullopt)
       : status(result_status),
         action(result_action),
         planner(std::move(result_planner)),
         explanation(std::move(result_explanation)),
         completion_reason(reason),
-        prepend_waypoints(std::move(waypoints)) {}
+        prepend_waypoints(std::move(waypoints)),
+        learned_recovery_trail(std::move(recovery_trail)) {}
 };
 
 class ReactivePlanner {
@@ -144,7 +151,7 @@ class Out final : public ReactivePlanner {
                std::size_t maximum_new_cells = 1U);
   std::string_view name() const noexcept override { return "Out"; }
   std::vector<std::string_view> dependencies() const override {
-    return {"recovery_state", "known_grid"};
+    return {"recovery_state", "navigation_history", "path_history", "laser"};
   }
   TriggerEvaluation evaluateTrigger(
       const decision::DecisionContext&) const override;
@@ -159,9 +166,8 @@ class Out final : public ReactivePlanner {
   State state_ = State::Idle;
   std::optional<domain::TaskId> mission_id_;
   std::size_t rotations_ = 0U;
-  std::size_t baseline_known_cells_ = 0U;
   std::vector<domain::Point2D> escape_points_;
-  std::size_t escape_cursor_ = 0U;
+  std::optional<domain::LearnedTrail> recovery_trail_;
   std::size_t coverage_threshold_;
   double covered_fraction_;
   std::size_t maximum_new_cells_;

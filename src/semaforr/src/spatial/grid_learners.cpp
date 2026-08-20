@@ -165,6 +165,10 @@ void KnownGridLearner::onObserve(const NavigationEpisode& episode) {
   const auto& pose = episode.observation.pose;
   const auto& laser = episode.observation.laser;
   const double step = geometry_.resolution_m * 0.5;
+  // Familiarity is evidence per decision observation, not evidence per beam.
+  // A dense scan and a sparse scan that cover the same world cells must
+  // therefore publish the same increment for this observation.
+  std::unordered_set<std::size_t> observation_cells;
   for (std::size_t ray = 0U; ray < laser.ranges_m.size(); ++ray) {
     const double measured = laser.ranges_m[ray];
     if (!validRay(laser, measured)) continue;
@@ -184,10 +188,11 @@ void KnownGridLearner::onObserve(const NavigationEpisode& episode) {
         pose.position.x_m + std::cos(angle) * range,
         pose.position.y_m + std::sin(angle) * range};
     if (const auto index = indexOf(geometry_, endpoint)) ray_cells.insert(*index);
-    for (const auto index : ray_cells) {
-      increment(observations_, index);
-      last_observed_sequence_[index] = episode.sequence;
-    }
+    observation_cells.insert(ray_cells.begin(), ray_cells.end());
+  }
+  for (const auto index : observation_cells) {
+    increment(observations_, index);
+    last_observed_sequence_[index] = episode.sequence;
   }
   std::vector<FamiliarityCellMetadata> metadata;
   metadata.reserve(last_observed_sequence_.size());

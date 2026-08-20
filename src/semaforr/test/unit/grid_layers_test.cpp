@@ -41,6 +41,14 @@ semaforr::domain::StaticMap staticMap(std::size_t columns,
   return map;
 }
 
+std::uint32_t familiarityAt(const semaforr::spatial::KnownGridModel& model,
+                            std::size_t index) {
+  const auto found = std::find_if(
+      model.sparse_observations.begin(), model.sparse_observations.end(),
+      [index](const auto& cell) { return cell.index == index; });
+  return found == model.sparse_observations.end() ? 0U : found->value;
+}
+
 }  // namespace
 
 TEST(GridLayers, HitEndpointIsOccupiedWhileFamiliarityOnlyRecordsObservation) {
@@ -92,6 +100,67 @@ TEST(GridLayers, MaximumRangeIsFreeAndInvalidBeamsAreIgnored) {
   EXPECT_EQ(std::get<spatial::SensedOccupancyModel>(invalid.snapshot().payload)
                 .observedCellCount(),
             0U);
+}
+
+TEST(GridLayers, FamiliarityCountsEachCoveredCellOncePerDecisionObservation) {
+  using namespace semaforr;
+  spatial::KnownGridLearner familiarity(6U, 2U, 1.0);
+  auto dense = scan(1U, 2.0);
+  dense.observation.laser.angle_increment = domain::Angle::zero();
+  dense.observation.laser.ranges_m.assign(10U, 2.0);
+  familiarity.observe(dense);
+
+  auto model = std::get<spatial::KnownGridModel>(
+      familiarity.snapshot().payload);
+  EXPECT_EQ(familiarityAt(model, 0U), 1U);
+  EXPECT_EQ(familiarityAt(model, 1U), 1U);
+  EXPECT_EQ(familiarityAt(model, 2U), 1U);
+
+  for (std::size_t sequence = 2U; sequence <= 5U; ++sequence) {
+    auto repeated = dense;
+    repeated.sequence = sequence;
+    familiarity.observe(repeated);
+  }
+  model = std::get<spatial::KnownGridModel>(familiarity.snapshot().payload);
+  EXPECT_EQ(familiarityAt(model, 0U), 5U);
+  EXPECT_EQ(familiarityAt(model, 1U), 5U);
+  EXPECT_EQ(familiarityAt(model, 2U), 5U);
+}
+
+TEST(GridLayers, FamiliarityCountsMaximumRangeButIgnoresInvalidRays) {
+  using namespace semaforr;
+  spatial::KnownGridLearner familiarity(6U, 1U, 1.0);
+  auto episode = scan(1U, 4.0);
+  episode.observation.laser.angle_increment = domain::Angle::zero();
+  episode.observation.laser.ranges_m = {
+      4.0, std::numeric_limits<double>::quiet_NaN(), 0.05,
+      std::numeric_limits<double>::infinity()};
+  familiarity.observe(episode);
+  const auto model = std::get<spatial::KnownGridModel>(
+      familiarity.snapshot().payload);
+  EXPECT_EQ(familiarityAt(model, 0U), 1U);
+  EXPECT_EQ(familiarityAt(model, 4U), 1U);
+  EXPECT_EQ(model.sparse_observations.size(), 5U);
+}
+
+TEST(GridLayers, FamiliarityIsInvariantToDifferentRayCountsAcrossAdjacentCells) {
+  using namespace semaforr;
+  spatial::KnownGridLearner familiarity(5U, 5U, 1.0);
+  auto episode = scan(1U, 2.0);
+  episode.observation.laser.angle_min = domain::Angle::zero();
+  episode.observation.laser.angle_increment = domain::Angle(0.7853981633974483);
+  episode.observation.laser.ranges_m = {2.0, 2.0, 2.0};
+  familiarity.observe(episode);
+  const auto model = std::get<spatial::KnownGridModel>(
+      familiarity.snapshot().payload);
+
+  // The robot's cell is crossed by all three rays while the two neighboring
+  // branches are crossed by different subsets. Every covered cell still gets
+  // exactly one increment from this decision observation.
+  ASSERT_FALSE(model.sparse_observations.empty());
+  EXPECT_TRUE(std::all_of(
+      model.sparse_observations.begin(), model.sparse_observations.end(),
+      [](const auto& cell) { return cell.value == 1U; }));
 }
 
 TEST(GridLayers, ExtentPolicyExpandsOrClipsExplicitly) {

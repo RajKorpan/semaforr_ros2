@@ -76,7 +76,10 @@ std::optional<DecisionResult> DecisionCoordinator::mandatoryDecision(
     const DecisionContext& context,
     std::span<const Action> candidates) const {
   for (const auto& rule : mandatory_rules_) {
-    if (auto decision = rule->evaluate(context)) {
+    const DecisionContext rule_context{
+        context.world, context.action_space, candidates,
+        context.active_plan_objective};
+    if (auto decision = rule->evaluate(rule_context)) {
       if (std::find(candidates.begin(), candidates.end(), decision->action) ==
           candidates.end())
         continue;
@@ -105,7 +108,10 @@ TierOnePass DecisionCoordinator::evaluateTierOne(
     event.tier = "tier1";
     event.component = std::string(rule->name());
     event.input_actions = pass.survivors;
-    if (auto decision = rule->evaluate(context)) {
+    const DecisionContext rule_context{
+        context.world, context.action_space, pass.survivors,
+        context.active_plan_objective};
+    if (auto decision = rule->evaluate(rule_context)) {
       if (std::binary_search(pass.survivors.begin(), pass.survivors.end(),
                              decision->action)) {
         event.mandate = decision->action;
@@ -138,7 +144,10 @@ TierOnePass DecisionCoordinator::evaluateTierOne(
     event.tier = "tier1";
     event.component = std::string(rule->name());
     event.input_actions = pass.survivors;
-    event.vetoes = rule->evaluate(context);
+    const DecisionContext rule_context{
+        context.world, context.action_space, pass.survivors,
+        context.active_plan_objective};
+    event.vetoes = rule->evaluate(rule_context);
     event.reason_code = rule->lastReason();
     pass.vetoes.insert(pass.vetoes.end(), event.vetoes.begin(),
                        event.vetoes.end());

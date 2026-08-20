@@ -50,6 +50,58 @@ semaforr::domain::NavigationHistoryEntry executed(
   return entry;
 }
 
+void recordSelection(semaforr::domain::WorldModel& world,
+                     semaforr::domain::Point2D position,
+                     std::string provenance = "mandatory_rule:Enforcer") {
+  semaforr::domain::SelectedActionRecord selected;
+  selected.decision_id = world.decision_history.entries().size() + 1U;
+  selected.action_id = selected.decision_id;
+  selected.task_id = world.mission.active()->id;
+  selected.expected_start = {position, semaforr::domain::Angle::zero()};
+  selected.action = Action(ActionType::Forward, 1U);
+  selected.provenance = std::move(provenance);
+  world.decision_history.record(std::move(selected));
+}
+
+void addSuccessfulPath(semaforr::domain::WorldModel& world,
+                       std::size_t steps, double first_x) {
+  const auto task = world.mission.active()->id;
+  world.path_history.begin(1U, task, world.mission.active()->target);
+  for (std::size_t index = 0U; index < steps; ++index) {
+    const double start_x = first_x + static_cast<double>(index);
+    semaforr::domain::PathDecisionPoint point;
+    point.selection.decision_id = index + 1U;
+    point.selection.action_id = index + 1U;
+    point.selection.task_id = task;
+    point.selection.expected_start =
+        {{start_x, 0.0}, semaforr::domain::Angle::zero()};
+    point.selection.action = Action(ActionType::Forward, 1U);
+    point.execution.decision_id = point.selection.decision_id;
+    point.execution.action_id = point.selection.action_id;
+    point.execution.task_id = task;
+    point.execution.status =
+        semaforr::domain::ExecutionCompletionStatus::Succeeded;
+    point.execution.start_pose = point.selection.expected_start;
+    point.execution.final_pose =
+        {{start_x + 1.0, 0.0}, semaforr::domain::Angle::zero()};
+    point.execution.distance_achieved_m = 1.0;
+    point.decision_observation.pose = point.selection.expected_start;
+    point.decision_observation.laser = scan();
+    point.executed_action = point.selection.action;
+    world.path_history.record(std::move(point));
+    auto history = executed(
+        {{start_x + 1.0, 0.0}, semaforr::domain::Angle::zero()},
+        Action(ActionType::Forward, 1U), 1.0, 0.0);
+    history.observation_pose =
+        {{start_x, 0.0}, semaforr::domain::Angle::zero()};
+    world.navigation_history.record(std::move(history));
+  }
+  world.robot.pose =
+      {{first_x + static_cast<double>(steps), 0.0},
+       semaforr::domain::Angle::zero()};
+  world.robot.laser = scan();
+}
+
 class InstallRecoveryPlan final : public semaforr::planning::ReactivePlanner {
  public:
   std::string_view name() const noexcept override { return "Out"; }
@@ -255,13 +307,14 @@ TEST(Behind, TestsPreviousVisibilityAtTheScanObservationPose) {
 
 TEST(Out, UsesRecentTenPlusNOverFiftyWindow) {
   auto world = worldWithTarget({20.0, 0.0});
-  std::vector<std::uint32_t> familiarity(100U, 0U);
-  std::fill_n(familiarity.begin(), 88U, 5U);
-  world.spatial.known_grid = {100U, 1U, 1.0, {0.0, 0.0}, familiarity, 1U};
+  world.spatial.known_grid = {100U, 1U, 1.0, {0.0, 0.0},
+                              std::vector<std::uint32_t>(100U, 99U), 1U};
   for (std::size_t index = 0U; index < 100U; ++index) {
-    world.navigation_history.record(executed(
+    auto entry = executed(
         {{static_cast<double>(index), 0.0}, semaforr::domain::Angle::zero()},
-        Action(ActionType::Forward, 1U), 1.0, 0.0));
+        Action(ActionType::Forward, 1U), 1.0, 0.0);
+    entry.observation_pose = entry.pose;
+    world.navigation_history.record(std::move(entry));
   }
   world.robot.laser.reset();
   semaforr::planning::Out out;
@@ -270,16 +323,62 @@ TEST(Out, UsesRecentTenPlusNOverFiftyWindow) {
   EXPECT_EQ(trigger.rationale, "out:recent_window_not_confined");
 }
 
+TEST(Out, TriggersFromRecentObservationEvidenceNotCumulativeFamiliarity) {
+  auto world = worldWithTarget({20.0, 0.0});
+  world.spatial.known_grid = {1U, 1U, 1.0, {0.0, 0.0}, {0U}, 1U};
+  for (std::size_t index = 0U; index < 4U; ++index) {
+    auto entry = executed({{0.0, 0.0}, semaforr::domain::Angle::zero()},
+                          Action::pause());
+    entry.observation_pose = entry.pose;
+    world.navigation_history.record(std::move(entry));
+  }
+  world.robot.pose = {{0.0, 0.0}, semaforr::domain::Angle::zero()};
+  world.robot.laser = scan();
+  semaforr::planning::Out out;
+  const auto trigger = out.evaluateTrigger({world});
+  EXPECT_TRUE(trigger.triggered);
+  EXPECT_EQ(trigger.rationale, "out:recent_window_confined");
+}
+
+TEST(Out, SurveyAbortsWheneverAQuarterTurnRevealsNewFreespace) {
+  const semaforr::domain::ActionSpace actions(
+      {0.25, 0.8}, {0.2, 1.5707963267948966});
+  for (std::size_t reveal_after = 1U; reveal_after <= 4U; ++reveal_after) {
+    auto world = worldWithTarget({20.0, 0.0});
+    world.recovery.confined = true;
+    for (std::size_t index = 0U; index < 4U; ++index) {
+      auto entry = executed({{0.0, 0.0}, semaforr::domain::Angle::zero()},
+                            Action::pause());
+      entry.observation_pose = entry.pose;
+      world.navigation_history.record(std::move(entry));
+    }
+    world.robot.pose = {{0.0, 0.0}, semaforr::domain::Angle::zero()};
+    world.robot.laser = scan();
+    semaforr::planning::Out out;
+    for (std::size_t turn_index = 1U; turn_index <= reveal_after; ++turn_index) {
+      const auto turn_update = out.update({world, &actions});
+      ASSERT_EQ(turn_update.status, semaforr::planning::ReactiveStatus::Action);
+      if (turn_index < reveal_after) {
+        auto prior = executed(world.robot.pose, Action::pause());
+        prior.observation_pose = world.robot.pose;
+        world.navigation_history.record(std::move(prior));
+      }
+    }
+    world.robot.pose.position = {100.0, 100.0};
+    const auto abandoned = out.update({world, &actions});
+    EXPECT_EQ(abandoned.status,
+              semaforr::planning::ReactiveStatus::NotApplicable);
+    EXPECT_EQ(abandoned.explanation, "out:survey_revealed_new_freespace");
+  }
+}
+
 TEST(Out, SurveysThenReturnsReverseSubtrailForEnforcer) {
   const semaforr::domain::ActionSpace actions(
       {0.25, 0.8}, {0.2, 1.5707963267948966});
   auto world = worldWithTarget({20.0, 0.0});
   world.recovery.confined = true;
-  for (std::size_t index = 0U; index < 4U; ++index) {
-    world.navigation_history.record(executed(
-        {{static_cast<double>(index), 0.0}, semaforr::domain::Angle::zero()},
-        Action(ActionType::Forward, 1U), 1.0, 0.0));
-  }
+  addSuccessfulPath(world, 20U, -20.0);
+  world.robot.laser = scan(1U, 0.1);
   semaforr::planning::Out out;
   for (std::size_t survey = 0U; survey < 4U; ++survey) {
     const auto update = out.update({world, &actions});
@@ -289,11 +388,41 @@ TEST(Out, SurveysThenReturnsReverseSubtrailForEnforcer) {
   const auto recovery = out.update({world, &actions});
   EXPECT_EQ(recovery.status, semaforr::planning::ReactiveStatus::InstallPlan);
   EXPECT_FALSE(recovery.action);
+  ASSERT_TRUE(recovery.learned_recovery_trail);
+  EXPECT_GE(recovery.learned_recovery_trail->markers.size(), 2U);
   ASSERT_GE(recovery.prepend_waypoints.size(), 2U);
   EXPECT_GT(recovery.prepend_waypoints.front().x_m,
             recovery.prepend_waypoints.back().x_m);
   EXPECT_EQ(recovery.explanation,
             "out:prepend_reverse_subtrail_for_enforcer");
+}
+
+TEST(Out, PartialOrFailedSuffixDoesNotCreateRecoveryMarkers) {
+  const semaforr::domain::ActionSpace actions(
+      {0.25, 0.8}, {0.2, 1.5707963267948966});
+  auto world = worldWithTarget({20.0, 0.0});
+  world.recovery.confined = true;
+  addSuccessfulPath(world, 20U, -20.0);
+  world.robot.laser = scan(1U, 0.1);
+  semaforr::domain::PathDecisionPoint partial;
+  partial.selection.task_id = world.mission.active()->id;
+  partial.selection.expected_start = world.robot.pose;
+  partial.execution.task_id = world.mission.active()->id;
+  partial.execution.start_pose = world.robot.pose;
+  partial.execution.final_pose = world.robot.pose;
+  partial.execution.status =
+      semaforr::domain::ExecutionCompletionStatus::PartialMovement;
+  partial.execution.distance_achieved_m = 0.25;
+  partial.decision_observation.pose = world.robot.pose;
+  partial.decision_observation.laser = scan();
+  world.path_history.record(std::move(partial));
+  semaforr::planning::Out out;
+  for (std::size_t survey = 0U; survey < 4U; ++survey)
+    ASSERT_EQ(out.update({world, &actions}).status,
+              semaforr::planning::ReactiveStatus::Action);
+  const auto recovery = out.update({world, &actions});
+  EXPECT_EQ(recovery.status, semaforr::planning::ReactiveStatus::NotApplicable);
+  EXPECT_FALSE(recovery.learned_recovery_trail);
 }
 
 TEST(Out, NavigationEnginePrependsRecoveryAndReturnsToEnforcer) {
@@ -340,30 +469,47 @@ TEST(Out, NavigationEnginePrependsRecoveryAndReturnsToEnforcer) {
             "enforcer:operationalized_out_reverse_subtrail");
 }
 
-TEST(Forward, UsesSuccessfulExecutionConfirmedFootprintCells) {
+TEST(Forward, UsesOnlyEnforcerSelectionsAndMarksTheThreeByThreeNeighborhood) {
   const semaforr::domain::ActionSpace actions(
-      {2.0}, {1.5707963267948966, 3.1415926535897932});
+      {2.0}, {0.2, 1.5707963267948966});
   auto world = worldWithTarget({10.0, 0.0});
-  semaforr::decision::ForwardRule forward(actions, 0.5);
+  semaforr::decision::ForwardRule forward(actions);
   EXPECT_TRUE(forward.evaluate({world}).empty());
 
-  auto failed = executed(
-      {{-2.0, 0.0}, semaforr::domain::Angle::zero()},
-      Action(ActionType::Forward, 1U), 2.0, 0.0);
-  failed.execution_status =
-      semaforr::domain::ExecutionCompletionStatus::ControllerFailure;
-  world.navigation_history.record(failed);
+  recordSelection(world, {0.0, 0.0}, "mandatory_rule:Victory");
   EXPECT_TRUE(forward.evaluate({world}).empty());
 
-  world.navigation_history.record(executed(
-      {{-2.0, 0.0}, semaforr::domain::Angle::zero()},
-      Action(ActionType::Forward, 1U), 2.0, 0.0));
-  const auto vetoes = forward.evaluate({world});
-  ASSERT_FALSE(vetoes.empty());
+  recordSelection(world, {0.0, 0.0});
+  const std::vector<Action> viable{
+      Action(ActionType::Forward, 1U), Action(ActionType::TurnLeft, 1U),
+      Action(ActionType::TurnRight, 1U), Action(ActionType::TurnLeft, 2U),
+      Action(ActionType::TurnRight, 2U)};
+  const auto vetoes = forward.evaluate({world, &actions, viable});
+  ASSERT_EQ(vetoes.size(), 2U);
   EXPECT_TRUE(std::all_of(vetoes.begin(), vetoes.end(), [](const auto& veto) {
     return veto.explanation ==
            "forward:projected_footprint_already_visited";
   }));
+  EXPECT_TRUE(std::none_of(vetoes.begin(), vetoes.end(), [](const auto& veto) {
+    return veto.action.type() == ActionType::Forward;
+  }));
+}
+
+TEST(Forward, AllRotationVetoClearsGridAndTargetChangeStartsEmpty) {
+  const semaforr::domain::ActionSpace actions(
+      {1.0}, {1.5707963267948966});
+  auto world = worldWithTarget({10.0, 0.0});
+  semaforr::decision::ForwardRule forward(actions);
+  recordSelection(world, {-0.2, -0.2});
+  world.robot.pose = {{-0.2, -0.2}, semaforr::domain::Angle::zero()};
+  EXPECT_TRUE(forward.evaluate({world}).empty());
+  EXPECT_TRUE(forward.evaluate({world}).empty());
+
+  auto next_target = worldWithTarget({20.0, 0.0});
+  next_target.mission = semaforr::domain::Mission({{2U, {20.0, 0.0}}}, 100U);
+  ASSERT_TRUE(next_target.mission.activate_next());
+  next_target.mission.install_active_plan({{20.0, 0.0}});
+  EXPECT_TRUE(forward.evaluate({next_target}).empty());
 }
 
 }  // namespace

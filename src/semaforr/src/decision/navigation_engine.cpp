@@ -646,8 +646,22 @@ DecisionResult NavigationEngine::decide() {
     cycle.insert(cycle.end(), reactive.trace.begin(), reactive.trace.end());
     if (reactive.result.status == planning::ReactiveStatus::InstallPlan &&
         !reactive.result.prepend_waypoints.empty() && world_.mission.active()) {
-      mission_.prependPlan(std::move(reactive.result.prepend_waypoints));
+      auto recovery_waypoints = std::move(reactive.result.prepend_waypoints);
+      mission_.prependPlan(recovery_waypoints);
       mission_.advanceWaypoint(world_.robot.pose, goal_tolerance_);
+      if (reactive.result.learned_recovery_trail && active_hierarchy_) {
+        const auto insert_at = std::min(active_hierarchy_->cursor,
+                                        active_hierarchy_->steps.size());
+        active_hierarchy_->steps.insert(
+            active_hierarchy_->steps.begin() +
+                static_cast<std::ptrdiff_t>(insert_at),
+            planning::SubtrailStep{
+                recovery_waypoints,
+                reactive.result.learned_recovery_trail->id, 0U});
+        ++active_hierarchy_->execution_revision;
+        active_hierarchy_->diagnostics.push_back(
+            "out:learned_recovery_trail_prepended");
+      }
       world_.recovery.confined = false;
       world_.recovery.plan_available =
           world_.mission.active()->waypoint().has_value();
@@ -656,7 +670,9 @@ DecisionResult NavigationEngine::decide() {
             "reverse_subtrail_installed_return_to_enforcer";
         cycle.back().returned_to_earlier_tier = true;
       }
-      const auto enforced = enforcerAction(viable);
+      const auto enforced = active_hierarchy_
+                                ? enforceActivePlan(viable).action
+                                : enforcerAction(viable);
       cycle.push_back(
           {0U, "tier1", "Enforcer", viable, enforced, {},
            enforced ? "recovery_plan_action_selected"

@@ -176,7 +176,7 @@ target_include_directories(semaforr_domain
 semaforr_apply_project_options(semaforr_domain)
 semaforr_apply_strict_warnings(semaforr_domain)
 
-target_link_libraries(semaforr_planning PUBLIC semaforr_domain)
+target_link_libraries(semaforr_planning PUBLIC semaforr_domain PRIVATE semaforr_spatial)
 target_link_libraries(semaforr_advisors PUBLIC semaforr_domain semaforr_planning)
 target_link_libraries(semaforr_spatial PUBLIC semaforr_domain)
 

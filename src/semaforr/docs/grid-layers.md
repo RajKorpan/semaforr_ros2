@@ -14,6 +14,12 @@ Inclusion, highway evidence, hallways, conveyors, regions, crowd fields and
 planner costs are separate representations. A positive familiarity count is
 never interpreted as a free cell.
 
+Familiarity is counted once per decision observation. The learner rasterizes
+all valid rays into one temporary cell set and commits that set only after the
+whole scan has been processed. Multiple beams crossing a cell in the same scan
+therefore add one, while observing it in five separate decision observations
+adds five. Maximum-range rays contribute familiarity; invalid rays do not.
+
 The layers share the coordinate and extent contract documented in
 [grid geometry and expansion](grid-geometry.md), without sharing cell meaning.
 

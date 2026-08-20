@@ -32,17 +32,11 @@ class VictoryRule final : public MandatoryRule {
 
 class ForwardRule final : public VetoRule {
  public:
-  ForwardRule(domain::ActionSpace action_space,
-              double visited_grid_resolution_m = 1.0)
-      : action_space_(std::move(action_space)),
-        visited_grid_resolution_m_(visited_grid_resolution_m) {
-    if (!(visited_grid_resolution_m_ > 0.0))
-      throw std::invalid_argument(
-          "Forward visited-grid resolution must be positive");
-  }
+  explicit ForwardRule(domain::ActionSpace action_space)
+      : action_space_(std::move(action_space)) {}
   std::string_view name() const noexcept override { return "Forward"; }
   std::vector<std::string_view> dependencies() const override {
-    return {"active_waypoint", "robot_pose"};
+    return {"active_waypoint", "robot_pose", "decision_history"};
   }
   std::vector<Veto> evaluate(
       const DecisionContext& context) const override;
@@ -51,12 +45,11 @@ class ForwardRule final : public VetoRule {
   void synchronizeVisitedGrid(const domain::WorldModel&) const;
 
   domain::ActionSpace action_space_;
-  double visited_grid_resolution_m_;
   mutable std::optional<domain::TaskId> task_id_;
-  mutable std::size_t history_cursor_ = 0U;
+  mutable std::size_t decision_cursor_ = 0U;
   using VisitedCell = std::pair<std::int64_t, std::int64_t>;
   VisitedCell visitedCell(domain::Point2D) const noexcept;
-  mutable std::set<VisitedCell> visited_footprint_cells_;
+  mutable std::set<VisitedCell> visited_cells_;
 };
 
 class NotOppositeRule final : public VetoRule {

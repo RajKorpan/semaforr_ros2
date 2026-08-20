@@ -44,7 +44,7 @@ order is `victory`, `avoid_obstacles`, `not_opposite`, `enforcer`, `thru`,
 | `behind` | ReactivePlanner | Recovers a nearby unseen waypoint by preferring an available quarter turn right, then left. |
 | `out` | ReactivePlanner | Surveys confinement, constructs an execution-confirmed reverse subtrail, and prepends it for Enforcer. |
 | `low_level_exploration` | ReactivePlanner and ReplanningTrigger | Searches missing knowledge and requests Tier-2 replanning after inclusion/connectivity growth. |
-| `forward` | VetoRule | Rejects projected turns into footprint cells visited during successful plan execution. |
+| `forward` | VetoRule | Rejects projected turns into target-local one-metre cells marked only by Enforcer decisions. |
 | `precedent` | VetoRule | Rejects actions only after circumstance assignment, case evidence, accuracy, and action-confidence gates pass. |
 
 Mandatory rules return an optional decision. They are evaluated in configured
@@ -59,8 +59,12 @@ unsafe motions, `NotOpposite` suppresses immediate orientation reversal, and
 `Forward` prevents orientation regression along the installed plan. Vetoes are
 accumulated before Tier 3 runs and are copied into the decision record.
 `NotOpposite` reads only terminal, execution-confirmed orientations.
-`Forward` stores successful executed plan motion in footprint-sized cells;
-selected or failed actions do not mark cells.
+`Forward` owns a sparse target-local grid with logical one-metre cells. Each
+Enforcer selection marks the current cell and all eight neighbors. Other
+Tier-1 and Tier-3 selections and terminal execution records do not update this
+grid. Only viable rotations are checked; translations are never vetoed by
+Forward. If all remaining rotations would be vetoed, the grid is cleared and
+the vetoes are withdrawn.
 
 `Behind` uses a distance threshold of 1.5 metres plus the radius of a region
 containing the waypoint. When the waypoint is absent from the current and
@@ -70,11 +74,16 @@ immediate repeat. History retains the laser observation pose independently
 from the terminal action pose, so the previous visibility test uses the frame
 in which that scan was actually observed.
 
-`Out` evaluates the most recent `10+n/50` execution records, where `n` is the
-available navigation-history length. It surveys with four right quarter turns,
-builds a reverse subtrail from successful executed motion, prepends that
-subtrail to the remaining mission plan, and returns control to Enforcer. It
-never directly pursues the escape points.
+`Out` reconstructs a temporary familiarity grid from only the current target's
+most recent `10+n/50` decision observations. It triggers when at least 75% of
+the nonzero recent cells have count four or greater and the current view adds
+at most one cell. The cumulative familiarity model is not consulted. During
+its four-right-turn survey, each new current view is compared with the updated
+recent grid and more than one new cell abandons recovery. If the survey finds
+no new space, Out locates the latest execution-confirmed point outside recent
+coverage, runs the visibility-based Trail learner on the contiguous successful
+path suffix, and prepends that typed subtrail for Enforcer. Out never directly
+pursues its escape markers; failed or partial suffixes are not operationalized.
 
 The separate Tier-1 contracts are `MandatoryRule`, `VetoRule`,
 `PlanOperationalizer`, `ReactivePlanner`, and `ReplanningTrigger`. `Enforcer`
