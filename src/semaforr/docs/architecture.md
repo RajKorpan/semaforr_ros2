@@ -38,9 +38,9 @@ must not include ROS headers.
    generates typed `PlanResult` values. Successful plan installation ends the
    cycle; Enforcer first consumes the plan on the next cycle. Tier 3 runs only
    after Tier 1 declines and planning is unnecessary, unavailable, or failed.
-   Tier 3 explicitly selects
-   unweighted `[0,10]` compatibility comments with exact ties or normalized,
-   weighted scoring with tolerance ties. Plan-sensitive advisors receive the
+   Tier 3 normalizes every production advisor's complete raw score set to
+   `[0,10]`, then selects unweighted compatibility comments with exact ties or
+   weighted comments with tolerance ties. Plan-sensitive advisors receive the
    current Enforcer operational target rather than silently using the final
    mission target.
 5. The engine records a selection under stable decision/action IDs. The

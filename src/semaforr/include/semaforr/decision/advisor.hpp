@@ -9,7 +9,7 @@
 
 namespace semaforr::decision {
 
-enum class ScoreNormalization { None, UnitInterval, SignedUnit };
+enum class ScoreNormalization { None, UnitInterval, SignedUnit, TenPoint };
 
 struct AdvisorMetadata {
   std::vector<std::string_view> required_representations;

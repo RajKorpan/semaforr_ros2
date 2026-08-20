@@ -2,8 +2,10 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include <memory>
 #include <semaforr/decision/advisors/catalog_registry.hpp>
 #include <semaforr/decision/advisors/heuristic_advisor.hpp>
+#include <semaforr/decision/decision_coordinator.hpp>
 #include <semaforr/decision/tier_registry.hpp>
 #include <semaforr/planning/reactive_planner.hpp>
 #include <semaforr/spatial/learners/circumstance_learner.hpp>
@@ -48,6 +50,33 @@ semaforr::decision::AdvisorEvaluation spatialEvaluation(
   return advisor.evaluate({world}, candidates);
 }
 
+semaforr::domain::LearnedRegion learnedRegion(
+    semaforr::domain::RegionId id, semaforr::domain::Point2D center,
+    double radius_m) {
+  semaforr::domain::LearnedRegion result;
+  result.id = id;
+  result.boundary = {center, semaforr::domain::Distance(radius_m)};
+  return result;
+}
+
+semaforr::domain::RegionSkeletonNode skeletonNode(
+    std::size_t id, semaforr::domain::RegionId region,
+    semaforr::domain::Point2D center) {
+  semaforr::domain::RegionSkeletonNode result;
+  result.id = id;
+  result.region = region;
+  result.center = center;
+  return result;
+}
+
+semaforr::domain::LearnedDoor learnedDoor(
+    semaforr::domain::DoorId id, semaforr::domain::RegionId region) {
+  semaforr::domain::LearnedDoor result;
+  result.id = id;
+  result.region = region;
+  return result;
+}
+
 }  // namespace
 
 TEST(TierThreeCatalog, RestoresEveryHeuristicAdvisorWithMetadata) {
@@ -72,6 +101,8 @@ TEST(TierThreeCatalog, RestoresEveryHeuristicAdvisorWithMetadata) {
     const auto metadata = advisor->metadata();
     EXPECT_FALSE(metadata.scored_action_types.empty()) << name;
     EXPECT_FALSE(metadata.rationale.empty()) << name;
+    EXPECT_EQ(metadata.normalization,
+              semaforr::decision::ScoreNormalization::TenPoint) << name;
   }
 }
 
@@ -96,6 +127,57 @@ TEST(TierThreeCatalog, SpatialAdvisorReportsSourceRevision) {
   const auto dependencies = advisor->dependencies();
   EXPECT_NE(std::find(dependencies.begin(), dependencies.end(), "hallways"),
             dependencies.end());
+}
+
+TEST(TierThreeNormalization, ProductionAdvisorsNormalizeWholeScoreSetToTenPoint) {
+  using namespace semaforr;
+  const domain::ActionSpace actions({1.0}, {0.5});
+  auto world = worldWithTarget({5.0, 0.0});
+  const std::vector<domain::Action> candidates{
+      domain::Action::pause(),
+      {domain::ActionType::Forward, 1U}};
+  decision::DecisionCoordinator coordinator;
+  coordinator.addAdvisor(std::make_unique<decision::HeuristicAdvisor>(
+      decision::HeuristicAdvisorConfiguration{
+          "big_step", decision::HeuristicObjective::BigStep, actions, 2.0}));
+  const auto result = coordinator.decideTierThree({world}, candidates);
+  ASSERT_EQ(result.contributions.size(), 2U);
+  const auto pause = std::find_if(
+      result.contributions.begin(), result.contributions.end(),
+      [](const auto& value) { return value.action == domain::Action::pause(); });
+  const auto forward = std::find_if(
+      result.contributions.begin(), result.contributions.end(),
+      [](const auto& value) {
+        return value.action ==
+               domain::Action(domain::ActionType::Forward, 1U);
+      });
+  ASSERT_NE(pause, result.contributions.end());
+  ASSERT_NE(forward, result.contributions.end());
+  EXPECT_DOUBLE_EQ(pause->raw_score, 0.0);
+  EXPECT_DOUBLE_EQ(forward->raw_score, 1.0);
+  EXPECT_DOUBLE_EQ(pause->normalized_score, 0.0);
+  EXPECT_DOUBLE_EQ(forward->normalized_score, 10.0);
+  EXPECT_DOUBLE_EQ(forward->weighted_score, 20.0);
+}
+
+TEST(TierThreeNormalization, IdenticalRawCommentsBecomeNeutralWithoutDivisionByZero) {
+  using namespace semaforr;
+  const domain::ActionSpace actions({1.0}, {0.5});
+  auto world = worldWithTarget({5.0, 0.0});
+  const std::vector<domain::Action> candidates{
+      {domain::ActionType::TurnLeft, 1U},
+      {domain::ActionType::TurnRight, 1U}};
+  decision::DecisionCoordinator coordinator;
+  coordinator.addAdvisor(std::make_unique<decision::HeuristicAdvisor>(
+      decision::HeuristicAdvisorConfiguration{
+          "big_step", decision::HeuristicObjective::BigStep, actions, 1.0}));
+  const auto result = coordinator.decideTierThree({world}, candidates);
+  ASSERT_EQ(result.contributions.size(), 2U);
+  for (const auto& contribution : result.contributions) {
+    EXPECT_DOUBLE_EQ(contribution.raw_score, 0.5);
+    EXPECT_DOUBLE_EQ(contribution.normalized_score, 5.0);
+    EXPECT_TRUE(std::isfinite(contribution.normalized_score));
+  }
 }
 
 TEST(CommonsenseAdvisors, BigStepAndGreedyUseMetricLookahead) {
@@ -158,6 +240,29 @@ TEST(CommonsenseAdvisors, ElbowRoomAndGoAroundRespondToObstacleSide) {
             scoreFor(avoidance, {ActionType::TurnLeft, 1U}));
 }
 
+TEST(CommonsenseAdvisors, GoAroundIgnoresMaximumRangeAndScoresOnlyRotations) {
+  using namespace semaforr;
+  const domain::ActionSpace actions({1.0}, {0.5});
+  auto world = worldWithTarget();
+  auto view = laser();
+  view.ranges_m.assign(3U, view.maximum_range.meters());
+  world.robot.laser = view;
+  decision::HeuristicAdvisor advisor(
+      {"go_around", decision::HeuristicObjective::GoAround, actions, 1.0});
+  const auto metadata = advisor.metadata();
+  EXPECT_EQ(metadata.scored_action_types,
+            (std::vector<domain::ActionType>{domain::ActionType::TurnLeft,
+                                             domain::ActionType::TurnRight}));
+  const std::vector<domain::Action> candidates{
+      domain::Action::pause(), {domain::ActionType::Forward, 1U},
+      {domain::ActionType::TurnLeft, 1U},
+      {domain::ActionType::TurnRight, 1U}};
+  const auto evaluation = advisor.evaluate({world}, candidates);
+  ASSERT_EQ(evaluation.scores.size(), 2U);
+  EXPECT_DOUBLE_EQ(evaluation.scores[0].raw_score,
+                   evaluation.scores[1].raw_score);
+}
+
 TEST(CommonsenseAdvisors, NoveltyAndCuriosityUseDifferentHistoryScopes) {
   using semaforr::decision::HeuristicAdvisor;
   using semaforr::decision::HeuristicObjective;
@@ -217,11 +322,42 @@ TEST(CommonsenseAdvisors, EnfiladeReturnsAndVisualScanAvoidsSeenHeadings) {
 
   HeuristicAdvisor scan({"visual_scan",
       HeuristicObjective::VisualScan, actions, 1.0});
+  EXPECT_EQ(scan.metadata().scored_action_types,
+            (std::vector<ActionType>{ActionType::TurnLeft,
+                                     ActionType::TurnRight}));
   const std::vector<Action> rotations{
       {ActionType::TurnLeft, 1U}, {ActionType::TurnRight, 1U}};
   const auto scanning = scan.evaluate({world}, rotations);
   EXPECT_GT(scoreFor(scanning, {ActionType::TurnRight, 1U}),
             scoreFor(scanning, {ActionType::TurnLeft, 1U}));
+}
+
+TEST(SpatialAdvisors, EnterAbstainsOnceRobotIsInsideObjectiveRegion) {
+  using namespace semaforr;
+  const domain::ActionSpace actions({1.0}, {0.5});
+  auto world = worldWithTarget({0.5, 0.0});
+  world.spatial.learned_regions.push_back(
+      {{0.0, 0.0}, domain::Distance(1.0)});
+  decision::HeuristicAdvisor enter(
+      {"enter", decision::HeuristicObjective::Enter, actions, 1.0});
+  const std::vector<domain::Action> candidates{
+      domain::Action::pause(), {domain::ActionType::Forward, 1U}};
+  EXPECT_FALSE(enter.evaluate({world}, candidates).participated);
+}
+
+TEST(SpatialAdvisors, AccessRequiresLearnedDoorsNotSensorOpenings) {
+  using namespace semaforr;
+  const domain::ActionSpace actions({1.0}, {0.5});
+  auto world = worldWithTarget();
+  world.spatial.regions.push_back(learnedRegion(1U, {1.0, 0.0}, 1.0));
+  world.spatial.doorways.push_back({{1.0, -0.5}, {1.0, 0.5}});
+  decision::HeuristicAdvisor access(
+      {"access", decision::HeuristicObjective::Access, actions, 1.0});
+  const std::vector<domain::Action> candidates{
+      domain::Action::pause(), {domain::ActionType::Forward, 1U}};
+  EXPECT_FALSE(access.evaluate({world}, candidates).participated);
+  world.spatial.doors.push_back(learnedDoor(1U, 1U));
+  EXPECT_TRUE(access.evaluate({world}, candidates).participated);
 }
 
 TEST(SpatialAdvisors, ConveyEnterExitAndTrailerUseTheirStructures) {
@@ -233,8 +369,9 @@ TEST(SpatialAdvisors, ConveyEnterExitAndTrailerUseTheirStructures) {
       Action::pause(), {ActionType::Forward, 1U}};
 
   auto convey_world = worldWithTarget({5.0, 0.0});
-  convey_world.spatial.conveyor_flows = {{{2.0, -1.0}, {2.0, 1.0}}};
-  convey_world.spatial.conveyor_traversals = {10U};
+  convey_world.spatial.conveyor_grid.geometry = semaforr::domain::GridGeometry(
+      5U, 1U, 1.0, {0.0, -0.5});
+  convey_world.spatial.conveyor_grid.cells = {{2U, 10U, 0.0, 0.0, 1.0}};
   auto evaluation = spatialEvaluation(O::Convey, convey_world,
                                       actions, candidates);
   EXPECT_GT(scoreFor(evaluation, {ActionType::Forward, 1U}),
@@ -271,20 +408,25 @@ TEST(SpatialAdvisors, UnlikelyAccessAndCrossroadsUseConnectivity) {
       Action::pause(), {ActionType::Forward, 1U}};
 
   auto unlikely_world = worldWithTarget({5.0, 0.0});
-  unlikely_world.spatial.learned_regions.push_back(
-      {{1.0, 0.0}, semaforr::domain::Distance(1.0)});
+  unlikely_world.spatial.regions.push_back(
+      learnedRegion(1U, {1.0, 0.0}, 1.0));
+  unlikely_world.spatial.region_skeleton_nodes = {
+      skeletonNode(10U, 1U, {1.0, 0.0}),
+      skeletonNode(11U, 2U, {3.0, 0.0})};
+  unlikely_world.spatial.region_skeleton_edges = {
+      {10U, 11U, {{1.0, 0.0}, {3.0, 0.0}}, 2.0, 1U}};
   auto evaluation = spatialEvaluation(O::Unlikely, unlikely_world,
                                       actions, candidates);
   EXPECT_GT(scoreFor(evaluation, Action::pause()),
             scoreFor(evaluation, {ActionType::Forward, 1U}));
 
   auto access_world = worldWithTarget({5.0, 0.0});
-  access_world.spatial.learned_regions = {
-      {{2.0, 0.0}, semaforr::domain::Distance(1.0)},
-      {{-2.0, 0.0}, semaforr::domain::Distance(1.0)}};
-  access_world.spatial.doorways = {
-      {{2.5, -0.2}, {2.5, 0.2}}, {{2.0, 0.8}, {2.0, 1.0}},
-      {{1.5, -0.2}, {1.5, 0.2}}, {{-2.5, -0.2}, {-2.5, 0.2}}};
+  access_world.spatial.regions = {
+      learnedRegion(1U, {2.0, 0.0}, 1.0),
+      learnedRegion(2U, {-2.0, 0.0}, 1.0)};
+  access_world.spatial.doors = {
+      learnedDoor(1U, 1U), learnedDoor(2U, 1U),
+      learnedDoor(3U, 1U), learnedDoor(4U, 2U)};
   evaluation = spatialEvaluation(O::Access, access_world, actions,
                                  candidates);
   EXPECT_GT(scoreFor(evaluation, {ActionType::Forward, 1U}),
@@ -317,9 +459,17 @@ TEST(SpatialAdvisors, FollowLeastAngleSpatialLearnerAndStayAreDirectional) {
             scoreFor(evaluation, {ActionType::TurnLeft, 1U}));
 
   auto skeleton_world = worldWithTarget({5.0, 0.0});
-  skeleton_world.spatial.skeleton_nodes = {
-      {0.0, 0.0}, {1.0, 0.0}, {0.0, 1.0}};
-  skeleton_world.spatial.skeleton_edges = {{0U, 1U}, {0U, 2U}};
+  skeleton_world.spatial.regions = {
+      learnedRegion(1U, {0.0, 0.0}, 0.5),
+      learnedRegion(2U, {1.0, 0.0}, 0.5),
+      learnedRegion(3U, {0.0, 1.0}, 0.5)};
+  skeleton_world.spatial.region_skeleton_nodes = {
+      skeletonNode(0U, 1U, {0.0, 0.0}),
+      skeletonNode(1U, 2U, {1.0, 0.0}),
+      skeletonNode(2U, 3U, {0.0, 1.0})};
+  skeleton_world.spatial.region_skeleton_edges = {
+      {0U, 1U, {{0.0, 0.0}, {1.0, 0.0}}, 1.0, 1U},
+      {0U, 2U, {{0.0, 0.0}, {0.0, 1.0}}, 1.0, 1U}};
   evaluation = spatialEvaluation(O::LeastAngle, skeleton_world, actions,
                                  candidates);
   EXPECT_GT(scoreFor(evaluation, {ActionType::Forward, 1U}),
@@ -331,9 +481,10 @@ TEST(SpatialAdvisors, FollowLeastAngleSpatialLearnerAndStayAreDirectional) {
       {3U, 1U, 1.0, {}, {2U, 0U, 0U}, 1U};
   learner_world.spatial.learned_regions.push_back(
       {{0.5, 0.5}, semaforr::domain::Distance(0.4)});
-  learner_world.spatial.conveyor_flows =
-      {{{0.0, 0.5}, {1.0, 0.5}}};
-  learner_world.spatial.conveyor_traversals = {5U};
+  learner_world.spatial.conveyor_grid.geometry =
+      semaforr::domain::GridGeometry(3U, 1U, 1.0, {0.0, 0.0});
+  learner_world.spatial.conveyor_grid.cells = {
+      {0U, 5U, 0.0, 0.0, 1.0}};
   evaluation = spatialEvaluation(O::SpatialLearner, learner_world, actions,
                                  candidates);
   EXPECT_GT(scoreFor(evaluation, {ActionType::Forward, 1U}),
@@ -400,8 +551,17 @@ TEST(TierThreeAdvisors, PlanSensitiveAdvisorsUseActiveLocalObjective) {
   EXPECT_GT(scoreFor(evaluation, {ActionType::TurnLeft, 1U}),
             scoreFor(evaluation, {ActionType::TurnRight, 1U}));
 
-  world.spatial.skeleton_nodes = {{0.0, 0.0}, {1.0, 0.0}, {0.0, 1.0}};
-  world.spatial.skeleton_edges = {{0U, 1U}, {0U, 2U}};
+  world.spatial.regions = {
+      learnedRegion(1U, {0.0, 0.0}, 1.0),
+      learnedRegion(2U, {1.0, 0.0}, 0.5),
+      learnedRegion(3U, {0.0, 1.0}, 0.5)};
+  world.spatial.region_skeleton_nodes = {
+      skeletonNode(0U, 1U, {0.0, 0.0}),
+      skeletonNode(1U, 2U, {1.0, 0.0}),
+      skeletonNode(2U, 3U, {0.0, 1.0})};
+  world.spatial.region_skeleton_edges = {
+      {0U, 1U, {{0.0, 0.0}, {1.0, 0.0}}, 1.0, 1U},
+      {0U, 2U, {{0.0, 0.0}, {0.0, 1.0}}, 1.0, 1U}};
   HeuristicAdvisor least_angle(
       {"least_angle", HeuristicObjective::LeastAngle, actions, 1.0});
   evaluation = least_angle.evaluate({world, &actions, candidates, local},

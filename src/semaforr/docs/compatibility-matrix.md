@@ -114,8 +114,9 @@ they are not fidelity claims.
 ## Tier-3 advisors and voting
 
 Unless a row says otherwise, the listed advisor preserves the published
-rationale but uses anticipated poses, configurable weights, and per-decision
-signed normalization instead of unweighted `[0,10]` comments.
+rationale, uses anticipated poses, and normalizes its complete raw action set
+to `[0,10]`. Compatibility scoring is unweighted; adapted scoring applies the
+configured weight after the same normalization.
 
 | Advisor | Status | Published rationale | Current consequence / deviation | Exact reproduction? | Planned resolution |
 |---|---|---|---|---|---|
@@ -127,18 +128,18 @@ signed normalization instead of unweighted `[0,10]` comments.
 | Curiosity | Functionally adapted | Visit locations never visited in experiment | Uses all navigation history | No | Compatibility comment scale |
 | Enfilade | Functionally adapted | Return toward recent locations | Uses last ten sufficiently distinct positions | No | Match published history window and score |
 | VisualScan | Functionally adapted | Rotate toward orientations with least prior view overlap | Samples unseen angular coverage in nearby history | No | Match published overlap calculation |
-| Convey | Functionally adapted | Approach frequent distant conveyors | Uses frequency-aware conveyor segments; the compatibility conveyor grid is consumed by ConveyorPlan but not directly by this advisor | No | Add a compatibility advisor path over conveyor cells if required by an oracle |
+| Convey | Functionally adapted | Approach frequent distant conveyors | Uses the successful-traversal conveyor frequency grid and scores frequency plus useful approach progress; directional/decay variants are separate extensions | No published numeric oracle | Validate comment scale against published examples |
 | Enter | Functionally adapted | Enter target/plan-step region | Uses the active Enforcer plan-step objective, then waypoint/target fallback, with the selected region profile | No published comment oracle | Validate score scale against published examples |
 | Exit | Functionally adapted | Leave a region without target/plan step | Uses the active Enforcer plan-step objective and current region membership | No published comment oracle | Validate score scale against published examples |
 | Trailer | Functionally adapted | Follow trail segment that approaches target/plan step | Selects the trail segment and endpoint that improve the active local objective | No published comment oracle | Validate score scale with compatibility trails |
-| Unlikely | Temporary approximation | Avoid dead-end regions | Infers low-door regions instead of skeleton degree | No | Use region skeleton degree |
-| Access | Functionally adapted | Approach regions with many doors | Counts the currently projected door segments near learned regions; compatibility mode supplies exit-derived doors, modernized mode may supply sensor openings | No | Require exit-derived door provenance for a future compatibility runtime |
+| Unlikely | Functionally adapted | Avoid dead-end regions | Uses current learned-region membership and region-skeleton degree; target-containing regions are excluded from the penalty | No published numeric oracle | Validate score scale against published examples |
+| Access | Functionally adapted | Approach regions with many doors | Counts first-class exit-derived learned doors by region identity; sensor openings are not accepted as door evidence | No published numeric oracle | Validate score scale against published examples |
 | Crossroads | Functionally adapted | Approach hallways with many overlaps | Computes centerline overlap dynamically | No | Use faithful hallway aggregate labels |
-| Follow | Functionally adapted | Follow target-relevant hallway | Selects the hallway nearest the active local plan objective and follows its useful endpoint | No published comment oracle | Validate with compatibility hallway aggregates |
-| LeastAngle | Functionally adapted | Leave a region through the skeleton branch best aligned to target/plan step | Uses the nearest projected region-skeleton node, its adjacent edges, and the active local objective | No published comment oracle | Validate current-region surrogate and score scale against published examples |
-| SpatialLearner | Functionally adapted | Prefer locations absent from regions and high conveyors | Uses inclusion, adapted regions, and segment flows | No | Rebase on faithful representations |
-| Stay | Functionally adapted | Remain in current hallway | Uses distance to nearest centerline | No | Use faithful hallway area membership |
-| Weighted signed voting | Engineering extension | Unweighted `[0,10]` range voting with random tie break | Advisor utilities normalize to `[-1,1]`, receive weights, and use seeded tolerance ties | Yes | Changes coalition strength and decisions | No | Add unweighted `[0,10]` compatibility policy |
+| Follow | Functionally adapted | Follow target-relevant hallway | Selects the hallway nearest the active local plan objective and rewards along-hallway advancement in its useful direction | No published comment oracle | Validate with compatibility hallway aggregates |
+| LeastAngle | Functionally adapted | Leave a region through the skeleton branch best aligned to target/plan step | Uses the robot-containing region, enumerates its region-skeleton neighbors, selects the minimum-angle transition, and maps actions to that branch | No published comment oracle | Validate score scale against published examples |
+| SpatialLearner | Functionally adapted | Prefer locations absent from regions and high conveyors | Uses inclusion coverage, learned-region containment, and conveyor frequency cells | No published numeric oracle | Validate comment scale against published examples |
+| Stay | Functionally adapted | Remain in current hallway | Uses learned hallway width containment; legacy centerlines use an explicitly documented fallback tolerance | No published numeric oracle | Replace the fallback when all persisted hallway schemas carry width |
+| Weighted signed voting (historical configuration/matrix name; now weighted ten-point voting) | Engineering extension | Unweighted `[0,10]` range voting with random tie break | Production advisor raw sets normalize to `[0,10]`, then receive configured weights and seeded tolerance-tie handling; the stable historical row name does not imply current signed normalization | Yes | Changes coalition strength and decisions through weights and tie policy | No | Retain unweighted compatibility policy alongside it |
 
 The remaining registered advisors are modernized extensions and are classified
 individually here so a manifest can never silently imply that they belonged to

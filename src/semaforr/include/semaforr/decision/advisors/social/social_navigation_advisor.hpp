@@ -35,7 +35,7 @@ class SocialNavigationAdvisor final : public Advisor {
     return {dependencies(),
             {domain::ActionType::Pause, domain::ActionType::Forward,
              domain::ActionType::TurnLeft, domain::ActionType::TurnRight},
-            true, ScoreNormalization::SignedUnit,
+            true, ScoreNormalization::TenPoint,
             "predictive personal-space and collision preference"};
   }
 

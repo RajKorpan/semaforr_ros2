@@ -38,7 +38,7 @@ class NavigationAdvisor final : public Advisor {
              domain::ActionType::TurnLeft, domain::ActionType::TurnRight},
             configuration_.objective !=
                 NavigationAdvisorObjective::GoalProgress,
-            ScoreNormalization::SignedUnit,
+            ScoreNormalization::TenPoint,
             "local navigation objective"};
   }
 

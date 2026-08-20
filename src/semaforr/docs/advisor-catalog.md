@@ -42,17 +42,17 @@ for algorithm status and known deviations.
 | `prefer_highways` | Highways | Prefers anticipated poses nearer learned highway nodes. |
 | `prefer_doors` | Doors | Prefers anticipated poses nearer the midpoint of a learned door segment. |
 | `follow_trails` | Trails | Prefers anticipated poses nearer any trail marker. |
-| `convey` | Conveyors | Combines traversal frequency, robot distance, and approach distance to prefer frequent useful conveyor segments. |
+| `convey` | Conveyor frequency grid | Combines cell traversal frequency, robot distance, and action progress to prefer frequent useful conveyor cells. Directional/decay variants remain separate extensions. |
 | `enter` | Regions and active local objective | Prefers entering a region containing the active plan step, waypoint, or target. |
 | `exit` | Regions and active local objective | Prefers leaving the current region when it does not contain the local objective. |
 | `trailer` | Trails and active local objective | Selects a trail segment with objective progress and prefers joining its useful endpoint. |
-| `unlikely` | Regions and doors | Penalizes anticipated poses in non-target regions having zero or one nearby door. |
-| `access` | Regions and doors | Prefers approaching regions with more nearby learned doors. |
+| `unlikely` | Regions and region skeleton | Penalizes anticipated poses in non-target regions having zero or one onward skeleton transition. |
+| `access` | Regions and learned doors | Prefers approaching regions with more first-class learned doors. Scan openings are not door evidence. |
 | `crossroads` | Hallways | Prefers hallway segments with more geometric overlap with other hallways. |
-| `follow` | Hallways and active local objective | Selects the hallway nearest the local objective and prefers following it toward the useful endpoint. |
-| `least_angle` | Region skeleton and active local objective | Chooses the adjacent skeleton branch best aligned with the local objective and prefers approaching that branch. |
-| `spatial_learner` | Inclusion, regions, conveyors | Prefers cells absent from inclusion and penalizes membership in learned regions or frequent conveyors. |
-| `stay` | Hallways | Prefers remaining within 0.75 m of the hallway currently nearest the robot. |
+| `follow` | Hallways and active local objective | Selects the hallway nearest the local objective and scores along-hallway advancement in its useful direction, with off-hallway penalty. |
+| `least_angle` | Regions, region skeleton, and active local objective | Finds the robot's current region, chooses its adjacent skeleton transition having minimum objective-angle difference, and maps actions to that branch direction. |
+| `spatial_learner` | Inclusion, regions, conveyor frequency grid | Prefers weakly modeled cells and penalizes membership in learned regions or frequent conveyor cells. |
+| `stay` | Hallways | When inside a learned hallway, rewards outcomes that remain within its represented width; the 0.75 m centerline rule is only a legacy-data fallback. |
 
 ## Social advisors
 
@@ -74,11 +74,12 @@ length. `advisors.parameters` contains four finite reserved values per advisor
 because ROS 2 parameters cannot represent an array of mappings. The canonical
 configuration intentionally enables a subset of the registered catalog.
 
-Tier-3 arbitration has two policies. `compatibility_comments` transforms each
-participating advisor's raw ordering into unweighted comments in `[0,10]` and
-normally uses exact ties. `weighted_normalized` transforms scores to the
-advisor's declared range, normally `[-1,1]`, applies its weight, and normally
-uses tolerance ties. `profile` resolves from the behavior mode. The decision
+Tier-3 arbitration has two policies. Every production advisor first transforms
+its complete viable-action raw score set to `[0,10]` (equal comments become
+the neutral value `5`). `compatibility_comments` leaves those comments
+unweighted and normally uses exact ties. `weighted_normalized` applies the
+configured advisor weight and normally uses tolerance ties. `profile` resolves
+from the behavior mode. The decision
 record preserves raw and transformed scores, weight, weighted contribution,
 viability, total, tie candidates, seed, and selected tie index.
 

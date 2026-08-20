@@ -112,6 +112,14 @@ recorded plan comparison, alternative routes, and egocentric direction words.
 The test constructs one trace and verifies every public explanation category
 against those claims.
 
+`semaforr_tier_advisor_test` exercises commonsense and learned-spatial
+rationales with favored, disfavored, and abstention or ambiguous cases. It
+also checks every registered production advisor's ten-point normalization
+contract, raw-comment preservation, `0`/`10` extrema, neutral `5` for an
+all-equal set, and representation provenance. Social-navigation and
+learned-crowd rationale fixtures remain in `semaforr_social_navigation_test`
+and `semaforr_crowd_model_test` and declare the same normalization contract.
+
 ## Performance measurements
 
 Run the non-flaky measurement suites with:

@@ -51,9 +51,13 @@ std::vector<double> transformScores(
     const double unit = span <= 1.0e-12
                             ? 0.5
                             : (score.raw_score - minimum->raw_score) / span;
-    transformed.push_back(normalization == ScoreNormalization::SignedUnit
-                              ? (span <= 1.0e-12 ? 0.0 : 2.0 * unit - 1.0)
-                              : unit);
+    if (normalization == ScoreNormalization::SignedUnit) {
+      transformed.push_back(span <= 1.0e-12 ? 0.0 : 2.0 * unit - 1.0);
+    } else if (normalization == ScoreNormalization::TenPoint) {
+      transformed.push_back(span <= 1.0e-12 ? 5.0 : 10.0 * unit);
+    } else {
+      transformed.push_back(unit);
+    }
   }
   return transformed;
 }

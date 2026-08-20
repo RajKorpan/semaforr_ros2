@@ -37,10 +37,11 @@ Tier-3 records retain raw comments, transformed comments, advisor mean and
 standard deviation, relative support, configured weight, weighted
 contribution, final action total, and viability. Decision confidence retains
 normalized Gini agreement, the standardized winning total, winner-relative
-support, and the resulting category. In compatibility scoring, comments are
-unweighted on `[0,10]` and exact ties use the seeded random policy. In adapted
-scoring, configured normalization, weights, and tolerance ties remain visible
-in the trace.
+support, and the resulting category. Every production advisor normalizes its
+complete viable-action raw set to `[0,10]`; an all-equal set becomes neutral
+`5` without division by zero. In compatibility scoring, those comments are
+unweighted and exact ties use the seeded random policy. In adapted scoring,
+configured weights and tolerance ties remain visible in the trace.
 
 ## Planning trace
 
