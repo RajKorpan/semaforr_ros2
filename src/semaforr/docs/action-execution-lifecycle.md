@@ -21,6 +21,16 @@ accepted. Failed and partial movement remains available to circumstances,
 diagnostics, and explanations without becoming successful trail, conveyor, or
 skeleton evidence.
 
+Every `PathDecisionPoint` exposes selection, controller-start, successful
+completion, partial completion, failure, cancellation, timeout, safety
+interruption, preemption, and `actualReachedPose()` independently. A
+successful rotation is a completed action but is not traversed path geometry.
+`successfulTraversal()` therefore requires a controller-started, successfully
+completed translation. `partialTraversal()` requires a controller-started,
+actually achieved partial translation. The terminal learning episode carries
+the accepted start event explicitly; controller rejection cannot be inferred
+as a started command from its terminal status.
+
 The engine rejects unknown action IDs, stale decision IDs, task mismatches,
 success before a start event, and duplicate terminal callbacks. A new decision
 cannot be selected while terminal feedback is missing. Recently completed IDs
@@ -36,6 +46,20 @@ terminate any pending action as a controller failure.
 | Trail, conveyor, passage/skeleton | Terminal action result | Successful completion only |
 | Door/exit, hallway, circumstance | Terminal evidence accumulated; publish/rebuild at target boundary | Outcome remains attached; successful traversal is distinguishable from failures |
 | Highway | Successful HLE terminal evidence; final rebuild at initial-exploration boundary | Successful HLE motion only |
+
+Trail candidates use execution start and actual final poses from contiguous
+eligible translations; failed/no-motion records cannot insert points or bridge
+discontinuities. Conveyor frequency accepts only successfully completed
+trails. Region-skeleton edges accept only contiguous successful translations.
+Exits may accept a configured partial traversal only when its actual segment
+crosses the circumference. Out searches and reverses only a contiguous suffix
+of successfully reached poses and uses the execution start pose rather than
+the selected action's expected start.
+
+Replay stores the selected action separately from the full controller outcome,
+including start/final poses, achieved motion, terminal status, interruption
+flags, and detail. Why records the same terminal object and reports the actual
+reached pose without rewriting the attempted action as completed motion.
 
 Decision-cycle, action-start, periodic, shutdown, task-boundary, HLE-only, and
 LLE-only schedules are explicit event types even when no default learner is

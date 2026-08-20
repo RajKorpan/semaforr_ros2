@@ -2,6 +2,7 @@
 #define SEMAFORR_DOMAIN_ACTION_EXECUTION_HPP
 
 #include <chrono>
+#include <cmath>
 #include <cstdint>
 #include <optional>
 #include <semaforr/domain/action.hpp>
@@ -88,6 +89,17 @@ struct ActionExecutionResult {
   bool moved() const noexcept {
     return distance_achieved_m > geometry_tolerance_m ||
            rotation_achieved_rad > geometry_tolerance_m;
+  }
+  bool translated() const noexcept {
+    return distance_achieved_m > geometry_tolerance_m ||
+           distance(start_pose.position, final_pose.position).meters() >
+               geometry_tolerance_m;
+  }
+  bool rotated() const noexcept {
+    return rotation_achieved_rad > geometry_tolerance_m ||
+           std::abs(Angle::normalize(final_pose.heading.radians() -
+                                     start_pose.heading.radians())) >
+               geometry_tolerance_m;
   }
 };
 

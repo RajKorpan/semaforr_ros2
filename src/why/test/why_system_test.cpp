@@ -138,6 +138,33 @@ TEST(WhyTraceStore, RetrievesStableHistoricalIdentifiersAndUpsertsLifecycle) {
   EXPECT_EQ(why.traces().action(47U)->action_lifecycle_status, "completed");
 }
 
+TEST(WhyDecision, PreservesAttemptedActionOutcomeAndActualReachedPose) {
+  UnifiedWhySystem why;
+  auto record = tierThreeRecord();
+  record.action_lifecycle_status = "partial_movement";
+  record.has_execution_result = true;
+  record.execution_start_pose.x = 1.0;
+  record.execution_start_pose.y = 2.0;
+  record.execution_final_pose.x = 1.35;
+  record.execution_final_pose.y = 2.1;
+  record.distance_achieved_m = 0.36;
+  record.rotation_achieved_rad = 0.12;
+  record.execution_cancellation_reason = "local safety stop";
+  why.record(record);
+  ExplanationQuestion question;
+  question.question_id = 99U;
+  question.question_type = ExplanationQuestion::WHY_DECISION;
+  const auto answer = why.answer(question);
+  EXPECT_NE(answer.natural_language_response.find("turn left"),
+            std::string::npos);
+  EXPECT_NE(answer.natural_language_response.find("partial_movement"),
+            std::string::npos);
+  EXPECT_NE(answer.natural_language_response.find("actually reached (1.35, 2.1)"),
+            std::string::npos);
+  EXPECT_NE(answer.natural_language_response.find("local safety stop"),
+            std::string::npos);
+}
+
 TEST(WhyDecision, PreservesTierThreeEvidenceAndConfidence) {
   UnifiedWhySystem why;
   why.record(tierThreeRecord());

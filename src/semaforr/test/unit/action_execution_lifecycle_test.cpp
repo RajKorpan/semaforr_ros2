@@ -117,6 +117,14 @@ TEST_F(LifecycleFixture, SelectionIsNotExecutionAndStableIdsCorrelateFeedback) {
   ASSERT_TRUE(engine.actionTrace(decision.action_id)->execution_result);
   EXPECT_EQ(engine.actionTrace(decision.action_id)->action_lifecycle_status,
             "completed");
+  ASSERT_TRUE(world.path_history.active());
+  ASSERT_EQ(world.path_history.active()->decision_points.size(), 1U);
+  const auto& path_point = world.path_history.active()->decision_points.front();
+  EXPECT_TRUE(path_point.selected());
+  EXPECT_TRUE(path_point.started());
+  EXPECT_TRUE(path_point.completed());
+  EXPECT_TRUE(path_point.successfulTraversal());
+  EXPECT_EQ(path_point.actualReachedPose(), completed.final_pose);
 }
 
 TEST_F(LifecycleFixture, DuplicateUnknownAndStaleFeedbackAreRejected) {
@@ -188,6 +196,33 @@ TEST_F(LifecycleFixture, ControllerRejectionCanTerminateBeforeStart) {
   ASSERT_EQ(world.execution_history.entries().size(), 1U);
   EXPECT_EQ(world.execution_history.entries().front().status,
             semaforr::domain::ExecutionCompletionStatus::ControllerRejected);
+  ASSERT_TRUE(world.path_history.active());
+  const auto& path_point = world.path_history.active()->decision_points.back();
+  EXPECT_TRUE(path_point.selected());
+  EXPECT_FALSE(path_point.started());
+  EXPECT_TRUE(path_point.failed());
+  EXPECT_FALSE(path_point.successfulTraversal());
+}
+
+TEST(CompletedPathLifecycle, ExposesEveryTerminalOutcomeClass) {
+  using S = semaforr::domain::ExecutionCompletionStatus;
+  const auto point = [](S status, bool started = true) {
+    semaforr::domain::PathDecisionPoint result;
+    result.selection.decision_id = 1U;
+    result.selection.action_id = 1U;
+    result.execution.status = status;
+    if (started) result.executed_action = semaforr::domain::Action::pause();
+    return result;
+  };
+  EXPECT_TRUE(point(S::Succeeded).selected());
+  EXPECT_TRUE(point(S::Succeeded).completed());
+  EXPECT_TRUE(point(S::PartialMovement).partiallyCompleted());
+  EXPECT_TRUE(point(S::ControllerFailure).failed());
+  EXPECT_TRUE(point(S::Cancelled).cancelled());
+  EXPECT_TRUE(point(S::TimedOut).timedOut());
+  EXPECT_TRUE(point(S::SafetyInterrupted).safetyInterrupted());
+  EXPECT_TRUE(point(S::GoalPreempted).preempted());
+  EXPECT_TRUE(point(S::NavigationModeTransition).preempted());
 }
 
 TEST_F(LifecycleFixture, TaskMismatchAndPreStartSuccessAreRejected) {
@@ -222,6 +257,7 @@ TEST(CompletedActionLearning, RotationDoesNotCreateAConveyor) {
   episode.observation = observation();
   episode.selected_action = semaforr::domain::Action(
       semaforr::domain::ActionType::TurnLeft, 1U);
+  episode.action_started = true;
   semaforr::domain::ActionExecutionResult result;
   result.status = semaforr::domain::ExecutionCompletionStatus::Succeeded;
   result.start_pose = observation().pose;

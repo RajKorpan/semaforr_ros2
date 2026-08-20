@@ -21,12 +21,55 @@ struct PathDecisionPoint {
   bool task_finished{false};
   bool interrupted{false};
 
+  // Selection, command acceptance, and terminal execution are deliberately
+  // separate. A terminal record without executed_action was selected but was
+  // never accepted by the controller.
+  bool selected() const noexcept {
+    return selection.decision_id != 0U && selection.action_id != 0U;
+  }
+  bool started() const noexcept { return executed_action.has_value(); }
+  bool completed() const noexcept {
+    return execution.status == ExecutionCompletionStatus::Succeeded;
+  }
+  bool partiallyCompleted() const noexcept {
+    return execution.status == ExecutionCompletionStatus::PartialMovement;
+  }
+  bool failed() const noexcept {
+    switch (execution.status) {
+      case ExecutionCompletionStatus::NoMovement:
+      case ExecutionCompletionStatus::ControllerRejected:
+      case ExecutionCompletionStatus::ControllerFailure:
+      case ExecutionCompletionStatus::SensorLost:
+      case ExecutionCompletionStatus::Shutdown:
+      case ExecutionCompletionStatus::ClockReset:
+      case ExecutionCompletionStatus::OdometryReset: return true;
+      default: return false;
+    }
+  }
+  bool cancelled() const noexcept {
+    return execution.status == ExecutionCompletionStatus::Cancelled;
+  }
+  bool timedOut() const noexcept {
+    return execution.status == ExecutionCompletionStatus::TimedOut ||
+           execution.timed_out;
+  }
+  bool safetyInterrupted() const noexcept {
+    return execution.status == ExecutionCompletionStatus::SafetyInterrupted ||
+           execution.safety_interruption;
+  }
+  bool preempted() const noexcept {
+    return execution.status == ExecutionCompletionStatus::GoalPreempted ||
+           execution.status ==
+               ExecutionCompletionStatus::NavigationModeTransition;
+  }
+  const Pose2D& actualReachedPose() const noexcept {
+    return execution.final_pose;
+  }
   bool successfulTraversal() const noexcept {
-    return execution.successful() && execution.moved();
+    return started() && execution.successful() && execution.translated();
   }
   bool partialTraversal() const noexcept {
-    return execution.status == ExecutionCompletionStatus::PartialMovement &&
-           execution.moved();
+    return started() && partiallyCompleted() && execution.translated();
   }
 };
 

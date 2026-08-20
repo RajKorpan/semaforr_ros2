@@ -155,10 +155,7 @@ std::vector<domain::CompletedPath> completedPathsFromEpisodes(
     }
     point.execution = *episode.execution_result;
     point.decision_observation = episode.observation;
-    if (point.execution.status !=
-            domain::ExecutionCompletionStatus::ControllerRejected &&
-        point.execution.status !=
-            domain::ExecutionCompletionStatus::ControllerFailure)
+    if (episode.action_started)
       point.executed_action = point.selection.action;
     point.target = episode.active_target;
     point.task_started = episode.task_started;
@@ -239,15 +236,25 @@ domain::LearnedTrail learnVisibilityTrail(
   std::vector<Candidate> candidates;
   for (std::size_t index = 0U; index < path.decision_points.size(); ++index) {
     const auto& point = path.decision_points[index];
+    const bool traversed = point.successfulTraversal() ||
+                           (configuration.include_partial_movement &&
+                            point.partialTraversal());
+    if (!traversed) continue;
     const auto start = point.execution.start_pose;
+    if (!candidates.empty() &&
+        domain::distance(candidates.back().pose.position,
+                         start.position).meters() >
+            configuration.visibility_tolerance_m) {
+      // Do not invent a connecting segment across a controller restart,
+      // localization jump, preemption, or other discontinuity. The latest
+      // contiguous suffix is the target-relevant traversal.
+      candidates.clear();
+    }
     if (candidates.empty() || candidates.back().pose.position != start.position)
       candidates.push_back({index, start, point.decision_observation.laser});
-    if (point.successfulTraversal() ||
-        (configuration.include_partial_movement && point.partialTraversal())) {
-      const auto finish = point.execution.final_pose;
-      if (candidates.back().pose.position != finish.position)
-        candidates.push_back({index, finish, point.decision_observation.laser});
-    }
+    const auto finish = point.actualReachedPose();
+    if (candidates.back().pose.position != finish.position)
+      candidates.push_back({index, finish, point.decision_observation.laser});
   }
   if (candidates.size() < 2U) return trail;
 

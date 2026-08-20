@@ -93,6 +93,9 @@ TEST(Replay, RoundTripCapturesInputsSeedsRevisionsAndControllerOutcome) {
   outcome.start_pose = observation().pose;
   outcome.final_pose = {{-2.0, 4.0}, semaforr::domain::Angle(0.25)};
   outcome.distance_achieved_m = 0.5;
+  outcome.rotation_achieved_rad = 0.25;
+  outcome.near_collision = true;
+  outcome.cancellation_reason = "actual controller outcome";
   recorder.recordControllerOutcome(outcome);
   semaforr::validation::RunRecorder::save(recorder.trace(), path);
 
@@ -117,6 +120,16 @@ TEST(Replay, RoundTripCapturesInputsSeedsRevisionsAndControllerOutcome) {
   EXPECT_EQ(restored.cycles.front().expected.spatial_revisions, revisions);
   ASSERT_TRUE(restored.cycles.front().controller_outcome.has_value());
   EXPECT_TRUE(restored.cycles.front().controller_outcome->successful());
+  EXPECT_EQ(restored.cycles.front().expected.action, decision().action);
+  EXPECT_EQ(restored.cycles.front().controller_outcome->final_pose,
+            outcome.final_pose);
+  EXPECT_DOUBLE_EQ(
+      restored.cycles.front().controller_outcome->distance_achieved_m, 0.5);
+  EXPECT_DOUBLE_EQ(
+      restored.cycles.front().controller_outcome->rotation_achieved_rad, 0.25);
+  EXPECT_TRUE(restored.cycles.front().controller_outcome->near_collision);
+  EXPECT_EQ(restored.cycles.front().controller_outcome->cancellation_reason,
+            "actual controller outcome");
   std::filesystem::remove(path);
 }
 

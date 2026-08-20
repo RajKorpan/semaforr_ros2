@@ -95,9 +95,10 @@ struct NavigationEpisode {
   // Appended to preserve the established aggregate-initialization order.
   bool target_reached = false;
   bool task_skipped = false;
+  bool action_started = false;
 
   bool actionSucceeded() const noexcept {
-    return execution_result ? execution_result->successful()
+    return execution_result ? action_started && execution_result->successful()
                             : action_completed;
   }
   bool actionTerminated() const noexcept {

@@ -48,16 +48,15 @@ void HallwayLearner::onRebuild() {
   }
   HallwayModel model;
   std::unordered_set<std::uint64_t> occupied_bins;
-  for (std::size_t index = 1U; index < episodes().size(); ++index) {
-    const auto& previous = episodes()[index - 1U];
-    const auto& current = episodes()[index];
-    if (!previous.actionSucceeded() || !current.actionSucceeded() ||
-        current.active_task != previous.active_task ||
-        current.observation.laser.ranges_m.empty()) {
+  for (const auto& episode : episodes()) {
+    if (!episode.actionSucceeded() || !episode.action_started ||
+        !episode.execution_result ||
+        !episode.execution_result->translated() ||
+        episode.observation.laser.ranges_m.empty())
       continue;
-    }
-    domain::Segment2D centerline{previous.observation.pose.position,
-                                 current.observation.pose.position};
+    domain::Segment2D centerline{
+        episode.execution_result->start_pose.position,
+        episode.execution_result->final_pose.position};
     if (centerline.length().meters() >= minimum_centerline_length_m_) {
       const double angle = std::atan2(
           centerline.end.y_m - centerline.start.y_m,

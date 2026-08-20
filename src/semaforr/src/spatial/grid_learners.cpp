@@ -400,7 +400,7 @@ void InclusionGridLearner::onObserve(const NavigationEpisode& episode) {
     initializeAround(geometry_, episode.observation.pose.position);
     initialize_around_first_pose_ = false;
   }
-  if (!episode.execution_result || !episode.execution_result->successful())
+  if (!episode.execution_result || !episode.actionSucceeded())
     return;
   const auto start = episode.execution_result->start_pose.position;
   const auto finish = episode.execution_result->final_pose.position;

@@ -296,6 +296,17 @@ ExplanationResponse UnifiedWhySystem::explainDecision(
        << (record.action_lifecycle_status.empty() ? "selected"
                                                   : record.action_lifecycle_status)
        << ": " << actionText(record.selected_action) << ". ";
+  if (record.has_execution_result) {
+    text << "The controller actually reached ("
+         << record.execution_final_pose.x << ", "
+         << record.execution_final_pose.y << ") after translating "
+         << record.distance_achieved_m << " m and rotating "
+         << record.rotation_achieved_rad << " rad";
+    if (!record.execution_cancellation_reason.empty())
+      text << "; terminal detail: "
+           << record.execution_cancellation_reason;
+    text << ". ";
+  }
   if (record.selected_tier == DecisionRecord::TIER_ONE) {
     response.primary_reasoning_source = "tier_one";
     text << tierOnePhrase(record) << '.';

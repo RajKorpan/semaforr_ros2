@@ -38,6 +38,7 @@ semaforr::spatial::NavigationEpisode episode(std::size_t sequence, double x_m,
   result.active_task = domain::TaskId{1U};
   result.task_started = task_started;
   result.action_completed = true;
+  result.action_started = true;
   domain::ActionExecutionResult execution;
   execution.decision_id = sequence;
   execution.action_id = sequence;
@@ -481,6 +482,7 @@ TEST(InclusionGrid, AddsOnlySuccessfulLowLevelExplorationTranslation) {
   succeeded.execution_result = domain::ActionExecutionResult{};
   succeeded.execution_result->status =
       domain::ExecutionCompletionStatus::Succeeded;
+  succeeded.action_started = true;
   succeeded.execution_result->start_pose = succeeded.observation.pose;
   succeeded.execution_result->final_pose =
       {{2.0, 0.0}, domain::Angle::zero()};

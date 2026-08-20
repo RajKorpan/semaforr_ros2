@@ -1043,6 +1043,7 @@ domain::FeedbackDisposition NavigationEngine::onActionStarted(
   if (pending_execution_->started)
     return domain::FeedbackDisposition::AlreadyStarted;
   pending_execution_->started = true;
+  pending_execution_->episode.action_started = true;
   pending_execution_->start = event;
   world_.command_history.record(event);
   auto episode = pending_execution_->episode;

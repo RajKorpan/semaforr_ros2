@@ -23,6 +23,9 @@ partial-motion metadata. Target and task boundaries are explicit. Selection
 does not create completed traversal evidence; only terminal execution feedback
 does. Failed and partial actions remain in the path, but only successful or
 explicitly permitted partial movement contributes geometry.
+Pure rotation is an executed action but not a traversed path element. All
+geometry consumers use the execution start and actual reached pose; intended
+waypoints and selected-action projections are never substituted for them.
 
 ## Visibility trails
 

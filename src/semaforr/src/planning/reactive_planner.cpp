@@ -836,7 +836,8 @@ void Out::buildEscape(const domain::WorldModel& world) {
   for (std::size_t index = active.decision_points.size(); index > suffix_begin;
        --index) {
     const auto& point = active.decision_points[index - 1U];
-    const auto cell = observationCell(geometry, point.selection.expected_start.position);
+    const auto cell = observationCell(
+        geometry, point.execution.start_pose.position);
     if (!recent.contains(cell)) {
       recovery_index = index - 1U;
       break;
