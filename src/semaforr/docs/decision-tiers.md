@@ -68,6 +68,18 @@ grid. Only viable rotations are checked; translations are never vetoed by
 Forward. If all remaining rotations would be vetoed, the grid is cleared and
 the vetoes are withdrawn.
 
+`Thru` runs only after Victory and Enforcer decline. It first tests the mission
+target, then the active waypoint, using the closest laser direction, a
+configurable neighboring-beam clear-count, and a narrow ellipse around that
+ray. Sensor-range membership alone is insufficient. It starts only when the
+forward corridor is obstructed and no forward action survives the earlier
+AvoidObstacles veto. Rays immediately left and right of the objective ray are
+averaged as vectors; Thru pursues the endpoint of the longer average ray in
+bounded increments. Endpoint arrival, sensor or mission loss, an invalid local
+action, the decision limit, Victory, and an Enforcer mandate all terminate the
+state. The beam neighborhood, bundle size, ellipse dimensions, step,
+tolerance, and budget are typed constructor parameters.
+
 `Behind` uses a distance threshold of 1.5 metres plus the radius of a region
 containing the waypoint. When the waypoint is absent from the current and
 previous executed views, it prefers an available 90-degree right turn, then

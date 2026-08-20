@@ -511,6 +511,172 @@ TEST(Thru, RequiresAVisibleCueAndBlockedForwardMove) {
             semaforr::planning::ReactiveStatus::NotApplicable);
 }
 
+TEST(Thru, SensedObjectiveRequiresBeamEvidenceAndNarrowCorridor) {
+  using namespace semaforr;
+  const domain::ActionSpace actions({0.25, 0.8}, {0.2, 0.5});
+  const std::vector<domain::Action> rotations{
+      domain::Action::pause(), {domain::ActionType::TurnLeft, 1U},
+      {domain::ActionType::TurnRight, 1U}};
+
+  // The target is inside sensor range and four nearby beams extend beyond it,
+  // but its location is almost one metre off the closest ray's narrow
+  // corridor. A range-membership-only implementation would trigger here.
+  auto world = worldWithTarget(
+      {4.0 * std::cos(0.25), 4.0 * std::sin(0.25)});
+  auto view = laser();
+  view.angle_min = domain::Angle(-1.5);
+  view.angle_increment = domain::Angle(0.5);
+  view.ranges_m = std::vector<double>(7U, 5.0);
+  view.ranges_m[3] = 0.4;
+  world.robot.laser = view;
+  planning::Thru corridor;
+  const auto corridor_trigger = corridor.evaluateTrigger(
+      {world, &actions, rotations});
+  EXPECT_FALSE(corridor_trigger.triggered);
+  EXPECT_EQ(corridor_trigger.rationale,
+            "thru:target_and_waypoint_not_sensed");
+
+  // A geometrically aligned objective still requires at least three clear
+  // rays in the configured local neighborhood.
+  world = worldWithTarget({2.0, 0.0});
+  view.angle_min = domain::Angle(-0.3);
+  view.angle_increment = domain::Angle(0.1);
+  view.ranges_m = {0.4, 0.4, 3.0, 0.4, 3.0, 0.4, 0.4};
+  world.robot.laser = view;
+  planning::Thru beam_evidence;
+  const auto evidence_trigger = beam_evidence.evaluateTrigger(
+      {world, &actions, rotations});
+  EXPECT_FALSE(evidence_trigger.triggered);
+  EXPECT_EQ(evidence_trigger.rationale,
+            "thru:target_and_waypoint_not_sensed");
+}
+
+TEST(Thru, RequiresObstacleBlockedAndPostVetoForwardUnavailable) {
+  using namespace semaforr;
+  const domain::ActionSpace actions({0.25, 0.8}, {0.2, 0.5});
+  auto world = worldWithTarget({0.4, 0.0});
+  auto view = laser();
+  view.angle_min = domain::Angle(-0.5);
+  view.angle_increment = domain::Angle(0.1);
+  view.ranges_m = std::vector<double>(11U, 2.0);
+  view.ranges_m[5] = 0.5;
+  world.robot.laser = view;
+  const std::vector<domain::Action> with_forward{
+      domain::Action::pause(), {domain::ActionType::Forward, 1U},
+      {domain::ActionType::TurnLeft, 1U},
+      {domain::ActionType::TurnRight, 1U}};
+  const std::vector<domain::Action> without_forward{
+      domain::Action::pause(), {domain::ActionType::TurnLeft, 1U},
+      {domain::ActionType::TurnRight, 1U}};
+  planning::Thru thru;
+  const auto still_viable =
+      thru.evaluateTrigger({world, &actions, with_forward});
+  EXPECT_FALSE(still_viable.triggered);
+  EXPECT_EQ(still_viable.rationale,
+            "thru:forward_action_still_viable");
+  const auto vetoed =
+      thru.evaluateTrigger({world, &actions, without_forward});
+  EXPECT_TRUE(vetoed.triggered);
+  EXPECT_EQ(vetoed.rationale,
+            "thru:sensed_target_forward_obstacle_blocked");
+
+  view.ranges_m = std::vector<double>(11U, 2.0);
+  world.robot.laser = view;
+  const auto open = thru.evaluateTrigger({world, &actions, without_forward});
+  EXPECT_FALSE(open.triggered);
+  EXPECT_EQ(open.rationale, "thru:forward_not_obstacle_blocked");
+}
+
+TEST(Thru, UsesTargetThenWaypointAndChoosesLongerAverageRayBundle) {
+  using namespace semaforr;
+  const domain::ActionSpace actions({0.25, 0.8}, {0.2, 0.5});
+  auto asymmetric_view = laser();
+  asymmetric_view.angle_min = domain::Angle(-0.5);
+  asymmetric_view.angle_increment = domain::Angle(0.1);
+  asymmetric_view.ranges_m = {1.0, 1.0, 1.0, 1.0, 1.0, 0.5,
+                              4.0, 4.0, 4.0, 4.0, 4.0};
+
+  auto world = worldWithTarget({0.4, 0.0});
+  world.mission.install_active_plan({{0.0, 0.4}});
+  world.robot.laser = asymmetric_view;
+  planning::Thru target_thru;
+  auto result = target_thru.evaluate({world, actions});
+  ASSERT_EQ(result.status, planning::ReactiveStatus::Action);
+  ASSERT_TRUE(result.action);
+  EXPECT_EQ(result.action->type(), domain::ActionType::TurnLeft);
+  EXPECT_NE(result.explanation.find("pursue_left_opening_for_target"),
+            std::string::npos);
+
+  world = worldWithTarget({0.0, 4.0});
+  world.mission.install_active_plan({{0.4, 0.0}});
+  world.robot.laser = asymmetric_view;
+  planning::Thru waypoint_thru;
+  result = waypoint_thru.evaluate({world, actions});
+  ASSERT_EQ(result.status, planning::ReactiveStatus::Action);
+  EXPECT_NE(result.explanation.find("pursue_left_opening_for_waypoint"),
+            std::string::npos);
+
+  std::reverse(asymmetric_view.ranges_m.begin(),
+               asymmetric_view.ranges_m.end());
+  world.robot.laser = asymmetric_view;
+  planning::Thru right_thru;
+  result = right_thru.evaluate({world, actions});
+  ASSERT_EQ(result.status, planning::ReactiveStatus::Action);
+  ASSERT_TRUE(result.action);
+  EXPECT_EQ(result.action->type(), domain::ActionType::TurnRight);
+  EXPECT_NE(result.explanation.find("pursue_right_opening_for_waypoint"),
+            std::string::npos);
+}
+
+TEST(Thru, StopsOnDecisionLimitInvalidPursuitAndCancellation) {
+  using namespace semaforr;
+  const domain::ActionSpace actions({0.25, 0.8}, {0.2, 0.5});
+  auto world = worldWithTarget({0.4, 0.0});
+  auto view = laser();
+  view.angle_min = domain::Angle(-0.5);
+  view.angle_increment = domain::Angle(0.1);
+  view.ranges_m = {1.0, 1.0, 1.0, 1.0, 1.0, 0.5,
+                   4.0, 4.0, 4.0, 4.0, 4.0};
+  world.robot.laser = view;
+
+  planning::Thru reached(20U, 0.8, 10.0);
+  const auto reached_result = reached.evaluate({world, actions});
+  EXPECT_EQ(reached_result.status, planning::ReactiveStatus::NotApplicable);
+  EXPECT_EQ(reached_result.completion_reason,
+            planning::ReactiveCompletionReason::CandidateExhausted);
+  EXPECT_EQ(reached_result.explanation, "thru:endpoint_reached");
+
+  planning::Thru budgeted(1U);
+  ASSERT_EQ(budgeted.evaluate({world, actions}).status,
+            planning::ReactiveStatus::Action);
+  const auto budget = budgeted.evaluate({world, actions});
+  EXPECT_EQ(budget.status, planning::ReactiveStatus::NotApplicable);
+  EXPECT_EQ(budget.completion_reason,
+            planning::ReactiveCompletionReason::BudgetExceeded);
+  EXPECT_EQ(budget.explanation, "thru:decision_limit_reached");
+
+  planning::Thru invalid;
+  ASSERT_EQ(invalid.evaluate({world, actions}).status,
+            planning::ReactiveStatus::Action);
+  const std::vector<domain::Action> incompatible{
+      domain::Action::pause(), {domain::ActionType::TurnRight, 1U}};
+  const auto invalid_result = invalid.evaluate({world, actions, incompatible});
+  EXPECT_EQ(invalid_result.status, planning::ReactiveStatus::NotApplicable);
+  EXPECT_EQ(invalid_result.completion_reason,
+            planning::ReactiveCompletionReason::CandidateExhausted);
+  EXPECT_EQ(invalid_result.explanation,
+            "thru:pursuit_action_not_viable");
+
+  planning::Thru cancelled;
+  ASSERT_EQ(cancelled.evaluate({world, actions}).status,
+            planning::ReactiveStatus::Action);
+  cancelled.cancel(planning::InterruptionReason::TargetSensed);
+  view.ranges_m = std::vector<double>(11U, 4.0);
+  world.robot.laser = view;
+  EXPECT_EQ(cancelled.evaluate({world, actions}).status,
+            planning::ReactiveStatus::NotApplicable);
+}
+
 TEST(LowLevelExplorer, RequestsTierTwoReplanAfterFailedProgress) {
   const semaforr::domain::ActionSpace actions({0.25}, {0.2});
   auto world = worldWithTarget({4.0, 0.0});

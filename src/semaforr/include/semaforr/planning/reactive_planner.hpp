@@ -111,7 +111,12 @@ class Thru final : public ReactivePlanner {
  public:
   explicit Thru(std::size_t decision_budget = 20U,
                 double desired_step_m = 0.8,
-                double endpoint_tolerance_m = 0.75);
+                double endpoint_tolerance_m = 0.75,
+                std::size_t beam_neighborhood_half_width = 2U,
+                std::size_t minimum_clear_beams = 3U,
+                std::size_t openness_bundle_beams = 5U,
+                double corridor_half_width_m = 0.25,
+                double corridor_longitudinal_tolerance_m = 0.5);
   std::string_view name() const noexcept override { return "Thru"; }
   std::vector<std::string_view> dependencies() const override {
     return {"active_waypoint", "laser"};
@@ -122,14 +127,34 @@ class Thru final : public ReactivePlanner {
   void cancel(InterruptionReason) override;
 
  private:
-  std::optional<domain::Point2D> chooseEndpoint(
+  struct SensedObjective {
+    domain::Point2D point;
+    std::size_t ray_index{0U};
+    double distance_m{0.0};
+    bool mission_target{false};
+  };
+  struct EndpointChoice {
+    domain::Point2D point;
+    std::string side;
+  };
+
+  std::optional<SensedObjective> sensedObjective(
       const domain::WorldModel&) const;
+  std::optional<EndpointChoice> chooseEndpoint(
+      const domain::WorldModel&, const SensedObjective&) const;
   std::optional<domain::Point2D> endpoint_;
   std::optional<domain::TaskId> mission_id_;
+  std::string selected_side_;
+  std::string objective_kind_;
   std::size_t decisions_ = 0U;
   std::size_t decision_budget_;
   double desired_step_m_;
   double endpoint_tolerance_m_;
+  std::size_t beam_neighborhood_half_width_;
+  std::size_t minimum_clear_beams_;
+  std::size_t openness_bundle_beams_;
+  double corridor_half_width_m_;
+  double corridor_longitudinal_tolerance_m_;
 };
 
 class Behind final : public ReactivePlanner {

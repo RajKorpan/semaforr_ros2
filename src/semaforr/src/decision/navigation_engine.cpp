@@ -558,6 +558,8 @@ DecisionResult NavigationEngine::decide() {
       result.active_plan_step = enforcement.step_index;
       result.operational_target = enforcement.operational_target;
       result.enforcer_reason = enforcement.reason_code;
+      reactive_.cancelAll(planning::InterruptionReason::NewPlanAvailable);
+      lle_->cancel(planning::InterruptionReason::NewPlanAvailable);
       decided = true;
     }
   } else if (!decided && enforcer_enabled_ && world_.mission.active() &&
@@ -585,6 +587,8 @@ DecisionResult NavigationEngine::decide() {
       result.enforcer_mode = "grid";
       result.operational_target = world_.mission.active()->waypoint();
       result.enforcer_reason = "enforcer:custom_grid_waypoint_progress";
+      reactive_.cancelAll(planning::InterruptionReason::NewPlanAvailable);
+      lle_->cancel(planning::InterruptionReason::NewPlanAvailable);
       decided = true;
     }
   } else if (!decided && enforcer_enabled_) {
@@ -755,8 +759,8 @@ DecisionResult NavigationEngine::decide() {
       cycle.push_back(
           {0U, "tier2", "PlanningCoordinator", viable, std::nullopt, {},
            world_.recovery.plan_abandoned
-               ? "prior_planning_failure_lle_exhausted_tier3_eligible"
-               : "completed_plan_failed_lle_exhausted_tier3_eligible"});
+               ? "prior_planning_failure_recovery_exhausted_tier3_eligible"
+               : "completed_plan_failed_recovery_exhausted_tier3_eligible"});
     } else {
       const auto planning_started = std::chrono::steady_clock::now();
       ++world_.recovery.tier_two_attempts;

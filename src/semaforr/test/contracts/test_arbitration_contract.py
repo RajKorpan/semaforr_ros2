@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+import re
 
 
 SOURCE_DIR = Path(
@@ -29,6 +30,6 @@ def test_vetoed_actions_cannot_reenter_aggregation():
     source = (SOURCE_DIR / "src/decision/decision_coordinator.cpp").read_text(
         encoding="utf-8"
     )
-    assert "std::erase_if(pass.survivors" in source
+    assert re.search(r"std::erase_if\s*\(\s*pass\.survivors", source)
     assert "vetoed.contains(action)" in source
     assert "scored an unavailable or vetoed action" in source

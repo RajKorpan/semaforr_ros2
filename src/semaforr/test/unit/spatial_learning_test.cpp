@@ -611,6 +611,7 @@ TEST(NavigationEngine, VictoryStopsBeforeEnforcerAndReactivePlanners) {
   EXPECT_EQ(result.selected_policy, "mandatory_rule:Victory");
   EXPECT_EQ(reactive_observer->trigger_count, 0U);
   EXPECT_EQ(reactive_observer->update_count, 0U);
+  EXPECT_EQ(reactive_observer->cancel_count, 1U);
   ASSERT_FALSE(result.decision_cycle.empty());
   EXPECT_EQ(result.decision_cycle.front().component, "Victory");
   EXPECT_EQ(result.decision_cycle.front().final_attribution,
@@ -748,6 +749,7 @@ TEST(NavigationEngine, TierTwoPlanCreationEndsCycleBeforeEnforcer) {
   EXPECT_EQ(next.selected_policy, "mandatory_rule:Enforcer");
   EXPECT_EQ(next.tier, decision::DecisionTier::TierOne);
   EXPECT_EQ(reactive_observer->trigger_count, 1U);
+  EXPECT_EQ(reactive_observer->cancel_count, 1U);
   const auto next_enforcer = std::find_if(
       next.decision_cycle.begin(), next.decision_cycle.end(),
       [](const auto& event) { return event.component == "Enforcer"; });
@@ -807,7 +809,8 @@ TEST(NavigationEngine, RepeatedImmediateTierTwoFailureIsBounded) {
   EXPECT_TRUE(std::any_of(
       third.decision_cycle.begin(), third.decision_cycle.end(),
       [](const auto& event) {
-        return event.component == "LLE";
+        return event.outcome ==
+               "prior_planning_failure_recovery_exhausted_tier3_eligible";
       }));
   EXPECT_TRUE(std::none_of(
       third.decision_cycle.begin(), third.decision_cycle.end(),

@@ -110,8 +110,8 @@ bool validObservationRay(const domain::LaserObservation& laser,
               : measured > 0.0);
 }
 
-std::optional<double> lleRayExtent(const domain::LaserObservation& laser,
-                                   double measured) {
+std::optional<double> rayExtent(const domain::LaserObservation& laser,
+                                double measured) {
   if (std::isnan(measured) || measured < laser.minimum_range.meters())
     return std::nullopt;
   if (std::isinf(measured))
@@ -221,6 +221,7 @@ bool sensed(const domain::Pose2D& pose,
 bool forwardBlocked(const domain::LaserObservation& laser,
                     const domain::ActionSpace& actions,
                     double clearance_m = 0.35) {
+  if (actions.move_distances_m().empty()) return false;
   double nearest = std::numeric_limits<double>::infinity();
   double angle = laser.angle_min.radians();
   for (const double range : laser.ranges_m) {
@@ -398,105 +399,267 @@ std::string_view toString(LowLevelExplorationState state) noexcept {
 }
 
 Thru::Thru(std::size_t decision_budget, double desired_step_m,
-           double endpoint_tolerance_m)
+           double endpoint_tolerance_m,
+           std::size_t beam_neighborhood_half_width,
+           std::size_t minimum_clear_beams,
+           std::size_t openness_bundle_beams,
+           double corridor_half_width_m,
+           double corridor_longitudinal_tolerance_m)
     : decision_budget_(decision_budget),
       desired_step_m_(desired_step_m),
-      endpoint_tolerance_m_(endpoint_tolerance_m) {
-  if (decision_budget_ == 0U || desired_step_m_ <= 0.0 ||
-      endpoint_tolerance_m_ <= 0.0)
+      endpoint_tolerance_m_(endpoint_tolerance_m),
+      beam_neighborhood_half_width_(beam_neighborhood_half_width),
+      minimum_clear_beams_(minimum_clear_beams),
+      openness_bundle_beams_(openness_bundle_beams),
+      corridor_half_width_m_(corridor_half_width_m),
+      corridor_longitudinal_tolerance_m_(
+          corridor_longitudinal_tolerance_m) {
+  const std::size_t neighborhood_size =
+      2U * beam_neighborhood_half_width_ + 1U;
+  if (decision_budget_ == 0U || !std::isfinite(desired_step_m_) ||
+      desired_step_m_ <= 0.0 || !std::isfinite(endpoint_tolerance_m_) ||
+      endpoint_tolerance_m_ <= 0.0 || minimum_clear_beams_ == 0U ||
+      minimum_clear_beams_ > neighborhood_size ||
+      openness_bundle_beams_ == 0U ||
+      !std::isfinite(corridor_half_width_m_) ||
+      corridor_half_width_m_ <= 0.0 ||
+      !std::isfinite(corridor_longitudinal_tolerance_m_) ||
+      corridor_longitudinal_tolerance_m_ <= 0.0)
     throw std::invalid_argument("invalid Thru configuration");
+}
+
+std::optional<Thru::SensedObjective> Thru::sensedObjective(
+    const domain::WorldModel& world) const {
+  if (!world.mission.active() || !world.robot.laser ||
+      world.robot.laser->ranges_m.empty())
+    return std::nullopt;
+  const auto& laser = *world.robot.laser;
+  if (!(laser.angle_increment.radians() > 0.0)) return std::nullopt;
+
+  const auto evaluate = [&](domain::Point2D point,
+                            bool mission_target)
+      -> std::optional<SensedObjective> {
+    if (!point.finite()) return std::nullopt;
+    const double distance_m =
+        domain::distance(world.robot.pose.position, point).meters();
+    const double bearing = headingError(world.robot.pose, point);
+    const double coordinate =
+        (bearing - laser.angle_min.radians()) /
+        laser.angle_increment.radians();
+    if (!std::isfinite(coordinate) || coordinate < 0.0 ||
+        coordinate > static_cast<double>(laser.ranges_m.size() - 1U))
+      return std::nullopt;
+    const auto center = static_cast<std::ptrdiff_t>(std::llround(coordinate));
+    if (center < 0 ||
+        center >= static_cast<std::ptrdiff_t>(laser.ranges_m.size()))
+      return std::nullopt;
+
+    std::size_t clear = 0U;
+    std::size_t sampled = 0U;
+    const auto half_width =
+        static_cast<std::ptrdiff_t>(beam_neighborhood_half_width_);
+    for (std::ptrdiff_t offset = -half_width; offset <= half_width; ++offset) {
+      const auto beam = center + offset;
+      if (beam < 0 ||
+          beam >= static_cast<std::ptrdiff_t>(laser.ranges_m.size()))
+        continue;
+      const auto extent =
+          rayExtent(laser, laser.ranges_m[static_cast<std::size_t>(beam)]);
+      if (!extent) continue;
+      ++sampled;
+      if (*extent + domain::geometry_tolerance_m >= distance_m) ++clear;
+    }
+    if (sampled < minimum_clear_beams_ || clear < minimum_clear_beams_)
+      return std::nullopt;
+
+    const double ray_bearing =
+        laser.angle_min.radians() +
+        static_cast<double>(center) * laser.angle_increment.radians();
+    const double angular_error =
+        domain::Angle::normalize(bearing - ray_bearing);
+    const double lateral_error = distance_m * std::sin(angular_error);
+    const double longitudinal_error =
+        distance_m - distance_m * std::cos(angular_error);
+    const double ellipse =
+        (lateral_error * lateral_error) /
+            (corridor_half_width_m_ * corridor_half_width_m_) +
+        (longitudinal_error * longitudinal_error) /
+            (corridor_longitudinal_tolerance_m_ *
+             corridor_longitudinal_tolerance_m_);
+    if (ellipse > 1.0 + domain::geometry_tolerance_m) return std::nullopt;
+    return SensedObjective{point, static_cast<std::size_t>(center),
+                           distance_m, mission_target};
+  };
+
+  // Compatibility order: use the mission target whenever it is sensed, and
+  // only fall back to the current plan waypoint when the target is not.
+  if (auto target = evaluate(world.mission.active()->target, true))
+    return target;
+  if (world.mission.active()->waypoint())
+    return evaluate(*world.mission.active()->waypoint(), false);
+  return std::nullopt;
 }
 
 TriggerEvaluation Thru::evaluateTrigger(
     const decision::DecisionContext& context) const {
-  const auto target = waypoint(context.world);
-  if (endpoint_) return {true, "Thru repositioning is active"};
-  if (!target || !context.action_space || !context.world.robot.laser)
-    return {};
-  return {sensed(context.world.robot.pose, *context.world.robot.laser,
-                 *target) &&
-              forwardBlocked(*context.world.robot.laser,
-                             *context.action_space),
-          "sensed waypoint is blocked by a tight opening"};
+  if (endpoint_) return {true, "thru:pursuit_active"};
+  if (!context.world.mission.active())
+    return {false, "thru:no_active_mission"};
+  if (!context.action_space)
+    return {false, "thru:missing_action_space"};
+  if (!context.world.robot.laser)
+    return {false, "thru:missing_laser"};
+  const auto objective = sensedObjective(context.world);
+  if (!objective)
+    return {false, "thru:target_and_waypoint_not_sensed"};
+
+  const bool obstacle_blocked =
+      forwardBlocked(*context.world.robot.laser, *context.action_space);
+  const bool forward_viable =
+      !context.viable_actions.empty() &&
+      std::any_of(context.viable_actions.begin(), context.viable_actions.end(),
+                  [](const auto& action) {
+                    return action.type() == domain::ActionType::Forward;
+                  });
+  // An empty viable span means a standalone ReactivePlanner evaluation did
+  // not supply the post-veto set; in that case the obstacle test is the
+  // authoritative fallback. NavigationEngine always supplies the set.
+  const bool forward_unavailable = context.viable_actions.empty()
+                                       ? obstacle_blocked
+                                       : !forward_viable;
+  if (!obstacle_blocked)
+    return {false, "thru:forward_not_obstacle_blocked"};
+  if (!forward_unavailable)
+    return {false, "thru:forward_action_still_viable"};
+  return {true, objective->mission_target
+                    ? "thru:sensed_target_forward_obstacle_blocked"
+                    : "thru:sensed_waypoint_forward_obstacle_blocked"};
 }
 
-std::optional<domain::Point2D> Thru::chooseEndpoint(
-    const domain::WorldModel& world) const {
-  const auto target = waypoint(world);
-  if (!target || !world.robot.laser || world.robot.laser->ranges_m.size() < 3U)
+std::optional<Thru::EndpointChoice> Thru::chooseEndpoint(
+    const domain::WorldModel& world,
+    const SensedObjective& objective) const {
+  if (!world.robot.laser || world.robot.laser->ranges_m.size() < 3U)
     return std::nullopt;
   const auto& laser = *world.robot.laser;
-  const double bearing = headingError(world.robot.pose, *target);
-  const auto center = static_cast<std::ptrdiff_t>(std::llround(
-      (bearing - laser.angle_min.radians()) /
-      laser.angle_increment.radians()));
-  if (center < 0 || center >= static_cast<std::ptrdiff_t>(laser.ranges_m.size()))
-    return std::nullopt;
-  const auto bundle = [&](std::ptrdiff_t begin, std::ptrdiff_t end) {
+  const auto center = static_cast<std::ptrdiff_t>(objective.ray_index);
+  struct AverageRay {
+    domain::Point2D endpoint;
+    double length_m{0.0};
+  };
+  const auto bundle = [&](int direction) -> std::optional<AverageRay> {
     double x = 0.0;
     double y = 0.0;
     std::size_t count = 0U;
-    for (auto beam = begin; beam != end; beam += begin < end ? 1 : -1) {
+    for (std::size_t offset = 1U; offset <= openness_bundle_beams_; ++offset) {
+      const auto beam = center +
+                        direction * static_cast<std::ptrdiff_t>(offset);
       if (beam < 0 || beam >= static_cast<std::ptrdiff_t>(laser.ranges_m.size()))
         break;
-      const double measured = laser.ranges_m[static_cast<std::size_t>(beam)];
-      const double range = std::isfinite(measured)
-                               ? measured
-                               : laser.maximum_range.meters();
-      if (!(range > 0.0)) continue;
-      const double angle = world.robot.pose.heading.radians() +
-                           laser.angle_min.radians() +
-                           static_cast<double>(beam) *
-                               laser.angle_increment.radians();
-      x += world.robot.pose.position.x_m + range * std::cos(angle);
-      y += world.robot.pose.position.y_m + range * std::sin(angle);
+      const auto extent =
+          rayExtent(laser, laser.ranges_m[static_cast<std::size_t>(beam)]);
+      if (!extent) continue;
+      const double relative_angle =
+          laser.angle_min.radians() +
+          static_cast<double>(beam) * laser.angle_increment.radians();
+      x += *extent * std::cos(relative_angle);
+      y += *extent * std::sin(relative_angle);
       ++count;
-      if (count == 5U) break;
     }
-    return count == 0U
-               ? std::optional<domain::Point2D>{}
-               : std::optional<domain::Point2D>{{x / count, y / count}};
+    if (count == 0U) return std::nullopt;
+    x /= static_cast<double>(count);
+    y /= static_cast<double>(count);
+    const double heading = world.robot.pose.heading.radians();
+    return AverageRay{
+        {world.robot.pose.position.x_m + std::cos(heading) * x -
+             std::sin(heading) * y,
+         world.robot.pose.position.y_m + std::sin(heading) * x +
+             std::cos(heading) * y},
+        std::hypot(x, y)};
   };
-  const auto left = bundle(center + 1, static_cast<std::ptrdiff_t>(laser.ranges_m.size()));
-  const auto right = bundle(center - 1, -1);
-  if (!left) return right;
-  if (!right) return left;
-  return domain::distance(world.robot.pose.position, *left).meters() >
-                 domain::distance(world.robot.pose.position, *right).meters()
-             ? left
-             : right;
+  const auto left = bundle(1);
+  const auto right = bundle(-1);
+  if (!left && !right) return std::nullopt;
+  if (!left) return EndpointChoice{right->endpoint, "right"};
+  if (!right) return EndpointChoice{left->endpoint, "left"};
+  return left->length_m > right->length_m
+             ? EndpointChoice{left->endpoint, "left"}
+             : EndpointChoice{right->endpoint, "right"};
 }
 
 ReactivePlanUpdate Thru::update(
     const decision::DecisionContext& context) {
   if (!context.action_space || !evaluateTrigger(context).triggered) return {};
-  if (!context.world.mission.active()) return {};
+  if (!context.world.mission.active()) {
+    cancel(InterruptionReason::MissionChanged);
+    return {ReactiveStatus::NotApplicable, std::nullopt, {},
+            ReactiveCompletionReason::MissionChanged, std::nullopt,
+            "thru:mission_ended"};
+  }
   if (mission_id_ && *mission_id_ != context.world.mission.active()->id) {
     cancel(InterruptionReason::MissionChanged);
-    return {};
+    return {ReactiveStatus::NotApplicable, std::nullopt, {},
+            ReactiveCompletionReason::MissionChanged, std::nullopt,
+            "thru:mission_changed"};
+  }
+  if (!context.world.robot.laser) {
+    cancel(InterruptionReason::SensorLost);
+    return {ReactiveStatus::NotApplicable, std::nullopt, {},
+            ReactiveCompletionReason::SensorLost, std::nullopt,
+            "thru:sensor_lost"};
   }
   if (!endpoint_) {
-    endpoint_ = chooseEndpoint(context.world);
+    const auto objective = sensedObjective(context.world);
+    if (!objective) return {};
+    const auto choice = chooseEndpoint(context.world, *objective);
+    if (!choice) {
+      cancel(InterruptionReason::Disabled);
+      return {ReactiveStatus::NotApplicable, std::nullopt, {},
+              ReactiveCompletionReason::CandidateExhausted, std::nullopt,
+              "thru:no_valid_openness_bundle"};
+    }
+    endpoint_ = choice->point;
+    selected_side_ = choice->side;
+    objective_kind_ = objective->mission_target ? "target" : "waypoint";
     mission_id_ = context.world.mission.active()->id;
     decisions_ = 0U;
   }
-  if (!endpoint_) return {};
   if (domain::distance(context.world.robot.pose.position, *endpoint_).meters() <=
-          endpoint_tolerance_m_ ||
-      decisions_++ >= decision_budget_) {
+      endpoint_tolerance_m_) {
     cancel(InterruptionReason::Disabled);
-    return {};
+    return {ReactiveStatus::NotApplicable, std::nullopt, {},
+            ReactiveCompletionReason::CandidateExhausted, std::nullopt,
+            "thru:endpoint_reached"};
   }
-  return {ReactiveStatus::Action,
-          stepToward(context.world.robot.pose, *endpoint_,
-                     *context.action_space, desired_step_m_), {},
+  if (decisions_ >= decision_budget_) {
+    cancel(InterruptionReason::Disabled);
+    return {ReactiveStatus::NotApplicable, std::nullopt, {},
+            ReactiveCompletionReason::BudgetExceeded, std::nullopt,
+            "thru:decision_limit_reached"};
+  }
+  const auto action = stepToward(context.world.robot.pose, *endpoint_,
+                                 *context.action_space, desired_step_m_);
+  if (action.type() == domain::ActionType::Pause ||
+      (!context.viable_actions.empty() &&
+       std::find(context.viable_actions.begin(), context.viable_actions.end(),
+                 action) == context.viable_actions.end())) {
+    cancel(InterruptionReason::Disabled);
+    return {ReactiveStatus::NotApplicable, std::nullopt, {},
+            ReactiveCompletionReason::CandidateExhausted, std::nullopt,
+            "thru:pursuit_action_not_viable"};
+  }
+  ++decisions_;
+  return {ReactiveStatus::Action, action, {},
           ReactiveCompletionReason::None, std::nullopt,
-          "reposition along the clearer side of the opening"};
+          "thru:pursue_" + selected_side_ + "_opening_for_" +
+              objective_kind_};
 }
 
 void Thru::cancel(InterruptionReason) {
   endpoint_.reset();
   mission_id_.reset();
+  selected_side_.clear();
+  objective_kind_.clear();
   decisions_ = 0U;
 }
 
@@ -923,7 +1086,7 @@ void LowLevelExplorer::assembleCandidates(const domain::WorldModel& world) {
                            const domain::LaserObservation& laser) {
     bool uncovered_ray = false;
     for (std::size_t beam = 0U; beam < laser.ranges_m.size(); ++beam) {
-      const auto extent = lleRayExtent(laser, laser.ranges_m[beam]);
+      const auto extent = rayExtent(laser, laser.ranges_m[beam]);
       if (!extent) continue;
       const double range = *extent;
       const double angle = pose.heading.radians() +
@@ -1120,7 +1283,7 @@ bool LowLevelExplorer::appendCurrentViewCandidates(
   const auto target = world.mission.active()->target;
   bool appended = false;
   for (std::size_t beam = 0U; beam < laser.ranges_m.size(); ++beam) {
-    const auto extent = lleRayExtent(laser, laser.ranges_m[beam]);
+    const auto extent = rayExtent(laser, laser.ranges_m[beam]);
     if (!extent) continue;
     const double range = *extent;
     if (range < minimum_cue_length_m_) continue;
