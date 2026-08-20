@@ -110,6 +110,7 @@ std::string stepName(const planning::PlanStep& step) {
         if constexpr (std::is_same_v<T, planning::WaypointStep>) return "waypoint";
         if constexpr (std::is_same_v<T, planning::SubtrailStep>) return "subtrail";
         if constexpr (std::is_same_v<T, planning::RegionStep>) return "region";
+        if constexpr (std::is_same_v<T, planning::VisibilityConnectionStep>) return "visibility_connection";
         if constexpr (std::is_same_v<T, planning::HighwayStep>) return "highway";
         if constexpr (std::is_same_v<T, planning::IntersectionStep>) return "intersection";
         if constexpr (std::is_same_v<T, planning::HighwayEntryStep>) return "highway_entry";
@@ -338,6 +339,17 @@ std::size_t Enforcer::activeStep(const planning::HierarchicalPlan& plan,
                                  domain::Distance tolerance) const noexcept {
   std::size_t cursor = plan.cursor;
   while (cursor < plan.steps.size()) {
+    if (const auto* subtrail =
+            std::get_if<planning::SubtrailStep>(&plan.steps[cursor])) {
+      // A subtrail is a compound step. Its current marker may already be the
+      // robot pose, but that advances only the subtrail cursor in
+      // operationalizeNext; the plan step completes at the final marker.
+      if (!subtrail->waypoints.empty() &&
+          !reached(pose, subtrail->waypoints.back(), tolerance))
+        break;
+      ++cursor;
+      continue;
+    }
     const auto target = planning::stepTarget(plan.steps[cursor]);
     if (!target || !reached(pose, *target, tolerance)) break;
     ++cursor;

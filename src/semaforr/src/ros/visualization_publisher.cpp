@@ -104,6 +104,18 @@ semaforr_msgs::msg::PlanStepTrace toMessage(
           result.primary_entity_id = step.region_id;
           result.has_target = true;
           result.target = toMessage(step.center);
+        } else if constexpr (
+            std::is_same_v<T, planning::VisibilityConnectionStep>) {
+          result.step_type = "visibility_connection";
+          result.primary_entity_id = step.region_id;
+          result.has_target = true;
+          result.target = toMessage(step.to);
+          result.geometry.push_back(toMessage(step.from));
+          result.geometry.push_back(toMessage(step.to));
+          result.execution_event =
+              std::string(step.toward_region ? "toward_region" : "toward_point") +
+              ",supporting_decision=" +
+              std::to_string(step.supporting_decision);
         } else if constexpr (std::is_same_v<T, planning::HighwayStep>) {
           result.step_type = "highway";
           result.primary_entity_id = step.highway_id;

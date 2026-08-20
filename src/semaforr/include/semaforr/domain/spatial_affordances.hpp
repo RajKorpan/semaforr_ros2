@@ -7,6 +7,7 @@
 #include <optional>
 #include <semaforr/domain/completed_path.hpp>
 #include <semaforr/domain/grid_geometry.hpp>
+#include <utility>
 #include <vector>
 
 namespace semaforr::domain {
@@ -135,12 +136,33 @@ struct RegionSkeletonNode {
   std::array<RegionVisibilityBin, 360U> visibility;
 };
 
+struct RegionSkeletonTrailEvidence {
+  std::size_t from{0U};
+  std::size_t to{0U};
+  LearnedTrail trail;
+};
+
 struct RegionSkeletonEdge {
   std::size_t from{0U};
   std::size_t to{0U};
   std::vector<Point2D> supporting_subtrail;
   double length_m{0.0};
   PathId source_path{0U};
+  // Every entry is learned from one contiguous, execution-confirmed raw path
+  // segment. `supporting_subtrail` is the shortest valid learned trail,
+  // normalized from `from` to `to`, and is the operational edge label.
+  std::vector<RegionSkeletonTrailEvidence> supporting_trails;
+  std::optional<TrailId> operational_trail_id;
+
+  RegionSkeletonEdge() = default;
+  RegionSkeletonEdge(std::size_t edge_from, std::size_t edge_to,
+                     std::vector<Point2D> subtrail, double length,
+                     PathId path)
+      : from(edge_from),
+        to(edge_to),
+        supporting_subtrail(std::move(subtrail)),
+        length_m(length),
+        source_path(path) {}
 };
 
 }  // namespace semaforr::domain

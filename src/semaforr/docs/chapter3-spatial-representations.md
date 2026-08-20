@@ -80,13 +80,22 @@ cell area, width, extent, support, stable identity, and revision.
 ## Region skeleton and consumers
 
 Compatibility skeleton nodes are regions, never sampled path points. A direct
-region transition creates an edge, and each edge retains the shortest
-execution-confirmed supporting subtrail. Connected components are cached by
-model revision. The retained modernized sampled graph is explicitly named
+region transition extracts the contiguous successful execution records and
+runs that raw segment through the ordinary backward visibility Trail learner.
+Each edge retains every learned traversal as evidence and selects the shortest
+valid learned Trail as its direction-normalized operational label. Failed and
+partial terminal actions remain in path history but cannot create a traversable
+edge. Connected components are cached by model revision. The retained modernized sampled graph is explicitly named
 `sampled_path_nodes` and `sampled_path_edges`.
 
-`SkeletonPlan` emits region steps and operationalizable subtrail steps.
-Highway connections attach to the region skeleton. LLE creates candidates from
+`SkeletonPlan` selects start and goal regions by retained containment, then
+learned 360-degree visibility, then the deterministic
+`distance / (degree + 1)` fallback. Visibility evidence becomes a typed plan
+step rather than disappearing during surrogate selection. `HighwayPlan` first
+tests intersection and highway membership, then uses the same region surrogate
+and Dijkstra over learned skeleton edges to reach an overlapping intersection
+or highway. The complete start and reversed goal attachment routes remain in
+the plan. LLE creates candidates from
 known region-visibility endpoints. Enforcer visibility shortcuts consume the
 published region evidence and still apply obstacle checks. Planner provenance
 and explanations identify region-skeleton/subtrail use.

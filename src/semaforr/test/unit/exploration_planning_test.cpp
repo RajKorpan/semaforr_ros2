@@ -603,15 +603,27 @@ TEST(HighwayLearning, ComponentPolicyCanPreferIntersectionCountOrSize) {
 
 TEST(HierarchicalPlans, HighwayPlanProducesTypedOperationalSteps) {
   semaforr::domain::SpatialModel spatial;
-  spatial.highways.nodes = {{0.0, 0.0}, {1.0, 0.0}, {2.0, 0.0}};
-  spatial.highways.edges = {{0U, 1U}, {1U, 2U}};
-  spatial.highways.intersections = {{1U, 3U}};
+  spatial.highways.geometry = semaforr::domain::GridGeometry::fromBounds(
+      "map", {0.0, 0.0}, {3.0, 1.0}, 1.0,
+      semaforr::domain::GridExtentMode::Fixed,
+      semaforr::domain::GridExtentSource::RepresentationLocalBounds,
+      semaforr::domain::GridOutOfBoundsBehavior::NonTraversable);
+  spatial.highways.graph.vertices = {
+      {0U, {0, 0}, {0.5, 0.5}, true},
+      {1U, {0, 1}, {1.5, 0.5}, false},
+      {2U, {0, 2}, {2.5, 0.5}, true}};
+  spatial.highways.graph.edges = {
+      {0U, 1U, 0U, 1.0, {}, {{0.5, 0.5}, {1.5, 0.5}}},
+      {1U, 2U, 1U, 1.0, {}, {{1.5, 0.5}, {2.5, 0.5}}}};
+  spatial.highways.highways = {
+      {0U, semaforr::domain::Axis::Horizontal, {{0, 0}, {0, 1}}, {0U, 1U}},
+      {1U, semaforr::domain::Axis::Horizontal, {{0, 1}, {0, 2}}, {1U, 2U}}};
   spatial.revisions[semaforr::domain::ModelDependency::Highways] = 7U;
   spatial.revisions[semaforr::domain::ModelDependency::HighwayGraph] = 7U;
   semaforr::planning::HighwayPlan planner;
   const auto result =
-      planner.plan({{{-1.0, 0.0}, semaforr::domain::Angle::zero()},
-                    {3.0, 0.0},
+      planner.plan({{{0.5, 0.5}, semaforr::domain::Angle::zero()},
+                    {2.5, 0.5},
                     &spatial,
                     nullptr});
   ASSERT_TRUE(result.succeeded());
@@ -636,6 +648,124 @@ TEST(HierarchicalPlans, HighwayPlanProducesTypedOperationalSteps) {
   EXPECT_EQ(waypoints.front(), result.path.front());
 }
 
+TEST(HierarchicalPlans, HighwayAttachmentInsideHighwayUsesCloserEndpoint) {
+  semaforr::domain::SpatialModel spatial;
+  spatial.highways.geometry = semaforr::domain::GridGeometry::fromBounds(
+      "map", {0.0, 0.0}, {5.0, 1.0}, 1.0,
+      semaforr::domain::GridExtentMode::Fixed,
+      semaforr::domain::GridExtentSource::RepresentationLocalBounds,
+      semaforr::domain::GridOutOfBoundsBehavior::NonTraversable);
+  spatial.highways.graph.vertices = {
+      {0U, {0, 0}, {0.5, 0.5}, true},
+      {1U, {0, 4}, {4.5, 0.5}, true}};
+  spatial.highways.graph.edges = {
+      {0U, 1U, 8U, 4.0, {}, {{0.5, 0.5}, {4.5, 0.5}}}};
+  spatial.highways.highways = {
+      {8U, semaforr::domain::Axis::Horizontal,
+       {{0, 0}, {0, 1}, {0, 2}, {0, 3}, {0, 4}}, {0U, 1U}}};
+  const auto result = semaforr::planning::HighwayPlan{}.plan(
+      {{{3.5, 0.5}, semaforr::domain::Angle::zero()}, {0.5, 0.5}, &spatial});
+  ASSERT_TRUE(result.succeeded());
+  ASSERT_TRUE(result.hierarchical);
+  const auto entry = std::find_if(
+      result.hierarchical->steps.begin(), result.hierarchical->steps.end(),
+      [](const auto& step) {
+        return std::holds_alternative<semaforr::planning::HighwayEntryStep>(
+            step);
+      });
+  ASSERT_NE(entry, result.hierarchical->steps.end());
+  EXPECT_EQ(std::get<semaforr::planning::HighwayEntryStep>(*entry).entry,
+            (semaforr::domain::Point2D{4.5, 0.5}));
+}
+
+TEST(HierarchicalPlans,
+     HighwayPlanPreservesVisibilityAndMultiEdgeSkeletonAttachmentsBothSides) {
+  semaforr::domain::SpatialModel spatial;
+  const std::array<semaforr::domain::Point2D, 5U> centers{
+      semaforr::domain::Point2D{0.0, 0.0}, {3.0, 0.0}, {6.0, 0.0},
+      {10.0, 0.0}, {11.0, 0.0}};
+  for (std::size_t index = 0U; index < centers.size(); ++index) {
+    semaforr::domain::LearnedRegion region;
+    region.id = index;
+    region.boundary = {centers[index], semaforr::domain::Distance(0.6)};
+    spatial.regions.push_back(region);
+    spatial.learned_regions.push_back(region.boundary);
+    spatial.region_skeleton_nodes.push_back(
+        {index, index, centers[index], {}});
+  }
+  spatial.region_skeleton_nodes[0].visibility[180] =
+      {true, 2.0, {0.0, 0.0}, {-2.0, 0.0}, 70U};
+  spatial.region_skeleton_nodes[4].visibility[0] =
+      {true, 2.0, {11.0, 0.0}, {13.0, 0.0}, 71U};
+  const auto edge = [&](std::size_t from, std::size_t to) {
+    spatial.region_skeleton_edges.emplace_back(
+        from, to,
+        std::vector<semaforr::domain::Point2D>{centers[from], centers[to]},
+        semaforr::domain::distance(centers[from], centers[to]).meters(), 1U);
+  };
+  edge(0U, 1U);
+  edge(1U, 2U);
+  edge(3U, 4U);
+  spatial.highways.geometry = semaforr::domain::GridGeometry::fromBounds(
+      "map", {-1.0, -1.0}, {14.0, 2.0}, 1.0,
+      semaforr::domain::GridExtentMode::Fixed,
+      semaforr::domain::GridExtentSource::RepresentationLocalBounds,
+      semaforr::domain::GridOutOfBoundsBehavior::NonTraversable);
+  spatial.highways.graph.vertices = {
+      {0U, {1, 7}, {6.0, 0.0}, true},
+      {1U, {1, 11}, {10.0, 0.0}, true}};
+  spatial.highways.graph.edges = {
+      {0U, 1U, 4U, 4.0, {}, {{6.0, 0.0}, {10.0, 0.0}}}};
+  spatial.highways.highways = {
+      {4U, semaforr::domain::Axis::Horizontal,
+       {{1, 7}, {1, 8}, {1, 9}, {1, 10}, {1, 11}}, {0U, 1U}}};
+
+  const auto result = semaforr::planning::HighwayPlan{}.plan(
+      {{{-1.0, 0.0}, semaforr::domain::Angle::zero()}, {12.0, 0.0}, &spatial});
+  ASSERT_TRUE(result.succeeded());
+  ASSERT_TRUE(result.hierarchical);
+  EXPECT_NE(result.hierarchical->provenance.find("skeleton access"),
+            std::string::npos);
+  std::size_t transitions = 0U;
+  std::vector<semaforr::planning::VisibilityConnectionStep> visibility;
+  for (const auto& step : result.hierarchical->steps) {
+    if (std::holds_alternative<semaforr::planning::SkeletonTransitionStep>(step))
+      ++transitions;
+    if (const auto* connection = std::get_if<
+            semaforr::planning::VisibilityConnectionStep>(&step))
+      visibility.push_back(*connection);
+  }
+  // The start attachment traverses two skeleton edges. The goal surrogate
+  // overlaps a highway cell directly and therefore needs no nearest-node
+  // shortcut or extra skeleton edge.
+  EXPECT_EQ(transitions, 2U);
+  ASSERT_EQ(visibility.size(), 2U);
+  EXPECT_TRUE(visibility.front().toward_region);
+  EXPECT_FALSE(visibility.back().toward_region);
+  EXPECT_EQ(visibility.front().supporting_decision, 70U);
+  EXPECT_EQ(visibility.back().supporting_decision, 71U);
+}
+
+TEST(HierarchicalPlans, DisconnectedSkeletonHighwayAttachmentsReturnNoPath) {
+  semaforr::domain::SpatialModel spatial;
+  for (std::size_t index = 0U; index < 2U; ++index) {
+    const semaforr::domain::Point2D center{10.0 * static_cast<double>(index),
+                                           0.0};
+    semaforr::domain::LearnedRegion region;
+    region.id = index;
+    region.boundary = {center, semaforr::domain::Distance(0.6)};
+    spatial.regions.push_back(region);
+    spatial.learned_regions.push_back(region.boundary);
+    spatial.region_skeleton_nodes.push_back({index, index, center, {}});
+  }
+  spatial.highways.graph.vertices = {
+      {0U, {}, {0.0, 0.0}, true}, {1U, {}, {10.0, 0.0}, true}};
+  const auto result = semaforr::planning::HighwayPlan{}.plan(
+      {{{0.0, 0.0}, semaforr::domain::Angle::zero()}, {10.0, 0.0}, &spatial});
+  EXPECT_FALSE(result.succeeded());
+  EXPECT_EQ(result.status, semaforr::planning::PlanStatus::NoPath);
+}
+
 TEST(HierarchicalPlans, HighwayPlanChoosesBestValidNetworkAlternative) {
   semaforr::domain::SpatialModel spatial;
   spatial.skeleton_nodes = {{0.0, 0.0}, {0.0, 10.0}, {10.0, 10.0}, {10.0, 0.0}};
@@ -643,6 +773,14 @@ TEST(HierarchicalPlans, HighwayPlanChoosesBestValidNetworkAlternative) {
   for (std::size_t id = 0U; id < spatial.skeleton_nodes.size(); ++id)
     spatial.region_skeleton_nodes.push_back(
         {id, id, spatial.skeleton_nodes[id], {}});
+  for (std::size_t id = 0U; id < spatial.skeleton_nodes.size(); ++id) {
+    semaforr::domain::LearnedRegion region;
+    region.id = id;
+    region.boundary =
+        {spatial.skeleton_nodes[id], semaforr::domain::Distance(1.1)};
+    spatial.regions.push_back(region);
+    spatial.learned_regions.push_back(region.boundary);
+  }
   spatial.region_skeleton_edges = {
       {0U, 1U, {}, 10.0, 0U}, {1U, 2U, {}, 10.0, 0U},
       {2U, 3U, {}, 10.0, 0U}};
@@ -650,6 +788,16 @@ TEST(HierarchicalPlans, HighwayPlanChoosesBestValidNetworkAlternative) {
                                      {1U, {0, 10}, {10.0, 0.0}, true}};
   spatial.highways.graph.edges = {
       {0U, 1U, 0U, 10.0, {7U}, {{0.0, 0.0}, {5.0, 0.0}, {10.0, 0.0}}}};
+  spatial.highways.geometry = semaforr::domain::GridGeometry::fromBounds(
+      "map", {-1.0, -1.0}, {12.0, 2.0}, 1.0,
+      semaforr::domain::GridExtentMode::Fixed,
+      semaforr::domain::GridExtentSource::RepresentationLocalBounds,
+      semaforr::domain::GridOutOfBoundsBehavior::NonTraversable);
+  spatial.highways.highways = {
+      {0U, semaforr::domain::Axis::Horizontal,
+       {{1, 1}, {1, 2}, {1, 3}, {1, 4}, {1, 5}, {1, 6}, {1, 7}, {1, 8},
+        {1, 9}, {1, 10}, {1, 11}},
+       {0U, 1U}}};
   semaforr::planning::HighwayPlan planner;
   const auto assisted =
       planner.plan({{{-1.0, 0.0}, semaforr::domain::Angle::zero()},
@@ -659,7 +807,7 @@ TEST(HierarchicalPlans, HighwayPlanChoosesBestValidNetworkAlternative) {
   ASSERT_TRUE(assisted.succeeded());
   ASSERT_TRUE(assisted.hierarchical);
   EXPECT_EQ(assisted.hierarchical->planner, "highway_plan");
-  EXPECT_NE(assisted.hierarchical->provenance.find("highway_assisted"),
+  EXPECT_NE(assisted.hierarchical->provenance.find("skeleton access"),
             std::string::npos);
   EXPECT_TRUE(std::any_of(
       assisted.hierarchical->steps.begin(), assisted.hierarchical->steps.end(),

@@ -154,7 +154,7 @@ TEST(ModelPlanEnforcer, OperationalizesRegionsSubtrailsAndSkeletonTransitions) {
   plan.family = planning::PlanFamily::Model;
   plan.planner = "skeleton_plan";
   plan.steps.emplace_back(planning::SkeletonTransitionStep{
-      0U, 1U, {{0.5, 0.0}, {1.0, 0.0}, {2.0, 0.0}}});
+      0U, 1U, {{0.0, 0.0}, {1.0, 0.0}, {2.0, 0.0}}});
   const auto result = decision::ModelPlanEnforcer{}.enforce(
       plan, context(spatial, pose, actions, viable));
   ASSERT_EQ(result.status, decision::EnforcementStatus::Mandated);
@@ -208,6 +208,9 @@ TEST(ModelPlanEnforcer, HandlesRegionIntersectionEntryExitAndFinalTargetTypes) {
     EXPECT_TRUE(result.operational_target.has_value());
   };
   run(planning::RegionStep{0U, {1.0, 0.0}}, "region");
+  run(planning::VisibilityConnectionStep{
+          0U, {0.0, 0.0}, {1.0, 0.0}, {0.0, 0.0}, {2.0, 0.0}, 9U, true},
+      "visibility_connection");
   run(planning::IntersectionStep{2U, {1.0, 0.0}}, "intersection");
   run(planning::HighwayEntryStep{3U, {1.0, 0.0}, {}}, "highway_entry");
   run(planning::HighwayExitStep{3U, {1.0, 0.0}, {}}, "highway_exit");

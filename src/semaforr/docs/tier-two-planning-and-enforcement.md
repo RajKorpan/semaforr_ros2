@@ -29,12 +29,18 @@ plan.
 
 SkeletonPlan and HighwayPlan produce model plans. SkeletonPlan accepts only the
 region skeleton: region nodes, direct transition edges, visibility, and
-execution-supported subtrails. The sampled path graph is not a fallback.
-HighwayPlan combines the region skeleton with highway intersections and graph
-edges carrying operational subtrails.
+visibility-compressed execution-supported edge Trails. It chooses contained,
+visible, then degree/distance region surrogates and retains any exact visibility
+ray as an operational step. The sampled path graph and nearest-node attachment
+are not fallbacks. HighwayPlan applies intersection membership, highway
+membership with closer-endpoint selection, and finally region/skeleton access
+in that order. Dijkstra retains every skeleton transition between the region
+surrogate and the first region overlapping a highway or intersection, on both
+the start and goal sides. Highway graph edges carry operational subtrails.
 
-Model plans may contain region, subtrail, skeleton-transition, highway-entry,
-highway, intersection, highway-exit, waypoint, and final-target steps.
+Model plans may contain region, visibility-connection, subtrail,
+skeleton-transition, highway-entry, highway, intersection, highway-exit,
+waypoint, and final-target steps.
 `ModelPlanEnforcer` interprets those types, applies visible-step and subtrail
 lookahead, performs explicit repairs, and records shortcuts and substitutions
 against their exact model revisions.

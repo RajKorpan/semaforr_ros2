@@ -62,13 +62,6 @@ std::vector<domain::Point2D> rayEndpoints(
   return result;
 }
 
-double polylineLength(const std::vector<domain::Point2D>& points) {
-  double result = 0.0;
-  for (std::size_t index = 1U; index < points.size(); ++index)
-    result += domain::distance(points[index - 1U], points[index]).meters();
-  return result;
-}
-
 std::optional<std::size_t> containingRegion(
     const std::vector<domain::LearnedRegion>& regions,
     domain::Point2D point) {
@@ -1005,59 +998,90 @@ PassageSkeletonModel learnRegionSkeleton(
                                    region.visibility});
     result.nodes.push_back(region.boundary.center);
   }
-  std::map<std::pair<std::size_t, std::size_t>, domain::RegionSkeletonEdge> best;
+  std::map<std::pair<std::size_t, std::size_t>, domain::RegionSkeletonEdge> edges;
+  domain::TrailId next_edge_trail_id = 1U;
+  for (const auto& trail : trails)
+    next_edge_trail_id = std::max(next_edge_trail_id, trail.id + 1U);
   for (const auto& path : paths) {
-    std::optional<std::size_t> previous_region;
+    std::optional<std::size_t> origin_region;
     std::optional<domain::Point2D> previous_finish;
-    std::vector<domain::Point2D> subtrail;
+    std::vector<domain::PathDecisionPoint> raw_segment;
     for (const auto& decision : path.decision_points) {
-      if (!(decision.successfulTraversal() || decision.partialTraversal())) {
-        previous_region.reset();
+      // A skeleton transition is successful-traversal evidence. Partial,
+      // rejected, interrupted, and failed actions remain in path history but
+      // cannot label a traversable region edge.
+      if (!decision.successfulTraversal()) {
+        origin_region.reset();
         previous_finish.reset();
-        subtrail.clear();
+        raw_segment.clear();
         continue;
       }
       const auto start = decision.execution.start_pose.position;
       const auto finish = decision.execution.final_pose.position;
       if (!previous_finish ||
           domain::distance(*previous_finish, start).meters() > 0.05) {
-        previous_region = containingRegion(regions.learned_regions, start);
-        subtrail = {start};
+        origin_region = containingRegion(regions.learned_regions, start);
+        raw_segment.clear();
       }
-      if (subtrail.empty() || subtrail.back() != finish)
-        subtrail.push_back(finish);
-      const auto region = containingRegion(regions.learned_regions, finish);
-      if (!previous_region) {
-        if (region) {
-          previous_region = region;
-          subtrail = {finish};
+      raw_segment.push_back(decision);
+      const auto destination_region =
+          containingRegion(regions.learned_regions, finish);
+      if (!origin_region) {
+        if (destination_region) {
+          origin_region = destination_region;
+          raw_segment.clear();
         }
         previous_finish = finish;
         continue;
       }
-      if (!region || *region == *previous_region) {
+      if (!destination_region || *destination_region == *origin_region) {
         previous_finish = finish;
         continue;
       }
-      const auto key = std::minmax(*previous_region, *region);
-      const double length = polylineLength(subtrail);
-      auto found = best.find(key);
-      if (found == best.end() || length < found->second.length_m) {
-        domain::RegionSkeletonEdge edge;
-        edge.from = *previous_region;
-        edge.to = *region;
-        edge.supporting_subtrail = subtrail;
-        edge.length_m = length;
-        edge.source_path = path.id;
-        best[key] = std::move(edge);
+
+      domain::CompletedPath transition;
+      transition.id = path.id;
+      transition.task_id = path.task_id;
+      transition.target = path.target;
+      transition.decision_points = raw_segment;
+      transition.target_reached = true;
+      if (!raw_segment.empty()) {
+        transition.started_at = raw_segment.front().execution.started_at;
+        transition.finished_at = raw_segment.back().execution.finished_at;
       }
-      previous_region = region;
+      auto learned = learnVisibilityTrail(
+          transition, next_edge_trail_id++,
+          TrailLearningConfiguration{0.05, 0.0, false});
+      if (learned.markers.size() >= 2U) {
+        std::vector<domain::Point2D> compressed;
+        compressed.reserve(learned.markers.size());
+        for (const auto& marker : learned.markers)
+          compressed.push_back(marker.pose.position);
+        const auto key = std::minmax(*origin_region, *destination_region);
+        auto [found, inserted] = edges.try_emplace(key);
+        auto& edge = found->second;
+        if (inserted) {
+          edge.from = key.first;
+          edge.to = key.second;
+          edge.length_m = std::numeric_limits<double>::infinity();
+        }
+        edge.supporting_trails.push_back(
+            {*origin_region, *destination_region, learned});
+        if (learned.length_m < edge.length_m) {
+          if (*origin_region != edge.from)
+            std::reverse(compressed.begin(), compressed.end());
+          edge.supporting_subtrail = std::move(compressed);
+          edge.length_m = learned.length_m;
+          edge.source_path = path.id;
+          edge.operational_trail_id = learned.id;
+        }
+      }
+      origin_region = destination_region;
       previous_finish = finish;
-      subtrail = {finish};
+      raw_segment.clear();
     }
   }
-  (void)trails;
-  for (auto& [key, edge] : best) {
+  for (auto& [key, edge] : edges) {
     result.edges.push_back({key.first, key.second});
     result.region_edges.push_back(std::move(edge));
   }

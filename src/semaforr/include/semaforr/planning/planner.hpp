@@ -64,6 +64,15 @@ struct RegionStep {
   std::size_t region_id = 0U;
   domain::Point2D center;
 };
+struct VisibilityConnectionStep {
+  std::size_t region_id = 0U;
+  domain::Point2D from;
+  domain::Point2D to;
+  domain::Point2D evidence_ray_start;
+  domain::Point2D evidence_ray_end;
+  domain::DecisionId supporting_decision{0U};
+  bool toward_region{true};
+};
 struct HighwayStep {
   domain::HighwayId highway_id = 0U;
   domain::IntersectionId from = 0U;
@@ -94,7 +103,8 @@ struct FinalTargetStep {
 };
 
 using PlanStep = std::variant<WaypointStep, SubtrailStep, RegionStep,
-                              HighwayStep, IntersectionStep, HighwayEntryStep,
+                              VisibilityConnectionStep, HighwayStep,
+                              IntersectionStep, HighwayEntryStep,
                               HighwayExitStep, SkeletonTransitionStep,
                               FinalTargetStep>;
 

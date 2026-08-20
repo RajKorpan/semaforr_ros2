@@ -30,6 +30,8 @@ std::optional<domain::Point2D> stepTarget(const PlanStep& step) noexcept {
           return value.target;
         } else if constexpr (std::is_same_v<T, RegionStep>) {
           return value.center;
+        } else if constexpr (std::is_same_v<T, VisibilityConnectionStep>) {
+          return value.to;
         } else if constexpr (std::is_same_v<T, IntersectionStep>) {
           return value.centroid;
         } else if constexpr (std::is_same_v<T, HighwayEntryStep>) {
@@ -40,7 +42,10 @@ std::optional<domain::Point2D> stepTarget(const PlanStep& step) noexcept {
           return value.target;
         } else if constexpr (std::is_same_v<T, SkeletonTransitionStep>) {
           if (value.supporting_subtrail.empty()) return std::nullopt;
-          return value.supporting_subtrail.front();
+          // The transition is complete at its destination. Returning the
+          // first marker would let active-step advancement skip an entire
+          // edge whenever that marker is the current region center.
+          return value.supporting_subtrail.back();
         } else if constexpr (std::is_same_v<T, SubtrailStep>) {
           if (value.waypoints.empty()) return std::nullopt;
           return value

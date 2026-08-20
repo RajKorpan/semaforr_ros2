@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <semaforr/domain/completed_path.hpp>
 #include <semaforr/planning/domain_planner.hpp>
@@ -258,7 +259,18 @@ TEST(SkeletonCompatibility, NodesAreRegionsAndEdgesCarryShortestSubtrails) {
     regions.regions.push_back(region.boundary);
   }
   const auto traveled = path(
-      1U, {pathPoint(1U, {0.0, 0.0}, {4.0, 0.0})}, {4.0, 0.0});
+      1U,
+      {pathPoint(1U, {0.0, 0.0}, {1.0, 0.0}),
+       pathPoint(2U, {1.0, 0.0}, {2.0, 0.0}),
+       pathPoint(3U, {2.0, 0.0}, {3.0, 0.0}),
+       pathPoint(4U, {3.0, 0.0}, {4.0, 0.0})},
+      {4.0, 0.0});
+  const auto second_traversal = path(
+      3U,
+      {pathPoint(5U, {0.0, 0.0}, {1.0, 0.2}),
+       pathPoint(6U, {1.0, 0.2}, {2.0, -0.2}),
+       pathPoint(7U, {2.0, -0.2}, {4.0, 0.0})},
+      {4.0, 0.0});
   const auto interrupted = path(
       2U,
       {pathPoint(2U, {0.0, 0.0}, {4.0, 0.0},
@@ -268,11 +280,19 @@ TEST(SkeletonCompatibility, NodesAreRegionsAndEdgesCarryShortestSubtrails) {
       regions, {}, {interrupted});
   EXPECT_TRUE(failed_skeleton.region_edges.empty());
   const auto skeleton = semaforr::spatial::learnRegionSkeleton(
-      regions, {straightTrail(1U, 0.0)}, {traveled});
+      regions, {straightTrail(1U, 0.0)}, {traveled, second_traversal});
   ASSERT_EQ(skeleton.region_nodes.size(), 2U);
   ASSERT_EQ(skeleton.nodes.size(), regions.learned_regions.size());
   ASSERT_EQ(skeleton.region_edges.size(), 1U);
+  ASSERT_EQ(skeleton.region_edges.front().supporting_trails.size(), 2U);
+  ASSERT_TRUE(skeleton.region_edges.front().operational_trail_id);
   EXPECT_EQ(skeleton.region_edges.front().supporting_subtrail.size(), 2U);
+  EXPECT_LT(skeleton.region_edges.front().supporting_subtrail.size(),
+            traveled.decision_points.size() + 1U);
+  EXPECT_EQ(skeleton.region_edges.front().supporting_subtrail.front(),
+            (semaforr::domain::Point2D{0.0, 0.0}));
+  EXPECT_EQ(skeleton.region_edges.front().supporting_subtrail.back(),
+            (semaforr::domain::Point2D{3.0, 0.0}));
   EXPECT_GT(skeleton.region_edges.front().length_m, 0.0);
 
   semaforr::domain::SpatialModel spatial;
@@ -294,6 +314,116 @@ TEST(SkeletonCompatibility, NodesAreRegionsAndEdgesCarryShortestSubtrails) {
             semaforr::planning::SkeletonTransitionStep>(step);
       }));
   EXPECT_NE(plan.explanation.find("region-skeleton"), std::string::npos);
+}
+
+TEST(SkeletonSurrogates, UsesRetainedContainmentBeforeOtherChoices) {
+  semaforr::domain::SpatialModel spatial;
+  for (std::size_t index = 0U; index < 2U; ++index) {
+    semaforr::domain::LearnedRegion region;
+    region.id = 10U + index;
+    region.boundary = {{5.0 * static_cast<double>(index), 0.0},
+                       semaforr::domain::Distance(1.0)};
+    spatial.regions.push_back(region);
+    spatial.learned_regions.push_back(region.boundary);
+    spatial.region_skeleton_nodes.push_back(
+        {index, region.id, region.boundary.center, {}});
+  }
+  spatial.region_skeleton_edges.emplace_back(
+      0U, 1U, std::vector<semaforr::domain::Point2D>{{0.0, 0.0}, {5.0, 0.0}},
+      5.0, 1U);
+  const auto result = semaforr::planning::SkeletonPlan{}.plan(
+      {{{0.2, 0.0}, semaforr::domain::Angle::zero()}, {4.8, 0.0}, &spatial});
+  ASSERT_TRUE(result.succeeded());
+  ASSERT_TRUE(result.hierarchical);
+  EXPECT_NE(std::find(result.hierarchical->diagnostics.begin(),
+                      result.hierarchical->diagnostics.end(),
+                      "surrogate:contained:region=0"),
+            result.hierarchical->diagnostics.end());
+  EXPECT_FALSE(std::any_of(
+      result.hierarchical->steps.begin(), result.hierarchical->steps.end(),
+      [](const auto& step) {
+        return std::holds_alternative<
+            semaforr::planning::VisibilityConnectionStep>(step);
+      }));
+}
+
+TEST(SkeletonSurrogates, RetainsStartAndGoalVisibilityRaysAsPlanSteps) {
+  semaforr::domain::SpatialModel spatial;
+  for (std::size_t index = 0U; index < 2U; ++index) {
+    semaforr::domain::LearnedRegion region;
+    region.id = 20U + index;
+    region.boundary = {{5.0 * static_cast<double>(index), 0.0},
+                       semaforr::domain::Distance(0.25)};
+    spatial.regions.push_back(region);
+    spatial.learned_regions.push_back(region.boundary);
+    spatial.region_skeleton_nodes.push_back(
+        {index, region.id, region.boundary.center, {}});
+  }
+  spatial.region_skeleton_nodes[0].visibility[180] =
+      {true, 3.0, {0.0, 0.0}, {-3.0, 0.0}, 41U};
+  spatial.region_skeleton_nodes[1].visibility[0] =
+      {true, 3.0, {5.0, 0.0}, {8.0, 0.0}, 42U};
+  spatial.region_skeleton_edges.emplace_back(
+      0U, 1U, std::vector<semaforr::domain::Point2D>{{0.0, 0.0}, {5.0, 0.0}},
+      5.0, 1U);
+  const auto result = semaforr::planning::SkeletonPlan{}.plan(
+      {{{-2.0, 0.0}, semaforr::domain::Angle::zero()}, {7.0, 0.0}, &spatial});
+  ASSERT_TRUE(result.succeeded());
+  ASSERT_TRUE(result.hierarchical);
+  std::vector<semaforr::planning::VisibilityConnectionStep> connections;
+  for (const auto& step : result.hierarchical->steps)
+    if (const auto* connection = std::get_if<
+            semaforr::planning::VisibilityConnectionStep>(&step))
+      connections.push_back(*connection);
+  ASSERT_EQ(connections.size(), 2U);
+  EXPECT_TRUE(connections.front().toward_region);
+  EXPECT_FALSE(connections.back().toward_region);
+  EXPECT_EQ(connections.front().supporting_decision, 41U);
+  EXPECT_EQ(connections.back().supporting_decision, 42U);
+  EXPECT_EQ(connections.front().evidence_ray_end,
+            (semaforr::domain::Point2D{-3.0, 0.0}));
+}
+
+TEST(SkeletonSurrogates, CombinesDistanceAndDegreeDeterministically) {
+  semaforr::domain::SpatialModel spatial;
+  const std::array<double, 4U> x{1.2, 2.0, 4.0, 2.0};
+  const std::array<double, 4U> y{0.0, 0.0, 0.0, 2.0};
+  for (std::size_t index = 0U; index < x.size(); ++index) {
+    semaforr::domain::LearnedRegion region;
+    region.id = 30U + index;
+    region.boundary = {{x[index], y[index]}, semaforr::domain::Distance(0.1)};
+    spatial.regions.push_back(region);
+    spatial.learned_regions.push_back(region.boundary);
+    spatial.region_skeleton_nodes.push_back(
+        {index, region.id, region.boundary.center, {}});
+  }
+  const auto add_edge = [&](std::size_t from, std::size_t to) {
+    spatial.region_skeleton_edges.emplace_back(
+        from, to,
+        std::vector<semaforr::domain::Point2D>{
+            spatial.region_skeleton_nodes[from].center,
+            spatial.region_skeleton_nodes[to].center},
+        1.0, 1U);
+  };
+  add_edge(1U, 0U);
+  add_edge(1U, 2U);
+  add_edge(1U, 3U);
+  const auto result = semaforr::planning::SkeletonPlan{}.plan(
+      {{{0.0, 0.0}, semaforr::domain::Angle::zero()}, {4.0, 0.0}, &spatial});
+  ASSERT_TRUE(result.succeeded());
+  ASSERT_TRUE(result.hierarchical);
+  EXPECT_NE(std::find(result.hierarchical->diagnostics.begin(),
+                      result.hierarchical->diagnostics.end(),
+                      "surrogate:degree_distance:selected=1"),
+            result.hierarchical->diagnostics.end());
+  const auto first_region = std::find_if(
+      result.hierarchical->steps.begin(), result.hierarchical->steps.end(),
+      [](const auto& step) {
+        return std::holds_alternative<semaforr::planning::RegionStep>(step);
+      });
+  ASSERT_NE(first_region, result.hierarchical->steps.end());
+  EXPECT_EQ(std::get<semaforr::planning::RegionStep>(*first_region).region_id,
+            1U);
 }
 
 TEST(RegionVisibilityCompatibility, SuppliesLowLevelExplorationCandidates) {
