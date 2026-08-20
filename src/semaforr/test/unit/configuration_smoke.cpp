@@ -87,6 +87,32 @@ int main() {
            profile);
   }
   {
+    const std::vector<std::string> profiles{
+        "full", "tier1_only", "tier1_tier3", "tier3_only",
+        "tier1_tier2_tier3", "no_initial_exploration",
+        "no_opportunistic_exploration", "no_spatial_model", "no_social",
+        "purely_reactive", "original", "doors", "least_angle", "access",
+        "tentative", "hallways", "shortest_path", "cost_graph", "wander",
+        "deliberator", "forward_only", "global_exploration",
+        "local_exploration", "highway", "circumstances", "naive"};
+    for (const auto& profile : profiles) {
+      auto integrated = valid;
+      integrated.static_map.mode =
+          semaforr::config::MapOperatingMode::MapEnabled;
+      integrated.static_map.path = integrated.map_file;
+      integrated.experiment.profile =
+          semaforr::config::ablationProfileFromString(profile);
+      semaforr::config::applyAblationProfile(integrated);
+      try {
+        semaforr::config::validateConfiguration(integrated);
+      } catch (const std::runtime_error& error) {
+        std::cerr << "profile integration validation failed for " << profile
+                  << ": " << error.what() << '\n';
+        assert(false);
+      }
+    }
+  }
+  {
     auto profiled = valid;
     profiled.experiment.profile =
         semaforr::config::AblationProfile::PurelyReactive;
@@ -189,6 +215,37 @@ int main() {
     assertThrowsContaining(
         [&invalid]() { semaforr::config::validateConfiguration(invalid); },
         "HighwayPlan requires");
+  }
+  {
+    auto invalid = valid;
+    invalid.navigation.loaded_highway_model = "claimed-but-not-loadable.bin";
+    assertThrowsContaining(
+        [&invalid]() { semaforr::config::validateConfiguration(invalid); },
+        "unsupported because no highway-model loader is active");
+  }
+  {
+    auto invalid = valid;
+    invalid.experiment.explanations.mode = "comparison";
+    invalid.experiment.explanations.retain_candidate_plans = false;
+    assertThrowsContaining(
+        [&invalid]() { semaforr::config::validateConfiguration(invalid); },
+        "retain_candidate_plans=true");
+  }
+  {
+    auto invalid = valid;
+    invalid.experiment.reproducibility.recording_enabled = true;
+    invalid.experiment.reproducibility.trace_path.clear();
+    assertThrowsContaining(
+        [&invalid]() { semaforr::config::validateConfiguration(invalid); },
+        "reproducibility.trace_path");
+  }
+  {
+    auto changed = valid;
+    changed.experiment.seeds = {1U, 2U, 3U, 4U, 5U};
+    assert(semaforr::config::configurationFingerprint(changed) !=
+           semaforr::config::configurationFingerprint(valid));
+    assert(semaforr::config::configurationSnapshot(changed).find(
+               "seeds=1,2,3,4,5") != std::string::npos);
   }
   {
     auto invalid = valid;

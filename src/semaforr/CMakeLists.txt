@@ -183,6 +183,7 @@ target_link_libraries(semaforr_spatial PUBLIC semaforr_domain)
 add_library(semaforr_validation SHARED
   src/validation/allocation_probe.cpp
   src/validation/experiment_metrics.cpp
+  src/validation/replay.cpp
 )
 set_target_properties(semaforr_validation PROPERTIES EXPORT_NAME validation)
 add_library(semaforr::validation ALIAS semaforr_validation)
@@ -360,6 +361,14 @@ if(BUILD_TESTING)
   target_link_libraries(
     semaforr_experiment_metrics_test semaforr_validation)
   semaforr_apply_project_options(semaforr_experiment_metrics_test)
+
+  ament_add_gtest(
+    semaforr_replay_test
+    test/unit/replay_test.cpp
+  )
+  target_link_libraries(
+    semaforr_replay_test semaforr_validation semaforr_domain)
+  semaforr_apply_project_options(semaforr_replay_test)
 
   ament_add_gtest(
     semaforr_decision_coordinator_test

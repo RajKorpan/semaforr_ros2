@@ -3,6 +3,7 @@
 
 #include <memory>
 #include <optional>
+#include <random>
 #include <semaforr/planning/planner.hpp>
 #include <string>
 #include <vector>
@@ -68,6 +69,7 @@ class PlanningCoordinator {
   std::size_t cacheHits() const noexcept { return cache_hits_; }
   void clearCache() noexcept { cache_.clear(); }
   void setSelectionPolicy(PlanSelectionPolicy value) noexcept;
+  void setTiePolicy(bool seeded_exact_ties, std::uint64_t random_seed) noexcept;
   domain::Revision configurationRevision() const noexcept {
     return configuration_revision_;
   }
@@ -87,6 +89,9 @@ class PlanningCoordinator {
   domain::Revision configuration_revision_ = 1U;
   PlanId next_plan_id_ = 1U;
   PlanningEpisodeId next_episode_id_ = 1U;
+  bool seeded_exact_ties_{false};
+  std::uint64_t random_seed_{0U};
+  std::mt19937_64 random_{0U};
 };
 }  // namespace semaforr::planning
 #endif

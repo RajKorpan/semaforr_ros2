@@ -60,6 +60,19 @@ void declareConfigurationParameters(rclcpp::Node& node) {
   node.declare_parameter("experiment.profile", std::string{"custom"});
   node.declare_parameter("experiment.mode", std::string{"custom"});
   node.declare_parameter("experiment.random_seed", 0);
+  node.declare_parameter("experiment.seeds.tier_three_ties", 0);
+  node.declare_parameter("experiment.seeds.lle_fallback", 0);
+  node.declare_parameter("experiment.seeds.planner_ties", 0);
+  node.declare_parameter("experiment.seeds.clustering", 0);
+  node.declare_parameter("experiment.seeds.simulation_noise", 0);
+  node.declare_parameter("reproducibility.recording.enabled", false);
+  node.declare_parameter("reproducibility.trace_path", std::string{});
+  node.declare_parameter("reproducibility.source_revision",
+                         std::string{"unknown"});
+  node.declare_parameter("reproducibility.test_suite_revision",
+                         std::string{"unknown"});
+  node.declare_parameter("explanations.mode", std::string{"why"});
+  node.declare_parameter("explanations.retain_candidate_plans", true);
   node.declare_parameter("tiers.tier1.enabled", true);
   node.declare_parameter("tiers.tier2.enabled", true);
   node.declare_parameter("tiers.tier3.enabled", true);
@@ -118,6 +131,7 @@ void declareConfigurationParameters(rclcpp::Node& node) {
   node.declare_parameter("exploration.reactive.closest_target_bin_m", 1.0);
   node.declare_parameter("exploration.opportunistic.enabled", false);
   node.declare_parameter("tiers.tier2.maximum_planning_attempts_per_task", 3);
+  node.declare_parameter("tiers.tier2.tie_policy", std::string{"profile"});
   node.declare_parameter("social.enabled", true);
   node.declare_parameter("social.observations.enabled", true);
   node.declare_parameter("social.advisors.enabled", true);
@@ -506,12 +520,50 @@ config::Configuration configurationFromParameters(rclcpp::Node& node) {
       node.get_parameter("tiers.tier1.rules").as_string_array();
   configuration.experiment.tiers.reactive_planners =
       node.get_parameter("tiers.tier1.reactive_planners").as_string_array();
+  configuration.navigation.planners.tie_policy =
+      node.get_parameter("tiers.tier2.tie_policy").as_string();
   const auto experiment_seed =
       node.get_parameter("experiment.random_seed").as_int();
   if (experiment_seed < 0)
     throw std::runtime_error("experiment.random_seed must be nonnegative");
   configuration.experiment.random_seed =
       static_cast<unsigned int>(experiment_seed);
+  const auto read_seed = [&node](const char* name) {
+    const auto value = node.get_parameter(name).as_int();
+    if (value < 0)
+      throw std::runtime_error(std::string(name) + " must be nonnegative");
+    return static_cast<unsigned int>(value);
+  };
+  configuration.experiment.seeds.tier_three_ties =
+      read_seed("experiment.seeds.tier_three_ties");
+  configuration.experiment.seeds.lle_fallback =
+      read_seed("experiment.seeds.lle_fallback");
+  configuration.experiment.seeds.planner_ties =
+      read_seed("experiment.seeds.planner_ties");
+  configuration.experiment.seeds.clustering =
+      read_seed("experiment.seeds.clustering");
+  configuration.experiment.seeds.simulation_noise =
+      read_seed("experiment.seeds.simulation_noise");
+  const auto& scoped = configuration.experiment.seeds;
+  if (experiment_seed != 0 && scoped.tier_three_ties == 0U &&
+      scoped.lle_fallback == 0U && scoped.planner_ties == 0U &&
+      scoped.clustering == 0U && scoped.simulation_noise == 0U) {
+    const auto legacy_seed = static_cast<unsigned int>(experiment_seed);
+    configuration.experiment.seeds = {
+        legacy_seed, legacy_seed, legacy_seed, legacy_seed, legacy_seed};
+  }
+  configuration.experiment.reproducibility.recording_enabled =
+      node.get_parameter("reproducibility.recording.enabled").as_bool();
+  configuration.experiment.reproducibility.trace_path =
+      node.get_parameter("reproducibility.trace_path").as_string();
+  configuration.experiment.reproducibility.source_revision =
+      node.get_parameter("reproducibility.source_revision").as_string();
+  configuration.experiment.reproducibility.test_suite_revision =
+      node.get_parameter("reproducibility.test_suite_revision").as_string();
+  configuration.experiment.explanations.mode =
+      node.get_parameter("explanations.mode").as_string();
+  configuration.experiment.explanations.retain_candidate_plans =
+      node.get_parameter("explanations.retain_candidate_plans").as_bool();
   configuration.experiment.initial_exploration.enabled =
       node.get_parameter("phases.initial_exploration.enabled").as_bool();
   const auto observation_budget =

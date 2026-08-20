@@ -9,6 +9,21 @@ semaforr:
       # Deprecated alias retained for launch-file compatibility.
       profile: custom
       random_seed: 0
+      seeds:
+        tier_three_ties: 0
+        lle_fallback: 0
+        planner_ties: 0
+        clustering: 0
+        simulation_noise: 0
+    reproducibility:
+      recording:
+        enabled: false
+      trace_path: ""
+      source_revision: "unknown"
+      test_suite_revision: "unknown"
+    explanations:
+      mode: why
+      retain_candidate_plans: true
 
     tiers:
       tier1:
@@ -19,6 +34,7 @@ semaforr:
       tier2:
         enabled: true
         maximum_planning_attempts_per_task: 3
+        tie_policy: profile
       tier3:
         enabled: true
         # profile resolves to compatibility_comments + exact ties in

@@ -17,6 +17,7 @@
 #include <semaforr/planning/static_map_loader.hpp>
 #include <stdexcept>
 #include <semaforr/ros/navigation_engine_adapter.hpp>
+#include <semaforr/validation/replay.hpp>
 #include <string>
 #include <utility>
 #include <vector>
@@ -239,7 +240,7 @@ planning::LowLevelExplorationConfiguration lleConfiguration(
           .reactive_exploration_stalled_history_extension;
   result.closest_target_bin_m = configuration.experiment
                                     .reactive_exploration_closest_target_bin_m;
-  result.random_seed = configuration.experiment.random_seed;
+  result.random_seed = configuration.experiment.seeds.lle_fallback;
   return result;
 }
 
@@ -250,7 +251,7 @@ decision::ArbitrationConfiguration arbitrationConfiguration(
       configuration.experiment.tier_three_tie_tolerance;
   result.unscored_policy = decision::UnscoredActionPolicy::Exclude;
   result.fallback = domain::Action::pause();
-  result.random_seed = configuration.experiment.random_seed;
+  result.random_seed = configuration.experiment.seeds.tier_three_ties;
   const bool compatibility_profile =
       configuration.experiment.behavior_mode ==
       config::BehaviorMode::Compatibility;
@@ -387,6 +388,7 @@ class NavigationEngineAdapter::Impl {
                            : "capability:no_map_based_planning");
     manifest.insert(manifest.end(), map_diagnostics_.begin(),
                     map_diagnostics_.end());
+    const auto recorded_manifest = manifest;
     engine_ = std::make_unique<decision::NavigationEngine>(
         world_, action_space_, decisions_, mission_, planning_, learning_,
         crowd_learning_.get(), domain::Distance(0.5), &hard_safety_, &phases_,
@@ -409,6 +411,93 @@ class NavigationEngineAdapter::Impl {
             static_cast<float>(
                 configuration_.navigation.grids.unknown_cost_multiplier)},
         configuration_.experiment.tiers.maximum_planning_attempts_per_task);
+    configureReproducibility(recorded_manifest);
+    validateRuntimeActivation();
+  }
+
+  void configureReproducibility(
+      const std::vector<std::string>& component_manifest) {
+    const auto& reproducibility = configuration_.experiment.reproducibility;
+    const auto& seeds = configuration_.experiment.seeds;
+    map_diagnostics_.push_back(
+        "random_seeds:tier3=" + std::to_string(seeds.tier_three_ties) +
+        ",lle=" + std::to_string(seeds.lle_fallback) +
+        ",planner=" + std::to_string(seeds.planner_ties) +
+        ",clustering=" + std::to_string(seeds.clustering) +
+        ",simulation=" + std::to_string(seeds.simulation_noise));
+    map_diagnostics_.push_back(
+        std::string("replay_recording:") +
+        (reproducibility.recording_enabled ? "enabled" : "disabled"));
+    if (!reproducibility.recording_enabled) return;
+    validation::RunMetadata metadata;
+    metadata.configuration_snapshot =
+        config::configurationSnapshot(configuration_);
+    metadata.configuration_fingerprint =
+        config::configurationFingerprint(configuration_);
+    metadata.behavior_mode =
+        std::string(config::toString(configuration_.experiment.behavior_mode));
+    metadata.profile =
+        std::string(config::toString(configuration_.experiment.profile));
+    metadata.map_checksum =
+        world_.static_map ? world_.static_map->checksum : "mapless";
+    metadata.source_revision = reproducibility.source_revision;
+    metadata.test_suite_revision = reproducibility.test_suite_revision;
+    metadata.model_versions = {
+        "circumstance:" + configuration_.navigation.circumstances.model_version,
+        "classifier:" +
+            configuration_.navigation.circumstances.classifier_version,
+        "features:" + configuration_.navigation.circumstances.feature_version};
+    metadata.component_manifest = component_manifest;
+    for (const auto& task : configuration_.tasks)
+      metadata.task_sequence.push_back({task.x, task.y});
+    if (configuration_.experiment.behavior_mode ==
+        config::BehaviorMode::Modernized) {
+      metadata.compatibility_deviations = {
+          "behavior_mode:modernized",
+          "hard_safety:non_ablatable_engineering_extension",
+          "see:docs/compatibility-matrix.md"};
+    }
+    metadata.seeds = {seeds.tier_three_ties, seeds.lle_fallback,
+                      seeds.planner_ties, seeds.clustering,
+                      seeds.simulation_noise};
+    recorder_ = std::make_unique<validation::RunRecorder>(
+        std::move(metadata), reproducibility.trace_path);
+  }
+
+  void validateRuntimeActivation() {
+    const auto& planners = configuration_.navigation.planners;
+    const bool planner_requested =
+        configuration_.experiment.tiers.tier_two &&
+        (planners.distance || planners.sensor_distance || planners.density ||
+         planners.risk || planners.flow || planners.region ||
+         planners.hallway || planners.trail || planners.conveyor ||
+         planners.skeleton || planners.highway);
+    if (planner_requested && planning_.plannerCount() == 0U) {
+      const bool explicitly_disabled =
+          std::any_of(map_diagnostics_.begin(), map_diagnostics_.end(),
+                      [](const std::string& diagnostic) {
+                        return diagnostic.starts_with("planner_disabled_");
+                      });
+      if (explicitly_disabled ||
+          configuration_.static_map.failure_policy ==
+              config::MapLoadFailurePolicy::DisableMap) {
+        map_diagnostics_.push_back(
+            "runtime_validation:all_requested_planners_disabled");
+      } else {
+        throw std::runtime_error(
+            "runtime validation: planners.enabled requested components but "
+            "none registered against an available representation; startup "
+            "will stop");
+      }
+    } else {
+      map_diagnostics_.push_back(
+          "runtime_validation:active_planners=" +
+          std::to_string(planning_.plannerCount()));
+    }
+    map_diagnostics_.push_back(
+        "runtime_validation:explanations=" +
+        configuration_.experiment.explanations.mode);
+    map_diagnostics_.push_back("runtime_validation:passed");
   }
 
   void configureStaticMap() {
@@ -503,6 +592,12 @@ class NavigationEngineAdapter::Impl {
     const auto& planners = configuration_.navigation.planners;
     planning_.setSelectionPolicy(
         planning::planSelectionPolicyFromString(planners.selection_policy));
+    planning_.setTiePolicy(
+        planners.tie_policy == "seeded_exact" ||
+            (planners.tie_policy == "profile" &&
+             configuration_.experiment.behavior_mode ==
+                 config::BehaviorMode::Compatibility),
+        configuration_.experiment.seeds.planner_ties);
     const auto registry = planning::defaultPlannerRegistry();
     const std::vector<std::pair<std::string, bool>> enabled = {
         {"distance", planners.distance},
@@ -585,6 +680,7 @@ class NavigationEngineAdapter::Impl {
   std::unique_ptr<const domain::StaticMap> static_map_owner_;
   std::vector<std::string> map_diagnostics_;
   std::unique_ptr<decision::NavigationEngine> engine_;
+  std::unique_ptr<validation::RunRecorder> recorder_;
 };
 
 NavigationEngineAdapter::NavigationEngineAdapter(
@@ -599,8 +695,16 @@ NavigationEngineAdapter& NavigationEngineAdapter::operator=(
 
 void NavigationEngineAdapter::observe(const SynchronizedSensors& sensors,
                                       const domain::CrowdState& crowd) {
-  impl_->engine_->observe({sensors.pose, sensors.scan, crowd.current(),
-                           std::chrono::steady_clock::now()});
+  domain::RobotObservation observation{sensors.pose, sensors.scan,
+                                       crowd.current(),
+                                       std::chrono::steady_clock::now()};
+  if (impl_->recorder_) {
+    const auto scan_timestamp = sensors.scan_stamp.nanoseconds();
+    impl_->recorder_->recordObservation(
+        observation,
+        static_cast<std::uint64_t>(std::max<std::int64_t>(0, scan_timestamp)));
+  }
+  impl_->engine_->observe(observation);
 }
 
 bool NavigationEngineAdapter::missionComplete() {
@@ -612,7 +716,17 @@ navigation::NavigationPhase NavigationEngineAdapter::phase() const noexcept {
 }
 
 decision::DecisionResult NavigationEngineAdapter::decide() {
-  return impl_->engine_->decide();
+  auto result = impl_->engine_->decide();
+  if (impl_->recorder_) {
+    auto revisions = impl_->world_.spatial.revisions;
+    for (const auto dependency :
+         {domain::ModelDependency::CrowdDensity,
+          domain::ModelDependency::CrowdRisk,
+          domain::ModelDependency::CrowdFlow})
+      revisions[dependency] = impl_->world_.crowd.revisionOf(dependency);
+    impl_->recorder_->recordDecision(result, revisions);
+  }
+  return result;
 }
 
 ActionExecutionRequest NavigationEngineAdapter::executionRequest(
@@ -668,6 +782,7 @@ domain::FeedbackDisposition NavigationEngineAdapter::onActionTerminal(
   result.controller_failure =
       status == domain::ExecutionCompletionStatus::ControllerFailure ||
       status == domain::ExecutionCompletionStatus::ControllerRejected;
+  if (impl_->recorder_) impl_->recorder_->recordControllerOutcome(result);
   if (status == domain::ExecutionCompletionStatus::Succeeded)
     return impl_->engine_->onActionCompleted(std::move(result));
   if (status == domain::ExecutionCompletionStatus::Cancelled ||

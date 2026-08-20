@@ -26,6 +26,7 @@
 - [Legacy configuration migration](legacy-configuration-migration.md)
 - [Testing strategy and quality gates](testing.md)
 - [Experimental validation](experimental-validation.md)
+- [Replay and experiment reproducibility](reproducibility.md)
 
 These documents are the maintained operational and design contracts. Git
 history contains superseded implementation reports.

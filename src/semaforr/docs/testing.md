@@ -1,5 +1,9 @@
 # Testing strategy
 
+Replay round-trip, deterministic reproduction, divergence attribution, and
+configuration dependency checks are covered by `semaforr_replay_test` and
+`semaforr_configuration_test`. See `reproducibility.md` for the trace contract.
+
 The test suite is split into unit, component, integration, regression, and
 quality gates. All random arbitration tests use explicit seeds, and integration
 fixtures use meters, radians, and the `map` frame.

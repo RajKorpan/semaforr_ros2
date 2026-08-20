@@ -442,6 +442,10 @@ void applyAblationProfile(Configuration& configuration) {
     }
   };
   const auto original_advisors = [&] {
+    // Unlikely reasons jointly over learned regions and region-exit doors.
+    // A named profile must activate every representation its advisors consume.
+    configuration.navigation.regions_on = true;
+    configuration.navigation.doors_on = true;
     set_advisors({"big_step", "elbow_room", "novelty", "go_around",
                   "greedy", "convey", "enter", "exit", "trailer",
                   "unlikely"});
@@ -726,6 +730,13 @@ std::string configurationFingerprint(const Configuration& configuration) {
       << toString(configuration.experiment.behavior_mode) << '|'
       << toString(configuration.experiment.profile)
       << '|' << configuration.experiment.random_seed << '|'
+      << configuration.experiment.seeds.tier_three_ties << '|'
+      << configuration.experiment.seeds.lle_fallback << '|'
+      << configuration.experiment.seeds.planner_ties << '|'
+      << configuration.experiment.seeds.clustering << '|'
+      << configuration.experiment.seeds.simulation_noise << '|'
+      << configuration.experiment.explanations.mode << '|'
+      << configuration.experiment.explanations.retain_candidate_plans << '|'
       << configuration.experiment.tiers.tier_one << '|'
       << configuration.experiment.tiers.tier_two << '|'
       << configuration.experiment.tiers.tier_three << '|'
@@ -900,6 +911,7 @@ std::string configurationFingerprint(const Configuration& configuration) {
             << configuration.navigation.planners.trail << '|'
             << configuration.navigation.planners.conveyor << '|'
             << configuration.navigation.planners.selection_policy << '|'
+            << configuration.navigation.planners.tie_policy << '|'
             << configuration.navigation.crowd_learning.enabled;
   for (const auto& advisor : configuration.advisors)
     canonical << "|a:" << advisor.name << ':' << advisor.active << ':'
@@ -910,6 +922,34 @@ std::string configurationFingerprint(const Configuration& configuration) {
   encoded << std::hex << std::setw(16) << std::setfill('0')
           << fnv1a(canonical.str());
   return encoded.str();
+}
+
+std::string configurationSnapshot(const Configuration& configuration) {
+  std::ostringstream output;
+  output << std::setprecision(17)
+         << "behavior_mode=" << toString(configuration.experiment.behavior_mode)
+         << ";profile=" << toString(configuration.experiment.profile)
+         << ";fingerprint=" << configurationFingerprint(configuration)
+         << ";tier1=" << configuration.experiment.tiers.tier_one
+         << ";tier2=" << configuration.experiment.tiers.tier_two
+         << ";tier3=" << configuration.experiment.tiers.tier_three
+         << ";map_mode=" << toString(configuration.static_map.mode)
+         << ";map_path=" << configuration.static_map.path
+         << ";planners=";
+  for (const auto& component : componentManifest(configuration))
+    output << component << ',';
+  output << ";tasks=";
+  for (const auto& task : configuration.tasks)
+    output << task.x << ',' << task.y << '|';
+  output << ";seeds=" << configuration.experiment.seeds.tier_three_ties << ','
+         << configuration.experiment.seeds.lle_fallback << ','
+         << configuration.experiment.seeds.planner_ties << ','
+         << configuration.experiment.seeds.clustering << ','
+         << configuration.experiment.seeds.simulation_noise
+         << ";explanation_mode=" << configuration.experiment.explanations.mode
+         << ";retain_candidate_plans="
+         << configuration.experiment.explanations.retain_candidate_plans;
+  return output.str();
 }
 
 std::vector<std::string> componentManifest(const Configuration& configuration) {
@@ -930,6 +970,14 @@ std::vector<std::string> componentManifest(const Configuration& configuration) {
   if (configuration.static_map.mode == MapOperatingMode::MapEnabled)
     result.push_back("map:requested");
   const auto& experiment = configuration.experiment;
+  const std::set<std::string> planner_tie_policies{
+      "profile", "deterministic", "seeded_exact"};
+  if (!planner_tie_policies.contains(configuration.navigation.planners.tie_policy))
+    throw std::runtime_error(
+        "configuration: tiers.tier2.tie_policy has invalid value '" +
+        configuration.navigation.planners.tie_policy +
+        "'; required dependency: implemented policy profile, deterministic, "
+        "or seeded_exact; suggested correction: use profile; startup will stop");
   if (experiment.initial_exploration.enabled)
     result.push_back("phase:initial_exploration");
   result.push_back("hle_behavior_policy:" +
@@ -1009,6 +1057,27 @@ Configuration loadStructuredConfiguration(
 void validateConfiguration(const Configuration& configuration) {
   validateNavigation(configuration.navigation);
   const auto& experiment = configuration.experiment;
+  const std::set<std::string> explanation_modes{"disabled", "why",
+                                                 "comparison"};
+  if (!explanation_modes.contains(experiment.explanations.mode))
+    throw std::runtime_error(
+        "configuration: explanations.mode has invalid value '" +
+        experiment.explanations.mode +
+        "'; required dependency: implemented mode disabled, why, or "
+        "comparison; suggested correction: use explanations.mode=why; "
+        "startup will stop");
+  if (experiment.explanations.mode == "comparison" &&
+      !experiment.explanations.retain_candidate_plans)
+    throw std::runtime_error(
+        "configuration: explanations.mode=comparison requires "
+        "explanations.retain_candidate_plans=true; suggested correction: "
+        "enable candidate retention; startup will stop");
+  if (experiment.reproducibility.recording_enabled &&
+      experiment.reproducibility.trace_path.empty())
+    throw std::runtime_error(
+        "configuration: reproducibility.recording.enabled=true requires "
+        "reproducibility.trace_path; suggested correction: configure a "
+        "writable trace file or disable recording; startup will stop");
   const std::set<std::string> tier_three_scoring_policies{
       "profile", "compatibility_comments", "weighted_normalized"};
   const std::set<std::string> tier_three_tie_policies{
@@ -1172,6 +1241,11 @@ void validateConfiguration(const Configuration& configuration) {
       !configuration.navigation.highways_on)
     throw std::runtime_error(
         "configuration: HighwayPlan requires the highway graph");
+  if (!configuration.navigation.loaded_highway_model.empty())
+    throw std::runtime_error(
+        "configuration: features.loaded_highway_model is unsupported because "
+        "no highway-model loader is active; suggested correction: clear the "
+        "field and enable HLE/highway learning; startup will stop");
   if (configuration.navigation.highways_on &&
       !experiment.initial_exploration.enabled &&
       configuration.navigation.loaded_highway_model.empty())

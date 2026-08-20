@@ -48,3 +48,30 @@ def test_legacy_converter_is_offline_only():
     assert "loadConfiguration({" not in (
         SOURCE_DIR / "src/ros/parameter_configuration.cpp"
     ).read_text(encoding="utf-8")
+
+
+def test_replay_and_runtime_validation_fail_closed():
+    header = (SOURCE_DIR / "include/semaforr/validation/replay.hpp").read_text(
+        encoding="utf-8"
+    )
+    configuration = (
+        SOURCE_DIR / "src/config/navigation_configuration.cpp"
+    ).read_text(encoding="utf-8")
+    adapter = (SOURCE_DIR / "src/ros/navigation_engine_adapter.cpp").read_text(
+        encoding="utf-8"
+    )
+    yaml = (SOURCE_DIR / "config/semaforr.yaml").read_text(encoding="utf-8")
+    for field in (
+        "tier_three_ties",
+        "lle_fallback",
+        "planner_ties",
+        "clustering",
+        "simulation_noise",
+    ):
+        assert field in header
+        assert field in yaml
+    assert "OfflineReplay" in header
+    assert "loaded_highway_model is unsupported" in configuration
+    assert "no highway-model loader is active" in configuration
+    assert "retain_candidate_plans=true" in configuration
+    assert "runtime_validation:passed" in adapter

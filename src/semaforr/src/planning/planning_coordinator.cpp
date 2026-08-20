@@ -70,6 +70,16 @@ void PlanningCoordinator::setSelectionPolicy(PlanSelectionPolicy value) noexcept
   ++configuration_revision_;
 }
 
+void PlanningCoordinator::setTiePolicy(bool seeded_exact_ties,
+                                       std::uint64_t random_seed) noexcept {
+  if (seeded_exact_ties_ == seeded_exact_ties && random_seed_ == random_seed)
+    return;
+  seeded_exact_ties_ = seeded_exact_ties;
+  random_seed_ = random_seed;
+  random_.seed(random_seed_);
+  ++configuration_revision_;
+}
+
 std::optional<SelectedPlan> PlanningCoordinator::selectPlan(
     const PlanningRequest& request) {
   PlanningRequest effective = request;
@@ -203,8 +213,10 @@ std::optional<SelectedPlan> PlanningCoordinator::selectPlan(
     }
     evidence.tie_break_reason =
         evidence.tie_candidates.size() > 1U
-            ? "lexicographically_smallest_planner_name"
+            ? (seeded_exact_ties_ ? "seeded_exact_planner_tie"
+                                  : "lexicographically_smallest_planner_name")
             : "unique_lowest_combined_score";
+    evidence.random_seed = random_seed_;
     return SelectedPlan{candidates[winner].result, candidates[winner].planner,
                         policy_, candidates[winner].vote,
                         std::move(evidence)};
@@ -221,8 +233,19 @@ std::optional<SelectedPlan> PlanningCoordinator::selectPlan(
                            b.result.objective_costs.at(PlanObjective::Distance);
           return ac != bc ? ac < bc : a.planner < b.planner;
         });
-    best->vote = best->result.objective_costs.at(PlanObjective::Distance);
-    return selected(static_cast<std::size_t>(best - candidates.begin()));
+    const double best_distance =
+        best->result.objective_costs.at(PlanObjective::Distance);
+    std::vector<std::size_t> tied;
+    for (std::size_t index = 0U; index < candidates.size(); ++index) {
+      candidates[index].vote = candidates[index].result.objective_costs.at(
+          PlanObjective::Distance);
+      if (candidates[index].vote == best_distance) tied.push_back(index);
+    }
+    const std::size_t winner = seeded_exact_ties_ && tied.size() > 1U
+                                   ? tied[std::uniform_int_distribution<std::size_t>(
+                                              0U, tied.size() - 1U)(random_)]
+                                   : static_cast<std::size_t>(best - candidates.begin());
+    return selected(winner);
   }
   for (auto objective : objectives) {
     double low = std::numeric_limits<double>::infinity(),
@@ -250,6 +273,13 @@ std::optional<SelectedPlan> PlanningCoordinator::selectPlan(
       candidates.begin(), candidates.end(), [](const auto& a, const auto& b) {
         return a.vote != b.vote ? a.vote < b.vote : a.planner < b.planner;
       });
-  return selected(static_cast<std::size_t>(best - candidates.begin()));
+  std::vector<std::size_t> tied;
+  for (std::size_t index = 0U; index < candidates.size(); ++index)
+    if (candidates[index].vote == best->vote) tied.push_back(index);
+  const std::size_t winner = seeded_exact_ties_ && tied.size() > 1U
+                                 ? tied[std::uniform_int_distribution<std::size_t>(
+                                            0U, tied.size() - 1U)(random_)]
+                                 : static_cast<std::size_t>(best - candidates.begin());
+  return selected(winner);
 }
 }  // namespace semaforr::planning

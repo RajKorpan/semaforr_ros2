@@ -122,10 +122,33 @@ struct SocialConfiguration {
   bool planners = true;
 };
 
+struct RandomSeedConfiguration {
+  unsigned int tier_three_ties = 0U;
+  unsigned int lle_fallback = 0U;
+  unsigned int planner_ties = 0U;
+  unsigned int clustering = 0U;
+  unsigned int simulation_noise = 0U;
+};
+
+struct ReproducibilityConfiguration {
+  bool recording_enabled = false;
+  std::string trace_path;
+  std::string source_revision{"unknown"};
+  std::string test_suite_revision{"unknown"};
+};
+
+struct ExplanationConfiguration {
+  std::string mode{"why"};
+  bool retain_candidate_plans = true;
+};
+
 struct ExperimentConfiguration {
   BehaviorMode behavior_mode = BehaviorMode::Modernized;
   AblationProfile profile = AblationProfile::Custom;
   unsigned int random_seed = 0U;
+  RandomSeedConfiguration seeds;
+  ReproducibilityConfiguration reproducibility;
+  ExplanationConfiguration explanations;
   std::string tier_three_scoring_policy = "profile";
   std::string tier_three_tie_policy = "profile";
   double tier_three_tie_tolerance = 1.0e-9;
@@ -157,6 +180,7 @@ struct PlannerConfiguration {
   bool skeleton = false;
   bool highway = false;
   std::string selection_policy = "range_vote";
+  std::string tie_policy = "profile";
 };
 
 struct GridLayerConfiguration {
@@ -306,6 +330,7 @@ std::string_view toString(MapLoadFailurePolicy policy) noexcept;
 MapLoadFailurePolicy mapLoadFailurePolicyFromString(const std::string& value);
 void applyAblationProfile(Configuration& configuration);
 std::string configurationFingerprint(const Configuration& configuration);
+std::string configurationSnapshot(const Configuration& configuration);
 std::vector<std::string> componentManifest(const Configuration& configuration);
 
 Configuration loadStructuredConfiguration(

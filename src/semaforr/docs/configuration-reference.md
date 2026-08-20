@@ -12,7 +12,10 @@ durations are seconds.
 | Group | Purpose |
 |---|---|
 | `experiment.behavior_mode` | Behavioral claim: supported `modernized` runtime or reserved, fail-closed `compatibility` target. |
-| `experiment.mode`, `experiment.random_seed` | Named ablation expansion and the reproducible decision seed. `experiment.profile` is a deprecated alias for `mode`. |
+| `experiment.mode`, `experiment.random_seed` | Named ablation expansion and the deprecated aggregate seed. When every scoped seed is zero, a nonzero aggregate seed initializes all scoped streams for migration compatibility. |
+| `experiment.seeds.*` | Independent seeds for `tier_three_ties`, `lle_fallback`, `planner_ties`, `clustering`, and `simulation_noise`. |
+| `reproducibility.*` | Enables versioned run traces and records the trace path plus source/test-suite revisions. |
+| `explanations.mode` | `disabled`, `why`, or `comparison`; comparison requires candidate-plan retention. |
 | `phases.*` | Independent initial-exploration and target-navigation lifecycle controls. |
 | `tiers.tier1.rules` | Ordered, individually enabled cognitive Tier-1 rules. |
 | `tiers.tier1.reactive_planners` | Individually enabled `thru`, `behind`, `out`, and `low_level_exploration` planners. |
@@ -20,6 +23,7 @@ durations are seconds.
 | `tiers.tier3.scoring_policy` | `profile`, unweighted `compatibility_comments`, or `weighted_normalized`. |
 | `tiers.tier3.tie_policy` | `profile`, `exact`, or `tolerance`; tie candidates and seeded selection are recorded. |
 | `tiers.tier3.tie_tolerance` | Finite nonnegative tolerance used only by tolerance tie resolution. |
+| `tiers.tier2.tie_policy` | `profile`, `deterministic`, or `seeded_exact`; the latter consumes only `experiment.seeds.planner_ties`. |
 | `tiers.tier2.maximum_planning_attempts_per_task` | Positive consecutive immediate-planning failure limit before the current plan attempt is abandoned and LLE becomes eligible; default `3`. |
 | `topics.*` | Relative pose, scan, command, state, decision, social, and crowd-field topic names. |
 | `qos.sensors.*`, `qos.command.*` | Queue depth, `reliable`/`best_effort`, and `volatile`/`transient_local`. |
@@ -76,7 +80,8 @@ Tier-3 advisors remain independent entries in `advisors.*`.
 plan completes short of its target, and uses seeded random selection within
 the closest target-distance bin. Modernized mode may additionally enable the
 explicit `stalled_history_extension`. `closest_target_bin_m` sets the bin
-width, and `experiment.random_seed` makes compatibility selection replayable.
+width, and `experiment.seeds.lle_fallback` makes compatibility selection
+replayable.
 
 HLE policy thresholds are typed parameters rather than embedded constants:
 `minimum_clearance_m`, `heading_tolerance_rad`,
