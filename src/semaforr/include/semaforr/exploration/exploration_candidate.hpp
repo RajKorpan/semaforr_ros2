@@ -12,7 +12,20 @@ namespace semaforr::exploration {
 using ExplorationCandidateId = std::uint64_t;
 
 enum class PassageKind { Corridor, Doorway, IntersectionBranch, LargeRoom };
-enum class PassageCueType { Generic, LeftOpen, RightOpen };
+enum class PassageCueType { Generic, LeftFocus, RightFocus };
+enum class HleBundleType { LeftFocus, RightFocus, LeftOpen, RightOpen };
+
+struct HleBundleMeasurement {
+  HleBundleType type{HleBundleType::LeftFocus};
+  std::size_t beam_count{0U};
+  std::optional<std::size_t> first_beam;
+  std::optional<std::size_t> last_beam;
+  // Mean valid beam endpoint in the robot-relative Cartesian frame.
+  domain::Point2D mean_endpoint;
+  domain::Distance representative_length{domain::Distance::zero()};
+  domain::Distance endpoint_span{domain::Distance::zero()};
+  bool valid{false};
+};
 enum class ExplorationCandidateState {
   Queued,
   Selected,
@@ -33,6 +46,7 @@ struct ExplorationCandidate {
   domain::Distance clearance = domain::Distance::zero();
   domain::Distance length = domain::Distance::zero();
   domain::Distance width = domain::Distance::zero();
+  domain::Distance openness_width = domain::Distance::zero();
   domain::Distance current_width = domain::Distance::zero();
   PassageKind kind = PassageKind::Corridor;
   PassageCueType cue_type = PassageCueType::Generic;

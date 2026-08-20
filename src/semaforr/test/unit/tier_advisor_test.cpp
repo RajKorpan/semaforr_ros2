@@ -660,6 +660,207 @@ TEST(LowLevelExplorer, CompatibilityFallbackIsSeededWithinClosestBin) {
   EXPECT_EQ(static_cast<int>(std::floor(selected_distance)), 8);
 }
 
+TEST(LowLevelExplorer, PlansToCueStartBeforeInstallingTwentyWaypoints) {
+  using namespace semaforr;
+  const domain::ActionSpace actions({0.25}, {0.2});
+  const auto make_world = [](domain::Point2D start) {
+    auto world = worldWithTarget({20.0, 0.0});
+    world.mission.install_active_plan({});
+    world.recovery.planning_attempted = true;
+    world.robot.laser = laser();
+    world.spatial.unfinished_hle_candidates.push_back(
+        {42U, start, {start.x_m + 3.0, start.y_m}});
+    return world;
+  };
+
+  auto already = make_world({0.0, 0.0});
+  planning::LowLevelExplorer at_start;
+  ASSERT_EQ(at_start.evaluate({already, actions}).status,
+            planning::ReactiveStatus::Action);
+  EXPECT_EQ(at_start.candidateStartPlanOutcome(),
+            planning::CandidateStartPlanOutcome::AlreadySatisfied);
+  EXPECT_EQ(at_start.cueWaypoints().size(), 20U);
+
+  auto nearby = make_world({1.0, 0.0});
+  planning::LowLevelExplorer direct;
+  ASSERT_EQ(direct.evaluate({nearby, actions}).status,
+            planning::ReactiveStatus::Action);
+  EXPECT_EQ(direct.candidateStartPlanOutcome(),
+            planning::CandidateStartPlanOutcome::Succeeded);
+  EXPECT_EQ(direct.candidateStartPlanReason(),
+            "candidate_start_direct_visibility_plan");
+  EXPECT_TRUE(direct.cueWaypoints().empty());
+
+  auto distant = make_world({4.5, 0.5});
+  distant.spatial.inclusion_grid =
+      {6U, 2U, 1.0, {0.0, 0.0}, std::vector<std::uint32_t>(12U, 1U), 3U};
+  distant.spatial.revisions[domain::ModelDependency::Inclusion] = 3U;
+  planning::LowLevelExplorer routed;
+  ASSERT_EQ(routed.evaluate({distant, actions}).status,
+            planning::ReactiveStatus::Action);
+  EXPECT_EQ(routed.candidateStartPlanReason(),
+            "candidate_start_inclusion_plan");
+  EXPECT_FALSE(routed.candidateStartPlan().empty());
+  EXPECT_TRUE(routed.cueWaypoints().empty());
+
+  auto unreachable = make_world({4.5, 0.5});
+  unreachable.spatial.inclusion_grid =
+      {6U, 2U, 1.0, {0.0, 0.0}, std::vector<std::uint32_t>(12U, 0U), 1U};
+  planning::LowLevelExplorer rejected;
+  const auto failed = rejected.evaluate({unreachable, actions});
+  EXPECT_EQ(failed.completion_reason,
+            planning::ReactiveCompletionReason::CandidateExhausted);
+  EXPECT_NE(std::find(rejected.candidateStartDiagnostics().begin(),
+                      rejected.candidateStartDiagnostics().end(),
+                      "candidate_start_unreachable"),
+            rejected.candidateStartDiagnostics().end());
+}
+
+TEST(LowLevelExplorer, InvalidatedCueStartPlanDiscardsTheCue) {
+  using namespace semaforr;
+  const domain::ActionSpace actions({0.25}, {0.2});
+  auto world = worldWithTarget({20.0, 0.0});
+  world.mission.install_active_plan({});
+  world.recovery.planning_attempted = true;
+  world.robot.laser = laser();
+  world.spatial.unfinished_hle_candidates.push_back(
+      {42U, {4.5, 0.5}, {7.5, 0.5}});
+  world.spatial.inclusion_grid =
+      {6U, 2U, 1.0, {0.0, 0.0}, std::vector<std::uint32_t>(12U, 1U), 1U};
+  planning::LowLevelExplorer explorer;
+  ASSERT_EQ(explorer.evaluate({world, actions}).status,
+            planning::ReactiveStatus::Action);
+  ASSERT_FALSE(explorer.candidateStartPlan().empty());
+  world.spatial.sensed_occupancy.geometry =
+      domain::GridGeometry(6U, 2U, 1.0, {0.0, 0.0});
+  world.spatial.sensed_occupancy.cells.resize(12U);
+  const auto blocked = world.spatial.sensed_occupancy.geometry.index(
+      explorer.candidateStartPlan().front());
+  ASSERT_TRUE(blocked);
+  world.spatial.sensed_occupancy.cells[*blocked].state =
+      domain::SensedOccupancyState::ObservedOccupied;
+  const auto invalidated = explorer.evaluate({world, actions});
+  EXPECT_EQ(invalidated.completion_reason,
+            planning::ReactiveCompletionReason::CandidateExhausted);
+  EXPECT_NE(std::find(explorer.candidateStartDiagnostics().begin(),
+                      explorer.candidateStartDiagnostics().end(),
+                      "candidate_start_plan_invalidated"),
+            explorer.candidateStartDiagnostics().end());
+}
+
+TEST(LowLevelExplorer, AllCoveredRaysRelocateToClosestIncludedTargetCell) {
+  using namespace semaforr;
+  const domain::ActionSpace actions({0.25}, {0.2});
+  auto world = worldWithTarget({20.0, 0.0});
+  world.mission.install_active_plan({});
+  world.recovery.planning_attempted = true;
+  world.robot.laser = laser();
+  world.spatial.inclusion_grid =
+      {10U, 3U, 1.0, {0.0, -1.0}, std::vector<std::uint32_t>(30U, 1U), 1U};
+  planning::LowLevelExplorer explorer;
+  const auto relocating = explorer.evaluate({world, actions});
+  ASSERT_EQ(relocating.status, planning::ReactiveStatus::Action);
+  ASSERT_EQ(explorer.candidates().size(), 1U);
+  EXPECT_EQ(explorer.candidates().front().source,
+            planning::LLECandidateSource::IncludedRelocation);
+  EXPECT_NEAR(explorer.candidates().front().target.x_m, 9.5, 1e-9);
+  EXPECT_EQ(explorer.candidateStartPlanReason(),
+            "candidate_start_inclusion_plan");
+  const auto relocation_plan = explorer.candidateStartPlan();
+  ASSERT_FALSE(relocation_plan.empty());
+  for (const auto point : relocation_plan) {
+    world.robot.pose.position = point;
+    static_cast<void>(explorer.evaluate({world, actions}));
+  }
+  EXPECT_NE(std::find(
+                explorer.candidateStartDiagnostics().begin(),
+                explorer.candidateStartDiagnostics().end(),
+                "included_relocation_reached_resume_ray_exploration"),
+            explorer.candidateStartDiagnostics().end());
+}
+
+TEST(LowLevelExplorer, UnreachableClosestIncludedRelocationFailsExplicitly) {
+  using namespace semaforr;
+  const domain::ActionSpace actions({0.25}, {0.2});
+  auto world = worldWithTarget({9.0, 0.0});
+  world.mission.install_active_plan({});
+  world.recovery.planning_attempted = true;
+  world.robot.laser = laser();
+  std::vector<std::uint32_t> cells(30U, 0U);
+  domain::SparseCountGrid grid{10U, 3U, 1.0, {0.0, -1.0}, cells, 1U};
+  const auto robot_cell = grid.extent().index(world.robot.pose.position);
+  ASSERT_TRUE(robot_cell);
+  grid.cells[*robot_cell] = 1U;
+  for (std::size_t beam = 0U; beam < world.robot.laser->ranges_m.size();
+       ++beam) {
+    const double angle = world.robot.laser->angle_min.radians() +
+                         static_cast<double>(beam) *
+                             world.robot.laser->angle_increment.radians();
+    const domain::Point2D endpoint{
+        world.robot.laser->ranges_m[beam] * std::cos(angle),
+        world.robot.laser->ranges_m[beam] * std::sin(angle)};
+    const auto index = grid.extent().index(endpoint);
+    ASSERT_TRUE(index);
+    grid.cells[*index] = 1U;
+  }
+  const auto closest = grid.extent().index({8.5, -0.5});
+  ASSERT_TRUE(closest);
+  grid.cells[*closest] = 1U;
+  world.spatial.inclusion_grid = std::move(grid);
+  planning::LowLevelExplorer explorer;
+  const auto result = explorer.evaluate({world, actions});
+  EXPECT_EQ(result.completion_reason,
+            planning::ReactiveCompletionReason::CandidateExhausted);
+  EXPECT_NE(std::find(explorer.candidateStartDiagnostics().begin(),
+                      explorer.candidateStartDiagnostics().end(),
+                      "candidate_start_unreachable"),
+            explorer.candidateStartDiagnostics().end());
+}
+
+TEST(LowLevelExplorer, UncoveredRayIsUsedBeforeIncludedRelocation) {
+  using namespace semaforr;
+  const domain::ActionSpace actions({0.25}, {0.2});
+  auto world = worldWithTarget({12.0, 0.0});
+  world.mission.install_active_plan({});
+  world.recovery.planning_attempted = true;
+  world.robot.laser = laser();
+  world.spatial.inclusion_grid =
+      {10U, 3U, 1.0, {0.0, -1.0}, std::vector<std::uint32_t>(30U, 1U), 1U};
+  const auto endpoint = world.spatial.inclusion_grid.extent().index({2.0, 0.0});
+  ASSERT_TRUE(endpoint);
+  world.spatial.inclusion_grid.cells[*endpoint] = 0U;
+  planning::LowLevelExplorer explorer;
+  ASSERT_EQ(explorer.evaluate({world, actions}).status,
+            planning::ReactiveStatus::Action);
+  ASSERT_EQ(explorer.candidates().size(), 1U);
+  EXPECT_EQ(explorer.candidates().front().source,
+            planning::LLECandidateSource::CurrentTargetObservation);
+}
+
+TEST(LowLevelExplorer, VisibleCueAbandonsCoveredRayRelocation) {
+  using namespace semaforr;
+  const domain::ActionSpace actions({0.25}, {0.2});
+  auto world = worldWithTarget({9.0, 0.0});
+  world.mission.install_active_plan({});
+  world.recovery.planning_attempted = true;
+  world.robot.laser = laser();
+  world.spatial.inclusion_grid =
+      {10U, 3U, 1.0, {0.0, -1.0}, std::vector<std::uint32_t>(30U, 1U), 1U};
+  planning::LowLevelExplorer explorer;
+  ASSERT_EQ(explorer.evaluate({world, actions}).status,
+            planning::ReactiveStatus::Action);
+  std::fill(world.robot.laser->ranges_m.begin(),
+            world.robot.laser->ranges_m.end(), 5.0);
+  ASSERT_EQ(explorer.evaluate({world, actions}).status,
+            planning::ReactiveStatus::Action);
+  EXPECT_EQ(explorer.candidates().front().source,
+            planning::LLECandidateSource::CurrentTargetObservation);
+  EXPECT_NE(std::find(explorer.candidateStartDiagnostics().begin(),
+                      explorer.candidateStartDiagnostics().end(),
+                      "fallback_abandoned_for_visible_cue"),
+            explorer.candidateStartDiagnostics().end());
+}
+
 TEST(TierOneRules, VictoryForwardAndNotOppositeAreTyped) {
   const semaforr::domain::ActionSpace actions({0.25}, {0.2});
   auto world = worldWithTarget({0.1, 0.0});

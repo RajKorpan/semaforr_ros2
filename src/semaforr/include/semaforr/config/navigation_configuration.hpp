@@ -98,7 +98,14 @@ struct InitialExplorationConfiguration {
   double cue_similarity_radius_m = 0.5;
   double passage_grid_resolution_m = 0.5;
   std::size_t minimum_bundle_beams = 1U;
-  std::size_t compatibility_focus_bundle_beams = 41U;
+  double left_focus_min_rad = 0.6544984694978736;
+  double left_focus_max_rad = 0.9162978572970231;
+  double right_focus_min_rad = -0.9162978572970231;
+  double right_focus_max_rad = -0.6544984694978736;
+  double left_open_min_rad = 0.0;
+  double left_open_max_rad = 1.5707963267948966;
+  double right_open_min_rad = -1.5707963267948966;
+  double right_open_max_rad = 0.0;
   double minimum_length_to_width_ratio = 1.5;
   double minimum_passage_length_m = 1.0;
   double large_room_width_m = 3.0;

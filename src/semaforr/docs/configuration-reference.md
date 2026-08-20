@@ -91,10 +91,13 @@ HLE policy thresholds are typed parameters rather than embedded constants:
 phase-coordinator safeguard.
 
 `phases.initial_exploration.behavior_policy` accepts `profile`, `modernized`,
-or `compatibility`. Compatibility uses the fixed 41-ray left/right focus
-bundles and the configured length-to-width, large-room, cue-clearance,
-extension, width-change, hard-turn, and end-clearance thresholds. The focus
-bundle is validated as exactly 41 rays. See [High-level
+or `compatibility`. `left_focus_min_rad`, `left_focus_max_rad`,
+`right_focus_min_rad`, and `right_focus_max_rad` define the narrow cue sectors;
+the corresponding `left_open_*` and `right_open_*` fields define independent
+wide openness sectors. These finite ordered robot-relative intervals replace
+beam-count-specific slices. Both policies use the configured length-to-width,
+threshold-based large-room, cue-clearance, extension, width-change, hard-turn,
+and end-clearance thresholds. See [High-level
 exploration](high-level-exploration.md).
 
 `social.enabled: false` disables social observation subscription, learning,

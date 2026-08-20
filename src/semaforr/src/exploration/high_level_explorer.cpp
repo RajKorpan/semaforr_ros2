@@ -23,8 +23,10 @@ domain::Point2D endpoint(const domain::RobotObservation& observation,
 double clampedRange(const domain::LaserObservation& laser, std::size_t beam) {
   if (beam >= laser.ranges_m.size()) return -1.0;
   const double value = laser.ranges_m[beam];
-  if (!std::isfinite(value) || value < laser.minimum_range.meters())
+  if (std::isnan(value) || value < laser.minimum_range.meters())
     return -1.0;
+  if (std::isinf(value))
+    return value > 0.0 ? laser.maximum_range.meters() : -1.0;
   return std::min(value, laser.maximum_range.meters());
 }
 
@@ -125,42 +127,52 @@ bool pointClear(const domain::RobotObservation& observation,
          required <= available + domain::geometry_tolerance_m;
 }
 
+bool validSector(const HleAngularSector& sector) {
+  return std::isfinite(sector.minimum.radians()) &&
+         std::isfinite(sector.maximum.radians()) &&
+         sector.minimum.radians() < sector.maximum.radians() &&
+         sector.minimum.radians() >= -std::numbers::pi &&
+         sector.maximum.radians() <= std::numbers::pi;
+}
+
+bool inSector(double relative_angle, const HleAngularSector& sector) {
+  return relative_angle + domain::angle_tolerance_rad >=
+             sector.minimum.radians() &&
+         relative_angle - domain::angle_tolerance_rad <=
+             sector.maximum.radians();
+}
+
 ExplorationCandidate focusCandidate(
     const domain::RobotObservation& observation,
     const HighLevelExplorationConfiguration& configuration,
-    std::size_t first, std::size_t last, PassageCueType cue_type) {
+    const HleBundleMeasurement& focus,
+    const HleBundleMeasurement& openness, const HleAngularSector& focus_sector,
+    PassageCueType cue_type) {
   ExplorationCandidate candidate;
   candidate.start = observation.pose.position;
-  candidate.first_beam = first;
-  candidate.last_beam = last;
+  candidate.first_beam = focus.first_beam.value_or(0U);
+  candidate.last_beam = focus.last_beam.value_or(0U);
   candidate.cue_type = cue_type;
-  std::vector<double> valid;
-  valid.reserve(last - first + 1U);
-  for (std::size_t beam = first; beam <= last; ++beam) {
-    const double range = clampedRange(observation.laser, beam);
-    if (range >= configuration.minimum_clearance.meters())
-      valid.push_back(range);
-  }
-  if (valid.empty()) return candidate;
-  std::sort(valid.begin(), valid.end());
-  const double length = valid[valid.size() / 2U];
-  const std::size_t middle = first + (last - first) / 2U;
-  const double relative = observation.laser.angle_min.radians() +
-                          static_cast<double>(middle) *
-                              observation.laser.angle_increment.radians();
+  if (!focus.valid || !openness.valid) return candidate;
+  const double relative = std::atan2(focus.mean_endpoint.y_m,
+                                     focus.mean_endpoint.x_m);
+  const double length = focus.representative_length.meters();
   const double global = domain::Angle::normalize(
       observation.pose.heading.radians() + relative);
-  const double span = std::abs(static_cast<double>(last - first) *
-                               observation.laser.angle_increment.radians());
-  const double width = 2.0 * length * std::sin(span / 2.0);
+  const double focus_span =
+      focus_sector.maximum.radians() - focus_sector.minimum.radians();
+  // Open-sector mean range supplies side-space depth while the narrow focus
+  // aperture supplies the passage cross section. The full Open endpoint span
+  // is retained separately for large-room classification.
+  const double width = 2.0 * openness.representative_length.meters() *
+                       std::sin(focus_span / 2.0);
   const double ratio = length / std::max(width, 0.01);
-  const double valid_fraction = static_cast<double>(valid.size()) /
-                                static_cast<double>(last - first + 1U);
   candidate.heading = domain::Angle(relative);
   candidate.direction = domain::Angle(global);
   candidate.clearance = domain::Distance(length);
   candidate.length = domain::Distance(length);
   candidate.width = domain::Distance(width);
+  candidate.openness_width = openness.endpoint_span;
   candidate.current_width = candidate.width;
   const double usable_length =
       std::max(0.0, length - configuration.cue_clearance_margin.meters());
@@ -170,14 +182,13 @@ ExplorationCandidate focusCandidate(
        candidate.start.y_m + usable_length * std::sin(global)};
   const bool large_room =
       length >= configuration.large_room_length.meters() &&
-      width >= configuration.large_room_width.meters();
+      candidate.openness_width.meters() >=
+          configuration.large_room_width.meters();
   candidate.kind = large_room ? PassageKind::LargeRoom : PassageKind::Corridor;
-  candidate.confidence =
-      std::clamp(valid_fraction *
-                     (large_room ? 1.0
-                                 : ratio /
-                                       configuration.minimum_length_to_width_ratio),
-                 0.0, 1.0);
+  candidate.confidence = std::clamp(
+      large_room ? 1.0
+                 : ratio / configuration.minimum_length_to_width_ratio,
+      0.0, 1.0);
   candidate.priority = candidate.confidence * length;
   return candidate;
 }
@@ -210,7 +221,9 @@ void HighLevelExplorationConfiguration::validate() const {
       !(candidate_completion_distance.meters() > 0.0) ||
       !(cue_similarity_radius.meters() > 0.0) ||
       !(passage_grid_resolution.meters() > 0.0) ||
-      minimum_bundle_beams == 0U || compatibility_focus_bundle_beams != 41U ||
+      minimum_bundle_beams == 0U || !validSector(left_focus) ||
+      !validSector(right_focus) || !validSector(left_open) ||
+      !validSector(right_open) ||
       !(minimum_length_to_width_ratio > 0.0) ||
       !(minimum_passage_length.meters() > 0.0) ||
       !(large_room_width.meters() > 0.0) ||
@@ -221,8 +234,8 @@ void HighLevelExplorationConfiguration::validate() const {
       !(minimum_extension.meters() > 0.0) || !(time_budget.count() > 0.0) ||
       decision_budget == 0U)
     throw std::invalid_argument(
-        "HLE geometry, thresholds, budgets, and fixed focus bundle must be "
-        "positive; compatibility focus bundles must contain 41 rays");
+        "HLE geometry, thresholds, budgets, and angular Focus/Open sectors "
+        "must be finite, ordered, within [-pi,pi], and positive");
   if (passage_grid_geometry.valid() &&
       std::abs(passage_grid_geometry.resolution_m -
                passage_grid_resolution.meters()) >
@@ -335,86 +348,78 @@ std::vector<ExplorationCandidate> HighLevelExplorer::discoverCandidates(
     const domain::RobotObservation& observation,
     const HighLevelExplorationConfiguration& configuration) {
   std::vector<ExplorationCandidate> result;
-  const auto& ranges = observation.laser.ranges_m;
-  if (configuration.behavior_policy == HleBehaviorPolicy::Compatibility) {
-    const auto bundle = configuration.compatibility_focus_bundle_beams;
-    if (ranges.size() < bundle * 2U) return result;
-    for (const auto& [first, last, type] :
-         {std::tuple<std::size_t, std::size_t, PassageCueType>{
-              0U, bundle - 1U, PassageCueType::RightOpen},
-          {ranges.size() - bundle, ranges.size() - 1U,
-           PassageCueType::LeftOpen}}) {
-      auto candidate =
-          focusCandidate(observation, configuration, first, last, type);
-      const double ratio = candidate.length.meters() /
-                           std::max(candidate.width.meters(), 0.01);
-      const bool passage =
-          candidate.length.meters() >=
-              configuration.minimum_passage_length.meters() &&
-          ratio >= configuration.minimum_length_to_width_ratio;
-      if (passage || candidate.kind == PassageKind::LargeRoom)
-        result.push_back(std::move(candidate));
-    }
-    return result;
-  }
-
-  std::size_t begin = 0U;
-  while (begin < ranges.size()) {
-    while (begin < ranges.size() &&
-           clampedRange(observation.laser, begin) <
-               configuration.minimum_clearance.meters())
-      ++begin;
-    if (begin == ranges.size()) break;
-    std::size_t end = begin;
-    double clearance = clampedRange(observation.laser, begin);
-    while (end + 1U < ranges.size() &&
-           clampedRange(observation.laser, end + 1U) >=
-               configuration.minimum_clearance.meters()) {
-      ++end;
-      clearance =
-          std::min(clearance, clampedRange(observation.laser, end));
-    }
-    const std::size_t count = end - begin + 1U;
-    if (count >= configuration.minimum_bundle_beams) {
-      const std::size_t middle = begin + (end - begin) / 2U;
-      const double relative = observation.laser.angle_min.radians() +
-                              static_cast<double>(middle) *
-                                  observation.laser.angle_increment.radians();
-      const double global = domain::Angle::normalize(
-          observation.pose.heading.radians() + relative);
-      ExplorationCandidate candidate;
-      candidate.start = observation.pose.position;
-      candidate.endpoint =
-          {candidate.start.x_m + clearance * std::cos(global),
-           candidate.start.y_m + clearance * std::sin(global)};
-      candidate.direction = domain::Angle(global);
-      candidate.heading = domain::Angle(relative);
-      candidate.clearance = domain::Distance(clearance);
-      candidate.length = candidate.clearance;
-      candidate.current_extension = candidate.length;
-      const double width =
-          std::max(0.0, 2.0 * clearance *
-                            std::sin(std::abs(static_cast<double>(end - begin) *
-                                              observation.laser.angle_increment
-                                                  .radians()) /
-                                     2.0));
-      candidate.width = domain::Distance(width);
-      candidate.current_width = candidate.width;
-      candidate.kind = count <= 2U ? PassageKind::Doorway
-                                    : PassageKind::Corridor;
-      candidate.priority = static_cast<double>(count) /
-                           static_cast<double>(
-                               std::max<std::size_t>(1U, ranges.size()));
-      candidate.confidence = candidate.priority;
-      candidate.first_beam = begin;
-      candidate.last_beam = end;
+  const auto bundles = measureBundles(observation, configuration);
+  for (const auto& [focus_index, open_index, focus_sector, cue_type] : {
+           std::tuple<std::size_t, std::size_t, HleAngularSector,
+                      PassageCueType>{1U, 3U, configuration.right_focus,
+                                      PassageCueType::RightFocus},
+           {0U, 2U, configuration.left_focus,
+            PassageCueType::LeftFocus}}) {
+    if (!bundles[focus_index].valid || !bundles[open_index].valid) continue;
+    auto candidate = focusCandidate(observation, configuration,
+                                    bundles[focus_index], bundles[open_index],
+                                    focus_sector, cue_type);
+    const double ratio = candidate.length.meters() /
+                         std::max(candidate.width.meters(), 0.01);
+    const bool passage =
+        candidate.length.meters() >=
+            configuration.minimum_passage_length.meters() &&
+        ratio >= configuration.minimum_length_to_width_ratio;
+    if (passage || candidate.kind == PassageKind::LargeRoom)
       result.push_back(std::move(candidate));
-    }
-    begin = end + 1U;
   }
-  if (result.size() >= 3U)
-    for (auto& candidate : result)
-      candidate.kind = PassageKind::IntersectionBranch;
+  return result;
+}
+
+std::array<HleBundleMeasurement, 4U> HighLevelExplorer::measureBundles(
+    const domain::RobotObservation& observation,
+    const HighLevelExplorationConfiguration& configuration) {
+  const std::array<std::pair<HleBundleType, HleAngularSector>, 4U> sectors{{
+      {HleBundleType::LeftFocus, configuration.left_focus},
+      {HleBundleType::RightFocus, configuration.right_focus},
+      {HleBundleType::LeftOpen, configuration.left_open},
+      {HleBundleType::RightOpen, configuration.right_open}}};
+  std::array<HleBundleMeasurement, 4U> result{};
+  for (std::size_t bundle_index = 0U; bundle_index < sectors.size();
+       ++bundle_index) {
+    auto& measurement = result[bundle_index];
+    measurement.type = sectors[bundle_index].first;
+    double sum_x = 0.0;
+    double sum_y = 0.0;
+    double minimum_x = std::numeric_limits<double>::infinity();
+    double maximum_x = -std::numeric_limits<double>::infinity();
+    double minimum_y = std::numeric_limits<double>::infinity();
+    double maximum_y = -std::numeric_limits<double>::infinity();
+    for (std::size_t beam = 0U; beam < observation.laser.ranges_m.size();
+         ++beam) {
+      const double relative = observation.laser.angle_min.radians() +
+                              static_cast<double>(beam) *
+                                  observation.laser.angle_increment.radians();
+      if (!inSector(relative, sectors[bundle_index].second)) continue;
+      const double range = clampedRange(observation.laser, beam);
+      if (range < configuration.minimum_clearance.meters()) continue;
+      const double x = range * std::cos(relative);
+      const double y = range * std::sin(relative);
+      sum_x += x;
+      sum_y += y;
+      minimum_x = std::min(minimum_x, x);
+      maximum_x = std::max(maximum_x, x);
+      minimum_y = std::min(minimum_y, y);
+      maximum_y = std::max(maximum_y, y);
+      if (!measurement.first_beam) measurement.first_beam = beam;
+      measurement.last_beam = beam;
+      ++measurement.beam_count;
+    }
+    if (measurement.beam_count < configuration.minimum_bundle_beams) continue;
+    measurement.mean_endpoint =
+        {sum_x / static_cast<double>(measurement.beam_count),
+         sum_y / static_cast<double>(measurement.beam_count)};
+    measurement.representative_length = domain::distance(
+        domain::Point2D{}, measurement.mean_endpoint);
+    measurement.endpoint_span = domain::Distance(
+        std::hypot(maximum_x - minimum_x, maximum_y - minimum_y));
+    measurement.valid = true;
+  }
   return result;
 }
 

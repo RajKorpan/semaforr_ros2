@@ -14,6 +14,11 @@ namespace semaforr::exploration {
 
 enum class HleBehaviorPolicy { Modernized, Compatibility };
 
+struct HleAngularSector {
+  domain::Angle minimum;
+  domain::Angle maximum;
+};
+
 struct HighLevelExplorationConfiguration {
   HleBehaviorPolicy behavior_policy = HleBehaviorPolicy::Modernized;
   domain::Distance minimum_clearance{0.8};
@@ -22,7 +27,16 @@ struct HighLevelExplorationConfiguration {
   domain::Distance cue_similarity_radius{0.5};
   domain::Distance passage_grid_resolution{0.5};
   std::size_t minimum_bundle_beams = 1U;
-  std::size_t compatibility_focus_bundle_beams = 41U;
+  // Robot-relative angular sectors. Focus sectors are narrow cue generators;
+  // Open sectors independently measure the wider side-space geometry.
+  HleAngularSector left_focus{domain::Angle(0.6544984694978736),
+                              domain::Angle(0.9162978572970231)};
+  HleAngularSector right_focus{domain::Angle(-0.9162978572970231),
+                               domain::Angle(-0.6544984694978736)};
+  HleAngularSector left_open{domain::Angle(0.0),
+                             domain::Angle(1.5707963267948966)};
+  HleAngularSector right_open{domain::Angle(-1.5707963267948966),
+                              domain::Angle(0.0)};
   double minimum_length_to_width_ratio = 1.5;
   domain::Distance minimum_passage_length{1.0};
   domain::Distance large_room_width{3.0};

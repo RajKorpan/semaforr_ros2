@@ -194,7 +194,12 @@ class ReactivePlannerCoordinator {
 };
 
 enum class LLECandidateSource {
-  UnfinishedHle, CurrentTargetObservation, RegionVisibility, InclusionGap
+  UnfinishedHle, CurrentTargetObservation, RegionVisibility, InclusionGap,
+  IncludedRelocation
+};
+
+enum class CandidateStartPlanOutcome {
+  NotAttempted, AlreadySatisfied, Succeeded, Failed, Invalidated
 };
 
 struct LLECandidate {
@@ -256,12 +261,30 @@ class LowLevelExplorer final : public ReactivePlanner,
   const std::string& lastTriggerReasonCode() const noexcept {
     return last_trigger_reason_code_;
   }
+  CandidateStartPlanOutcome candidateStartPlanOutcome() const noexcept {
+    return start_plan_outcome_;
+  }
+  const std::string& candidateStartPlanReason() const noexcept {
+    return start_plan_reason_;
+  }
+  const std::vector<domain::Point2D>& candidateStartPlan() const noexcept {
+    return start_connection_waypoints_;
+  }
+  const std::vector<std::string>& candidateStartDiagnostics() const noexcept {
+    return candidate_start_diagnostics_;
+  }
+  const std::vector<domain::Point2D>& cueWaypoints() const noexcept {
+    return cue_waypoints_;
+  }
 
  private:
   void assembleCandidates(const domain::WorldModel&);
   bool appendCurrentViewCandidates(const domain::WorldModel&);
   void installCandidateWaypoints(const LLECandidate&);
   void selectFallback(std::vector<LLECandidate> candidates);
+  bool planCandidateStart(const domain::WorldModel&, const LLECandidate&);
+  bool candidateStartPlanValid(const domain::WorldModel&) const;
+  bool advanceCandidate(const domain::WorldModel&);
   std::size_t includedCellCount(const domain::WorldModel&) const noexcept;
   domain::Action actionToward(const domain::Pose2D&, domain::Point2D,
                               const domain::ActionSpace&) const;
@@ -289,6 +312,14 @@ class LowLevelExplorer final : public ReactivePlanner,
   std::vector<domain::Point2D> cue_waypoints_;
   std::size_t waypoint_cursor_ = 0U;
   std::size_t lost_waypoint_cycles_ = 0U;
+  std::vector<domain::Point2D> start_connection_waypoints_;
+  std::size_t start_connection_cursor_ = 0U;
+  domain::Revision start_connection_inclusion_revision_ = 0U;
+  bool start_connection_uses_inclusion_{false};
+  CandidateStartPlanOutcome start_plan_outcome_ =
+      CandidateStartPlanOutcome::NotAttempted;
+  std::string start_plan_reason_{"not_attempted"};
+  std::vector<std::string> candidate_start_diagnostics_;
   std::size_t initial_included_cells_ = 0U;
   LowLevelExplorationConfiguration configuration_;
   mutable TriggerEvaluation last_trigger_;

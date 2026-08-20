@@ -1,6 +1,7 @@
 #ifndef SEMAFORR_EXPLORATION_HIGH_LEVEL_EXPLORER_HPP
 #define SEMAFORR_EXPLORATION_HIGH_LEVEL_EXPLORER_HPP
 
+#include <array>
 #include <queue>
 #include <semaforr/exploration/exploration_strategy.hpp>
 #include <semaforr/exploration/passage_model.hpp>
@@ -30,6 +31,8 @@ class HighLevelExplorer final : public ExplorationStrategy {
       const std::vector<HleTraceEntry>&);
 
   static std::vector<ExplorationCandidate> discoverCandidates(
+      const domain::RobotObservation&, const HighLevelExplorationConfiguration&);
+  static std::array<HleBundleMeasurement, 4U> measureBundles(
       const domain::RobotObservation&, const HighLevelExplorationConfiguration&);
   CueValidation evaluateCue(const ExplorationCandidate&,
                             const domain::RobotObservation&) const;

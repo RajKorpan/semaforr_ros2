@@ -202,8 +202,14 @@ exploration::HighLevelExplorationConfiguration hleConfiguration(
   result.passage_grid_resolution =
       domain::Distance(source.passage_grid_resolution_m);
   result.minimum_bundle_beams = source.minimum_bundle_beams;
-  result.compatibility_focus_bundle_beams =
-      source.compatibility_focus_bundle_beams;
+  result.left_focus = {domain::Angle(source.left_focus_min_rad),
+                       domain::Angle(source.left_focus_max_rad)};
+  result.right_focus = {domain::Angle(source.right_focus_min_rad),
+                        domain::Angle(source.right_focus_max_rad)};
+  result.left_open = {domain::Angle(source.left_open_min_rad),
+                      domain::Angle(source.left_open_max_rad)};
+  result.right_open = {domain::Angle(source.right_open_min_rad),
+                       domain::Angle(source.right_open_max_rad)};
   result.minimum_length_to_width_ratio =
       source.minimum_length_to_width_ratio;
   result.minimum_passage_length =

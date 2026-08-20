@@ -9,13 +9,23 @@ other whole-system compatibility blockers remain unresolved.
 
 ## Compatibility cue semantics
 
-Compatibility discovery examines exactly two fixed 41-ray focus bundles: the
-first 41 rays form `RightOpen`, and the final 41 rays form `LeftOpen`. Each cue
-records passage length, geometric width, length-to-width ratio, confidence,
+HLE measures four robot-relative angular sectors: narrow 15-degree
+`LeftFocus` and `RightFocus` sectors and wide 90-degree `LeftOpen` and
+`RightOpen` sectors. Beam membership comes from each beam's reported angle,
+never its array index. Every sector averages valid Cartesian beam endpoints;
+the Focus mean defines cue direction and length while the corresponding Open
+mean and endpoint spread provide independent width and openness evidence.
+Consequently equivalent geometry produces equivalent cues for different beam
+counts and angular resolutions. Each cue records passage length, geometric
+width, length-to-width ratio, confidence,
 global start and endpoint, global direction, discovery observation ID, current
 extension, passage ID, and lifecycle state. A bundle is accepted when it passes
 the configured passage-length and length-to-width test, or the configured
 large-room length and width test.
+
+Large-room classification deliberately remains the configurable threshold
+test. The historical environment-specific trained classifier is not loaded;
+this is an intentional modernized behavior in both isolated HLE policies.
 
 Every cue receives an explicit validation result containing:
 
@@ -26,9 +36,8 @@ Every cue receives an explicit validation result containing:
 
 Cues crossing more than one passage identity are rejected. Existing and new
 cues are compared by angular agreement, segment distance, and projected
-interval overlap. Similar cues merge into the stable candidate rather than
-being suppressed solely by endpoint hashing. Endpoint hashing remains only in
-the named modernized policy.
+interval overlap. Similar cues merge into the stable candidate. The spatial
+hash only accelerates lookup; it does not define cue geometry or equivalence.
 
 ## Pursuit and termination
 
@@ -62,3 +71,19 @@ events. Every update also stores the complete input observation and exact
 `ExplorationResult`; `HighLevelExplorer::replay` reproduces the ordered result
 stream without recomputation.
 
+## Low-level exploration handoff
+
+LLE keeps cue start `alpha(kappa)` separate from cue endpoint `omega(kappa)`.
+It first records whether the start is already satisfied, reached through direct
+visibility or an inclusion-grid route, unreachable, or invalidated. Only after
+reaching the start does it install 20 evenly spaced cue waypoints. An
+unreachable or invalidated start discards that cue; it is never treated as an
+exploration traversal.
+
+If no validated cue remains, uncovered current rays retain closest-target-bin
+selection and seeded compatibility randomness. When every current ray endpoint
+is already included, LLE routes through the inclusion grid to the included
+cell closest to the mission target, then rebuilds candidates from the new pose.
+A valid cue seen during relocation abandons the relocation immediately.
+Inclusion persists across temporary interruption, and roughly 10-percent
+inclusion growth or new connectivity still requests Tier-2 replanning.

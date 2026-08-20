@@ -134,7 +134,11 @@ TEST(EnvironmentRegression, HighwayCrossingOperationalizesThroughIntersection) {
 
 TEST(EnvironmentRegression, LargeRoomIsAnExplicitExplorationCue) {
   auto view = observation(0.0, 0.0);
-  std::fill(view.laser.ranges_m.begin(), view.laser.ranges_m.end(), 8.0);
+  view.laser.angle_min =
+      semaforr::domain::Angle(-1.5707963267948966);
+  view.laser.angle_increment = semaforr::domain::Angle(
+      3.1415926535897932 / 359.0);
+  view.laser.ranges_m.assign(360U, 8.0);
   semaforr::exploration::HighLevelExplorationConfiguration configuration;
   configuration.behavior_policy =
       semaforr::exploration::HleBehaviorPolicy::Compatibility;

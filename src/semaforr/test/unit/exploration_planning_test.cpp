@@ -1,6 +1,9 @@
 #include <gtest/gtest.h>
 
+#include <array>
+#include <limits>
 #include <memory>
+#include <optional>
 #include <semaforr/decision/enforcer.hpp>
 #include <semaforr/exploration/exploration_coordinator.hpp>
 #include <semaforr/exploration/high_level_explorer.hpp>
@@ -18,8 +21,11 @@ semaforr::domain::RobotObservation observation(double x,
                                                    2.0, 2.0, 2.0, 2.0, 2.0}) {
   semaforr::domain::RobotObservation result;
   result.pose = {{x, 0.0}, semaforr::domain::Angle::zero()};
-  result.laser.angle_min = semaforr::domain::Angle(-0.4);
-  result.laser.angle_increment = semaforr::domain::Angle(0.2);
+  result.laser.angle_min =
+      semaforr::domain::Angle(-1.5707963267948966);
+  result.laser.angle_increment = semaforr::domain::Angle(
+      3.1415926535897932 /
+      static_cast<double>(ranges.size() - 1U));
   result.laser.minimum_range = semaforr::domain::Distance(0.1);
   result.laser.maximum_range = semaforr::domain::Distance(5.0);
   result.laser.ranges_m = std::move(ranges);
@@ -28,19 +34,35 @@ semaforr::domain::RobotObservation observation(double x,
 
 semaforr::domain::RobotObservation compatibilityObservation(
     double x = 0.0, double y = 0.0, double heading = 0.0,
-    double right_range = 4.0, double left_range = 4.0) {
+    double right_range = 4.0, double left_range = 4.0,
+    std::size_t beam_count = 360U) {
   semaforr::domain::RobotObservation result;
   result.pose = {{x, y}, semaforr::domain::Angle(heading)};
-  result.laser.angle_min = semaforr::domain::Angle(-0.61);
-  result.laser.angle_increment = semaforr::domain::Angle(0.01);
+  result.laser.angle_min =
+      semaforr::domain::Angle(-1.5707963267948966);
+  result.laser.angle_increment = semaforr::domain::Angle(
+      3.1415926535897932 / static_cast<double>(beam_count - 1U));
   result.laser.minimum_range = semaforr::domain::Distance(0.1);
   result.laser.maximum_range = semaforr::domain::Distance(10.0);
-  result.laser.ranges_m.assign(123U, 0.3);
-  std::fill(result.laser.ranges_m.begin(),
-            result.laser.ranges_m.begin() + 41, right_range);
-  std::fill(result.laser.ranges_m.end() - 41,
-            result.laser.ranges_m.end(), left_range);
+  result.laser.ranges_m.resize(beam_count);
+  for (std::size_t beam = 0U; beam < beam_count; ++beam) {
+    const double angle = result.laser.angle_min.radians() +
+                         static_cast<double>(beam) *
+                             result.laser.angle_increment.radians();
+    result.laser.ranges_m[beam] = angle < 0.0 ? right_range : left_range;
+  }
   return result;
+}
+
+void setAngularSectorRange(semaforr::domain::RobotObservation& observation,
+                           double minimum, double maximum, double range) {
+  for (std::size_t beam = 0U; beam < observation.laser.ranges_m.size(); ++beam) {
+    const double angle = observation.laser.angle_min.radians() +
+                         static_cast<double>(beam) *
+                             observation.laser.angle_increment.radians();
+    if (angle >= minimum && angle <= maximum)
+      observation.laser.ranges_m[beam] = range;
+  }
 }
 
 semaforr::domain::StaticMap planningMap() {
@@ -143,7 +165,7 @@ TEST(HighLevelExplore, ReportsBudgetCompletionAndFinalizesExactlyOnce) {
 }
 
 TEST(HighLevelExplore,
-     CompatibilityCuesUseFixedBundlesAndExplicitGeometricValidation) {
+     CompatibilityCuesUseAngularBundlesAndExplicitGeometricValidation) {
   using namespace semaforr;
   exploration::HighLevelExplorationConfiguration configuration;
   configuration.behavior_policy = exploration::HleBehaviorPolicy::Compatibility;
@@ -153,13 +175,10 @@ TEST(HighLevelExplore,
       exploration::HighLevelExplorer::discoverCandidates(view, configuration);
   ASSERT_EQ(candidates.size(), 2U);
   EXPECT_EQ(candidates[0].cue_type,
-            exploration::PassageCueType::RightOpen);
-  EXPECT_EQ(candidates[0].first_beam, 0U);
-  EXPECT_EQ(candidates[0].last_beam, 40U);
+            exploration::PassageCueType::RightFocus);
   EXPECT_EQ(candidates[1].cue_type,
-            exploration::PassageCueType::LeftOpen);
-  EXPECT_EQ(candidates[1].first_beam, 82U);
-  EXPECT_EQ(candidates[1].last_beam, 122U);
+            exploration::PassageCueType::LeftFocus);
+  EXPECT_GT(candidates[1].first_beam, candidates[0].last_beam);
   for (const auto& candidate : candidates) {
     EXPECT_GT(candidate.length.meters(), candidate.width.meters());
     EXPECT_GT(candidate.confidence, 0.0);
@@ -190,7 +209,12 @@ TEST(HighLevelExplore,
   EXPECT_TRUE(validation.accepted);
 
   auto blocked = view;
-  blocked.laser.ranges_m[20] = 0.5;
+  const auto middle_beam =
+      candidates.front().first_beam +
+      (candidates.front().last_beam - candidates.front().first_beam) / 2U;
+  for (int offset = -2; offset <= 2; ++offset)
+    blocked.laser.ranges_m[static_cast<std::size_t>(
+        static_cast<std::ptrdiff_t>(middle_beam) + offset)] = 0.5;
   const auto blocked_validation =
       explorer.evaluateCue(candidates.front(), blocked);
   EXPECT_FALSE(blocked_validation.endpoint_clear);
@@ -243,12 +267,77 @@ TEST(HighLevelExplore,
 }
 
 TEST(HighLevelExplore,
+     AngularFocusAndOpenBundlesAreResolutionIndependentMeanEndpoints) {
+  using namespace semaforr;
+  exploration::HighLevelExplorationConfiguration configuration;
+  configuration.behavior_policy = exploration::HleBehaviorPolicy::Compatibility;
+  std::optional<std::array<exploration::HleBundleMeasurement, 4U>> reference;
+  for (const std::size_t beams : {180U, 360U, 660U, 720U}) {
+    const auto scan =
+        compatibilityObservation(2.0, -1.0, 0.4, 4.0, 6.0, beams);
+    const auto measured =
+        exploration::HighLevelExplorer::measureBundles(scan, configuration);
+    for (const auto& bundle : measured) {
+      EXPECT_TRUE(bundle.valid);
+      EXPECT_GT(bundle.beam_count, 0U);
+    }
+    if (!reference) {
+      reference = measured;
+      continue;
+    }
+    for (std::size_t index = 0U; index < measured.size(); ++index) {
+      EXPECT_NEAR(measured[index].mean_endpoint.x_m,
+                  (*reference)[index].mean_endpoint.x_m, 0.03);
+      EXPECT_NEAR(measured[index].mean_endpoint.y_m,
+                  (*reference)[index].mean_endpoint.y_m, 0.03);
+      EXPECT_NEAR(measured[index].representative_length.meters(),
+                  (*reference)[index].representative_length.meters(), 0.03);
+    }
+  }
+
+  auto asymmetric =
+      compatibilityObservation(0.0, 0.0, 0.0, 4.0, 4.0, 720U);
+  double expected_x = 0.0;
+  double expected_y = 0.0;
+  std::size_t expected_count = 0U;
+  for (std::size_t beam = 0U; beam < asymmetric.laser.ranges_m.size(); ++beam) {
+    const double angle = asymmetric.laser.angle_min.radians() +
+                         static_cast<double>(beam) *
+                             asymmetric.laser.angle_increment.radians();
+    if (angle < configuration.left_focus.minimum.radians() ||
+        angle > configuration.left_focus.maximum.radians())
+      continue;
+    if (beam % 3U == 0U) {
+      asymmetric.laser.ranges_m[beam] =
+          std::numeric_limits<double>::quiet_NaN();
+      continue;
+    }
+    const double range = beam % 2U == 0U
+                             ? asymmetric.laser.maximum_range.meters()
+                             : 2.0;
+    asymmetric.laser.ranges_m[beam] =
+        beam % 2U == 0U ? std::numeric_limits<double>::infinity() : range;
+    expected_x += range * std::cos(angle);
+    expected_y += range * std::sin(angle);
+    ++expected_count;
+  }
+  const auto measured =
+      exploration::HighLevelExplorer::measureBundles(asymmetric, configuration);
+  ASSERT_EQ(measured[0].beam_count, expected_count);
+  EXPECT_NEAR(measured[0].mean_endpoint.x_m,
+              expected_x / static_cast<double>(expected_count), 1e-9);
+  EXPECT_NEAR(measured[0].mean_endpoint.y_m,
+              expected_y / static_cast<double>(expected_count), 1e-9);
+}
+
+TEST(HighLevelExplore,
      CompatibilityPursuitUsesGlobalHeadingExtendsAndReplaysExactly) {
   using namespace semaforr;
   exploration::HighLevelExplorationConfiguration configuration;
   configuration.behavior_policy = exploration::HleBehaviorPolicy::Compatibility;
   configuration.large_room_width = domain::Distance(20.0);
   configuration.maximum_width_change_ratio = 10.0;
+  configuration.hard_turn_threshold = domain::Angle(1.0);
   exploration::HighLevelExplorer explorer(configuration);
   const domain::ActionSpace actions({0.1, 0.4}, {0.2, 0.5, 1.0});
   auto view = compatibilityObservation();
@@ -263,8 +352,7 @@ TEST(HighLevelExplore,
   view.pose.position =
       {0.5 * std::cos(candidate.direction.radians()),
        0.5 * std::sin(candidate.direction.radians())};
-  std::fill(view.laser.ranges_m.begin(),
-            view.laser.ranges_m.begin() + 41, 5.0);
+  setAngularSectorRange(view, -1.5707963267948966, 0.0, 5.0);
   const auto extended = explorer.update({view, actions, {}});
   EXPECT_EQ(extended.state, exploration::HleState::PursueCandidate);
   const auto unfinished = explorer.unfinishedCandidates();
@@ -303,7 +391,7 @@ TEST(HighLevelExplore,
     exploration::HighLevelExplorationConfiguration configuration;
     configuration.behavior_policy =
         exploration::HleBehaviorPolicy::Compatibility;
-    configuration.large_room_width = domain::Distance(3.0);
+    configuration.large_room_width = domain::Distance(6.0);
     exploration::HighLevelExplorer explorer(configuration);
     auto initial = compatibilityObservation();
     static_cast<void>(explorer.update({initial, actions, {}}));
@@ -333,13 +421,13 @@ TEST(HighLevelExplore,
                             }));
   };
 
-  auto width_change = compatibilityObservation(0.2, 0.0, 0.0, 2.0, 4.0);
+  auto width_change = compatibilityObservation(0.2, 0.0, 0.0, 1.5, 1.5);
   run(width_change, exploration::PursuitTerminationReason::WidthChanged,
       exploration::PassageCompletionState::Suspended);
   auto hard_turn = compatibilityObservation(0.2, 0.0, 1.0);
   run(hard_turn, exploration::PursuitTerminationReason::HardTurn,
       exploration::PassageCompletionState::Suspended);
-  auto large_room = compatibilityObservation(0.2, 0.0, 0.0, 8.0, 4.0);
+  auto large_room = compatibilityObservation(0.2, 0.0, 0.0, 8.0, 8.0);
   run(large_room, exploration::PursuitTerminationReason::LargeRoom,
       exploration::PassageCompletionState::Completed);
   auto ended = compatibilityObservation(0.2, 0.0);

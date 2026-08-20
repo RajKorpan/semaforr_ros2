@@ -265,11 +265,13 @@ TEST(ExplorationCoordinator, EmitsCandidateLifecycleEvents) {
   exploration::ExplorationCoordinator coordinator(0.1);
   domain::ActionSpace actions({0.1, 0.2}, {0.25, 0.5});
   domain::RobotObservation observation;
-  observation.laser.angle_min = domain::Angle(-0.5);
-  observation.laser.angle_increment = domain::Angle(0.5);
+  observation.laser.angle_min =
+      domain::Angle(-1.5707963267948966);
+  observation.laser.angle_increment =
+      domain::Angle(0.7853981633974483);
   observation.laser.minimum_range = domain::Distance(0.05);
   observation.laser.maximum_range = domain::Distance(5.0);
-  observation.laser.ranges_m = {2.0, 2.0, 2.0};
+  observation.laser.ranges_m = {2.0, 2.0, 2.0, 2.0, 2.0};
 
   static_cast<void>(coordinator.decide(observation, actions));
   const auto selected = coordinator.decide(observation, actions);

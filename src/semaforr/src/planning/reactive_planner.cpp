@@ -7,6 +7,8 @@
 #include <semaforr/spatial/chapter3_learning.hpp>
 #include <set>
 #include <stdexcept>
+#include <unordered_map>
+#include <unordered_set>
 
 namespace semaforr::planning {
 namespace {
@@ -106,6 +108,17 @@ bool validObservationRay(const domain::LaserObservation& laser,
          (std::isfinite(measured)
               ? measured <= laser.maximum_range.meters()
               : measured > 0.0);
+}
+
+std::optional<double> lleRayExtent(const domain::LaserObservation& laser,
+                                   double measured) {
+  if (std::isnan(measured) || measured < laser.minimum_range.meters())
+    return std::nullopt;
+  if (std::isinf(measured))
+    return measured > 0.0
+               ? std::optional<double>(laser.maximum_range.meters())
+               : std::nullopt;
+  return std::min(measured, laser.maximum_range.meters());
 }
 
 ObservationCellSet observedCells(const domain::Pose2D& pose,
@@ -226,6 +239,95 @@ template <typename Grid>
 std::optional<std::size_t> gridIndex(const Grid& grid,
                                      domain::Point2D point) {
   return grid.extent().index(point);
+}
+
+bool pointBlocked(const domain::WorldModel& world, domain::Point2D point) {
+  const auto& sensed_grid = world.spatial.sensed_occupancy;
+  if (sensed_grid.valid()) {
+    const auto sensed_index = sensed_grid.geometry.index(point);
+    if (sensed_index &&
+        sensed_grid.valueAt(*sensed_index).state ==
+            domain::SensedOccupancyState::ObservedOccupied)
+      return true;
+  }
+  if (world.static_map && world.static_map->occupancyAvailable()) {
+    const auto& occupancy = world.static_map->occupancy;
+    const auto index = occupancy.geometry.index(point);
+    if (!index || occupancy.cells[*index] ==
+                      domain::StaticOccupancyState::StaticOccupied)
+      return true;
+  }
+  return false;
+}
+
+std::optional<std::vector<domain::Point2D>> inclusionRoute(
+    const domain::WorldModel& world, domain::Point2D start,
+    domain::Point2D goal) {
+  const auto& grid = world.spatial.inclusion_grid;
+  if (!grid.valid()) return std::nullopt;
+  const auto start_index = grid.extent().index(start);
+  const auto goal_index = grid.extent().index(goal);
+  if (!start_index || !goal_index || grid.valueAt(*goal_index) == 0U ||
+      pointBlocked(world, goal))
+    return std::nullopt;
+  std::unordered_set<std::size_t> included;
+  if (!grid.cells.empty()) {
+    for (std::size_t index = 0U; index < grid.cells.size(); ++index)
+      if (grid.cells[index] != 0U &&
+          !pointBlocked(world, grid.extent().center(index)))
+        included.insert(index);
+  } else {
+    for (const auto& cell : grid.sparseCells())
+      if (cell.value != 0U &&
+          !pointBlocked(world, grid.extent().center(cell.index)))
+        included.insert(cell.index);
+  }
+  included.insert(*start_index);
+  if (!included.contains(*goal_index)) return std::nullopt;
+  std::queue<std::size_t> frontier;
+  std::unordered_map<std::size_t, std::size_t> predecessor;
+  frontier.push(*start_index);
+  predecessor.emplace(*start_index, *start_index);
+  const auto columns = grid.columns;
+  const auto rows = grid.rows;
+  while (!frontier.empty() && !predecessor.contains(*goal_index)) {
+    const auto current = frontier.front();
+    frontier.pop();
+    const auto row = static_cast<long long>(current / columns);
+    const auto column = static_cast<long long>(current % columns);
+    for (long long row_offset = -1; row_offset <= 1; ++row_offset) {
+      for (long long column_offset = -1; column_offset <= 1;
+           ++column_offset) {
+        if (row_offset == 0 && column_offset == 0) continue;
+        const auto next_row = row + row_offset;
+        const auto next_column = column + column_offset;
+        if (next_row < 0 || next_column < 0 ||
+            next_row >= static_cast<long long>(rows) ||
+            next_column >= static_cast<long long>(columns))
+          continue;
+        const auto next = static_cast<std::size_t>(next_row) * columns +
+                          static_cast<std::size_t>(next_column);
+        if (!included.contains(next) || predecessor.contains(next)) continue;
+        predecessor.emplace(next, current);
+        frontier.push(next);
+      }
+    }
+  }
+  if (!predecessor.contains(*goal_index)) return std::nullopt;
+  std::vector<std::size_t> reversed;
+  for (auto cursor = *goal_index; cursor != *start_index;
+       cursor = predecessor.at(cursor))
+    reversed.push_back(cursor);
+  std::reverse(reversed.begin(), reversed.end());
+  std::vector<domain::Point2D> route;
+  route.reserve(reversed.size() + 1U);
+  for (const auto index : reversed) route.push_back(grid.extent().center(index));
+  if (route.empty() || domain::distance(route.back(), goal).meters() >
+                           domain::geometry_tolerance_m)
+    route.push_back(goal);
+  else
+    route.back() = goal;
+  return route;
 }
 
 domain::Action stepToward(const domain::Pose2D& pose,
@@ -819,12 +921,11 @@ void LowLevelExplorer::assembleCandidates(const domain::WorldModel& world) {
   std::vector<LLECandidate> fallback_rays;
   const auto addView = [&](const domain::Pose2D& pose,
                            const domain::LaserObservation& laser) {
+    bool uncovered_ray = false;
     for (std::size_t beam = 0U; beam < laser.ranges_m.size(); ++beam) {
-      const double range = std::isfinite(laser.ranges_m[beam])
-                               ? laser.ranges_m[beam]
-                               : laser.maximum_range.meters();
-      if (!std::isfinite(range) || range < laser.minimum_range.meters())
-        continue;
+      const auto extent = lleRayExtent(laser, laser.ranges_m[beam]);
+      if (!extent) continue;
+      const double range = *extent;
       const double angle = pose.heading.radians() +
                            laser.angle_min.radians() +
                            static_cast<double>(beam) *
@@ -842,14 +943,18 @@ void LowLevelExplorer::assembleCandidates(const domain::WorldModel& world) {
       const auto inclusion_index = gridIndex(grid, endpoint);
       const bool uncovered =
           !inclusion_index || grid.valueAt(*inclusion_index) == 0U;
-      if (!valid_cue && uncovered)
+      if (!valid_cue && uncovered) {
+        uncovered_ray = true;
         fallback_rays.push_back(
             {next_candidate_id_++,
              LLECandidateSource::CurrentTargetObservation, pose.position,
              endpoint, -domain::distance(endpoint, target).meters(), false});
+      }
     }
+    return uncovered_ray;
   };
-  addView(world.robot.pose, *world.robot.laser);
+  const bool current_view_has_uncovered_ray =
+      addView(world.robot.pose, *world.robot.laser);
   for (const auto& entry : world.navigation_history.entries())
     addView(entry.pose, entry.laser);
   if (!world.spatial.regions.empty()) {
@@ -861,25 +966,37 @@ void LowLevelExplorer::assembleCandidates(const domain::WorldModel& world) {
           add(LLECandidateSource::RegionVisibility, visibility.ray_start,
               visibility.ray_end);
   }
-  std::vector<LLECandidate> fallback_gaps;
-  if (grid.columns > 0U && grid.rows > 0U) {
-    for (std::size_t index = 0U; index < grid.cells.size(); ++index) {
-      if (grid.cells[index] != 0U) continue;
-      const auto row = index / grid.columns;
-      const auto column = index % grid.columns;
-      const domain::Point2D point{
-          grid.origin.x_m + (static_cast<double>(column) + 0.5) *
-                                grid.resolution_m,
-          grid.origin.y_m + (static_cast<double>(row) + 0.5) *
-                                grid.resolution_m};
-      fallback_gaps.push_back(
-          {next_candidate_id_++, LLECandidateSource::InclusionGap,
-           world.robot.pose.position, point,
-           -domain::distance(point, target).meters(), false});
+  if (ranked_candidates_.empty() && current_view_has_uncovered_ray)
+    selectFallback(std::move(fallback_rays));
+  if (ranked_candidates_.empty() && !current_view_has_uncovered_ray &&
+      grid.valid()) {
+    std::optional<LLECandidate> closest_included;
+    const auto consider = [&](std::size_t index, std::uint32_t value) {
+      if (value == 0U) return;
+      const auto point = grid.extent().center(index);
+      if (domain::distance(world.robot.pose.position, point).meters() <=
+          progress_threshold_m_)
+        return;
+      LLECandidate candidate{
+          next_candidate_id_++, LLECandidateSource::IncludedRelocation,
+          point, point,
+          -domain::distance(point, target).meters(), false};
+      if (!closest_included ||
+          candidate.target_relevance > closest_included->target_relevance ||
+          (candidate.target_relevance == closest_included->target_relevance &&
+           candidate.id < closest_included->id))
+        closest_included = candidate;
+    };
+    if (!grid.cells.empty()) {
+      for (std::size_t index = 0U; index < grid.cells.size(); ++index)
+        consider(index, grid.cells[index]);
+    } else {
+      for (const auto& cell : grid.sparseCells())
+        consider(cell.index, cell.value);
     }
+    if (closest_included)
+      ranked_candidates_.push_back(std::move(*closest_included));
   }
-  if (ranked_candidates_.empty()) selectFallback(std::move(fallback_rays));
-  if (ranked_candidates_.empty()) selectFallback(std::move(fallback_gaps));
 }
 
 void LowLevelExplorer::selectFallback(std::vector<LLECandidate> candidates) {
@@ -925,15 +1042,87 @@ void LowLevelExplorer::installCandidateWaypoints(
   lost_waypoint_cycles_ = 0U;
 }
 
+bool LowLevelExplorer::planCandidateStart(const domain::WorldModel& world,
+                                          const LLECandidate& candidate) {
+  start_connection_waypoints_.clear();
+  start_connection_cursor_ = 0U;
+  start_connection_uses_inclusion_ = false;
+  start_connection_inclusion_revision_ =
+      world.spatial.revisionOf(domain::ModelDependency::Inclusion);
+  if (domain::distance(world.robot.pose.position, candidate.start).meters() <=
+      progress_threshold_m_) {
+    start_plan_outcome_ = CandidateStartPlanOutcome::AlreadySatisfied;
+    start_plan_reason_ = "candidate_start_already_satisfied";
+    candidate_start_diagnostics_.push_back(start_plan_reason_);
+    return true;
+  }
+  if (world.robot.laser &&
+      sensed(world.robot.pose, *world.robot.laser, candidate.start) &&
+      !pointBlocked(world, candidate.start)) {
+    start_connection_waypoints_.push_back(candidate.start);
+    start_plan_outcome_ = CandidateStartPlanOutcome::Succeeded;
+    start_plan_reason_ = "candidate_start_direct_visibility_plan";
+    candidate_start_diagnostics_.push_back(start_plan_reason_);
+    return true;
+  }
+  auto route = inclusionRoute(world, world.robot.pose.position,
+                              candidate.start);
+  if (!route) {
+    start_plan_outcome_ = CandidateStartPlanOutcome::Failed;
+    start_plan_reason_ = "candidate_start_unreachable";
+    candidate_start_diagnostics_.push_back(start_plan_reason_);
+    return false;
+  }
+  start_connection_waypoints_ = std::move(*route);
+  start_connection_uses_inclusion_ = true;
+  start_plan_outcome_ = CandidateStartPlanOutcome::Succeeded;
+  start_plan_reason_ = "candidate_start_inclusion_plan";
+  candidate_start_diagnostics_.push_back(start_plan_reason_);
+  return true;
+}
+
+bool LowLevelExplorer::candidateStartPlanValid(
+    const domain::WorldModel& world) const {
+  if (start_connection_uses_inclusion_ &&
+      world.spatial.revisionOf(domain::ModelDependency::Inclusion) !=
+          start_connection_inclusion_revision_)
+    return false;
+  for (std::size_t index = start_connection_cursor_;
+       index < start_connection_waypoints_.size(); ++index) {
+    if (pointBlocked(world, start_connection_waypoints_[index])) return false;
+    if (start_connection_uses_inclusion_) {
+      const auto cell = gridIndex(world.spatial.inclusion_grid,
+                                  start_connection_waypoints_[index]);
+      if (!cell || world.spatial.inclusion_grid.valueAt(*cell) == 0U)
+        return false;
+    }
+  }
+  return true;
+}
+
+bool LowLevelExplorer::advanceCandidate(const domain::WorldModel&) {
+  ++candidate_cursor_;
+  start_connection_waypoints_.clear();
+  start_connection_cursor_ = 0U;
+  start_connection_uses_inclusion_ = false;
+  start_plan_outcome_ = CandidateStartPlanOutcome::NotAttempted;
+  start_plan_reason_ = "not_attempted";
+  cue_waypoints_.clear();
+  waypoint_cursor_ = 0U;
+  lost_waypoint_cycles_ = 0U;
+  state_ = LowLevelExplorationState::PlanToCandidateStart;
+  return candidate_cursor_ < ranked_candidates_.size();
+}
+
 bool LowLevelExplorer::appendCurrentViewCandidates(
     const domain::WorldModel& world) {
   const auto& laser = *world.robot.laser;
   const auto target = world.mission.active()->target;
   bool appended = false;
   for (std::size_t beam = 0U; beam < laser.ranges_m.size(); ++beam) {
-    const double range = std::isfinite(laser.ranges_m[beam])
-                             ? laser.ranges_m[beam]
-                             : laser.maximum_range.meters();
+    const auto extent = lleRayExtent(laser, laser.ranges_m[beam]);
+    if (!extent) continue;
+    const double range = *extent;
     if (range < minimum_cue_length_m_) continue;
     const double angle = world.robot.pose.heading.radians() +
                          laser.angle_min.radians() +
@@ -1024,6 +1213,12 @@ ReactivePlanUpdate LowLevelExplorer::update(
     cue_waypoints_.clear();
     waypoint_cursor_ = 0U;
     lost_waypoint_cycles_ = 0U;
+    start_connection_waypoints_.clear();
+    start_connection_cursor_ = 0U;
+    start_connection_uses_inclusion_ = false;
+    start_plan_outcome_ = CandidateStartPlanOutcome::NotAttempted;
+    start_plan_reason_ = "not_attempted";
+    candidate_start_diagnostics_.clear();
   }
   if (state_ != LowLevelExplorationState::DetectMissingGuidance) {
     const auto included = includedCellCount(context.world);
@@ -1087,7 +1282,26 @@ ReactivePlanUpdate LowLevelExplorer::update(
     const bool current_is_cue =
         ranked_candidates_[candidate_cursor_].validated_cue;
     if (appendCurrentViewCandidates(context.world)) {
-      const auto sort_begin = candidate_cursor_ + (current_is_cue ? 1U : 0U);
+      if (!current_is_cue) {
+        const auto best = std::max_element(
+            ranked_candidates_.begin() +
+                static_cast<std::ptrdiff_t>(candidate_cursor_ + 1U),
+            ranked_candidates_.end(), [](const auto& left, const auto& right) {
+              return left.target_relevance < right.target_relevance;
+            });
+        if (best != ranked_candidates_.end() && best->validated_cue) {
+          std::iter_swap(ranked_candidates_.begin() +
+                             static_cast<std::ptrdiff_t>(candidate_cursor_),
+                         best);
+          start_connection_waypoints_.clear();
+          start_connection_cursor_ = 0U;
+          start_plan_outcome_ = CandidateStartPlanOutcome::NotAttempted;
+          start_plan_reason_ = "fallback_abandoned_for_visible_cue";
+          state_ = LowLevelExplorationState::PlanToCandidateStart;
+          return update(context);
+        }
+      }
+      const auto sort_begin = candidate_cursor_ + 1U;
       std::stable_sort(
           ranked_candidates_.begin() +
               static_cast<std::ptrdiff_t>(sort_begin),
@@ -1096,19 +1310,70 @@ ReactivePlanUpdate LowLevelExplorer::update(
                    (left.target_relevance == right.target_relevance &&
                     left.id < right.id);
           });
-      if (!current_is_cue)
-        installCandidateWaypoints(ranked_candidates_[candidate_cursor_]);
     }
   }
-  const auto& candidate = ranked_candidates_[candidate_cursor_];
+  const auto candidate = ranked_candidates_[candidate_cursor_];
   if (state_ == LowLevelExplorationState::PlanToCandidateStart) {
-    if (domain::distance(context.world.robot.pose.position, candidate.start)
-            .meters() > progress_threshold_m_) {
+    if (candidate.source == LLECandidateSource::IncludedRelocation &&
+        appendCurrentViewCandidates(context.world)) {
+      const auto best = std::max_element(
+          ranked_candidates_.begin() +
+              static_cast<std::ptrdiff_t>(candidate_cursor_ + 1U),
+          ranked_candidates_.end(), [](const auto& left, const auto& right) {
+            return left.target_relevance < right.target_relevance;
+          });
+      if (best != ranked_candidates_.end() && best->validated_cue) {
+        std::iter_swap(ranked_candidates_.begin() +
+                           static_cast<std::ptrdiff_t>(candidate_cursor_),
+                       best);
+        start_connection_waypoints_.clear();
+        start_connection_cursor_ = 0U;
+        start_plan_outcome_ = CandidateStartPlanOutcome::NotAttempted;
+        start_plan_reason_ = "fallback_abandoned_for_visible_cue";
+        candidate_start_diagnostics_.push_back(start_plan_reason_);
+        return update(context);
+      }
+    }
+    if (start_plan_outcome_ == CandidateStartPlanOutcome::NotAttempted &&
+        !planCandidateStart(context.world, candidate)) {
+      if (!advanceCandidate(context.world))
+        return complete(ReactiveCompletionReason::CandidateExhausted,
+                        "all LLE candidate starts were unreachable");
+      return update(context);
+    }
+    if (!candidateStartPlanValid(context.world)) {
+      start_plan_outcome_ = CandidateStartPlanOutcome::Invalidated;
+      start_plan_reason_ = "candidate_start_plan_invalidated";
+      candidate_start_diagnostics_.push_back(start_plan_reason_);
+      if (!advanceCandidate(context.world))
+        return complete(ReactiveCompletionReason::CandidateExhausted,
+                        "LLE candidate-start plan was invalidated");
+      return update(context);
+    }
+    while (start_connection_cursor_ < start_connection_waypoints_.size() &&
+           domain::distance(
+               context.world.robot.pose.position,
+               start_connection_waypoints_[start_connection_cursor_])
+                   .meters() <= progress_threshold_m_)
+      ++start_connection_cursor_;
+    if (start_connection_cursor_ < start_connection_waypoints_.size()) {
       return {ReactiveStatus::Action,
-              actionToward(context.world.robot.pose, candidate.start,
+              actionToward(context.world.robot.pose,
+                           start_connection_waypoints_[start_connection_cursor_],
                            *context.action_space),
               state_, ReactiveCompletionReason::None, candidate.id,
-              "plan to candidate start"};
+              start_plan_reason_};
+    }
+    if (candidate.source == LLECandidateSource::IncludedRelocation) {
+      candidate_start_diagnostics_.push_back(
+          "included_relocation_reached_resume_ray_exploration");
+      ranked_candidates_.clear();
+      candidate_cursor_ = 0U;
+      start_connection_waypoints_.clear();
+      start_connection_cursor_ = 0U;
+      start_plan_outcome_ = CandidateStartPlanOutcome::NotAttempted;
+      state_ = LowLevelExplorationState::AssembleCandidateRays;
+      return update(context);
     }
     installCandidateWaypoints(candidate);
     state_ = LowLevelExplorationState::PursueCandidate;
@@ -1120,9 +1385,7 @@ ReactivePlanUpdate LowLevelExplorer::update(
                progress_threshold_m_)
       ++waypoint_cursor_;
     if (waypoint_cursor_ >= cue_waypoints_.size()) {
-      ++candidate_cursor_;
-      state_ = LowLevelExplorationState::PlanToCandidateStart;
-      if (candidate_cursor_ >= ranked_candidates_.size())
+      if (!advanceCandidate(context.world))
         return complete(ReactiveCompletionReason::CandidateExhausted,
                         "all LLE candidates were exhausted");
       return update(context);
@@ -1136,10 +1399,7 @@ ReactivePlanUpdate LowLevelExplorer::update(
                cue_waypoints_[waypoint_cursor_ + 1U]);
     if (!next_visible && !following_visible) {
       if (++lost_waypoint_cycles_ >= 3U) {
-        ++candidate_cursor_;
-        state_ = LowLevelExplorationState::PlanToCandidateStart;
-        cue_waypoints_.clear();
-        if (candidate_cursor_ >= ranked_candidates_.size())
+        if (!advanceCandidate(context.world))
           return complete(ReactiveCompletionReason::CandidateExhausted,
                           "LLE lost every remaining cue");
         return update(context);

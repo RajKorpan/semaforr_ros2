@@ -185,7 +185,12 @@ TEST(PerformanceRegression, MeasuresHighLevelCueProcessing) {
   semaforr::exploration::HighLevelExplorationConfiguration configuration;
   configuration.behavior_policy =
       semaforr::exploration::HleBehaviorPolicy::Compatibility;
-  const auto view = observation();
+  auto view = observation();
+  view.laser.angle_min =
+      semaforr::domain::Angle(-1.5707963267948966);
+  view.laser.angle_increment = semaforr::domain::Angle(
+      3.1415926535897932 / 659.0);
+  view.laser.ranges_m.assign(660U, 4.0);
   constexpr std::size_t iterations = 250U;
   std::size_t candidates = 0U;
   const auto started = Clock::now();

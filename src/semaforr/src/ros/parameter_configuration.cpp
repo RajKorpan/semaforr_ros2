@@ -102,8 +102,20 @@ void declareConfigurationParameters(rclcpp::Node& node) {
   node.declare_parameter("phases.initial_exploration.passage_grid_resolution_m",
                          0.5);
   node.declare_parameter("phases.initial_exploration.minimum_bundle_beams", 1);
-  node.declare_parameter(
-      "phases.initial_exploration.compatibility_focus_bundle_beams", 41);
+  node.declare_parameter("phases.initial_exploration.left_focus_min_rad",
+                         0.6544984694978736);
+  node.declare_parameter("phases.initial_exploration.left_focus_max_rad",
+                         0.9162978572970231);
+  node.declare_parameter("phases.initial_exploration.right_focus_min_rad",
+                         -0.9162978572970231);
+  node.declare_parameter("phases.initial_exploration.right_focus_max_rad",
+                         -0.6544984694978736);
+  node.declare_parameter("phases.initial_exploration.left_open_min_rad", 0.0);
+  node.declare_parameter("phases.initial_exploration.left_open_max_rad",
+                         1.5707963267948966);
+  node.declare_parameter("phases.initial_exploration.right_open_min_rad",
+                         -1.5707963267948966);
+  node.declare_parameter("phases.initial_exploration.right_open_max_rad", 0.0);
   node.declare_parameter(
       "phases.initial_exploration.minimum_length_to_width_ratio", 1.5);
   node.declare_parameter(
@@ -613,14 +625,22 @@ config::Configuration configurationFromParameters(rclcpp::Node& node) {
     throw std::runtime_error(
         "phases.initial_exploration.minimum_bundle_beams must be positive");
   hle.minimum_bundle_beams = static_cast<std::size_t>(minimum_bundle_beams);
-  const auto focus_bundle = node.get_parameter(
-      "phases.initial_exploration.compatibility_focus_bundle_beams").as_int();
-  if (focus_bundle <= 0)
-    throw std::runtime_error(
-        "phases.initial_exploration.compatibility_focus_bundle_beams must be "
-        "positive");
-  hle.compatibility_focus_bundle_beams =
-      static_cast<std::size_t>(focus_bundle);
+  hle.left_focus_min_rad = node.get_parameter(
+      "phases.initial_exploration.left_focus_min_rad").as_double();
+  hle.left_focus_max_rad = node.get_parameter(
+      "phases.initial_exploration.left_focus_max_rad").as_double();
+  hle.right_focus_min_rad = node.get_parameter(
+      "phases.initial_exploration.right_focus_min_rad").as_double();
+  hle.right_focus_max_rad = node.get_parameter(
+      "phases.initial_exploration.right_focus_max_rad").as_double();
+  hle.left_open_min_rad = node.get_parameter(
+      "phases.initial_exploration.left_open_min_rad").as_double();
+  hle.left_open_max_rad = node.get_parameter(
+      "phases.initial_exploration.left_open_max_rad").as_double();
+  hle.right_open_min_rad = node.get_parameter(
+      "phases.initial_exploration.right_open_min_rad").as_double();
+  hle.right_open_max_rad = node.get_parameter(
+      "phases.initial_exploration.right_open_max_rad").as_double();
   hle.minimum_length_to_width_ratio = node.get_parameter(
       "phases.initial_exploration.minimum_length_to_width_ratio").as_double();
   hle.minimum_passage_length_m = node.get_parameter(

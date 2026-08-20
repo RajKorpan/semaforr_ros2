@@ -761,8 +761,14 @@ std::string configurationFingerprint(const Configuration& configuration) {
       << '|'
       << configuration.experiment.initial_exploration.minimum_bundle_beams
       << '|'
-      << configuration.experiment.initial_exploration
-             .compatibility_focus_bundle_beams
+      << configuration.experiment.initial_exploration.left_focus_min_rad << '|'
+      << configuration.experiment.initial_exploration.left_focus_max_rad << '|'
+      << configuration.experiment.initial_exploration.right_focus_min_rad << '|'
+      << configuration.experiment.initial_exploration.right_focus_max_rad << '|'
+      << configuration.experiment.initial_exploration.left_open_min_rad << '|'
+      << configuration.experiment.initial_exploration.left_open_max_rad << '|'
+      << configuration.experiment.initial_exploration.right_open_min_rad << '|'
+      << configuration.experiment.initial_exploration.right_open_max_rad
       << '|'
       << configuration.experiment.initial_exploration
              .minimum_length_to_width_ratio
@@ -1120,7 +1126,22 @@ void validateConfiguration(const Configuration& configuration) {
        !(experiment.initial_exploration.cue_similarity_radius_m > 0.0) ||
        !(experiment.initial_exploration.passage_grid_resolution_m > 0.0) ||
        experiment.initial_exploration.minimum_bundle_beams == 0U ||
-       experiment.initial_exploration.compatibility_focus_bundle_beams != 41U ||
+       !std::isfinite(experiment.initial_exploration.left_focus_min_rad) ||
+       !std::isfinite(experiment.initial_exploration.left_focus_max_rad) ||
+       !std::isfinite(experiment.initial_exploration.right_focus_min_rad) ||
+       !std::isfinite(experiment.initial_exploration.right_focus_max_rad) ||
+       !std::isfinite(experiment.initial_exploration.left_open_min_rad) ||
+       !std::isfinite(experiment.initial_exploration.left_open_max_rad) ||
+       !std::isfinite(experiment.initial_exploration.right_open_min_rad) ||
+       !std::isfinite(experiment.initial_exploration.right_open_max_rad) ||
+       experiment.initial_exploration.left_focus_min_rad >=
+           experiment.initial_exploration.left_focus_max_rad ||
+       experiment.initial_exploration.right_focus_min_rad >=
+           experiment.initial_exploration.right_focus_max_rad ||
+       experiment.initial_exploration.left_open_min_rad >=
+           experiment.initial_exploration.left_open_max_rad ||
+       experiment.initial_exploration.right_open_min_rad >=
+           experiment.initial_exploration.right_open_max_rad ||
        !(experiment.initial_exploration.minimum_length_to_width_ratio > 0.0) ||
        !(experiment.initial_exploration.minimum_passage_length_m > 0.0) ||
        !(experiment.initial_exploration.large_room_width_m > 0.0) ||
@@ -1132,7 +1153,7 @@ void validateConfiguration(const Configuration& configuration) {
        !(experiment.initial_exploration.minimum_extension_m > 0.0))) {
     throw std::runtime_error(
         "configuration: HLE requires strategy 'hle' and positive typed "
-        "clearance, heading, candidate, grid, fixed 41-ray focus bundle, "
+        "clearance, heading, candidate, grid, angular Focus/Open sectors, "
         "passage geometry, pursuit, time, and decision parameters; "
         "behavior_policy must be profile, modernized, or compatibility and "
         "observation_budget may be zero");
