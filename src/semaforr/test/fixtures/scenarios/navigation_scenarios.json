@@ -11,6 +11,12 @@
     {"name": "stuck_robot", "expected": "skip_at_decision_limit"},
     {"name": "pedestrian_crossing", "expected": "pause"},
     {"name": "dense_crowd", "expected": "pause"},
-    {"name": "sensor_timeout", "expected": "zero_velocity"}
+    {"name": "sensor_timeout", "expected": "zero_velocity"},
+    {"name": "hallway_network", "expected": "learn_both_orientations"},
+    {"name": "highway_crossing", "expected": "route_through_intersection"},
+    {"name": "large_room", "expected": "large_room_cue"},
+    {"name": "dynamic_obstacle", "expected": "temporary_block"},
+    {"name": "failed_movement", "expected": "non_traversal_evidence"},
+    {"name": "negative_coordinate_map", "expected": "bounded_route"}
   ]
 }

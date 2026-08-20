@@ -307,6 +307,54 @@ TEST(SpatialLearning, EveryRepresentationRebuildsAndSerializesIndependently) {
             std::string::npos);
 }
 
+TEST(SpatialLearning,
+     EveryLearnerHasDeterministicSerializationAndNoOpRevisionBehavior) {
+  using namespace semaforr::spatial;
+  auto first = SpatialLearningCoordinator::defaults(100U);
+  auto second = SpatialLearningCoordinator::defaults(100U);
+  for (std::size_t index = 0U; index < 6U; ++index) {
+    const auto value = episode(index + 1U, static_cast<double>(index) * 0.3,
+                               index == 0U);
+    first.observe(value);
+    second.observe(value);
+  }
+  first.finalizeTarget();
+  second.finalizeTarget();
+  first.finalizeInitialExploration();
+  second.finalizeInitialExploration();
+  first.rebuildAll();
+  second.rebuildAll();
+
+  const auto first_models = first.snapshots();
+  const auto second_models = second.snapshots();
+  ASSERT_EQ(first_models.size(), 12U);
+  ASSERT_EQ(second_models.size(), first_models.size());
+  for (std::size_t index = 0U; index < first_models.size(); ++index) {
+    SCOPED_TRACE(std::string(toString(first_models[index].representation)));
+    EXPECT_EQ(first_models[index].representation,
+              second_models[index].representation);
+    EXPECT_EQ(first_models[index].revision, second_models[index].revision);
+    EXPECT_EQ(first.serialize(first_models[index].representation),
+              second.serialize(second_models[index].representation));
+  }
+
+  std::vector<std::size_t> revisions;
+  std::vector<std::string> encodings;
+  for (const auto& model : first_models) {
+    revisions.push_back(model.revision);
+    encodings.push_back(first.serialize(model.representation));
+  }
+  first.rebuildAll();
+  const auto rebuilt = first.snapshots();
+  ASSERT_EQ(rebuilt.size(), revisions.size());
+  for (std::size_t index = 0U; index < rebuilt.size(); ++index) {
+    SCOPED_TRACE(std::string(toString(rebuilt[index].representation)));
+    EXPECT_EQ(rebuilt[index].revision, revisions[index]);
+    EXPECT_EQ(first.serialize(rebuilt[index].representation),
+              encodings[index]);
+  }
+}
+
 TEST(SpatialLearning, PublishesImmutableRevisionedSparseSnapshots) {
   using namespace semaforr::spatial;
   auto coordinator = SpatialLearningCoordinator::defaults(100U);

@@ -483,6 +483,14 @@ if(BUILD_TESTING)
   semaforr_apply_project_options(semaforr_navigation_scenario_test)
 
   ament_add_gtest(
+    semaforr_environment_regression_test
+    test/integration/environment_regression_test.cpp
+  )
+  target_link_libraries(
+    semaforr_environment_regression_test semaforr_navigation)
+  semaforr_apply_project_options(semaforr_environment_regression_test)
+
+  ament_add_gtest(
     semaforr_exploration_planning_test
     test/unit/exploration_planning_test.cpp
   )
@@ -506,6 +514,15 @@ if(BUILD_TESTING)
     semaforr_snapshot_projection_test
     semaforr_navigation semaforr_validation)
   semaforr_apply_project_options(semaforr_snapshot_projection_test)
+
+  ament_add_gtest(
+    semaforr_performance_regression_test
+    test/performance/performance_regression_test.cpp
+  )
+  target_link_libraries(
+    semaforr_performance_regression_test
+    semaforr_navigation semaforr_validation)
+  semaforr_apply_project_options(semaforr_performance_regression_test)
 
   ament_add_gtest(
     semaforr_chapter3_representations_test
@@ -629,6 +646,15 @@ if(BUILD_TESTING)
     else()
       set_property(TEST ${semaforr_test_name} APPEND PROPERTY
         LABELS "behavior_mode:modernized")
+    endif()
+    if(semaforr_test_name STREQUAL "semaforr_performance_regression_test")
+      set_property(TEST ${semaforr_test_name} APPEND PROPERTY
+        LABELS "test_kind:performance")
+    elseif(semaforr_test_name STREQUAL
+           "semaforr_environment_regression_test" OR
+           semaforr_test_name STREQUAL "semaforr_navigation_scenario_test")
+      set_property(TEST ${semaforr_test_name} APPEND PROPERTY
+        LABELS "test_kind:regression")
     endif()
   endforeach()
 endif()

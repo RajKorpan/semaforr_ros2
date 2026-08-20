@@ -8,6 +8,10 @@
 #include <semaforr_msgs/msg/tier_three_action_total.hpp>
 #include <why/why_system.hpp>
 
+#include <algorithm>
+#include <fstream>
+#include <map>
+#include <stdexcept>
 #include <string>
 
 namespace {
@@ -16,6 +20,22 @@ using semaforr::why::ExplanationQuestion;
 using semaforr::why::UnifiedWhySystem;
 using semaforr_msgs::msg::DecisionAction;
 using semaforr_msgs::msg::DecisionRecord;
+
+std::map<std::string, std::string> goldenExplanations() {
+  std::ifstream stream(std::string(WHY_TEST_SOURCE_DIR) +
+                       "/test/fixtures/why_explanations.golden");
+  if (!stream) throw std::runtime_error("cannot open Why golden fixture");
+  std::map<std::string, std::string> result;
+  std::string line;
+  while (std::getline(stream, line)) {
+    if (line.empty() || line.front() == '#') continue;
+    const auto separator = line.find('=');
+    if (separator == std::string::npos)
+      throw std::runtime_error("malformed Why golden fixture line");
+    result.emplace(line.substr(0U, separator), line.substr(separator + 1U));
+  }
+  return result;
+}
 
 DecisionAction action(std::uint8_t type, std::uint32_t magnitude = 0U) {
   DecisionAction result;
@@ -439,6 +459,80 @@ TEST(WhyPlanComparison, RefusesToInventUserRouteCostsWithoutEvaluator) {
   const auto evaluated = why.answer(question);
   EXPECT_TRUE(evaluated.found);
   EXPECT_EQ(evaluated.structured_facts.size(), 2U);
+}
+
+TEST(WhyGoldenFixtures, PreserveEveryPublicExplanationCategory) {
+  const auto golden = goldenExplanations();
+  ASSERT_EQ(golden.size(), 8U);
+  UnifiedWhySystem why;
+
+  auto record = tierThreeRecord();
+  semaforr_msgs::msg::AdvisorContribution opposition =
+      record.advisor_contributions.front();
+  opposition.advisor = "GoAround";
+  opposition.relative_support = -1.6;
+  opposition.raw_score = 1.0;
+  record.advisor_contributions.push_back(opposition);
+  record.has_plan = true;
+  record.active_plan_id = 12U;
+  record.planning_candidates = {plan(12U, "HighwayPlan", 0.4),
+                                plan(13U, "DistancePlan", 1.2)};
+  why.record(record);
+
+  ExplanationQuestion question;
+  question.question_type = ExplanationQuestion::WHY_DECISION;
+  auto answer = why.answer(question);
+  EXPECT_NE(answer.natural_language_response.find(golden.at("tier3_support")),
+            std::string::npos);
+  EXPECT_NE(
+      answer.natural_language_response.find(golden.at("tier3_opposition")),
+      std::string::npos);
+
+  question.question_type = ExplanationQuestion::DECISION_CONFIDENCE;
+  answer = why.answer(question);
+  EXPECT_NE(answer.natural_language_response.find(golden.at("confidence")),
+            std::string::npos);
+
+  question.question_type = ExplanationQuestion::WHY_NOT_ACTION;
+  question.has_alternative_action = true;
+  question.alternative_action = action(DecisionAction::FORWARD, 1U);
+  answer = why.answer(question);
+  EXPECT_NE(answer.natural_language_response.find(golden.at("counterfactual")),
+            std::string::npos);
+
+  question = ExplanationQuestion();
+  question.question_type = ExplanationQuestion::COMPARE_PLAN;
+  question.has_alternative_plan_id = true;
+  question.alternative_plan_id = 13U;
+  answer = why.answer(question);
+  EXPECT_NE(
+      answer.natural_language_response.find(golden.at("plan_comparison")),
+      std::string::npos);
+
+  question = ExplanationQuestion();
+  question.question_type = ExplanationQuestion::ALTERNATIVE_PLAN;
+  answer = why.answer(question);
+  EXPECT_NE(
+      answer.natural_language_response.find(golden.at("alternative_route")),
+      std::string::npos);
+
+  question.question_type = ExplanationQuestion::ROUTE_DESCRIPTION;
+  answer = why.answer(question);
+  EXPECT_NE(std::find(answer.direction_categories.begin(),
+                      answer.direction_categories.end(),
+                      golden.at("egocentric")),
+            answer.direction_categories.end());
+
+  UnifiedWhySystem tier_one;
+  auto tier_one_record = tierThreeRecord();
+  tier_one_record.selected_tier = DecisionRecord::TIER_ONE;
+  tier_one_record.selected_policy = "mandatory_rule:Victory";
+  tier_one.record(tier_one_record);
+  question = ExplanationQuestion();
+  question.question_type = ExplanationQuestion::WHY_DECISION;
+  answer = tier_one.answer(question);
+  EXPECT_NE(answer.natural_language_response.find(golden.at("tier1")),
+            std::string::npos);
 }
 
 }  // namespace

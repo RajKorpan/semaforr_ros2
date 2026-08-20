@@ -41,6 +41,11 @@ if(BUILD_TESTING)
   if(TARGET why_system_test)
     target_link_libraries(why_system_test why_core)
     ament_target_dependencies(why_system_test geometry_msgs semaforr_msgs)
+    target_compile_definitions(why_system_test PRIVATE
+      "WHY_TEST_SOURCE_DIR=\"${PROJECT_SOURCE_DIR}\""
+    )
+    set_property(TEST why_system_test APPEND PROPERTY
+      LABELS "test_kind:explanation-golden")
   endif()
   ament_add_pytest_test(
     why_ros2_contract_test

@@ -410,9 +410,12 @@ TEST(HighLevelExplore,
 TEST(HighwayLearning, BuildsVersionedGraphIncrementally) {
   semaforr::spatial::HighwayLearner learner(0.5, 0.8);
   for (std::size_t sequence = 1U; sequence <= 3U; ++sequence) {
-    learner.observe({sequence, observation(static_cast<double>(sequence)),
-                     semaforr::domain::Action::pause(), std::nullopt, false,
-                     false, true});
+    semaforr::spatial::NavigationEpisode episode;
+    episode.sequence = sequence;
+    episode.observation = observation(static_cast<double>(sequence));
+    episode.selected_action = semaforr::domain::Action::pause();
+    episode.initial_exploration = true;
+    learner.observe(episode);
   }
   EXPECT_EQ(learner.snapshot().revision, 0U);
   learner.rebuild();

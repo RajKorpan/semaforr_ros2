@@ -33,6 +33,12 @@ def test_every_required_integration_scenario_has_a_fixture():
         "pedestrian_crossing",
         "dense_crowd",
         "sensor_timeout",
+        "hallway_network",
+        "highway_crossing",
+        "large_room",
+        "dynamic_obstacle",
+        "failed_movement",
+        "negative_coordinate_map",
     }
 
 
