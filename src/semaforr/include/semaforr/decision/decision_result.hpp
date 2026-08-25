@@ -423,6 +423,16 @@ struct PredictedActionResult {
  * - None documented; validation or dependency failures may propagate.
  */
 struct DecisionConfidence {
+  double selected_comment_sum{0.0};
+  std::size_t advisor_count{0U};
+  double normalized_support_proportion{0.0};
+  double action_total_mean{0.0};
+  double action_total_standard_deviation{0.0};
+  double gamma{0.0};
+  double zeta{0.0};
+  double lambda{0.0};
+  std::string agreement_category{"not_available"};
+  std::string support_category{"not_available"};
   double gini_agreement{0.0};
   double standardized_total{0.0};
   double relative_support{0.0};
@@ -462,6 +472,7 @@ struct TierThreeActionTotal {
   double pre_circumstance_total{0.0};
   double circumstance_multiplier{1.0};
   double post_circumstance_total{0.0};
+  double chapter_five_comment_total{0.0};
   std::size_t circumstance_action_evidence{0U};
   double circumstance_action_confidence{0.0};
 

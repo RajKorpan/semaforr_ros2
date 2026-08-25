@@ -9,6 +9,7 @@
 #include <why/why_system.hpp>
 
 #include <algorithm>
+#include <cmath>
 #include <fstream>
 #include <map>
 #include <stdexcept>
@@ -58,20 +59,33 @@ DecisionRecord tierThreeRecord() {
   record.action_lifecycle_status = "selected";
   record.tier_three_scoring_policy = "compatibility_unweighted";
   record.tier_three_tie_policy = "seeded_exact_tie";
-  record.decision_gini_agreement = 0.8;
-  record.decision_standardized_total = 1.4;
-  record.decision_relative_support = 0.6;
-  record.decision_confidence_category = "high";
+  record.decision_selected_comment_sum = 22.0;
+  record.decision_advisor_count = 4U;
+  record.decision_normalized_support_proportion = 0.55;
+  record.decision_action_total_mean = 16.75;
+  record.decision_action_total_standard_deviation = std::sqrt(188.75 / 3.0);
+  record.decision_gamma = 0.495;
+  record.decision_zeta =
+      (22.0 - record.decision_action_total_mean) /
+      record.decision_action_total_standard_deviation;
+  record.decision_lambda =
+      (0.5 - record.decision_gamma) * record.decision_zeta;
+  record.decision_gini_agreement = record.decision_gamma;
+  record.decision_standardized_total = record.decision_zeta;
+  record.decision_relative_support = record.decision_lambda;
+  record.decision_agreement_category = "my reasons conflict";
+  record.decision_support_category = "don't really want";
+  record.decision_confidence_category = "not";
   record.source_provenance = {"current_sensor_readings", "active_plan"};
 
   semaforr_msgs::msg::AdvisorContribution contribution;
   contribution.advisor = "Greedy";
   contribution.action = record.selected_action;
   contribution.raw_score = 8.0;
-  contribution.normalized_score = 0.6;
-  contribution.advisor_mean = 5.0;
-  contribution.advisor_standard_deviation = 2.0;
-  contribution.relative_support = 1.5;
+  contribution.normalized_score = 10.0;
+  contribution.advisor_mean = 3.0;
+  contribution.advisor_standard_deviation = std::sqrt(22.0);
+  contribution.relative_support = 7.0 / std::sqrt(22.0);
   contribution.weight = 1.0;
   contribution.weighted_score = 8.0;
   contribution.viable = true;
@@ -81,10 +95,12 @@ DecisionRecord tierThreeRecord() {
   semaforr_msgs::msg::TierThreeActionTotal selected_total;
   selected_total.action = record.selected_action;
   selected_total.total = 14.0;
+  selected_total.chapter_five_comment_total = 22.0;
   record.tier_three_action_totals.push_back(selected_total);
   semaforr_msgs::msg::TierThreeActionTotal alternative_total;
   alternative_total.action = action(DecisionAction::FORWARD, 1U);
   alternative_total.total = 9.0;
+  alternative_total.chapter_five_comment_total = 19.0;
   record.tier_three_action_totals.push_back(alternative_total);
   return record;
 }
@@ -95,16 +111,18 @@ semaforr_msgs::msg::PlanCandidateDiagnostic plan(
   result.plan_id = id;
   result.planner = planner;
   result.plan_family = planner == "HighwayPlan" ? "highway" : "grid";
-  result.objectives = {"distance", "crowd_risk"};
-  result.raw_costs = {12.0 + total, 2.0 + total};
+  result.objectives = {"distance", "highway_distance"};
+  result.raw_costs = planner == "HighwayPlan"
+                         ? std::vector<double>{14.0, -100.0}
+                         : std::vector<double>{10.0, -50.0};
   result.normalized_costs = {total, total / 2.0};
   result.summed_score = total;
   result.metadata.planner_name = planner;
   result.metadata.plan_type = planner == "HighwayPlan" ? "model-based"
                                                         : "grid-based";
   result.metadata.objective_name = planner == "HighwayPlan"
-                                       ? "highway travel"
-                                       : "metric distance";
+                                       ? "highway_distance"
+                                       : "distance";
   result.metadata.objective_description = planner == "HighwayPlan"
       ? "prefer travel through the learned highway network and its intersections"
       : "minimize metric or graph path cost";
@@ -175,15 +193,16 @@ TEST(WhyDecision, PreservesTierThreeEvidenceAndConfidence) {
   EXPECT_TRUE(answer.found);
   EXPECT_EQ(answer.decision_id, 41U);
   EXPECT_EQ(answer.primary_reasoning_source, "tier_three_voting");
-  EXPECT_NE(answer.natural_language_response.find("raw 8"), std::string::npos);
-  EXPECT_NE(answer.natural_language_response.find("strong support"),
+  EXPECT_FALSE(answer.structured_facts.empty());
+  EXPECT_NE(answer.structured_facts.front().find("raw=8"), std::string::npos);
+  EXPECT_NE(answer.natural_language_response.find("want to get close"),
             std::string::npos);
 
   question.question_type = ExplanationQuestion::DECISION_CONFIDENCE;
   const auto confidence = why.answer(question);
-  EXPECT_EQ(confidence.confidence_category, "high");
-  EXPECT_DOUBLE_EQ(confidence.gini_agreement, 0.8);
-  EXPECT_NE(confidence.natural_language_response.find("not a guarantee"),
+  EXPECT_EQ(confidence.confidence_category, "not");
+  EXPECT_DOUBLE_EQ(confidence.gini_agreement, 0.495);
+  EXPECT_NE(confidence.natural_language_response.find("gamma=0.495"),
             std::string::npos);
 }
 
@@ -407,6 +426,8 @@ TEST(WhyPlan, ExplainsSelectionAlternativesConfidenceAndTypedHighwayRoute) {
   intersection.step_id = 3U;
   intersection.step_type = "intersection";
   intersection.primary_entity_id = 9U;
+  intersection.has_target = true;
+  intersection.target.x = 1.0;
   semaforr_msgs::msg::PlanStepTrace exit;
   exit.step_id = 4U;
   exit.step_type = "highway_exit";
@@ -429,13 +450,14 @@ TEST(WhyPlan, ExplainsSelectionAlternativesConfidenceAndTypedHighwayRoute) {
 
   question.question_type = ExplanationQuestion::PLAN_CONFIDENCE;
   answer = why.answer(question);
-  EXPECT_GT(answer.confidence_value, 0.0);
+  EXPECT_EQ(answer.confidence_category, "really");
+  EXPECT_EQ(answer.primary_reasoning_source, "chapter_five_table_5_10");
 
   question.question_type = ExplanationQuestion::ROUTE_DESCRIPTION;
   answer = why.answer(question);
-  EXPECT_NE(answer.natural_language_response.find("intersection 9"),
+  EXPECT_NE(answer.natural_language_response.find("turn left at an intersection"),
             std::string::npos);
-  EXPECT_NE(answer.natural_language_response.find("exit highway 8"),
+  EXPECT_NE(answer.natural_language_response.find("We will"),
             std::string::npos);
   EXPECT_FALSE(answer.exact_distances_m.empty());
   EXPECT_EQ(answer.exact_distances_m.size(),
@@ -486,6 +508,131 @@ TEST(WhyPlanComparison, RefusesToInventUserRouteCostsWithoutEvaluator) {
   const auto evaluated = why.answer(question);
   EXPECT_TRUE(evaluated.found);
   EXPECT_EQ(evaluated.structured_facts.size(), 2U);
+}
+
+TEST(WhyDecisionConfidence, UsesChapterFiveIntervalsAndZeroVariancePolicy) {
+  UnifiedWhySystem why;
+  auto record = tierThreeRecord();
+  record.decision_gamma = 0.1;
+  record.decision_zeta = 2.0;
+  record.decision_lambda = 0.8;
+  why.record(record);
+  ExplanationQuestion question;
+  question.question_type = ExplanationQuestion::DECISION_CONFIDENCE;
+  auto answer = why.answer(question);
+  EXPECT_EQ(answer.confidence_category, "really");
+  EXPECT_DOUBLE_EQ(answer.confidence_value, 0.8);
+  EXPECT_NE(answer.natural_language_response.find("many reasons"),
+            std::string::npos);
+  EXPECT_NE(answer.natural_language_response.find("really want"),
+            std::string::npos);
+
+  record.decision_id = 42U;
+  record.decision_gamma = 0.5;
+  record.decision_zeta = 0.0;
+  record.decision_lambda = 0.0;
+  record.decision_action_total_standard_deviation = 0.0;
+  why.record(record);
+  question.has_decision_id = true;
+  question.decision_id = 42U;
+  answer = why.answer(question);
+  EXPECT_TRUE(std::isfinite(answer.confidence_value));
+  EXPECT_EQ(answer.confidence_category, "not");
+  EXPECT_NE(answer.natural_language_response.find("reasons conflict"),
+            std::string::npos);
+}
+
+TEST(WhyDecisionExplanation, OmitsWeakAdvisorCommentsAndUsesRelativeBands) {
+  UnifiedWhySystem why;
+  auto record = tierThreeRecord();
+  auto weak = record.advisor_contributions.front();
+  weak.advisor = "Novelty";
+  weak.relative_support = 0.75;
+  auto opposition = weak;
+  opposition.advisor = "GoAround";
+  opposition.relative_support = -1.6;
+  record.advisor_contributions.push_back(weak);
+  record.advisor_contributions.push_back(opposition);
+  why.record(record);
+  ExplanationQuestion question;
+  question.question_type = ExplanationQuestion::WHY_DECISION;
+  const auto answer = why.answer(question);
+  EXPECT_EQ(answer.natural_language_response.find("go somewhere new"),
+            std::string::npos);
+  EXPECT_NE(answer.natural_language_response.find("really don't want"),
+            std::string::npos);
+  EXPECT_NE(answer.natural_language_response.find("turn towards this wall"),
+            std::string::npos);
+}
+
+TEST(WhyRoute, UsesChapterFiveTurnsDistancesAndAlternativeTemplate) {
+  UnifiedWhySystem why;
+  auto record = tierThreeRecord();
+  record.robot_pose.x = 0.0;
+  record.robot_pose.y = 0.0;
+  record.has_plan = true;
+  record.active_plan_id = 12U;
+  auto selected = plan(12U, "DistancePlan", 0.4);
+  geometry_msgs::msg::Point east;
+  east.x = 1.01;
+  geometry_msgs::msg::Point north = east;
+  north.y = 7.01;
+  geometry_msgs::msg::Point west = north;
+  west.x = -4.0;
+  selected.geometry = {east, north, west};
+  auto alternative = plan(13U, "DistancePlan", 1.2);
+  alternative.geometry = {east};
+  record.planning_candidates = {selected, alternative};
+  why.record(record);
+
+  ExplanationQuestion question;
+  question.question_type = ExplanationQuestion::ROUTE_DESCRIPTION;
+  auto answer = why.answer(question);
+  EXPECT_EQ(answer.natural_language_response,
+            "We will go straight about 2 meters, turn left, go straight "
+            "about 8 meters, turn left, and go straight about 6 meters to "
+            "reach our target.");
+  ASSERT_EQ(answer.direction_categories.size(), 5U);
+  EXPECT_EQ(answer.direction_categories[1], "turn left");
+  EXPECT_EQ(answer.distance_categories[0], "2 meters");
+
+  question.question_type = ExplanationQuestion::ALTERNATIVE_PLAN;
+  question.has_alternative_plan_id = true;
+  question.alternative_plan_id = 13U;
+  answer = why.answer(question);
+  EXPECT_EQ(answer.natural_language_response,
+            "We could go straight about 2 meters to reach our target.");
+}
+
+TEST(WhyPlanConfidence, RequiresRecordedComparablePlanAndUsesTableFiveTen) {
+  UnifiedWhySystem why;
+  auto record = tierThreeRecord();
+  record.has_plan = true;
+  record.active_plan_id = 12U;
+  record.planning_candidates = {plan(12U, "HighwayPlan", 0.4)};
+  why.record(record);
+  ExplanationQuestion question;
+  question.question_type = ExplanationQuestion::PLAN_CONFIDENCE;
+  auto answer = why.answer(question);
+  EXPECT_FALSE(answer.found);
+  EXPECT_EQ(answer.confidence_category, "unavailable");
+  EXPECT_NE(answer.natural_language_response.find("did not fabricate"),
+            std::string::npos);
+
+  record.decision_id = 43U;
+  record.planning_candidates.push_back(plan(13U, "DistancePlan", 1.2));
+  why.record(record);
+  question.has_decision_id = true;
+  question.decision_id = 43U;
+  answer = why.answer(question);
+  EXPECT_TRUE(answer.found);
+  EXPECT_EQ(answer.confidence_category, "really");
+  EXPECT_NE(answer.structured_facts.back().find("really"),
+            std::string::npos);
+  EXPECT_NE(answer.natural_language_response.find("better at following long hallways"),
+            std::string::npos);
+  EXPECT_NE(answer.natural_language_response.find("longer"),
+            std::string::npos);
 }
 
 TEST(WhyGoldenFixtures, PreserveEveryPublicExplanationCategory) {

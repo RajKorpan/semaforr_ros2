@@ -388,10 +388,62 @@ TEST(DecisionCoordinator, AdaptedPolicyPreservesRawNormalizedAndWeightedScores) 
       [&](const auto& contribution) { return contribution.action == left; });
   ASSERT_NE(selected, result.contributions.end());
   EXPECT_DOUBLE_EQ(selected->raw_score, 6.0);
-  EXPECT_DOUBLE_EQ(selected->normalized_score, 1.0);
+  EXPECT_DOUBLE_EQ(selected->normalized_score, 10.0);
   EXPECT_DOUBLE_EQ(selected->weighted_score, 2.5);
   EXPECT_DOUBLE_EQ(selected->final_total, 2.5);
   EXPECT_TRUE(selected->viable);
+}
+
+TEST(DecisionCoordinator, ChapterFiveConfidenceMatchesWorkedCommentExample) {
+  auto model = world();
+  const std::vector<Action> actions{
+      Action(ActionType::Forward, 1U), Action(ActionType::TurnLeft, 1U),
+      Action(ActionType::TurnRight, 1U), Action::pause()};
+  semaforr::decision::ArbitrationConfiguration configuration;
+  configuration.scoring_policy =
+      semaforr::decision::TierThreeScoringPolicy::CompatibilityComments;
+  configuration.tie_policy = semaforr::decision::TierThreeTiePolicy::Exact;
+  DecisionCoordinator coordinator(configuration);
+  coordinator.addAdvisor(std::make_unique<FixedAdvisor>(
+      "advisor_1", std::vector<ActionScore>{{actions[0], 0.0},
+                                             {actions[1], 1.0},
+                                             {actions[2], 1.0},
+                                             {actions[3], 10.0}}));
+  coordinator.addAdvisor(std::make_unique<FixedAdvisor>(
+      "advisor_2", std::vector<ActionScore>{{actions[0], 0.0},
+                                             {actions[1], 8.0},
+                                             {actions[2], 9.0},
+                                             {actions[3], 10.0}}));
+  coordinator.addAdvisor(std::make_unique<FixedAdvisor>(
+      "advisor_3", std::vector<ActionScore>{{actions[0], 2.0},
+                                             {actions[1], 0.0},
+                                             {actions[2], 10.0},
+                                             {actions[3], 2.0}}));
+  coordinator.addAdvisor(std::make_unique<FixedAdvisor>(
+      "advisor_4", std::vector<ActionScore>{{actions[0], 3.0},
+                                             {actions[1], 10.0},
+                                             {actions[2], 1.0},
+                                             {actions[3], 0.0}}));
+
+  const auto result = coordinator.decideTierThree({model}, actions);
+  EXPECT_EQ(result.action, actions[3]);
+  EXPECT_DOUBLE_EQ(result.decision_confidence.selected_comment_sum, 22.0);
+  EXPECT_EQ(result.decision_confidence.advisor_count, 4U);
+  EXPECT_DOUBLE_EQ(result.decision_confidence.normalized_support_proportion,
+                   0.55);
+  EXPECT_NEAR(result.decision_confidence.gamma, 0.495, 1.0e-12);
+  EXPECT_NEAR(result.decision_confidence.action_total_mean, 16.75, 1.0e-12);
+  EXPECT_NEAR(result.decision_confidence.action_total_standard_deviation,
+              std::sqrt(188.75 / 3.0), 1.0e-12);
+  EXPECT_NEAR(result.decision_confidence.zeta, 0.6619, 1.0e-3);
+  EXPECT_NEAR(result.decision_confidence.lambda,
+              (0.5 - result.decision_confidence.gamma) *
+                  result.decision_confidence.zeta,
+              1.0e-12);
+  EXPECT_EQ(result.decision_confidence.category, "not");
+  ASSERT_EQ(result.tier_three_totals.size(), 4U);
+  EXPECT_DOUBLE_EQ(result.tier_three_totals.back().chapter_five_comment_total,
+                   22.0);
 }
 
 TEST(DecisionCoordinator, ExactAndToleranceTiePoliciesAreDistinct) {

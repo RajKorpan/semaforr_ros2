@@ -449,16 +449,21 @@ DecisionResult DecisionCoordinator::decideTierThree(
     }
     const auto transformed = transformScores(
         evaluation, metadata.normalization, configuration_.scoring_policy);
+    const auto comments = transformScores(
+        evaluation, metadata.normalization,
+        TierThreeScoringPolicy::CompatibilityComments);
     const double advisor_mean =
-        transformed.empty()
+        comments.empty()
             ? 0.0
-            : std::accumulate(transformed.begin(), transformed.end(), 0.0) /
-                  static_cast<double>(transformed.size());
+            : std::accumulate(comments.begin(), comments.end(), 0.0) /
+                  static_cast<double>(comments.size());
     double advisor_variance = 0.0;
-    for (const double value : transformed)
+    for (const double value : comments)
       advisor_variance += (value - advisor_mean) * (value - advisor_mean);
-    if (!transformed.empty())
-      advisor_variance /= static_cast<double>(transformed.size());
+    if (comments.size() > 1U)
+      advisor_variance /= static_cast<double>(comments.size() - 1U);
+    else
+      advisor_variance = 0.0;
     const double advisor_standard_deviation = std::sqrt(advisor_variance);
     for (std::size_t index = 0U; index < evaluation.scores.size(); ++index) {
       const auto& score = evaluation.scores[index];
@@ -486,7 +491,7 @@ DecisionResult DecisionCoordinator::decideTierThree(
       contribution.advisor = std::string(advisor->name());
       contribution.action = score.action;
       contribution.raw_score = score.raw_score;
-      contribution.normalized_score = transformed[index];
+      contribution.normalized_score = comments[index];
       contribution.advisor_mean = advisor_mean;
       contribution.advisor_standard_deviation = advisor_standard_deviation;
       contribution.relative_support =
@@ -695,72 +700,77 @@ DecisionResult DecisionCoordinator::decideTierThree(
     result.tier_three_random_selection_index = selected_index;
   }
   result.action = tied[selected_index];
-  const double totals_mean =
-      std::accumulate(totals.begin(), totals.end(), 0.0,
+  std::map<Action, double> chapter_five_totals;
+  for (const auto& action : survivors) chapter_five_totals[action] = 0.0;
+  std::set<std::string> participating_advisors;
+  for (const auto& contribution : result.contributions) {
+    chapter_five_totals[contribution.action] += contribution.normalized_score;
+    participating_advisors.insert(contribution.advisor);
+  }
+  const double advisor_count =
+      static_cast<double>(participating_advisors.size());
+  const double selected_comment_sum = chapter_five_totals.at(result.action);
+  const double support_proportion =
+      advisor_count <= 0.0
+          ? 0.0
+          : std::clamp(selected_comment_sum / (10.0 * advisor_count), 0.0,
+                       1.0);
+  const double gamma =
+      2.0 * support_proportion * (1.0 - support_proportion);
+  const double action_total_mean =
+      std::accumulate(chapter_five_totals.begin(),
+                      chapter_five_totals.end(), 0.0,
                       [](double sum, const auto& item) {
                         return sum + item.second;
                       }) /
-      static_cast<double>(totals.size());
-  double totals_variance = 0.0;
-  for (const auto& [action, total] : totals) {
+      static_cast<double>(chapter_five_totals.size());
+  double action_total_variance = 0.0;
+  for (const auto& [action, total] : chapter_five_totals) {
     static_cast<void>(action);
-    totals_variance += (total - totals_mean) * (total - totals_mean);
+    action_total_variance +=
+        (total - action_total_mean) * (total - action_total_mean);
   }
-  totals_variance /= static_cast<double>(totals.size());
-  const double totals_deviation = std::sqrt(totals_variance);
-  result.decision_confidence.standardized_total =
-      totals_deviation <= 1.0e-12
-          ? 0.0
-          : (maximum - totals_mean) / totals_deviation;
-  std::map<Action, double> preferred_counts;
-  std::map<std::string, std::pair<double, Action>> advisor_preferences;
-  for (const auto& contribution : result.contributions) {
-    const auto found = advisor_preferences.find(contribution.advisor);
-    if (found == advisor_preferences.end() ||
-        contribution.normalized_score > found->second.first)
-      advisor_preferences.insert_or_assign(
-          contribution.advisor,
-          std::pair{contribution.normalized_score, contribution.action});
-  }
-  for (const auto& [advisor, preference] : advisor_preferences) {
-    static_cast<void>(advisor);
-    preferred_counts[preference.second] += 1.0;
-  }
-  const double participating_advisors =
-      static_cast<double>(advisor_preferences.size());
-  double gini = 1.0;
-  if (participating_advisors > 0.0) {
-    gini = 1.0;
-    for (const auto& [action, count] : preferred_counts) {
-      static_cast<void>(action);
-      const double probability = count / participating_advisors;
-      gini -= probability * probability;
-    }
-  }
-  const double maximum_gini = totals.size() <= 1U
-                                  ? 1.0
-                                  : 1.0 - 1.0 /
-                                              static_cast<double>(totals.size());
-  result.decision_confidence.gini_agreement =
-      std::clamp(1.0 - gini / maximum_gini, 0.0, 1.0);
-  const auto selected_total = totals.at(result.action);
-  double runner_up = -std::numeric_limits<double>::infinity();
-  for (const auto& [action, total] : totals)
-    if (action != result.action) runner_up = std::max(runner_up, total);
-  result.decision_confidence.relative_support =
-      !std::isfinite(runner_up)
-          ? 1.0
-          : (selected_total - runner_up) /
-                std::max(1.0, std::abs(selected_total));
-  const double confidence_score =
-      0.45 * result.decision_confidence.gini_agreement +
-      0.35 * std::clamp(result.decision_confidence.standardized_total / 2.0,
-                        0.0, 1.0) +
-      0.20 * std::clamp(result.decision_confidence.relative_support, 0.0, 1.0);
+  if (chapter_five_totals.size() > 1U)
+    action_total_variance /=
+        static_cast<double>(chapter_five_totals.size() - 1U);
+  else
+    action_total_variance = 0.0;
+  const double action_total_deviation = std::sqrt(action_total_variance);
+  const double zeta = action_total_deviation <= 1.0e-12
+                          ? 0.0
+                          : (selected_comment_sum - action_total_mean) /
+                                action_total_deviation;
+  const double lambda = (0.5 - gamma) * zeta;
+  result.decision_confidence.selected_comment_sum = selected_comment_sum;
+  result.decision_confidence.advisor_count =
+      participating_advisors.size();
+  result.decision_confidence.normalized_support_proportion =
+      support_proportion;
+  result.decision_confidence.action_total_mean = action_total_mean;
+  result.decision_confidence.action_total_standard_deviation =
+      action_total_deviation;
+  result.decision_confidence.gamma = gamma;
+  result.decision_confidence.zeta = zeta;
+  result.decision_confidence.lambda = lambda;
+  result.decision_confidence.agreement_category =
+      gamma > 0.45 ? "my reasons conflict"
+      : gamma > 0.25 ? "I've only got a few reasons for it"
+                     : "I've got many reasons for it";
+  result.decision_confidence.support_category =
+      zeta <= 0.75 ? "don't really want"
+      : zeta <= 1.5 ? "somewhat want"
+                    : "really want";
   result.decision_confidence.category =
-      confidence_score >= 0.75 ? "high"
-      : confidence_score >= 0.45 ? "moderate"
-                                 : "low";
+      lambda <= 0.0375 ? "not"
+      : lambda <= 0.375 ? "only somewhat"
+                        : "really";
+  // Preserve the original transport fields as documented aliases while
+  // consumers migrate to the explicit Chapter 5 names.
+  result.decision_confidence.gini_agreement = gamma;
+  result.decision_confidence.standardized_total = zeta;
+  result.decision_confidence.relative_support = lambda;
+  for (auto& total : result.tier_three_totals)
+    total.chapter_five_comment_total = chapter_five_totals.at(total.action);
   result.source = DecisionSource::TierThreeAdvisor;
   result.tier = DecisionTier::TierThree;
   result.selected_policy = "advisor_arbitration";

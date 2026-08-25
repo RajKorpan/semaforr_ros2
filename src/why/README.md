@@ -44,5 +44,34 @@ use the actual candidate cost matrix and range-voting totals. Alternative-plan
 answers only return recorded candidates unless a caller explicitly invokes a
 separate replanning control interface.
 
+## Chapter 5 compatibility behavior
+
+For Tier-3 decisions, the compatibility explanation path uses normalized
+advisor comments in `[0,10]` and sample standard deviations. The decision trace
+retains the selected-action comment sum, advisor count, normalized support
+proportion, every action total, action-total mean and deviation, and the three
+separate Chapter 5 statistics: agreement `gamma`, standardized overall support
+`zeta`, and confidence `lambda = (0.5 - gamma) * zeta`. The natural-language
+intervals and the omission threshold for weak advisor comments follow the
+Chapter 5 tables. Adapted voting may still use configured weights to choose an
+action, but it does not change the unweighted comments used by this explanation
+calculation.
+
+Selected and already-recorded alternative plans share one route-description
+pipeline. It converts the plan to locations, applies the eight allocentric
+angle bins, turns consecutive directions into egocentric turns, inserts and
+collapses straight travel, and translates accumulated distances using the
+documented interval upper limits. Highway turns are marked as intersections
+only when the corresponding typed plan location is an intersection.
+
+Plan confidence is available only when a selected plan and a recorded
+comparison plan both expose costs for their respective supported objectives.
+It uses the objective-specific difference intervals and the categorical
+Table 5.10 mapping (`really`, `only somewhat`, or `not`). It does not derive a
+new scalar confidence and does not generate a comparison plan. Crowd-specific
+objectives are engineering extensions and therefore return an unavailable
+Chapter 5 comparison unless a compatible dissertation objective pair is also
+recorded.
+
 See `semaforr/docs/explanations.md` for the complete core trace ownership and
 reasoning vocabulary.

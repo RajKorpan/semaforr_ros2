@@ -35,11 +35,14 @@ The shared rejection vocabulary is:
 - `not_viable`: the action is unavailable under the current state.
 - lower preference: the action stays viable but loses arbitration.
 
-Tier-3 records retain raw comments, transformed comments, advisor mean and
-standard deviation, relative support, configured weight, weighted
+Tier-3 records retain raw comments, normalized `[0,10]` comments, advisor mean
+and sample standard deviation, relative support, configured weight, weighted
 contribution, final action total, and viability. Decision confidence retains
-normalized Gini agreement, the standardized winning total, winner-relative
-support, and the resulting category. Every production advisor normalizes its
+the selected comment sum, advisor count, support proportion, every action
+total, action-total mean and sample deviation, agreement `gamma`, standardized
+overall support `zeta`, confidence `lambda`, and all interval translations.
+`gamma`, `zeta`, and `lambda` follow Equations 5.2--5.4; zero action-total
+deviation produces finite `zeta = 0`. Every production advisor normalizes its
 complete viable-action raw set to `[0,10]`; an all-equal set becomes neutral
 `5` without division by zero. In compatibility scoring, those comments are
 unweighted and exact ties use the seeded random policy. In adapted scoring,
@@ -82,10 +85,19 @@ merely lower-ranked. Plan comparisons use the same recorded objective set.
 They acknowledge objective tradeoffs and do not claim unqualified superiority.
 
 Route descriptions retain exact points, segment distances, and egocentric turn
-angles while producing concise direction and distance categories. Model routes
-preserve region, subtrail, highway-entry, highway, intersection,
-highway-transition, highway-exit, and final-approach semantics rather than
-flattening them to anonymous waypoints.
+angles while producing concise direction and distance categories. One shared
+pipeline handles selected (`We will`) and recorded alternative (`We could`)
+plans using the eight allocentric bins, modulo-eight egocentric turns, inserted
+and collapsed straight travel, and interval-upper-limit distance wording.
+Model-plan steps are reduced to meaningful operational locations; HighwayPlan
+omits unnecessary highway structures but preserves intersection locations so
+turns at those joins say `at an intersection`.
+
+Plan confidence is emitted only when an existing selected plan and an existing
+comparison plan both retain the required cross-objective costs. Objective
+differences use their objective-family Chapter 5 intervals, and the two
+translations index the categorical Table 5.10 result. Why does not synthesize
+an alternative or replace the table with a scalar confidence composite.
 
 ## Provenance
 

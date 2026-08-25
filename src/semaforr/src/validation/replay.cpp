@@ -139,11 +139,24 @@ std::string advisorDigest(const decision::DecisionResult& result) {
     value << contribution.advisor << ':' << static_cast<int>(contribution.action.type())
           << ':' << contribution.action.magnitude_index() << ':'
           << contribution.raw_score << ':' << contribution.normalized_score
-          << ':' << contribution.weight << ':' << contribution.weighted_score
-          << ':' << contribution.final_total << ';';
+          << ':' << contribution.advisor_mean << ':'
+          << contribution.advisor_standard_deviation << ':'
+          << contribution.relative_support << ':' << contribution.weight << ':'
+          << contribution.weighted_score << ':' << contribution.final_total
+          << ';';
   for (const auto& total : result.tier_three_totals)
     value << "total:" << static_cast<int>(total.action.type()) << ':'
-          << total.action.magnitude_index() << ':' << total.total << ';';
+          << total.action.magnitude_index() << ':' << total.total << ':'
+          << total.chapter_five_comment_total << ';';
+  const auto& confidence = result.decision_confidence;
+  value << "confidence:" << confidence.selected_comment_sum << ':'
+        << confidence.advisor_count << ':'
+        << confidence.normalized_support_proportion << ':'
+        << confidence.action_total_mean << ':'
+        << confidence.action_total_standard_deviation << ':'
+        << confidence.gamma << ':' << confidence.zeta << ':'
+        << confidence.lambda << ':' << confidence.agreement_category << ':'
+        << confidence.support_category << ':' << confidence.category;
   return digest(value.str());
 }
 

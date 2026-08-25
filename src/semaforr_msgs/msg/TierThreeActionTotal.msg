@@ -5,5 +5,6 @@ bool scored
 float64 pre_circumstance_total
 float64 circumstance_multiplier
 float64 post_circumstance_total
+float64 chapter_five_comment_total
 uint64 circumstance_action_evidence
 float64 circumstance_action_confidence

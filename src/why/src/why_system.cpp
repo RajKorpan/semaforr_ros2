@@ -1,6 +1,7 @@
 #include <why/why_system.hpp>
 
 #include <algorithm>
+#include <array>
 #include <cctype>
 #include <cmath>
 #include <limits>
@@ -33,14 +34,95 @@ std::string actionText(const Action& action) {
   }
 }
 
-std::string relativeMagnitude(double support) {
-  const double magnitude = std::abs(support);
-  const std::string strength = magnitude >= 1.5 ? "strong"
-                               : magnitude >= 0.5 ? "moderate"
-                               : magnitude > 1.0e-9 ? "weak"
-                                                   : "neutral";
-  if (strength == "neutral") return strength;
-  return strength + (support > 0.0 ? " support" : " opposition");
+std::string joinNatural(const std::vector<std::string>& clauses) {
+  if (clauses.empty()) return {};
+  if (clauses.size() == 1U) return clauses.front();
+  std::ostringstream text;
+  for (std::size_t index = 0U; index < clauses.size(); ++index) {
+    if (index != 0U)
+      text << (index + 1U == clauses.size() ? " and " : ", ");
+    text << clauses[index];
+  }
+  return text.str();
+}
+
+std::pair<std::string, std::string> advisorRationale(
+    std::string_view advisor, std::string_view fallback) {
+  static const std::map<std::string_view,
+                        std::pair<std::string, std::string>> translations{
+      {"BigStep", {"take a big step", "take a small step"}},
+      {"ElbowRoom", {"stay away from that wall", "go close to that wall"}},
+      {"Novelty", {"go somewhere new", "go somewhere I've been"}},
+      {"GoAround", {"get around this wall", "turn towards this wall"}},
+      {"Greedy", {"get close to our target", "go farther from our target"}},
+      {"Curiosity", {"go somewhere I've never been", "go somewhere I've been before"}},
+      {"Enfilade", {"go back to where I was", "leave where I was"}},
+      {"VisualScan", {"turn to see something new", "look in a direction I've already faced"}},
+      {"Convey", {"go somewhere familiar", "go somewhere unfamiliar"}},
+      {"Enter", {"go to our target's area", "leave our target's area"}},
+      {"Exit", {"leave since our target isn't here", "stay although our target isn't here"}},
+      {"Trailer", {"follow a familiar route that may lead to our target", "leave a familiar route that may lead to our target"}},
+      {"Unlikely", {"stay out of a dead end", "go toward a dead end"}},
+      {"Access", {"go to an area I've often been to", "leave an area I've often been to"}},
+      {"Crossroads", {"go to a hallway I've often been to", "leave a hallway I've often been to"}},
+      {"Follow", {"follow this hallway that may approach our target", "leave this hallway that may approach our target"}},
+      {"LeastAngle", {"leave this area in the direction of our target", "leave this area not in the direction of our target"}},
+      {"SpatialLearner", {"learn more about the world", "go somewhere I already know about"}},
+      {"Stay", {"stay in this hallway", "leave this hallway"}}};
+  const auto found = translations.find(advisor);
+  if (found != translations.end()) return found->second;
+  const std::string rationale = fallback.empty()
+                                    ? "follow this advisor's rationale"
+                                    : std::string(fallback);
+  return {rationale, "avoid " + rationale};
+}
+
+std::optional<std::string> relativeSupportClause(
+    const semaforr_msgs::msg::AdvisorContribution& contribution) {
+  const double rho = contribution.relative_support;
+  if (rho > -0.75 && rho <= 0.75) return std::nullopt;
+  const auto rationale =
+      advisorRationale(contribution.advisor, contribution.explanation);
+  if (rho <= -1.5) return "I really don't want to " + rationale.second;
+  if (rho <= -0.75) return "I don't want to " + rationale.second;
+  if (rho <= 1.5) return "I want to " + rationale.first;
+  return "I really want to " + rationale.first;
+}
+
+int agreementLevel(double gamma) {
+  if (gamma > 0.45) return 0;
+  if (gamma > 0.25) return 1;
+  return 2;
+}
+
+std::string agreementPhrase(double gamma) {
+  if (gamma > 0.45) return "my reasons conflict";
+  if (gamma > 0.25) return "I've only got a few reasons for it";
+  return "I've got many reasons for it";
+}
+
+int supportLevel(double zeta) {
+  if (zeta <= 0.75) return 0;
+  if (zeta <= 1.5) return 1;
+  return 2;
+}
+
+std::string supportPhrase(double zeta) {
+  if (zeta <= 0.75) return "I don't really want to do this much more than some other action";
+  if (zeta <= 1.5) return "I somewhat want to do this much more than some other action";
+  return "I really want to do this much more than some other action";
+}
+
+int confidenceLevel(double lambda) {
+  if (lambda <= 0.0375) return 0;
+  if (lambda <= 0.375) return 1;
+  return 2;
+}
+
+std::string confidencePhrase(double lambda) {
+  if (lambda <= 0.0375) return "not";
+  if (lambda <= 0.375) return "only somewhat";
+  return "really";
 }
 
 const PlanCandidate* selectedPlan(const DecisionRecord& record) {
@@ -61,22 +143,274 @@ double pathLength(const std::vector<geometry_msgs::msg::Point>& path) {
   return result;
 }
 
-std::string directionCategory(double angle) {
-  const double absolute = std::abs(angle);
-  if (absolute <= 0.17) return "straight ahead";
-  if (absolute >= 2.62) return "behind";
-  const std::string side = angle > 0.0 ? "left" : "right";
-  if (absolute <= 0.61) return "slightly " + side;
-  if (absolute <= 1.92) return side;
-  return "sharply " + side;
+int allocentricDirectionLabel(double angle) {
+  const double normalized = std::remainder(angle, 2.0 * kPi);
+  if (normalized >= -7.0 * kPi / 8.0 &&
+      normalized < -5.0 * kPi / 8.0) return 2;
+  if (normalized >= -5.0 * kPi / 8.0 &&
+      normalized < -3.0 * kPi / 8.0) return 3;
+  if (normalized >= -3.0 * kPi / 8.0 &&
+      normalized < -kPi / 8.0) return 4;
+  if (normalized >= -kPi / 8.0 && normalized < kPi / 8.0) return 5;
+  if (normalized >= kPi / 8.0 && normalized < 3.0 * kPi / 8.0) return 6;
+  if (normalized >= 3.0 * kPi / 8.0 &&
+      normalized < 5.0 * kPi / 8.0) return 7;
+  if (normalized >= 5.0 * kPi / 8.0 &&
+      normalized < 7.0 * kPi / 8.0) return 8;
+  return 1;
+}
+
+std::string turnPhrase(int difference) {
+  static const std::array<std::string_view, 8> phrases{
+      "go straight", "turn left a little", "turn left", "turn hard left",
+      "turn around", "turn hard right", "turn right",
+      "turn right a little"};
+  return std::string(phrases.at(static_cast<std::size_t>(difference)));
 }
 
 std::string distanceCategory(double distance) {
-  if (distance < 0.75) return "very near";
-  if (distance < 2.0) return "near";
-  if (distance < 5.0) return "a moderate distance";
-  if (distance < 10.0) return "far";
-  return "very far";
+  double upper = 1.0;
+  if (distance <= 1.0) {
+    upper = 1.0;
+  } else if (distance <= 10.0) {
+    upper = 2.0 * std::ceil(distance / 2.0);
+  } else if (distance <= 50.0) {
+    upper = 5.0 * std::ceil(distance / 5.0);
+  } else if (distance <= 110.0) {
+    upper = 10.0 * std::ceil(distance / 10.0);
+  } else {
+    return "more than 110 meters";
+  }
+  std::ostringstream text;
+  text << static_cast<int>(upper) << (upper == 1.0 ? " meter" : " meters");
+  return text.str();
+}
+
+struct RouteLocation {
+  geometry_msgs::msg::Point point;
+  bool highway_intersection{false};
+};
+
+struct RoutePhrase {
+  std::string text;
+  double distance_m{0.0};
+  double turn_rad{0.0};
+  bool travel{false};
+};
+
+bool samePoint(const geometry_msgs::msg::Point& left,
+               const geometry_msgs::msg::Point& right) {
+  return std::hypot(left.x - right.x, left.y - right.y) <= 1.0e-6;
+}
+
+std::vector<RouteLocation> planLocations(const DecisionRecord& record,
+                                         const PlanCandidate& plan) {
+  std::vector<RouteLocation> result;
+  geometry_msgs::msg::Point robot;
+  robot.x = record.robot_pose.x;
+  robot.y = record.robot_pose.y;
+  result.push_back({robot, false});
+  const bool model_plan = plan.metadata.plan_type == "model-based" ||
+                          plan.plan_family == "model" ||
+                          plan.planner == "SkeletonPlan" ||
+                          plan.planner == "HighwayPlan";
+  if (model_plan) {
+    for (const auto& step : plan.typed_steps) {
+      const bool omit_highway_structure =
+          step.step_type == "highway" ||
+          step.step_type == "highway_entry" ||
+          step.step_type == "highway_exit";
+      if (omit_highway_structure) continue;
+      std::optional<geometry_msgs::msg::Point> representative;
+      if (step.has_target)
+        representative = step.target;
+      else if (!step.geometry.empty())
+        representative = step.geometry.back();
+      if (!representative) continue;
+      const bool intersection = step.step_type == "intersection";
+      if (samePoint(result.back().point, *representative)) {
+        result.back().highway_intersection |= intersection;
+      } else {
+        result.push_back({*representative, intersection});
+      }
+    }
+  }
+  if (!model_plan || result.size() == 1U) {
+    for (const auto& point : plan.geometry)
+      if (!samePoint(result.back().point, point)) result.push_back({point, false});
+  } else if (!plan.geometry.empty() &&
+             !samePoint(result.back().point, plan.geometry.back())) {
+    result.push_back({plan.geometry.back(), false});
+  }
+  return result;
+}
+
+std::string describeRoute(const DecisionRecord& record,
+                          const PlanCandidate& plan, bool alternative,
+                          ExplanationResponse& response) {
+  const auto locations = planLocations(record, plan);
+  response.route.clear();
+  for (const auto& location : locations) response.route.push_back(location.point);
+  if (locations.size() < 2U)
+    return alternative ? "No usable alternative route geometry is recorded."
+                       : "No usable selected route geometry is recorded.";
+  struct Segment {
+    double length{0.0};
+    double bearing{0.0};
+  };
+  std::vector<Segment> segments;
+  for (std::size_t index = 1U; index < locations.size(); ++index) {
+    const double dx = locations[index].point.x - locations[index - 1U].point.x;
+    const double dy = locations[index].point.y - locations[index - 1U].point.y;
+    const double length = std::hypot(dx, dy);
+    if (length > 1.0e-6) segments.push_back({length, std::atan2(dy, dx)});
+  }
+  if (segments.empty())
+    return alternative ? "No usable alternative route geometry is recorded."
+                       : "No usable selected route geometry is recorded.";
+  const bool highway_plan = plan.planner == "HighwayPlan" ||
+                            plan.plan_family == "highway";
+  std::vector<RoutePhrase> phrases;
+  phrases.push_back({"go straight", segments.front().length, 0.0, true});
+  for (std::size_t index = 1U; index < segments.size(); ++index) {
+    const int previous = allocentricDirectionLabel(segments[index - 1U].bearing);
+    const int current = allocentricDirectionLabel(segments[index].bearing);
+    const int difference = (current - previous + 8) % 8;
+    const double turn =
+        std::remainder(segments[index].bearing - segments[index - 1U].bearing,
+                       2.0 * kPi);
+    if (difference != 0) {
+      std::string turn_text = turnPhrase(difference);
+      if (highway_plan && index < locations.size() &&
+          locations[index].highway_intersection)
+        turn_text += " at an intersection";
+      phrases.push_back({std::move(turn_text), 0.0, turn, false});
+    }
+    phrases.push_back({"go straight", segments[index].length, 0.0, true});
+  }
+  std::vector<RoutePhrase> collapsed;
+  for (const auto& phrase : phrases) {
+    if (phrase.travel && !collapsed.empty() && collapsed.back().travel) {
+      collapsed.back().distance_m += phrase.distance_m;
+    } else {
+      collapsed.push_back(phrase);
+    }
+  }
+  response.exact_distances_m.clear();
+  response.exact_turn_angles_rad.clear();
+  response.direction_categories.clear();
+  response.distance_categories.clear();
+  std::vector<std::string> clauses;
+  for (const auto& phrase : collapsed) {
+    response.exact_distances_m.push_back(phrase.distance_m);
+    response.exact_turn_angles_rad.push_back(phrase.turn_rad);
+    response.direction_categories.push_back(phrase.text);
+    response.distance_categories.push_back(
+        phrase.travel ? distanceCategory(phrase.distance_m) : "");
+    clauses.push_back(phrase.travel
+                          ? phrase.text + " about " +
+                                response.distance_categories.back()
+                          : phrase.text);
+  }
+  std::ostringstream text;
+  text << (alternative ? "We could " : "We will ");
+  if (clauses.size() == 1U) {
+    text << clauses.front();
+  } else {
+    for (std::size_t index = 0U; index < clauses.size(); ++index) {
+      if (index != 0U)
+        text << (index + 1U == clauses.size() ? ", and " : ", ");
+      text << clauses[index];
+    }
+  }
+  text << " to reach our target.";
+  return text.str();
+}
+
+enum class ObjectiveFamily { Distance, Affordance, Freespace, Unsupported };
+
+ObjectiveFamily objectiveFamily(std::string_view objective) {
+  if (objective == "distance") return ObjectiveFamily::Distance;
+  if (objective == "conveyor" || objective == "hallway" ||
+      objective == "region" || objective == "trail")
+    return ObjectiveFamily::Affordance;
+  if (objective == "skeleton_distance" || objective == "highway_distance")
+    return ObjectiveFamily::Freespace;
+  return ObjectiveFamily::Unsupported;
+}
+
+std::optional<double> objectiveCost(const PlanCandidate& plan,
+                                    std::string_view objective) {
+  const auto found = std::find(plan.objectives.begin(), plan.objectives.end(),
+                               objective);
+  if (found == plan.objectives.end()) return std::nullopt;
+  const auto index = static_cast<std::size_t>(
+      std::distance(plan.objectives.begin(), found));
+  if (index >= plan.raw_costs.size()) return std::nullopt;
+  return plan.raw_costs[index];
+}
+
+double preferredObjectiveDifference(ObjectiveFamily family,
+                                    double preferred_cost,
+                                    double other_cost) {
+  return family == ObjectiveFamily::Distance ? other_cost - preferred_cost
+                                             : preferred_cost - other_cost;
+}
+
+int differenceMagnitudeLevel(ObjectiveFamily family, double difference) {
+  if (family == ObjectiveFamily::Distance) {
+    if (difference <= 1.0) return 0;
+    if (difference <= 10.0) return 1;
+    return 2;
+  }
+  if (family == ObjectiveFamily::Affordance) {
+    if (difference <= -150.0) return 2;
+    if (difference <= -25.0) return 1;
+    return 0;
+  }
+  if (difference <= -25.0) return 2;
+  if (difference <= -5.0) return 1;
+  return 0;
+}
+
+std::string magnitudePhrase(int level) {
+  if (level == 2) return "a lot";
+  if (level == 1) return "somewhat";
+  return "a bit";
+}
+
+std::pair<std::string, std::string> objectiveComparators(
+    std::string_view objective, std::string_view fallback) {
+  if (objective == "distance") return {"shorter", "longer"};
+  if (objective == "conveyor")
+    return {"better at going through well-traveled areas",
+            "worse at going through well-traveled areas"};
+  if (objective == "hallway")
+    return {"better at following hallways", "worse at following hallways"};
+  if (objective == "region")
+    return {"better at going through open areas",
+            "worse at going through open areas"};
+  if (objective == "trail")
+    return {"better at following ways we've gone before",
+            "worse at following ways we've gone before"};
+  if (objective == "skeleton_distance")
+    return {"better at going through open areas",
+            "worse at going through open areas"};
+  if (objective == "highway_distance")
+    return {"better at following long hallways",
+            "worse at following long hallways"};
+  return {"better at " + std::string(fallback),
+          "worse at " + std::string(fallback)};
+}
+
+std::string planConfidenceCategory(int robot_magnitude,
+                                   int comparison_magnitude) {
+  static const std::array<std::array<std::string_view, 3>, 3> table{{
+      {{"only somewhat", "not", "not"}},
+      {{"really", "only somewhat", "not"}},
+      {{"really", "really", "only somewhat"}}}};
+  return std::string(table.at(static_cast<std::size_t>(robot_magnitude))
+                         .at(static_cast<std::size_t>(comparison_magnitude)));
 }
 
 std::uint8_t inferredQuestionType(const ExplanationQuestion& question) {
@@ -267,9 +601,9 @@ ExplanationResponse UnifiedWhySystem::baseResponse(
   response.plan_id = record->active_plan_id;
   response.plan_revision = record->active_plan_revision;
   response.confidence_category = record->decision_confidence_category;
-  response.gini_agreement = record->decision_gini_agreement;
-  response.standardized_support = record->decision_standardized_total;
-  response.relative_support = record->decision_relative_support;
+  response.gini_agreement = record->decision_gamma;
+  response.standardized_support = record->decision_zeta;
+  response.relative_support = record->decision_lambda;
   response.source_provenance = record->source_provenance;
   if (const auto* plan = selectedPlan(*record)) {
     response.referenced_model_revisions = plan->dependency_revisions;
@@ -312,20 +646,57 @@ ExplanationResponse UnifiedWhySystem::explainDecision(
     text << tierOnePhrase(record) << '.';
   } else if (record.selected_tier == DecisionRecord::TIER_THREE) {
     response.primary_reasoning_source = "tier_three_voting";
-    text << "It had the strongest recorded Tier-3 total under "
-         << record.tier_three_scoring_policy << ".";
+    std::vector<const semaforr_msgs::msg::AdvisorContribution*> supportive;
+    std::vector<const semaforr_msgs::msg::AdvisorContribution*> opposing;
     for (const auto& contribution : record.advisor_contributions) {
       if (!sameAction(contribution.action, record.selected_action)) continue;
       response.referenced_advisors.push_back(contribution.advisor);
-      text << ' ' << contribution.advisor << " gave "
-           << relativeMagnitude(contribution.relative_support)
-           << " (raw " << contribution.raw_score << ", transformed "
-           << contribution.normalized_score << ", mean "
-           << contribution.advisor_mean << ", standard deviation "
-           << contribution.advisor_standard_deviation << ", weight "
-           << contribution.weight << ", contribution "
-           << contribution.weighted_score << ").";
+      response.structured_facts.push_back(
+          contribution.advisor + ":raw=" +
+          std::to_string(contribution.raw_score) + ",normalized=" +
+          std::to_string(contribution.normalized_score) + ",mean=" +
+          std::to_string(contribution.advisor_mean) + ",standard_deviation=" +
+          std::to_string(contribution.advisor_standard_deviation) +
+          ",relative_support=" +
+          std::to_string(contribution.relative_support) + ",weight=" +
+          std::to_string(contribution.weight) + ",weighted_contribution=" +
+          std::to_string(contribution.weighted_score) + ",final_total=" +
+          std::to_string(contribution.final_total));
+      if (contribution.relative_support > 0.75)
+        supportive.push_back(&contribution);
+      else if (contribution.relative_support <= -0.75)
+        opposing.push_back(&contribution);
     }
+    const auto retainStrongestBand = [](auto& contributions, bool support) {
+      const bool has_strong = std::any_of(
+          contributions.begin(), contributions.end(), [&](const auto* item) {
+            return support ? item->relative_support > 1.5
+                           : item->relative_support <= -1.5;
+          });
+      if (has_strong)
+        std::erase_if(contributions, [&](const auto* item) {
+          return support ? item->relative_support <= 1.5
+                         : item->relative_support > -1.5;
+        });
+    };
+    retainStrongestBand(supportive, true);
+    retainStrongestBand(opposing, false);
+    std::vector<std::string> support_clauses;
+    std::vector<std::string> opposition_clauses;
+    for (const auto* contribution : supportive)
+      if (const auto clause = relativeSupportClause(*contribution))
+        support_clauses.push_back(*clause);
+    for (const auto* contribution : opposing)
+      if (const auto clause = relativeSupportClause(*contribution))
+        opposition_clauses.push_back(*clause);
+    if (!opposition_clauses.empty())
+      text << "Although " << joinNatural(opposition_clauses) << ", ";
+    text << "I decided to " << actionText(record.selected_action);
+    if (!support_clauses.empty())
+      text << " because " << joinNatural(support_clauses);
+    else
+      text << " because it had the greatest total Tier-3 comment strength";
+    text << '.';
     if (record.circumstance_match_available) {
       text << " The setting matched a " << record.circumstance_learning_mode
            << " circumstance with assignment confidence "
@@ -496,19 +867,61 @@ ExplanationResponse UnifiedWhySystem::explainDecisionConfidence(
     const ExplanationQuestion& question, const DecisionRecord& record) const {
   auto response = baseResponse(question, &record);
   response.explanation_category = "decision_confidence";
-  response.primary_reasoning_source = "recorded_tier_three_confidence";
-  response.confidence_value =
-      0.45 * record.decision_gini_agreement +
-      0.35 * std::clamp(record.decision_standardized_total / 2.0, 0.0, 1.0) +
-      0.20 * std::clamp(record.decision_relative_support, 0.0, 1.0);
+  if (record.selected_tier != DecisionRecord::TIER_THREE) {
+    response.primary_reasoning_source = "recorded_tier_one_confidence";
+    response.natural_language_response =
+        "Decision confidence is recorded by the deciding Tier-1 component; "
+        "the Chapter 5 Tier-3 equations do not apply to this decision.";
+    return response;
+  }
+  response.primary_reasoning_source = "chapter_five_equations_5_2_to_5_4";
+  const double gamma = record.decision_gamma;
+  const double zeta = record.decision_zeta;
+  const double lambda = record.decision_lambda;
+  response.confidence_value = lambda;
+  response.gini_agreement = gamma;
+  response.standardized_support = zeta;
+  response.relative_support = lambda;
+  response.confidence_category = confidencePhrase(lambda);
+  response.structured_facts = {
+      "selected_comment_sum=" +
+          std::to_string(record.decision_selected_comment_sum),
+      "advisor_count=" + std::to_string(record.decision_advisor_count),
+      "normalized_support_proportion=" +
+          std::to_string(record.decision_normalized_support_proportion),
+      "gamma=" + std::to_string(gamma),
+      "action_total_mean=" +
+          std::to_string(record.decision_action_total_mean),
+      "action_total_standard_deviation=" +
+          std::to_string(record.decision_action_total_standard_deviation),
+      "zeta=" + std::to_string(zeta),
+      "lambda=" + std::to_string(lambda)};
+  for (const auto& total : record.tier_three_action_totals)
+    response.structured_facts.push_back(
+        "action_total=" + actionText(total.action) + ':' +
+        std::to_string(total.chapter_five_comment_total));
+  const int gamma_level = agreementLevel(gamma);
+  const int zeta_level = supportLevel(zeta);
+  const int lambda_level = confidenceLevel(lambda);
   std::ostringstream text;
-  text << "Reasoning confidence was " << record.decision_confidence_category
-       << ": advisor agreement=" << record.decision_gini_agreement
-       << ", standardized winning support="
-       << record.decision_standardized_total << ", relative support="
-       << record.decision_relative_support
-       << ". This is confidence in the reasoning outcome, not a guarantee "
-          "that physical execution will succeed.";
+  text << "I'm " << confidencePhrase(lambda) << " sure in my decision because ";
+  if (gamma_level == lambda_level && zeta_level == lambda_level) {
+    text << agreementPhrase(gamma) << ". " << supportPhrase(zeta) << '.';
+  } else if (gamma_level == lambda_level) {
+    text << agreementPhrase(gamma) << '.';
+  } else if (zeta_level == lambda_level) {
+    text << supportPhrase(zeta) << '.';
+  } else {
+    const std::string lower = gamma_level < zeta_level
+                                  ? agreementPhrase(gamma)
+                                  : supportPhrase(zeta);
+    const std::string higher = gamma_level > zeta_level
+                                   ? agreementPhrase(gamma)
+                                   : supportPhrase(zeta);
+    text << "even though " << higher << ", " << lower << '.';
+  }
+  text << " (gamma=" << gamma << ", zeta=" << zeta
+       << ", lambda=" << lambda << ").";
   if (record.circumstance_match_available)
     text << " Circumstance assignment confidence was "
          << record.circumstance_assignment_confidence << " under model "
@@ -572,6 +985,9 @@ ExplanationResponse UnifiedWhySystem::explainAlternativePlan(
   const PlanCandidate* alternative = nullptr;
   for (const auto& candidate : record.planning_candidates) {
     if (candidate.plan_id == record.active_plan_id) continue;
+    if (question.has_alternative_plan_id &&
+        candidate.plan_id != question.alternative_plan_id)
+      continue;
     if (!alternative || candidate.summed_score < alternative->summed_score)
       alternative = &candidate;
   }
@@ -583,17 +999,13 @@ ExplanationResponse UnifiedWhySystem::explainAlternativePlan(
   }
   response.has_plan_id = true;
   response.plan_id = alternative->plan_id;
-  response.primary_reasoning_source = "recorded_tier_two_alternative";
+  response.primary_reasoning_source = "chapter_five_recorded_alternative";
   response.referenced_planners.push_back(alternative->planner);
   response.referenced_model_revisions = alternative->dependency_revisions;
-  response.route = alternative->geometry;
+  for (const auto& step : alternative->typed_steps)
+    response.referenced_plan_steps.push_back(step.step_id);
   response.natural_language_response =
-      "The next recorded alternative is plan " +
-      std::to_string(alternative->plan_id) + " from " +
-      alternative->planner + ". It optimizes " +
-      alternative->metadata.objective_description + " and received total " +
-      std::to_string(alternative->summed_score) +
-      ", compared with the selected plan's lower winning total.";
+      describeRoute(record, *alternative, true, response);
   return response;
 }
 
@@ -601,72 +1013,112 @@ ExplanationResponse UnifiedWhySystem::explainPlanConfidence(
     const ExplanationQuestion& question, const DecisionRecord& record) const {
   auto response = baseResponse(question, &record);
   response.explanation_category = "plan_confidence";
-  response.primary_reasoning_source = "tier_two_vote_distribution";
+  response.primary_reasoning_source = "chapter_five_table_5_10";
   const auto* selected = selectedPlan(record);
   if (!selected) {
     response.found = false;
     response.natural_language_response = "No selected plan trace is available.";
     return response;
   }
-  std::vector<double> votes;
-  for (const auto& candidate : record.planning_candidates)
-    votes.push_back(candidate.summed_score);
-  const double mean = std::accumulate(votes.begin(), votes.end(), 0.0) /
-                      static_cast<double>(votes.size());
-  double variance = 0.0;
-  for (const double vote : votes) variance += (vote - mean) * (vote - mean);
-  variance /= static_cast<double>(votes.size());
-  const double deviation = std::sqrt(variance);
-  double runner_up = std::numeric_limits<double>::infinity();
-  for (const auto& candidate : record.planning_candidates)
-    if (candidate.plan_id != selected->plan_id)
-      runner_up = std::min(runner_up, candidate.summed_score);
-  const double separation = std::isfinite(runner_up)
-                                ? runner_up - selected->summed_score
-                                : 0.0;
-  const double standardized = deviation <= 1.0e-12
-                                  ? 0.0
-                                  : separation / deviation;
-  std::size_t selected_objective_wins = 0U;
-  for (std::size_t objective = 0U;
-       objective < selected->normalized_costs.size(); ++objective) {
-    double best = std::numeric_limits<double>::infinity();
-    for (const auto& candidate : record.planning_candidates)
-      if (objective < candidate.normalized_costs.size())
-        best = std::min(best, candidate.normalized_costs[objective]);
-    if (std::abs(selected->normalized_costs[objective] - best) <= 1.0e-12)
-      ++selected_objective_wins;
+  const PlanCandidate* comparison = nullptr;
+  for (const auto& candidate : record.planning_candidates) {
+    if (candidate.plan_id == selected->plan_id) continue;
+    if (question.has_alternative_plan_id &&
+        candidate.plan_id != question.alternative_plan_id)
+      continue;
+    if (!comparison || candidate.summed_score < comparison->summed_score)
+      comparison = &candidate;
   }
-  const double objective_agreement = selected->normalized_costs.empty()
-      ? 0.0
-      : static_cast<double>(selected_objective_wins) /
-            static_cast<double>(selected->normalized_costs.size());
-  const double relative = !std::isfinite(runner_up)
-      ? 0.0
-      : std::clamp(separation /
-                       std::max(1.0, std::abs(runner_up) +
-                                         std::abs(selected->summed_score)),
-                   0.0, 1.0);
-  const double confidence = std::clamp(
-      0.4 * objective_agreement +
-          0.35 * std::clamp(standardized / 2.0, 0.0, 1.0) +
-          0.25 * relative,
-      0.0, 1.0);
-  response.confidence_value = confidence;
-  response.gini_agreement = objective_agreement;
-  response.standardized_support = standardized;
-  response.relative_support = relative;
-  response.confidence_category = confidence >= 0.75 ? "high"
-                                 : confidence >= 0.45 ? "moderate"
-                                                      : "low";
-  response.natural_language_response =
-      "Plan-selection confidence was " + response.confidence_category +
-      " from the recorded range-voting distribution: winner separation=" +
-      std::to_string(separation) + ", standardized separation=" +
-      std::to_string(standardized) + ", objective agreement=" +
-      std::to_string(objective_agreement) +
-      ". This does not claim that the map, learned models, future obstacles, "
-      "or local execution are certain.";
+  if (!comparison) {
+    response.found = false;
+    response.primary_reasoning_source = "comparison_plan_unavailable";
+    response.confidence_category = "unavailable";
+    response.natural_language_response =
+        "Plan confidence is unavailable because no valid recorded comparison "
+        "plan exists; I did not fabricate one.";
+    return response;
+  }
+  const std::string robot_objective = selected->metadata.objective_name;
+  const std::string comparison_objective =
+      comparison->metadata.objective_name;
+  const auto robot_family = objectiveFamily(robot_objective);
+  const auto comparison_family = objectiveFamily(comparison_objective);
+  const auto robot_selected_cost = objectiveCost(*selected, robot_objective);
+  const auto robot_comparison_cost =
+      objectiveCost(*comparison, robot_objective);
+  const auto comparison_selected_cost =
+      objectiveCost(*selected, comparison_objective);
+  const auto comparison_comparison_cost =
+      objectiveCost(*comparison, comparison_objective);
+  if (robot_family == ObjectiveFamily::Unsupported ||
+      comparison_family == ObjectiveFamily::Unsupported ||
+      !robot_selected_cost || !robot_comparison_cost ||
+      !comparison_selected_cost || !comparison_comparison_cost) {
+    response.found = false;
+    response.primary_reasoning_source = "comparison_objectives_unavailable";
+    response.confidence_category = "unavailable";
+    response.natural_language_response =
+        "Plan confidence is unavailable because both recorded plans cannot "
+        "be evaluated under the two required Chapter 5 objectives.";
+    return response;
+  }
+  const double robot_difference = preferredObjectiveDifference(
+      robot_family, *robot_selected_cost, *robot_comparison_cost);
+  const double comparison_difference = preferredObjectiveDifference(
+      comparison_family, *comparison_comparison_cost,
+      *comparison_selected_cost);
+  const int robot_magnitude =
+      differenceMagnitudeLevel(robot_family, robot_difference);
+  const int comparison_magnitude =
+      differenceMagnitudeLevel(comparison_family, comparison_difference);
+  const std::string robot_translation = magnitudePhrase(robot_magnitude);
+  const std::string comparison_translation =
+      magnitudePhrase(comparison_magnitude);
+  response.confidence_category =
+      planConfidenceCategory(robot_magnitude, comparison_magnitude);
+  response.confidence_value = 0.0;
+  response.referenced_planners = {selected->planner, comparison->planner};
+  response.structured_facts = {
+      "robot_objective=" + robot_objective,
+      "comparison_objective=" + comparison_objective,
+      "robot_plan_robot_objective_cost=" +
+          std::to_string(*robot_selected_cost),
+      "comparison_plan_robot_objective_cost=" +
+          std::to_string(*robot_comparison_cost),
+      "robot_plan_comparison_objective_cost=" +
+          std::to_string(*comparison_selected_cost),
+      "comparison_plan_comparison_objective_cost=" +
+          std::to_string(*comparison_comparison_cost),
+      "D_R=" + std::to_string(robot_difference),
+      "D_H=" + std::to_string(comparison_difference),
+      "M(D_R)=" + robot_translation,
+      "M(D_H)=" + comparison_translation,
+      "N(M(D_R))=" + robot_translation,
+      "N(M(D_H))=" + comparison_translation,
+      "N(M(D_R,D_H))=" + response.confidence_category};
+  const auto robot_comparators = objectiveComparators(
+      robot_objective, selected->metadata.objective_description);
+  const auto comparison_comparators = objectiveComparators(
+      comparison_objective, comparison->metadata.objective_description);
+  std::ostringstream text;
+  text << "I'm " << response.confidence_category << " sure because ";
+  if (response.confidence_category == "really") {
+    text << "my plan is " << robot_translation << ' '
+         << robot_comparators.first << " and only "
+         << comparison_translation << ' ' << comparison_comparators.second
+         << " than the comparison plan.";
+  } else if (response.confidence_category == "only somewhat") {
+    text << "even though my plan is " << robot_translation << ' '
+         << robot_comparators.first << ", it is also "
+         << comparison_translation << ' ' << comparison_comparators.second
+         << " than the comparison plan.";
+  } else {
+    text << "my plan is " << comparison_translation << ' '
+         << comparison_comparators.second << " and only "
+         << robot_translation << ' ' << robot_comparators.first
+         << " than the comparison plan.";
+  }
+  response.natural_language_response = text.str();
   return response;
 }
 
@@ -680,90 +1132,12 @@ ExplanationResponse UnifiedWhySystem::explainRoute(
     response.natural_language_response = "No selected route is recorded.";
     return response;
   }
-  response.route = selected->geometry;
-  response.primary_reasoning_source = selected->metadata.plan_type;
+  response.primary_reasoning_source = "chapter_five_route_description";
   response.referenced_planners.push_back(selected->planner);
-  std::ostringstream text;
-  text << "The " << selected->metadata.plan_type << " route from "
-       << selected->planner << " will ";
-  if (!selected->typed_steps.empty()) {
-    for (std::size_t index = 0U; index < selected->typed_steps.size(); ++index) {
-      const auto& step = selected->typed_steps[index];
-      response.referenced_plan_steps.push_back(step.step_id);
-      if (index != 0U) text << ", then ";
-      if (step.step_type == "highway_entry")
-        text << "enter highway " << step.primary_entity_id;
-      else if (step.step_type == "highway")
-        text << "continue on highway " << step.primary_entity_id
-             << " to intersection " << step.secondary_entity_id;
-      else if (step.step_type == "intersection")
-        text << "pass through intersection " << step.primary_entity_id;
-      else if (step.step_type == "highway_exit")
-        text << "exit highway " << step.primary_entity_id;
-      else if (step.step_type == "skeleton_transition")
-        text << "follow a supporting subtrail from region "
-             << step.primary_entity_id << " to region "
-             << step.secondary_entity_id;
-      else if (step.step_type == "region")
-        text << "move into region " << step.primary_entity_id;
-      else if (step.step_type == "subtrail")
-        text << "follow learned subtrail " << step.primary_entity_id;
-      else
-        text << "approach the " << step.step_type;
-    }
-  } else {
-    text << "follow simplified geometric segments";
-  }
-  text << ".";
-  double heading = record.robot_pose.theta;
-  geometry_msgs::msg::Point previous;
-  previous.x = record.robot_pose.x;
-  previous.y = record.robot_pose.y;
-  std::vector<geometry_msgs::msg::Point> simplified;
-  std::optional<double> segment_bearing;
-  geometry_msgs::msg::Point segment_start = previous;
-  geometry_msgs::msg::Point segment_end = previous;
-  for (const auto& point : selected->geometry) {
-    const double dx = point.x - segment_end.x;
-    const double dy = point.y - segment_end.y;
-    if (std::hypot(dx, dy) <= 1.0e-6) continue;
-    const double bearing = std::atan2(point.y - segment_start.y,
-                                      point.x - segment_start.x);
-    if (segment_bearing &&
-        std::abs(std::remainder(bearing - *segment_bearing,
-                                2.0 * kPi)) > 0.17) {
-      simplified.push_back(segment_end);
-      segment_start = segment_end;
-      segment_bearing = std::atan2(point.y - segment_start.y,
-                                   point.x - segment_start.x);
-    } else if (!segment_bearing) {
-      segment_bearing = bearing;
-    }
-    segment_end = point;
-  }
-  if (segment_bearing) simplified.push_back(segment_end);
-  if (!simplified.empty()) text << " Geometrically, ";
-  for (std::size_t index = 0U; index < simplified.size(); ++index) {
-    const auto& point = simplified[index];
-    const double dx = point.x - previous.x;
-    const double dy = point.y - previous.y;
-    const double distance = std::hypot(dx, dy);
-    if (distance <= 1.0e-6) continue;
-    const double bearing = std::atan2(dy, dx);
-    const double turn = std::remainder(bearing - heading, 2.0 * kPi);
-    response.exact_distances_m.push_back(distance);
-    response.exact_turn_angles_rad.push_back(turn);
-    response.direction_categories.push_back(directionCategory(turn));
-    response.distance_categories.push_back(distanceCategory(distance));
-    if (index != 0U) text << ", then ";
-    text << response.direction_categories.back() << " for "
-         << response.distance_categories.back() << " (" << distance
-         << " m after a " << turn << " rad turn)";
-    heading = bearing;
-    previous = point;
-  }
-  if (!simplified.empty()) text << '.';
-  response.natural_language_response = text.str();
+  for (const auto& step : selected->typed_steps)
+    response.referenced_plan_steps.push_back(step.step_id);
+  response.natural_language_response =
+      describeRoute(record, *selected, false, response);
   return response;
 }
 

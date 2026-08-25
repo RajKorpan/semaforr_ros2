@@ -502,6 +502,8 @@ semaforr_msgs::msg::DecisionRecord toMessage(
     total.pre_circumstance_total = source_total.pre_circumstance_total;
     total.circumstance_multiplier = source_total.circumstance_multiplier;
     total.post_circumstance_total = source_total.post_circumstance_total;
+    total.chapter_five_comment_total =
+        source_total.chapter_five_comment_total;
     total.circumstance_action_evidence =
         source_total.circumstance_action_evidence;
     total.circumstance_action_confidence =
@@ -540,6 +542,22 @@ semaforr_msgs::msg::DecisionRecord toMessage(
       source.decision_confidence.standardized_total;
   result.decision_relative_support =
       source.decision_confidence.relative_support;
+  result.decision_selected_comment_sum =
+      source.decision_confidence.selected_comment_sum;
+  result.decision_advisor_count = source.decision_confidence.advisor_count;
+  result.decision_normalized_support_proportion =
+      source.decision_confidence.normalized_support_proportion;
+  result.decision_action_total_mean =
+      source.decision_confidence.action_total_mean;
+  result.decision_action_total_standard_deviation =
+      source.decision_confidence.action_total_standard_deviation;
+  result.decision_gamma = source.decision_confidence.gamma;
+  result.decision_zeta = source.decision_confidence.zeta;
+  result.decision_lambda = source.decision_confidence.lambda;
+  result.decision_agreement_category =
+      source.decision_confidence.agreement_category;
+  result.decision_support_category =
+      source.decision_confidence.support_category;
   result.decision_confidence_category =
       source.decision_confidence.category;
   result.selected_tier = toMessage(source.tier);

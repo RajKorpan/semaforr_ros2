@@ -71,6 +71,16 @@ uint64 tier_three_random_selection_index
 float64 decision_gini_agreement
 float64 decision_standardized_total
 float64 decision_relative_support
+float64 decision_selected_comment_sum
+uint64 decision_advisor_count
+float64 decision_normalized_support_proportion
+float64 decision_action_total_mean
+float64 decision_action_total_standard_deviation
+float64 decision_gamma
+float64 decision_zeta
+float64 decision_lambda
+string decision_agreement_category
+string decision_support_category
 string decision_confidence_category
 uint8 selected_tier
 uint8 selected_source
