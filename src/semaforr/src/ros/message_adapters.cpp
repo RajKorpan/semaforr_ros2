@@ -1,3 +1,12 @@
+/**
+ * @file message_adapters.cpp
+ * @brief Message adapters responsibilities.
+ *
+ * @details This file implements message adapters behavior for the ROS 2 composition
+ * and message-adaptation boundary. It records the declarations, settings,
+ * fixtures, or guidance needed by that responsibility. Its
+ * package-relative location is `src/ros/message_adapters.cpp`.
+ */
 #include <algorithm>
 #include <array>
 #include <chrono>
@@ -13,6 +22,19 @@ namespace ros {
 
 namespace {
 
+/**
+ * @brief Performs the observation time operation for this subsystem.
+ *
+ * Arguments:
+ * - @p stamp: Supplies stamp input to the operation.
+ * - @p received_at: Supplies received at input to the operation.
+ *
+ * Returns:
+ * - `domain::SocialTimestamp` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 domain::SocialTimestamp observationTime(const builtin_interfaces::msg::Time& stamp,
                                         const rclcpp::Time& received_at) {
   const rclcpp::Time observed_at(stamp, received_at.get_clock_type());
@@ -23,12 +45,38 @@ domain::SocialTimestamp observationTime(const builtin_interfaces::msg::Time& sta
   return std::chrono::nanoseconds(observed_at.nanoseconds());
 }
 
+/**
+ * @brief Performs the observation age operation for this subsystem.
+ *
+ * Arguments:
+ * - @p observed_at: Supplies observed at input to the operation.
+ * - @p received_at: Supplies received at input to the operation.
+ *
+ * Returns:
+ * - `std::chrono::nanoseconds` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::chrono::nanoseconds observationAge(
     domain::SocialTimestamp observed_at, const rclcpp::Time& received_at) {
   return std::chrono::nanoseconds(received_at.nanoseconds() -
                                   observed_at.count());
 }
 
+/**
+ * @brief Performs the finite history operation for this subsystem.
+ *
+ * Arguments:
+ * - @p x: Supplies x input to the operation.
+ * - @p y: Supplies y input to the operation.
+ *
+ * Returns:
+ * - `bool` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 bool finiteHistory(const std::vector<float>& x, const std::vector<float>& y) {
   return x.size() == y.size() &&
          std::all_of(x.begin(), x.end(),
@@ -37,6 +85,19 @@ bool finiteHistory(const std::vector<float>& x, const std::vector<float>& y) {
                      [](float value) { return std::isfinite(value); });
 }
 
+/**
+ * @brief Performs the covariance operation for this subsystem.
+ *
+ * Arguments:
+ * - @p confidence: Supplies confidence input to the operation.
+ * - @p config: Supplies config input to the operation.
+ *
+ * Returns:
+ * - `std::array<double, 4>` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::array<double, 4> covariance(double confidence,
                                  const SocialAdapterConfiguration& config) {
   const double variance =
@@ -45,6 +106,18 @@ std::array<double, 4> covariance(double confidence,
   return {variance, 0.0, 0.0, variance};
 }
 
+/**
+ * @brief Validates configuration for this subsystem.
+ *
+ * Arguments:
+ * - @p config: Supplies config input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void validateConfiguration(const SocialAdapterConfiguration& config) {
   if (!std::isfinite(config.history_step_s) || config.history_step_s <= 0.0 ||
       !std::isfinite(config.default_position_variance) ||
@@ -60,6 +133,21 @@ void validateConfiguration(const SocialAdapterConfiguration& config) {
 
 }  // namespace
 
+/**
+ * @brief Performs the tracked people to domain operation for this
+ * subsystem.
+ *
+ * Arguments:
+ * - @p message: Supplies message input to the operation.
+ * - @p received_at: Supplies received at input to the operation.
+ * - @p configuration: Supplies configuration input to the operation.
+ *
+ * Returns:
+ * - `domain::CrowdObservation` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 domain::CrowdObservation trackedPeopleToDomain(
     const social_context_msgs::msg::TrackedPersonArray& message,
     const rclcpp::Time& received_at,
@@ -97,6 +185,20 @@ domain::CrowdObservation trackedPeopleToDomain(
   return result;
 }
 
+/**
+ * @brief Performs the hunav agents to domain operation for this subsystem.
+ *
+ * Arguments:
+ * - @p message: Supplies message input to the operation.
+ * - @p received_at: Supplies received at input to the operation.
+ * - @p configuration: Supplies configuration input to the operation.
+ *
+ * Returns:
+ * - `domain::CrowdObservation` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 domain::CrowdObservation hunavAgentsToDomain(
     const hunav_msgs::msg::Agents& message, const rclcpp::Time& received_at,
     const SocialAdapterConfiguration& configuration) {
@@ -126,6 +228,21 @@ domain::CrowdObservation hunavAgentsToDomain(
   return result;
 }
 
+/**
+ * @brief Performs the formations to domain operation for this subsystem.
+ *
+ * Arguments:
+ * - @p message: Supplies message input to the operation.
+ * - @p minimum_confidence: Supplies minimum confidence input to the
+ * operation.
+ *
+ * Returns:
+ * - `std::vector<domain::FormationObservation>` containing the operation
+ * result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::vector<domain::FormationObservation> formationsToDomain(
     const social_context_msgs::msg::FormationGroupArray& message,
     double minimum_confidence) {
@@ -158,6 +275,18 @@ std::vector<domain::FormationObservation> formationsToDomain(
   return result;
 }
 
+/**
+ * @brief Parses prediction identity for this subsystem.
+ *
+ * Arguments:
+ * - @p encoded_frame_id: Supplies encoded frame id input to the operation.
+ *
+ * Returns:
+ * - `std::optional<PredictionIdentity>` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::optional<PredictionIdentity> parsePredictionIdentity(
     const std::string& encoded_frame_id) {
   const auto marker = encoded_frame_id.rfind("_pred_");

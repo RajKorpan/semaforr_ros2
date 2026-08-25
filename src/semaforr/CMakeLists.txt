@@ -1,3 +1,4 @@
+# File overview: This file documents or configures build behavior for the SemaFORR navigation package. It records the declarations, settings, fixtures, or guidance needed by that responsibility. Its package-relative location is `CMakeLists.txt`.
 cmake_minimum_required(VERSION 3.16)
 project(semaforr VERSION 0.1.0 LANGUAGES C CXX)
 

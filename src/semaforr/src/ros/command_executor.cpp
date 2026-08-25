@@ -1,3 +1,12 @@
+/**
+ * @file command_executor.cpp
+ * @brief Command executor responsibilities.
+ *
+ * @details This file implements command executor behavior for the ROS 2 composition
+ * and message-adaptation boundary. It records the declarations, settings,
+ * fixtures, or guidance needed by that responsibility. Its
+ * package-relative location is `src/ros/command_executor.cpp`.
+ */
 #include <algorithm>
 #include <cmath>
 #include <semaforr/ros/command_executor.hpp>
@@ -8,6 +17,19 @@
 namespace semaforr::ros {
 namespace {
 
+/**
+ * @brief Performs the require positive finite operation for this subsystem.
+ *
+ * Arguments:
+ * - @p value: Supplies value input to the operation.
+ * - @p name: Supplies name input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void requirePositiveFinite(double value, std::string_view name) {
   if (!std::isfinite(value) || value <= 0.0) {
     throw std::invalid_argument(std::string(name) +
@@ -15,6 +37,19 @@ void requirePositiveFinite(double value, std::string_view name) {
   }
 }
 
+/**
+ * @brief Performs the command for operation for this subsystem.
+ *
+ * Arguments:
+ * - @p action: Supplies action input to the operation.
+ * - @p configuration: Supplies configuration input to the operation.
+ *
+ * Returns:
+ * - `domain::VelocityCommand` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 domain::VelocityCommand commandFor(
     const domain::Action& action,
     const CommandExecutorConfiguration& configuration) {
@@ -33,6 +68,20 @@ domain::VelocityCommand commandFor(
   return {};
 }
 
+/**
+ * @brief Performs the approach operation for this subsystem.
+ *
+ * Arguments:
+ * - @p current: Supplies current input to the operation.
+ * - @p target: Supplies target input to the operation.
+ * - @p maximum_delta: Supplies maximum delta input to the operation.
+ *
+ * Returns:
+ * - `double` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 double approach(double current, double target, double maximum_delta) {
   return current +
          std::clamp(target - current, -maximum_delta, maximum_delta);
@@ -40,6 +89,18 @@ double approach(double current, double target, double maximum_delta) {
 
 }  // namespace
 
+/**
+ * @brief Performs the command executor operation for this subsystem.
+ *
+ * Arguments:
+ * - @p configuration: Supplies configuration input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 CommandExecutor::CommandExecutor(CommandExecutorConfiguration configuration)
     : configuration_(std::move(configuration)) {
   requirePositiveFinite(configuration_.linear_velocity_mps, "linear velocity");
@@ -78,6 +139,20 @@ CommandExecutor::CommandExecutor(CommandExecutorConfiguration configuration)
                         "odometry reset angle");
 }
 
+/**
+ * @brief Performs the start operation for this subsystem.
+ *
+ * Arguments:
+ * - @p request: Supplies request input to the operation.
+ * - @p pose: Supplies pose input to the operation.
+ * - @p now: Supplies now input to the operation.
+ *
+ * Returns:
+ * - `ActionExecutionUpdate` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 ActionExecutionUpdate CommandExecutor::start(
     const ActionExecutionRequest& request, const domain::Pose2D& pose,
     const rclcpp::Time& now) {
@@ -127,6 +202,19 @@ ActionExecutionUpdate CommandExecutor::start(
           request.action_id, pose, pose, 0.0, 0.0};
 }
 
+/**
+ * @brief Updates package content for this subsystem.
+ *
+ * Arguments:
+ * - @p pose: Supplies pose input to the operation.
+ * - @p now: Supplies now input to the operation.
+ *
+ * Returns:
+ * - `ActionExecutionUpdate` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 ActionExecutionUpdate CommandExecutor::update(const domain::Pose2D& pose,
                                               const rclcpp::Time& now) {
   if (!executing() || !request_ || !previous_pose_ || !started_at_ ||
@@ -217,11 +305,35 @@ ActionExecutionUpdate CommandExecutor::update(const domain::Pose2D& pose,
           distance_achieved_m_, rotation_achieved_rad_};
 }
 
+/**
+ * @brief Performs the cancel operation for this subsystem.
+ *
+ * Arguments:
+ * - @p status: Supplies status input to the operation.
+ *
+ * Returns:
+ * - `ActionExecutionUpdate` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 ActionExecutionUpdate CommandExecutor::cancel(
     ActionExecutionStatus status) noexcept {
   return terminal(status);
 }
 
+/**
+ * @brief Performs the terminal operation for this subsystem.
+ *
+ * Arguments:
+ * - @p status: Supplies status input to the operation.
+ *
+ * Returns:
+ * - `ActionExecutionUpdate` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 ActionExecutionUpdate CommandExecutor::terminal(
     ActionExecutionStatus status) noexcept {
   status_ = status;
@@ -234,6 +346,18 @@ ActionExecutionUpdate CommandExecutor::terminal(
           rotation_achieved_rad_};
 }
 
+/**
+ * @brief Performs the timeout seconds operation for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - `double` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 double CommandExecutor::timeoutSeconds() const noexcept {
   if (!request_) {
     return configuration_.minimum_timeout_s;
@@ -260,6 +384,18 @@ double CommandExecutor::timeoutSeconds() const noexcept {
                   nominal_s * configuration_.timeout_multiplier);
 }
 
+/**
+ * @brief Performs the target operation for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - `double` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 double CommandExecutor::target() const noexcept {
   if (!request_) {
     return 0.0;
@@ -269,6 +405,18 @@ double CommandExecutor::target() const noexcept {
              : request_->target_angle_rad;
 }
 
+/**
+ * @brief Converts string for this subsystem.
+ *
+ * Arguments:
+ * - @p status: Supplies status input to the operation.
+ *
+ * Returns:
+ * - `std::string_view` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::string_view toString(ActionExecutionStatus status) noexcept {
   switch (status) {
     case ActionExecutionStatus::Idle:

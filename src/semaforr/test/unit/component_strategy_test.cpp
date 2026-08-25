@@ -1,3 +1,16 @@
+/**
+ * @file component_strategy_test.cpp
+ * @brief Component strategy test responsibilities.
+ *
+ * @details This file exercises component strategy test behavior for automated
+ * verification and regression testing. It centers on `FixedRule`,
+ * `FixedAdvisor`, `FixedPlanner`,
+ * `ActivatesCompletesSkipsAndFinishesTasks`, `FirstMandatoryDecisionWins`,
+ * `AggregatesRawScoresAndWeights`,
+ * `RejectsMissingLaserAndInvalidActionIndices`,
+ * `SelectsLowestCostAndUsesNameForStableTies`. Its package-relative
+ * location is `test/unit/component_strategy_test.cpp`.
+ */
 #include <gtest/gtest.h>
 
 #include <algorithm>
@@ -27,11 +40,47 @@ using semaforr::decision::MandatoryRule;
 using semaforr::domain::Action;
 using semaforr::domain::ActionType;
 
+/**
+ * @brief Encapsulates fixed rule state and behavior for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - Not applicable to this declaration.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 class FixedRule final : public MandatoryRule {
  public:
+  /**
+   * @brief Performs the fixed rule operation for this subsystem.
+   *
+   * Arguments:
+   * - @p decision: Supplies decision input to the operation.
+   *
+   * Returns:
+   * - No value; effects are applied to owned state or outputs.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   explicit FixedRule(std::optional<Decision> decision)
       : decision_(std::move(decision)) {}
 
+  /**
+   * @brief Evaluates package content for this subsystem.
+   *
+   * Arguments:
+   * - @p argument_1: Supplies argument 1 input to the operation.
+   *
+   * Returns:
+   * - `std::optional<Decision>` containing the operation result.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   std::optional<Decision> evaluate(const DecisionContext&) const override {
     return decision_;
   }
@@ -40,13 +89,64 @@ class FixedRule final : public MandatoryRule {
   std::optional<Decision> decision_;
 };
 
+/**
+ * @brief Encapsulates fixed advisor state and behavior for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - Not applicable to this declaration.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 class FixedAdvisor final : public Advisor {
  public:
+  /**
+   * @brief Performs the fixed advisor operation for this subsystem.
+   *
+   * Arguments:
+   * - @p name: Supplies name input to the operation.
+   * - @p scores: Supplies scores input to the operation.
+   * - @p weight: Supplies weight input to the operation.
+   *
+   * Returns:
+   * - No value; effects are applied to owned state or outputs.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   FixedAdvisor(std::string name, std::vector<ActionScore> scores, double weight)
       : name_(std::move(name)), scores_(std::move(scores)), weight_(weight) {}
 
+  /**
+   * @brief Performs the name operation for this subsystem.
+   *
+   * Arguments:
+   * - None.
+   *
+   * Returns:
+   * - `std::string_view` containing the operation result.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   std::string_view name() const noexcept override { return name_; }
 
+  /**
+   * @brief Evaluates package content for this subsystem.
+   *
+   * Arguments:
+   * - @p argument_1: Supplies argument 1 input to the operation.
+   * - @p Action: Supplies action input to the operation.
+   *
+   * Returns:
+   * - `AdvisorEvaluation` containing the operation result.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   AdvisorEvaluation evaluate(const DecisionContext&,
                              std::span<const Action>) const override {
     return {true, scores_, weight_, "component fixture"};
@@ -58,17 +158,67 @@ class FixedAdvisor final : public Advisor {
   double weight_;
 };
 
+/**
+ * @brief Encapsulates fixed planner state and behavior for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - Not applicable to this declaration.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 class FixedPlanner final : public semaforr::planning::Planner {
  public:
+  /**
+   * @brief Performs the fixed planner operation for this subsystem.
+   *
+   * Arguments:
+   * - @p name: Supplies name input to the operation.
+   * - @p status: Supplies status input to the operation.
+   * - @p cost: Supplies cost input to the operation.
+   *
+   * Returns:
+   * - No value; effects are applied to owned state or outputs.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   FixedPlanner(std::string name, semaforr::planning::PlanStatus status,
                double cost)
       : name_(std::move(name)), status_(status), cost_(cost) {}
 
+  /**
+   * @brief Constructs package content for this subsystem.
+   *
+   * Arguments:
+   * - @p PlanningRequest: Supplies planning request input to the operation.
+   *
+   * Returns:
+   * - `semaforr::planning::PlanResult` containing the operation result.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   semaforr::planning::PlanResult plan(
       const semaforr::planning::PlanningRequest&) override {
     return {status_, {{0.0, 0.0}, {1.0, 1.0}}, cost_, "fixture"};
   }
 
+  /**
+   * @brief Performs the name operation for this subsystem.
+   *
+   * Arguments:
+   * - None.
+   *
+   * Returns:
+   * - `std::string_view` containing the operation result.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   std::string_view name() const noexcept override { return name_; }
 
  private:

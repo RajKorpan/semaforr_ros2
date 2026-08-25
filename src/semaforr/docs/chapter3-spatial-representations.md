@@ -1,3 +1,5 @@
+<!-- File overview: This file documents or configures chapter3 spatial representations behavior for the maintained architecture and user documentation. It records the declarations, settings, fixtures, or guidance needed by that responsibility. Its package-relative location is `docs/chapter3-spatial-representations.md`. -->
+
 # Chapter 3 spatial representation profiles
 
 `features.spatial_learning_profile` selects the algorithms used by trails,

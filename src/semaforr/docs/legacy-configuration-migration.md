@@ -1,3 +1,5 @@
+<!-- File overview: This file documents or configures legacy configuration migration behavior for the maintained architecture and user documentation. It records the declarations, settings, fixtures, or guidance needed by that responsibility. Its package-relative location is `docs/legacy-configuration-migration.md`. -->
+
 # Migrating legacy configuration
 
 Legacy SemaFORR split runtime settings across positional `.conf` files and

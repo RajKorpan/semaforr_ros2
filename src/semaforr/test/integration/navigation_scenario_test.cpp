@@ -1,3 +1,15 @@
+/**
+ * @file navigation_scenario_test.cpp
+ * @brief Navigation scenario test responsibilities.
+ *
+ * @details This file exercises navigation scenario test behavior for automated
+ * verification and regression testing. It centers on `ProgressAdvisor`,
+ * `EmptyCorridorSelectsForward`, `DoorwayRemainsTraversable`,
+ * `ObstacleAheadVetoesForwardMotion`, `DeadEndWithNoSurvivorStopsSafely`,
+ * `MultipleTargetsAdvanceInOrder`, `StuckRobotSkipsAtTheDecisionLimit`,
+ * `PedestrianCrossingCanChangeTheSelectedAction`. Its package-relative
+ * location is `test/integration/navigation_scenario_test.cpp`.
+ */
 #include <gtest/gtest.h>
 
 #include <chrono>
@@ -17,12 +29,63 @@ namespace {
 using semaforr::domain::Action;
 using semaforr::domain::ActionType;
 
+/**
+ * @brief Encapsulates progress advisor state and behavior for this
+ * subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - Not applicable to this declaration.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 class ProgressAdvisor final : public semaforr::decision::Advisor {
  public:
+  /**
+   * @brief Performs the progress advisor operation for this subsystem.
+   *
+   * Arguments:
+   * - @p weight: Supplies weight input to the operation.
+   *
+   * Returns:
+   * - No value; effects are applied to owned state or outputs.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   explicit ProgressAdvisor(double weight = 1.0) : weight_(weight) {}
 
+  /**
+   * @brief Performs the name operation for this subsystem.
+   *
+   * Arguments:
+   * - None.
+   *
+   * Returns:
+   * - `std::string_view` containing the operation result.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   std::string_view name() const noexcept override { return "progress"; }
 
+  /**
+   * @brief Evaluates package content for this subsystem.
+   *
+   * Arguments:
+   * - @p DecisionContext: Supplies decision context input to the operation.
+   * - @p candidates: Supplies candidates input to the operation.
+   *
+   * Returns:
+   * - `semaforr::decision::AdvisorEvaluation` containing the operation
+   * result.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   semaforr::decision::AdvisorEvaluation evaluate(
       const semaforr::decision::DecisionContext&,
       std::span<const Action> candidates) const override {
@@ -47,6 +110,20 @@ class ProgressAdvisor final : public semaforr::decision::Advisor {
   double weight_;
 };
 
+/**
+ * @brief Performs the laser operation for this subsystem.
+ *
+ * Arguments:
+ * - @p left: Supplies left input to the operation.
+ * - @p ahead: Supplies ahead input to the operation.
+ * - @p right: Supplies right input to the operation.
+ *
+ * Returns:
+ * - `semaforr::domain::LaserObservation` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 semaforr::domain::LaserObservation laser(double left, double ahead,
                                          double right) {
   return {semaforr::domain::Angle(-std::numbers::pi / 2.0),
@@ -56,6 +133,19 @@ semaforr::domain::LaserObservation laser(double left, double ahead,
           {left, ahead, right}};
 }
 
+/**
+ * @brief Performs the corridor coordinator operation for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - `semaforr::decision::DecisionCoordinator` containing the operation
+ * result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 semaforr::decision::DecisionCoordinator corridorCoordinator() {
   semaforr::decision::ArbitrationConfiguration configuration;
   configuration.random_seed = 19U;
@@ -68,6 +158,18 @@ semaforr::decision::DecisionCoordinator corridorCoordinator() {
   return coordinator;
 }
 
+/**
+ * @brief Performs the crossing crowd operation for this subsystem.
+ *
+ * Arguments:
+ * - @p count: Supplies count input to the operation.
+ *
+ * Returns:
+ * - `semaforr::domain::CrowdObservation` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 semaforr::domain::CrowdObservation crossingCrowd(std::size_t count) {
   semaforr::domain::CrowdObservation crowd;
   crowd.frame_id = "map";
@@ -89,6 +191,19 @@ semaforr::domain::CrowdObservation crossingCrowd(std::size_t count) {
   return crowd;
 }
 
+/**
+ * @brief Performs the social advisor operation for this subsystem.
+ *
+ * Arguments:
+ * - @p weight: Supplies weight input to the operation.
+ *
+ * Returns:
+ * - `semaforr::decision::SocialNavigationAdvisor` containing the operation
+ * result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 semaforr::decision::SocialNavigationAdvisor socialAdvisor(double weight) {
   return semaforr::decision::SocialNavigationAdvisor(
       {{0.2, 0.5},

@@ -1,4 +1,26 @@
-"""Run the deterministic simulator with independent robot map access."""
+"""SemaFORR module overview.
+
+Summary:
+    This file implements example simulation launch behavior for ROS 2 launch composition. It centers on `generate_launch_description`, `launch_nodes`. Its package-relative location is `launch/example_simulation.launch.py`.
+
+Arguments:
+    Not applicable at module scope.
+
+Returns:
+    Not applicable at module scope.
+
+Raises:
+    Import-time dependency errors may propagate.
+"""
+
+
+
+
+
+
+
+
+
 
 from pathlib import Path
 
@@ -20,6 +42,18 @@ from launch_ros.parameter_descriptions import ParameterValue
 
 
 def generate_launch_description():
+    """Summary:
+        Performs the generate launch description operation for this subsystem.
+
+    Args:
+        None.
+
+    Returns:
+        Any
+
+    Raises:
+        None documented; dependency failures may propagate.
+    """
     package_share = Path(get_package_share_directory("semaforr"))
     config_dir = package_share / "config"
     example_dir = config_dir / "example"
@@ -40,6 +74,18 @@ def generate_launch_description():
     map_planners = LaunchConfiguration("map_planners")
 
     def launch_nodes(context):
+        """Summary:
+            Performs the launch nodes operation for this subsystem.
+
+        Args:
+            context (Any): Supplies context input to the operation.
+
+        Returns:
+            Any
+
+        Raises:
+            None documented; dependency failures may propagate.
+        """
         planner_names = [
             value.strip()
             for value in map_planners.perform(context).split(",")

@@ -1,3 +1,5 @@
+<!-- File overview: This file documents or configures revision dependencies behavior for the maintained architecture and user documentation. It records the declarations, settings, fixtures, or guidance needed by that responsibility. Its package-relative location is `docs/revision-dependencies.md`. -->
+
 # Representation revisions and dependency tracking
 
 Model validity is based on exact named dependencies. The diagnostic world

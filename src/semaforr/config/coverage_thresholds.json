@@ -1,4 +1,5 @@
 {
+  "$comment": "This file defines coverage thresholds behavior for runtime configuration and reproducible experiment setup. It records the declarations, settings, fixtures, or guidance needed by that responsibility. Its package-relative location is `config/coverage_thresholds.json`.",
   "minimum_line_percent": 80.0,
   "files": [
     "src/config/navigation_configuration.cpp",

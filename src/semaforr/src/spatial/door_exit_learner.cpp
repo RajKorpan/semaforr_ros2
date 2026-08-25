@@ -1,3 +1,12 @@
+/**
+ * @file door_exit_learner.cpp
+ * @brief Door exit learner responsibilities.
+ *
+ * @details This file implements door exit learner behavior for learned spatial
+ * representations and their lifecycle. It records the declarations,
+ * settings, fixtures, or guidance needed by that responsibility. Its
+ * package-relative location is `src/spatial/door_exit_learner.cpp`.
+ */
 #include <cmath>
 #include <semaforr/spatial/learners/door_exit_learner.hpp>
 #include <stdexcept>
@@ -6,6 +15,23 @@
 
 namespace semaforr::spatial {
 
+/**
+ * @brief Performs the door exit learner operation for this subsystem.
+ *
+ * Arguments:
+ * - @p minimum_range_jump_m: Supplies minimum range jump m input to the
+ * operation.
+ * - @p maximum_opening_width_m: Supplies maximum opening width m input to
+ * the operation.
+ * - @p mode: Supplies mode input to the operation.
+ * - @p compatibility: Supplies compatibility input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 DoorExitLearner::DoorExitLearner(double minimum_range_jump_m,
                                  double maximum_opening_width_m,
                                  SpatialLearningMode mode,
@@ -34,8 +60,32 @@ DoorExitLearner::DoorExitLearner(double minimum_range_jump_m,
   }
 }
 
+/**
+ * @brief Performs the on observe operation for this subsystem.
+ *
+ * Arguments:
+ * - @p argument_1: Supplies argument 1 input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void DoorExitLearner::onObserve(const NavigationEpisode&) {}
 
+/**
+ * @brief Performs the on rebuild operation for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void DoorExitLearner::onRebuild() {
   if (mode_ == SpatialLearningMode::Compatibility) {
     auto regions = learnDecisionRegions(episodes());

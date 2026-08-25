@@ -1,3 +1,5 @@
+<!-- File overview: This file documents or configures highway model behavior for the maintained architecture and user documentation. It records the declarations, settings, fixtures, or guidance needed by that responsibility. Its package-relative location is `docs/highway-model.md`. -->
+
 # Highway and passage models
 
 High-level exploration maintains a typed passage grid. Each represented cell is

@@ -1,8 +1,30 @@
+/**
+ * @file main.cpp
+ * @brief Main responsibilities.
+ *
+ * @details This file implements main behavior for the ROS 2 composition and
+ * message-adaptation boundary. It records the declarations, settings,
+ * fixtures, or guidance needed by that responsibility. Its
+ * package-relative location is `src/ros/main.cpp`.
+ */
 #include <exception>
 #include <memory>
 #include <rclcpp/rclcpp.hpp>
 #include <semaforr/ros/semaforr_node.hpp>
 
+/**
+ * @brief Performs the main operation for this subsystem.
+ *
+ * Arguments:
+ * - @p argc: Supplies argc input to the operation.
+ * - @p argv: Supplies argv input to the operation.
+ *
+ * Returns:
+ * - `int` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 int main(int argc, char** argv) {
   rclcpp::init(argc, argv);
   try {

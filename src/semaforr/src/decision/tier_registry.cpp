@@ -1,3 +1,12 @@
+/**
+ * @file tier_registry.cpp
+ * @brief Tier registry responsibilities.
+ *
+ * @details This file implements tier registry behavior for tiered decision making
+ * and action arbitration. It records the declarations, settings, fixtures,
+ * or guidance needed by that responsibility. Its package-relative location
+ * is `src/decision/tier_registry.cpp`.
+ */
 #include <algorithm>
 #include <cmath>
 #include <limits>
@@ -9,12 +18,38 @@
 namespace semaforr::decision {
 namespace {
 
+/**
+ * @brief Performs the waypoint operation for this subsystem.
+ *
+ * Arguments:
+ * - @p world: Supplies world input to the operation.
+ *
+ * Returns:
+ * - `std::optional<domain::Point2D>` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::optional<domain::Point2D> waypoint(const domain::WorldModel& world) {
   if (!world.mission.active()) return std::nullopt;
   return world.mission.active()->waypoint().value_or(
       world.mission.active()->target);
 }
 
+/**
+ * @brief Performs the sensed operation for this subsystem.
+ *
+ * Arguments:
+ * - @p pose: Supplies pose input to the operation.
+ * - @p laser: Supplies laser input to the operation.
+ * - @p point: Supplies point input to the operation.
+ *
+ * Returns:
+ * - `bool` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 bool sensed(const domain::Pose2D& pose,
             const domain::LaserObservation& laser,
             domain::Point2D point) {
@@ -48,6 +83,19 @@ bool sensed(const domain::Pose2D& pose,
   return sampled >= 3U && visible >= 3U;
 }
 
+/**
+ * @brief Performs the nearest operation for this subsystem.
+ *
+ * Arguments:
+ * - @p point: Supplies point input to the operation.
+ * - @p values: Supplies values input to the operation.
+ *
+ * Returns:
+ * - `double` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 double nearest(domain::Point2D point,
                const std::vector<domain::Point2D>& values) {
   double result = std::numeric_limits<double>::infinity();
@@ -58,6 +106,18 @@ double nearest(domain::Point2D point,
 
 }  // namespace
 
+/**
+ * @brief Evaluates package content for this subsystem.
+ *
+ * Arguments:
+ * - @p context: Supplies context input to the operation.
+ *
+ * Returns:
+ * - `std::optional<Decision>` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::optional<Decision> VictoryRule::evaluate(
     const DecisionContext& context) const {
   if (!context.world.mission.active()) return std::nullopt;
@@ -103,6 +163,18 @@ std::optional<Decision> VictoryRule::evaluate(
                   "victory:move_toward_visible_target"};
 }
 
+/**
+ * @brief Evaluates package content for this subsystem.
+ *
+ * Arguments:
+ * - @p context: Supplies context input to the operation.
+ *
+ * Returns:
+ * - `std::vector<Veto>` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::vector<Veto> ForwardRule::evaluate(
     const DecisionContext& context) const {
   if (!waypoint(context.world)) return {};
@@ -148,6 +220,19 @@ std::vector<Veto> ForwardRule::evaluate(
   return vetoes;
 }
 
+/**
+ * @brief Performs the synchronize visited grid operation for this
+ * subsystem.
+ *
+ * Arguments:
+ * - @p world: Supplies world input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void ForwardRule::synchronizeVisitedGrid(
     const domain::WorldModel& world) const {
   if (!world.mission.active()) {
@@ -176,6 +261,18 @@ void ForwardRule::synchronizeVisitedGrid(
   }
 }
 
+/**
+ * @brief Performs the visited cell operation for this subsystem.
+ *
+ * Arguments:
+ * - @p point: Supplies point input to the operation.
+ *
+ * Returns:
+ * - `ForwardRule::VisitedCell` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 ForwardRule::VisitedCell ForwardRule::visitedCell(
     domain::Point2D point) const noexcept {
   return {static_cast<std::int64_t>(
@@ -184,6 +281,18 @@ ForwardRule::VisitedCell ForwardRule::visitedCell(
               std::floor(point.y_m))};
 }
 
+/**
+ * @brief Evaluates package content for this subsystem.
+ *
+ * Arguments:
+ * - @p context: Supplies context input to the operation.
+ *
+ * Returns:
+ * - `std::vector<Veto>` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::vector<Veto> NotOppositeRule::evaluate(
     const DecisionContext& context) const {
   const auto& history = context.world.navigation_history.entries();
@@ -216,6 +325,19 @@ std::vector<Veto> NotOppositeRule::evaluate(
   return vetoes;
 }
 
+/**
+ * @brief Performs the precedent rule operation for this subsystem.
+ *
+ * Arguments:
+ * - @p action_space: Supplies action space input to the operation.
+ * - @p configuration: Supplies configuration input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 PrecedentRule::PrecedentRule(domain::ActionSpace action_space,
                              PrecedentConfiguration configuration)
     : action_space_(std::move(action_space)), configuration_(configuration) {
@@ -233,6 +355,18 @@ PrecedentRule::PrecedentRule(domain::ActionSpace action_space,
     throw std::invalid_argument("invalid Precedent evidence thresholds");
 }
 
+/**
+ * @brief Evaluates package content for this subsystem.
+ *
+ * Arguments:
+ * - @p context: Supplies context input to the operation.
+ *
+ * Returns:
+ * - `std::vector<Veto>` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::vector<Veto> PrecedentRule::evaluate(
     const DecisionContext& context) const {
   last_reason_.clear();
@@ -328,6 +462,21 @@ std::vector<Veto> PrecedentRule::evaluate(
   return vetoes;
 }
 
+/**
+ * @brief Performs the spatial advisor operation for this subsystem.
+ *
+ * Arguments:
+ * - @p name: Supplies name input to the operation.
+ * - @p objective: Supplies objective input to the operation.
+ * - @p action_space: Supplies action space input to the operation.
+ * - @p weight: Supplies weight input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 SpatialAdvisor::SpatialAdvisor(std::string name,
                                SpatialAdvisorObjective objective,
                                domain::ActionSpace action_space, double weight)
@@ -339,6 +488,18 @@ SpatialAdvisor::SpatialAdvisor(std::string name,
     throw std::invalid_argument("invalid spatial advisor configuration");
 }
 
+/**
+ * @brief Performs the dependencies operation for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - `std::vector<std::string_view>` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::vector<std::string_view> SpatialAdvisor::dependencies() const {
   switch (objective_) {
     case SpatialAdvisorObjective::AvoidRevisit:
@@ -355,6 +516,19 @@ std::vector<std::string_view> SpatialAdvisor::dependencies() const {
   return {};
 }
 
+/**
+ * @brief Evaluates package content for this subsystem.
+ *
+ * Arguments:
+ * - @p context: Supplies context input to the operation.
+ * - @p candidates: Supplies candidates input to the operation.
+ *
+ * Returns:
+ * - `AdvisorEvaluation` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 AdvisorEvaluation SpatialAdvisor::evaluate(
     const DecisionContext& context,
     std::span<const domain::Action> candidates) const {
@@ -407,6 +581,19 @@ AdvisorEvaluation SpatialAdvisor::evaluate(
   return result;
 }
 
+/**
+ * @brief Registers mandatory for this subsystem.
+ *
+ * Arguments:
+ * - @p name: Supplies name input to the operation.
+ * - @p factory: Supplies factory input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void TierOneRegistry::registerMandatory(std::string name,
                                         MandatoryFactory factory) {
   if (name.empty() || !factory || kinds_.contains(name))
@@ -415,6 +602,19 @@ void TierOneRegistry::registerMandatory(std::string name,
   mandatory_.emplace(std::move(name), std::move(factory));
 }
 
+/**
+ * @brief Registers veto for this subsystem.
+ *
+ * Arguments:
+ * - @p name: Supplies name input to the operation.
+ * - @p factory: Supplies factory input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void TierOneRegistry::registerVeto(std::string name, VetoFactory factory) {
   if (name.empty() || !factory || kinds_.contains(name))
     throw std::invalid_argument("invalid or duplicate veto rule");
@@ -422,6 +622,19 @@ void TierOneRegistry::registerVeto(std::string name, VetoFactory factory) {
   veto_.emplace(std::move(name), std::move(factory));
 }
 
+/**
+ * @brief Registers operationalizer for this subsystem.
+ *
+ * Arguments:
+ * - @p name: Supplies name input to the operation.
+ * - @p factory: Supplies factory input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void TierOneRegistry::registerOperationalizer(
     std::string name, OperationalizerFactory factory) {
   if (name.empty() || !factory || kinds_.contains(name))
@@ -430,6 +643,21 @@ void TierOneRegistry::registerOperationalizer(
   operationalizers_.emplace(std::move(name), std::move(factory));
 }
 
+/**
+ * @brief Registers reactive for this subsystem.
+ *
+ * Arguments:
+ * - @p name: Supplies name input to the operation.
+ * - @p factory: Supplies factory input to the operation.
+ * - @p replanning_trigger: Supplies replanning trigger input to the
+ * operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void TierOneRegistry::registerReactive(std::string name,
                                        ReactiveFactory factory,
                                        bool replanning_trigger) {
@@ -440,6 +668,18 @@ void TierOneRegistry::registerReactive(std::string name,
   reactive_.emplace(std::move(name), std::move(factory));
 }
 
+/**
+ * @brief Performs the kind operation for this subsystem.
+ *
+ * Arguments:
+ * - @p name: Supplies name input to the operation.
+ *
+ * Returns:
+ * - `TierOneRegistry::Kind` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 TierOneRegistry::Kind TierOneRegistry::kind(std::string_view name) const {
   const auto found = kinds_.find(std::string(name));
   if (found == kinds_.end())
@@ -448,6 +688,18 @@ TierOneRegistry::Kind TierOneRegistry::kind(std::string_view name) const {
   return found->second;
 }
 
+/**
+ * @brief Creates mandatory for this subsystem.
+ *
+ * Arguments:
+ * - @p name: Supplies name input to the operation.
+ *
+ * Returns:
+ * - `std::unique_ptr<MandatoryRule>` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::unique_ptr<MandatoryRule> TierOneRegistry::createMandatory(
     std::string_view name) const {
   const auto found = mandatory_.find(std::string(name));
@@ -456,6 +708,18 @@ std::unique_ptr<MandatoryRule> TierOneRegistry::createMandatory(
 }
 
 std::unique_ptr<PlanOperationalizer>
+/**
+ * @brief Creates operationalizer for this subsystem.
+ *
+ * Arguments:
+ * - @p name: Supplies name input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 TierOneRegistry::createOperationalizer(std::string_view name) const {
   const auto found = operationalizers_.find(std::string(name));
   if (found == operationalizers_.end())
@@ -464,6 +728,18 @@ TierOneRegistry::createOperationalizer(std::string_view name) const {
 }
 
 std::unique_ptr<planning::ReactivePlanner>
+/**
+ * @brief Creates reactive for this subsystem.
+ *
+ * Arguments:
+ * - @p name: Supplies name input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 TierOneRegistry::createReactive(std::string_view name) const {
   const auto found = reactive_.find(std::string(name));
   if (found == reactive_.end())
@@ -471,6 +747,18 @@ TierOneRegistry::createReactive(std::string_view name) const {
   return found->second();
 }
 
+/**
+ * @brief Creates veto for this subsystem.
+ *
+ * Arguments:
+ * - @p name: Supplies name input to the operation.
+ *
+ * Returns:
+ * - `std::unique_ptr<VetoRule>` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::unique_ptr<VetoRule> TierOneRegistry::createVeto(
     std::string_view name) const {
   const auto found = veto_.find(std::string(name));
@@ -478,6 +766,24 @@ std::unique_ptr<VetoRule> TierOneRegistry::createVeto(
   return found->second();
 }
 
+/**
+ * @brief Registers tier factories for this subsystem.
+ *
+ * Arguments:
+ * - @p tier_one: Supplies tier one input to the operation.
+ * - @p tier_three: Supplies tier three input to the operation.
+ * - @p action_space: Supplies action space input to the operation.
+ * - @p robot_radius_m: Supplies robot radius m input to the operation.
+ * - @p obstacle_buffer_m: Supplies obstacle buffer m input to the
+ * operation.
+ * - @p precedent: Supplies precedent input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void registerTierFactories(TierOneRegistry& tier_one,
                            AdvisorRegistry& tier_three,
                            const domain::ActionSpace& action_space,

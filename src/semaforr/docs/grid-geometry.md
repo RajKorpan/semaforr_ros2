@@ -1,3 +1,5 @@
+<!-- File overview: This file documents or configures grid geometry behavior for the maintained architecture and user documentation. It records the declarations, settings, fixtures, or guidance needed by that responsibility. Its package-relative location is `docs/grid-geometry.md`. -->
+
 # Grid geometry
 
 All raster layers use `domain::GridGeometry` for coordinate transforms and

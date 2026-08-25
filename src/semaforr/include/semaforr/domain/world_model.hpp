@@ -1,3 +1,13 @@
+/**
+ * @file world_model.hpp
+ * @brief World model responsibilities.
+ *
+ * @details This file defines world model behavior for ROS-independent domain state
+ * and value types. It centers on `ActionSpace`, `RobotState`,
+ * `NavigationHistoryEntry`, `NavigationHistory`, `AppendOnlyHistory`,
+ * `ObservationHistoryEntry`, `RecoveryState`, `ExplorationCue`. Its
+ * package-relative location is `include/semaforr/domain/world_model.hpp`.
+ */
 #ifndef SEMAFORR_DOMAIN_WORLD_MODEL_HPP
 #define SEMAFORR_DOMAIN_WORLD_MODEL_HPP
 
@@ -26,8 +36,35 @@
 
 namespace semaforr::domain {
 
+/**
+ * @brief Encapsulates action space state and behavior for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - Not applicable to this declaration.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 class ActionSpace {
  public:
+  /**
+   * @brief Performs the action space operation for this subsystem.
+   *
+   * Arguments:
+   * - @p move_distances_m: Supplies move distances m input to the
+   * operation.
+   * - @p rotation_angles_rad: Supplies rotation angles rad input to the
+   * operation.
+   *
+   * Returns:
+   * - No value; effects are applied to owned state or outputs.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   ActionSpace(std::vector<double> move_distances_m,
               std::vector<double> rotation_angles_rad)
       : move_distances_m_(std::move(move_distances_m)),
@@ -41,13 +78,49 @@ class ActionSpace {
     }
   }
 
+  /**
+   * @brief Performs the move distances m operation for this subsystem.
+   *
+   * Arguments:
+   * - None.
+   *
+   * Returns:
+   * - `const std::vector<double>&` containing the operation result.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   const std::vector<double>& move_distances_m() const noexcept {
     return move_distances_m_;
   }
+  /**
+   * @brief Performs the rotation angles rad operation for this subsystem.
+   *
+   * Arguments:
+   * - None.
+   *
+   * Returns:
+   * - `const std::vector<double>&` containing the operation result.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   const std::vector<double>& rotation_angles_rad() const noexcept {
     return rotation_angles_rad_;
   }
 
+  /**
+   * @brief Performs the contains operation for this subsystem.
+   *
+   * Arguments:
+   * - @p action: Supplies action input to the operation.
+   *
+   * Returns:
+   * - `bool` containing the operation result.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   bool contains(const Action& action) const noexcept {
     switch (action.type()) {
       case ActionType::Pause:
@@ -62,6 +135,19 @@ class ActionSpace {
   }
 
  private:
+  /**
+   * @brief Validates package content for this subsystem.
+   *
+   * Arguments:
+   * - @p values: Supplies values input to the operation.
+   * - @p name: Supplies name input to the operation.
+   *
+   * Returns:
+   * - No value; effects are applied to owned state or outputs.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   static void validate(const std::vector<double>& values, const char* name) {
     if (values.empty()) {
       throw std::invalid_argument(std::string(name) + " must not be empty");
@@ -83,12 +169,37 @@ class ActionSpace {
   std::vector<double> rotation_angles_rad_;
 };
 
+/**
+ * @brief Encapsulates robot state state and behavior for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - Not applicable to this declaration.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 struct RobotState {
   Pose2D pose;
   std::optional<LaserObservation> laser;
   std::chrono::steady_clock::time_point observed_at{};
 };
 
+/**
+ * @brief Encapsulates navigation history entry state and behavior for this
+ * subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - Not applicable to this declaration.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 struct NavigationHistoryEntry {
   Pose2D pose;
   Pose2D observation_pose;
@@ -102,7 +213,36 @@ struct NavigationHistoryEntry {
   double distance_achieved_m{0.0};
   double rotation_achieved_rad{0.0};
 
+  /**
+   * @brief Performs the navigation history entry operation for this
+   * subsystem.
+   *
+   * Arguments:
+   * - None.
+   *
+   * Returns:
+   * - No value; effects are applied to owned state or outputs.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   NavigationHistoryEntry() = default;
+  /**
+   * @brief Performs the navigation history entry operation for this
+   * subsystem.
+   *
+   * Arguments:
+   * - @p pose_value: Supplies pose value input to the operation.
+   * - @p laser_value: Supplies laser value input to the operation.
+   * - @p action_value: Supplies action value input to the operation.
+   * - @p task_value: Supplies task value input to the operation.
+   *
+   * Returns:
+   * - No value; effects are applied to owned state or outputs.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   NavigationHistoryEntry(Pose2D pose_value, LaserObservation laser_value,
                          Action action_value,
                          std::optional<TaskId> task_value = std::nullopt)
@@ -113,12 +253,50 @@ struct NavigationHistoryEntry {
         task_id(task_value) {}
 };
 
+/**
+ * @brief Encapsulates navigation history state and behavior for this
+ * subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - Not applicable to this declaration.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 class NavigationHistory {
  public:
+  /**
+   * @brief Records package content for this subsystem.
+   *
+   * Arguments:
+   * - @p entry: Supplies entry input to the operation.
+   *
+   * Returns:
+   * - No value; effects are applied to owned state or outputs.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   void record(NavigationHistoryEntry entry) {
     entries_.push_back(std::move(entry));
   }
 
+  /**
+   * @brief Performs the entries operation for this subsystem.
+   *
+   * Arguments:
+   * - None.
+   *
+   * Returns:
+   * - `const std::vector<NavigationHistoryEntry>&` containing the operation
+   * result.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   const std::vector<NavigationHistoryEntry>& entries() const noexcept {
     return entries_;
   }
@@ -127,16 +305,66 @@ class NavigationHistory {
   std::vector<NavigationHistoryEntry> entries_;
 };
 
+/**
+ * @brief Encapsulates append only history state and behavior for this
+ * subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - Not applicable to this declaration.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 template <typename Record>
 class AppendOnlyHistory {
  public:
+  /**
+   * @brief Records package content for this subsystem.
+   *
+   * Arguments:
+   * - @p entry: Supplies entry input to the operation.
+   *
+   * Returns:
+   * - No value; effects are applied to owned state or outputs.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   void record(Record entry) { entries_.push_back(std::move(entry)); }
+  /**
+   * @brief Performs the entries operation for this subsystem.
+   *
+   * Arguments:
+   * - None.
+   *
+   * Returns:
+   * - `const std::vector<Record>&` containing the operation result.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   const std::vector<Record>& entries() const noexcept { return entries_; }
 
  private:
   std::vector<Record> entries_;
 };
 
+/**
+ * @brief Encapsulates observation history entry state and behavior for this
+ * subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - Not applicable to this declaration.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 struct ObservationHistoryEntry {
   Pose2D pose;
   ExecutionTimestamp observed_at{};
@@ -148,6 +376,18 @@ using ExecutionHistory = AppendOnlyHistory<ActionExecutionResult>;
 using CompletedPathHistory = AppendOnlyHistory<NavigationHistoryEntry>;
 using ObservationHistory = AppendOnlyHistory<ObservationHistoryEntry>;
 
+/**
+ * @brief Encapsulates recovery state state and behavior for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - Not applicable to this declaration.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 struct RecoveryState {
   bool confined = false;
   std::size_t get_out_attempts = 0U;
@@ -162,12 +402,37 @@ struct RecoveryState {
 
 using FreespaceGrid = SparseCountGrid;
 
+/**
+ * @brief Encapsulates exploration cue state and behavior for this
+ * subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - Not applicable to this declaration.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 struct ExplorationCue {
   std::uint64_t id = 0U;
   Point2D start;
   Point2D target;
 };
 
+/**
+ * @brief Encapsulates spatial model state and behavior for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - Not applicable to this declaration.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 struct SpatialModel {
   std::vector<Polygon> obstacle_polygons;
   std::vector<std::vector<Point2D>> trails;
@@ -205,12 +470,36 @@ struct SpatialModel {
   // Compatibility diagnostic sequence. This is never used as a dependency.
   std::size_t revision = 0U;
 
+  /**
+   * @brief Performs the revision of operation for this subsystem.
+   *
+   * Arguments:
+   * - @p dependency: Supplies dependency input to the operation.
+   *
+   * Returns:
+   * - `Revision` containing the operation result.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   Revision revisionOf(ModelDependency dependency) const noexcept {
     const auto found = revisions.find(dependency);
     return found == revisions.end() ? 0U : found->second;
   }
 };
 
+/**
+ * @brief Encapsulates world model state and behavior for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - Not applicable to this declaration.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 struct WorldModel {
   RobotState robot;
   Mission mission;
@@ -233,6 +522,19 @@ struct WorldModel {
 
   // Imports representation-local mutations into one diagnostic ordering.
   // Consumers must continue to validate the exact representation revisions.
+  /**
+   * @brief Performs the synchronize mutation journal operation for this
+   * subsystem.
+   *
+   * Arguments:
+   * - None.
+   *
+   * Returns:
+   * - No value; effects are applied to owned state or outputs.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   void synchronizeMutationJournal() {
     while (imported_spatial_mutations_ < spatial.mutation_history.size()) {
       auto mutation = spatial.mutation_history[imported_spatial_mutations_++];

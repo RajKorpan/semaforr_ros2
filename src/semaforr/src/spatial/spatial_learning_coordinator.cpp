@@ -1,3 +1,12 @@
+/**
+ * @file spatial_learning_coordinator.cpp
+ * @brief Spatial learning coordinator responsibilities.
+ *
+ * @details This file implements spatial learning coordinator behavior for learned
+ * spatial representations and their lifecycle. It centers on
+ * `ProjectionEstimate`. Its package-relative location is
+ * `src/spatial/spatial_learning_coordinator.cpp`.
+ */
 #include <algorithm>
 #include <chrono>
 #include <cmath>
@@ -9,6 +18,18 @@
 namespace semaforr::spatial {
 namespace {
 
+/**
+ * @brief Performs the dependency for operation for this subsystem.
+ *
+ * Arguments:
+ * - @p representation: Supplies representation input to the operation.
+ *
+ * Returns:
+ * - `domain::ModelDependency` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 domain::ModelDependency dependencyFor(SpatialRepresentation representation) {
   using D = domain::ModelDependency;
   switch (representation) {
@@ -28,6 +49,19 @@ domain::ModelDependency dependencyFor(SpatialRepresentation representation) {
   return D::Trails;
 }
 
+/**
+ * @brief Encapsulates projection estimate state and behavior for this
+ * subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - Not applicable to this declaration.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 struct ProjectionEstimate {
   std::size_t dense_cells = 0U;
   std::size_t sparse_cells = 0U;
@@ -37,6 +71,18 @@ struct ProjectionEstimate {
   std::size_t shared_bytes = 0U;
 };
 
+/**
+ * @brief Performs the estimate projection operation for this subsystem.
+ *
+ * Arguments:
+ * - @p value: Supplies value input to the operation.
+ *
+ * Returns:
+ * - `ProjectionEstimate` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 ProjectionEstimate estimateProjection(const SpatialPayload& value) {
   ProjectionEstimate result;
   std::visit(
@@ -119,6 +165,19 @@ ProjectionEstimate estimateProjection(const SpatialPayload& value) {
   return result;
 }
 
+/**
+ * @brief Clears representation for this subsystem.
+ *
+ * Arguments:
+ * - @p model: Supplies model input to the operation.
+ * - @p representation: Supplies representation input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void clearRepresentation(domain::SpatialModel& model,
                          SpatialRepresentation representation) {
   switch (representation) {
@@ -183,6 +242,20 @@ void clearRepresentation(domain::SpatialModel& model,
 
 }  // namespace
 
+/**
+ * @brief Performs the spatial learning coordinator operation for this
+ * subsystem.
+ *
+ * Arguments:
+ * - @p automatic_rebuild_interval: Supplies automatic rebuild interval
+ * input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 SpatialLearningCoordinator::SpatialLearningCoordinator(
     std::size_t automatic_rebuild_interval)
     : automatic_rebuild_interval_(automatic_rebuild_interval) {
@@ -192,11 +265,39 @@ SpatialLearningCoordinator::SpatialLearningCoordinator(
   }
 }
 
+/**
+ * @brief Performs the defaults operation for this subsystem.
+ *
+ * Arguments:
+ * - @p automatic_rebuild_interval: Supplies automatic rebuild interval
+ * input to the operation.
+ *
+ * Returns:
+ * - `SpatialLearningCoordinator` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 SpatialLearningCoordinator SpatialLearningCoordinator::defaults(
     std::size_t automatic_rebuild_interval) {
   return defaults(automatic_rebuild_interval, {});
 }
 
+/**
+ * @brief Performs the defaults operation for this subsystem.
+ *
+ * Arguments:
+ * - @p automatic_rebuild_interval: Supplies automatic rebuild interval
+ * input to the operation.
+ * - @p circumstance_configuration: Supplies circumstance configuration
+ * input to the operation.
+ *
+ * Returns:
+ * - `SpatialLearningCoordinator` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 SpatialLearningCoordinator SpatialLearningCoordinator::defaults(
     std::size_t automatic_rebuild_interval,
     CircumstanceLearningConfiguration circumstance_configuration) {
@@ -204,6 +305,23 @@ SpatialLearningCoordinator SpatialLearningCoordinator::defaults(
                   std::move(circumstance_configuration), {});
 }
 
+/**
+ * @brief Performs the defaults operation for this subsystem.
+ *
+ * Arguments:
+ * - @p automatic_rebuild_interval: Supplies automatic rebuild interval
+ * input to the operation.
+ * - @p circumstance_configuration: Supplies circumstance configuration
+ * input to the operation.
+ * - @p occupancy_configuration: Supplies occupancy configuration input to
+ * the operation.
+ *
+ * Returns:
+ * - `SpatialLearningCoordinator` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 SpatialLearningCoordinator SpatialLearningCoordinator::defaults(
     std::size_t automatic_rebuild_interval,
     CircumstanceLearningConfiguration circumstance_configuration,
@@ -213,6 +331,24 @@ SpatialLearningCoordinator SpatialLearningCoordinator::defaults(
                   occupancy_configuration, GridExtentPolicy::Expand);
 }
 
+/**
+ * @brief Performs the defaults operation for this subsystem.
+ *
+ * Arguments:
+ * - @p automatic_rebuild_interval: Supplies automatic rebuild interval
+ * input to the operation.
+ * - @p circumstance_configuration: Supplies circumstance configuration
+ * input to the operation.
+ * - @p occupancy_configuration: Supplies occupancy configuration input to
+ * the operation.
+ * - @p extent_policy: Supplies extent policy input to the operation.
+ *
+ * Returns:
+ * - `SpatialLearningCoordinator` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 SpatialLearningCoordinator SpatialLearningCoordinator::defaults(
     std::size_t automatic_rebuild_interval,
     CircumstanceLearningConfiguration circumstance_configuration,
@@ -230,6 +366,25 @@ SpatialLearningCoordinator SpatialLearningCoordinator::defaults(
                   occupancy_configuration, grids);
 }
 
+/**
+ * @brief Performs the defaults operation for this subsystem.
+ *
+ * Arguments:
+ * - @p automatic_rebuild_interval: Supplies automatic rebuild interval
+ * input to the operation.
+ * - @p circumstance_configuration: Supplies circumstance configuration
+ * input to the operation.
+ * - @p occupancy_configuration: Supplies occupancy configuration input to
+ * the operation.
+ * - @p grid_configuration: Supplies grid configuration input to the
+ * operation.
+ *
+ * Returns:
+ * - `SpatialLearningCoordinator` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 SpatialLearningCoordinator SpatialLearningCoordinator::defaults(
     std::size_t automatic_rebuild_interval,
     CircumstanceLearningConfiguration circumstance_configuration,
@@ -319,6 +474,19 @@ SpatialLearningCoordinator SpatialLearningCoordinator::defaults(
   return coordinator;
 }
 
+/**
+ * @brief Performs the add learner operation for this subsystem.
+ *
+ * Arguments:
+ * - @p learner: Supplies learner input to the operation.
+ * - @p is_enabled: Supplies is enabled input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void SpatialLearningCoordinator::addLearner(
     std::unique_ptr<SpatialLearner> learner, bool is_enabled) {
   if (!learner) {
@@ -338,6 +506,18 @@ void SpatialLearningCoordinator::addLearner(
   learners_.push_back({std::move(learner), is_enabled});
 }
 
+/**
+ * @brief Performs the require operation for this subsystem.
+ *
+ * Arguments:
+ * - @p representation: Supplies representation input to the operation.
+ *
+ * Returns:
+ * - `SpatialLearningCoordinator::Entry&` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 SpatialLearningCoordinator::Entry& SpatialLearningCoordinator::require(
     SpatialRepresentation representation) {
   const auto found =
@@ -351,6 +531,19 @@ SpatialLearningCoordinator::Entry& SpatialLearningCoordinator::require(
   return *found;
 }
 
+/**
+ * @brief Performs the require operation for this subsystem.
+ *
+ * Arguments:
+ * - @p representation: Supplies representation input to the operation.
+ *
+ * Returns:
+ * - `const SpatialLearningCoordinator::Entry&` containing the operation
+ * result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 const SpatialLearningCoordinator::Entry& SpatialLearningCoordinator::require(
     SpatialRepresentation representation) const {
   const auto found =
@@ -364,11 +557,36 @@ const SpatialLearningCoordinator::Entry& SpatialLearningCoordinator::require(
   return *found;
 }
 
+/**
+ * @brief Sets enabled for this subsystem.
+ *
+ * Arguments:
+ * - @p representation: Supplies representation input to the operation.
+ * - @p is_enabled: Supplies is enabled input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void SpatialLearningCoordinator::setEnabled(
     SpatialRepresentation representation, bool is_enabled) {
   require(representation).enabled = is_enabled;
 }
 
+/**
+ * @brief Performs the enabled operation for this subsystem.
+ *
+ * Arguments:
+ * - @p representation: Supplies representation input to the operation.
+ *
+ * Returns:
+ * - `bool` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 bool SpatialLearningCoordinator::enabled(
     SpatialRepresentation representation) const {
   return require(representation).enabled;
@@ -376,6 +594,19 @@ bool SpatialLearningCoordinator::enabled(
 
 namespace {
 
+/**
+ * @brief Performs the accepts event operation for this subsystem.
+ *
+ * Arguments:
+ * - @p contract: Supplies contract input to the operation.
+ * - @p episode: Supplies episode input to the operation.
+ *
+ * Returns:
+ * - `bool` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 bool acceptsEvent(const ObservationContract& contract,
                   const NavigationEpisode& episode) {
   switch (contract.schedule) {
@@ -413,6 +644,18 @@ bool acceptsEvent(const ObservationContract& contract,
 
 }  // namespace
 
+/**
+ * @brief Performs the dispatch operation for this subsystem.
+ *
+ * Arguments:
+ * - @p episode: Supplies episode input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void SpatialLearningCoordinator::dispatch(const NavigationEpisode& episode) {
   bool accepted = false;
   std::optional<NavigationEpisode> sequenced;
@@ -441,6 +684,18 @@ void SpatialLearningCoordinator::dispatch(const NavigationEpisode& episode) {
   }
 }
 
+/**
+ * @brief Processes package content for this subsystem.
+ *
+ * Arguments:
+ * - @p episode: Supplies episode input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void SpatialLearningCoordinator::observe(const NavigationEpisode& episode) {
   if (last_legacy_observation_sequence_ &&
       episode.sequence <= *last_legacy_observation_sequence_)
@@ -459,6 +714,18 @@ void SpatialLearningCoordinator::observe(const NavigationEpisode& episode) {
   }
 }
 
+/**
+ * @brief Processes sensor for this subsystem.
+ *
+ * Arguments:
+ * - @p episode: Supplies episode input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void SpatialLearningCoordinator::observeSensor(NavigationEpisode episode) {
   episode.event = LearningEvent::SensorObservation;
   episode.action_completed = false;
@@ -466,23 +733,71 @@ void SpatialLearningCoordinator::observeSensor(NavigationEpisode episode) {
   dispatch(episode);
 }
 
+/**
+ * @brief Processes decision for this subsystem.
+ *
+ * Arguments:
+ * - @p episode: Supplies episode input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void SpatialLearningCoordinator::observeDecision(NavigationEpisode episode) {
   episode.event = LearningEvent::DecisionSelected;
   dispatch(episode);
 }
 
+/**
+ * @brief Processes action started for this subsystem.
+ *
+ * Arguments:
+ * - @p episode: Supplies episode input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void SpatialLearningCoordinator::observeActionStarted(
     NavigationEpisode episode) {
   episode.event = LearningEvent::ActionStarted;
   dispatch(episode);
 }
 
+/**
+ * @brief Processes action progress for this subsystem.
+ *
+ * Arguments:
+ * - @p episode: Supplies episode input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void SpatialLearningCoordinator::observeActionProgress(
     NavigationEpisode episode) {
   episode.event = LearningEvent::ActionProgress;
   dispatch(episode);
 }
 
+/**
+ * @brief Processes action terminal for this subsystem.
+ *
+ * Arguments:
+ * - @p episode: Supplies episode input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void SpatialLearningCoordinator::observeActionTerminal(
     NavigationEpisode episode) {
   if (!episode.execution_result)
@@ -493,6 +808,18 @@ void SpatialLearningCoordinator::observeActionTerminal(
   dispatch(episode);
 }
 
+/**
+ * @brief Performs the rebuild operation for this subsystem.
+ *
+ * Arguments:
+ * - @p representation: Supplies representation input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void SpatialLearningCoordinator::rebuild(SpatialRepresentation representation) {
   Entry& entry = require(representation);
   if (entry.enabled) {
@@ -500,6 +827,18 @@ void SpatialLearningCoordinator::rebuild(SpatialRepresentation representation) {
   }
 }
 
+/**
+ * @brief Performs the rebuild stale operation for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void SpatialLearningCoordinator::rebuildStale() {
   for (Entry& entry : learners_) {
     if (!entry.enabled) {
@@ -515,6 +854,18 @@ void SpatialLearningCoordinator::rebuildStale() {
   }
 }
 
+/**
+ * @brief Performs the rebuild all operation for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void SpatialLearningCoordinator::rebuildAll() {
   for (Entry& entry : learners_) {
     if (entry.enabled) {
@@ -523,6 +874,19 @@ void SpatialLearningCoordinator::rebuildAll() {
   }
 }
 
+/**
+ * @brief Performs the finalize initial exploration operation for this
+ * subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void SpatialLearningCoordinator::finalizeInitialExploration() {
   for (Entry& entry : learners_) {
     if (entry.enabled &&
@@ -538,6 +902,18 @@ void SpatialLearningCoordinator::finalizeInitialExploration() {
   synchronizeInclusion();
 }
 
+/**
+ * @brief Performs the finalize target operation for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void SpatialLearningCoordinator::finalizeTarget() {
   for (Entry& entry : learners_)
     if (entry.enabled &&
@@ -551,6 +927,18 @@ void SpatialLearningCoordinator::finalizeTarget() {
   synchronizeInclusion();
 }
 
+/**
+ * @brief Performs the synchronize inclusion operation for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void SpatialLearningCoordinator::synchronizeInclusion() {
   auto inclusion = std::find_if(
       learners_.begin(), learners_.end(), [](const Entry& entry) {
@@ -576,6 +964,18 @@ void SpatialLearningCoordinator::synchronizeInclusion() {
   learner->replaceRepresented(regions, skeleton);
 }
 
+/**
+ * @brief Performs the snapshot operation for this subsystem.
+ *
+ * Arguments:
+ * - @p representation: Supplies representation input to the operation.
+ *
+ * Returns:
+ * - `std::optional<SpatialModelUpdate>` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::optional<SpatialModelUpdate> SpatialLearningCoordinator::snapshot(
     SpatialRepresentation representation) const {
   const Entry& entry = require(representation);
@@ -585,6 +985,18 @@ std::optional<SpatialModelUpdate> SpatialLearningCoordinator::snapshot(
   return entry.learner->snapshot();
 }
 
+/**
+ * @brief Performs the snapshots operation for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - `std::vector<SpatialModelUpdate>` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::vector<SpatialModelUpdate> SpatialLearningCoordinator::snapshots() const {
   std::vector<SpatialModelUpdate> result;
   result.reserve(enabledCount());
@@ -600,6 +1012,18 @@ std::vector<SpatialModelUpdate> SpatialLearningCoordinator::snapshots() const {
   return result;
 }
 
+/**
+ * @brief Performs the inspect operation for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - `std::vector<LearnerInspection>` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::vector<LearnerInspection> SpatialLearningCoordinator::inspect() const {
   std::vector<LearnerInspection> result;
   result.reserve(learners_.size());
@@ -615,6 +1039,18 @@ std::vector<LearnerInspection> SpatialLearningCoordinator::inspect() const {
   return result;
 }
 
+/**
+ * @brief Performs the serialize operation for this subsystem.
+ *
+ * Arguments:
+ * - @p representation: Supplies representation input to the operation.
+ *
+ * Returns:
+ * - `std::string` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::string SpatialLearningCoordinator::serialize(
     SpatialRepresentation representation) const {
   const Entry& entry = require(representation);
@@ -625,6 +1061,18 @@ std::string SpatialLearningCoordinator::serialize(
   return spatial::serialize(entry.learner->snapshot());
 }
 
+/**
+ * @brief Performs the serialize all operation for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - `std::string` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::string SpatialLearningCoordinator::serializeAll() const {
   std::string result{"{\"schema\":\"semaforr.spatial.v1\",\"models\":["};
   bool first = true;
@@ -637,6 +1085,18 @@ std::string SpatialLearningCoordinator::serializeAll() const {
   return result;
 }
 
+/**
+ * @brief Applies to for this subsystem.
+ *
+ * Arguments:
+ * - @p model: Supplies model input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void SpatialLearningCoordinator::applyTo(domain::SpatialModel& model) const {
   const auto started = std::chrono::steady_clock::now();
   SnapshotProjectionMetrics metrics;
@@ -804,6 +1264,18 @@ void SpatialLearningCoordinator::applyTo(domain::SpatialModel& model) const {
   total.lock_duration_s += metrics.lock_duration_s;
 }
 
+/**
+ * @brief Performs the enabled count operation for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - `std::size_t` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::size_t SpatialLearningCoordinator::enabledCount() const noexcept {
   return static_cast<std::size_t>(
       std::count_if(learners_.begin(), learners_.end(),

@@ -1,3 +1,5 @@
+<!-- File overview: This file exercises readme behavior for automated verification and regression testing. It records the declarations, settings, fixtures, or guidance needed by that responsibility. Its package-relative location is `test/fixtures/baseline/README.md`. -->
+
 # SemaFORR behavioral baseline
 
 This directory captures observable behavior before the SemaFORR refactor.

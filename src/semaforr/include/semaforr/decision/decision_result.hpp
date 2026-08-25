@@ -1,3 +1,13 @@
+/**
+ * @file decision_result.hpp
+ * @brief Decision result responsibilities.
+ *
+ * @details This file defines decision result behavior for tiered decision making
+ * and action arbitration. It centers on `DecisionSource`, `DecisionTier`,
+ * `ActionOutcome`, `RejectionKind`, `VetoCategory`, `Veto`,
+ * `DecisionCycleEvent`, `AdvisorContribution`. Its package-relative
+ * location is `include/semaforr/decision/decision_result.hpp`.
+ */
 #ifndef SEMAFORR_DECISION_DECISION_RESULT_HPP
 #define SEMAFORR_DECISION_DECISION_RESULT_HPP
 
@@ -15,6 +25,19 @@
 
 namespace semaforr::decision {
 
+/**
+ * @brief Enumerates the supported decision source values used by this
+ * subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - Not applicable to this declaration.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 enum class DecisionSource {
   MandatoryRule,
   TierThreeAdvisor,
@@ -24,6 +47,19 @@ enum class DecisionSource {
   SafeStop
 };
 
+/**
+ * @brief Enumerates the supported decision tier values used by this
+ * subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - Not applicable to this declaration.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 enum class DecisionTier {
   TierOne,
   TierTwo,
@@ -33,6 +69,19 @@ enum class DecisionTier {
   SafeStop
 };
 
+/**
+ * @brief Enumerates the supported action outcome values used by this
+ * subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - Not applicable to this declaration.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 enum class ActionOutcome {
   Pending,
   Completed,
@@ -51,7 +100,33 @@ enum class ActionOutcome {
   NavigationModeTransition
 };
 
+/**
+ * @brief Enumerates the supported rejection kind values used by this
+ * subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - Not applicable to this declaration.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 enum class RejectionKind { Safety, Cognitive, NotViable };
+/**
+ * @brief Enumerates the supported veto category values used by this
+ * subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - Not applicable to this declaration.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 enum class VetoCategory {
   Unsafe,
   ObstacleConflict,
@@ -68,7 +143,31 @@ enum class VetoCategory {
   InvalidNavigationState
 };
 
+/**
+ * @brief Encapsulates veto state and behavior for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - Not applicable to this declaration.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 struct Veto {
+  /**
+   * @brief Performs the pause operation for this subsystem.
+   *
+   * Arguments:
+   * - None.
+   *
+   * Returns:
+   * - `domain::Action action{` containing the operation result.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   domain::Action action{domain::Action::pause()};
   std::string rule;
   std::string explanation;
@@ -76,7 +175,35 @@ struct Veto {
   RejectionKind rejection_kind{RejectionKind::Cognitive};
   VetoCategory category{VetoCategory::InvalidNavigationState};
 
+  /**
+   * @brief Performs the veto operation for this subsystem.
+   *
+   * Arguments:
+   * - None.
+   *
+   * Returns:
+   * - No value; effects are applied to owned state or outputs.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   Veto() = default;
+  /**
+   * @brief Performs the veto operation for this subsystem.
+   *
+   * Arguments:
+   * - @p vetoed_action: Supplies vetoed action input to the operation.
+   * - @p vetoing_rule: Supplies vetoing rule input to the operation.
+   * - @p detail: Supplies detail input to the operation.
+   * - @p kind: Supplies kind input to the operation.
+   * - @p semantic: Supplies semantic input to the operation.
+   *
+   * Returns:
+   * - No value; effects are applied to owned state or outputs.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   Veto(domain::Action vetoed_action, std::string vetoing_rule,
        std::string detail,
        RejectionKind kind = RejectionKind::Cognitive,
@@ -85,9 +212,34 @@ struct Veto {
         explanation(detail), reason_code(std::move(detail)),
         rejection_kind(kind), category(semantic) {}
 
+  /**
+   * @brief Performs the operator operation for this subsystem.
+   *
+   * Arguments:
+   * - @p argument_1: Supplies argument 1 input to the operation.
+   *
+   * Returns:
+   * - `bool` containing the operation result.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   bool operator==(const Veto&) const = default;
 };
 
+/**
+ * @brief Encapsulates decision cycle event state and behavior for this
+ * subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - Not applicable to this declaration.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 struct DecisionCycleEvent {
   std::size_t order{0U};
   std::string tier;
@@ -101,7 +253,41 @@ struct DecisionCycleEvent {
   std::optional<DecisionTier> final_attribution;
   std::string reason_code;
 
+  /**
+   * @brief Performs the decision cycle event operation for this subsystem.
+   *
+   * Arguments:
+   * - None.
+   *
+   * Returns:
+   * - No value; effects are applied to owned state or outputs.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   DecisionCycleEvent() = default;
+  /**
+   * @brief Performs the decision cycle event operation for this subsystem.
+   *
+   * Arguments:
+   * - @p event_order: Supplies event order input to the operation.
+   * - @p event_tier: Supplies event tier input to the operation.
+   * - @p event_component: Supplies event component input to the operation.
+   * - @p inputs: Supplies inputs input to the operation.
+   * - @p event_mandate: Supplies event mandate input to the operation.
+   * - @p event_vetoes: Supplies event vetoes input to the operation.
+   * - @p event_outcome: Supplies event outcome input to the operation.
+   * - @p returned: Supplies returned input to the operation.
+   * - @p attribution: Supplies attribution input to the operation.
+   * - @p event_reason_code: Supplies event reason code input to the
+   * operation.
+   *
+   * Returns:
+   * - No value; effects are applied to owned state or outputs.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   DecisionCycleEvent(
       std::size_t event_order, std::string event_tier,
       std::string event_component, std::vector<domain::Action> inputs,
@@ -121,11 +307,48 @@ struct DecisionCycleEvent {
         final_attribution(attribution),
         reason_code(std::move(event_reason_code)) {}
 
+  /**
+   * @brief Performs the operator operation for this subsystem.
+   *
+   * Arguments:
+   * - @p argument_1: Supplies argument 1 input to the operation.
+   *
+   * Returns:
+   * - `bool` containing the operation result.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   bool operator==(const DecisionCycleEvent&) const = default;
 };
 
+/**
+ * @brief Encapsulates advisor contribution state and behavior for this
+ * subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - Not applicable to this declaration.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 struct AdvisorContribution {
   std::string advisor;
+  /**
+   * @brief Performs the pause operation for this subsystem.
+   *
+   * Arguments:
+   * - None.
+   *
+   * Returns:
+   * - `domain::Action action{` containing the operation result.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   domain::Action action{domain::Action::pause()};
   double raw_score{0.0};
   double normalized_score{0.0};
@@ -139,16 +362,66 @@ struct AdvisorContribution {
   std::string explanation;
   std::size_t model_revision_used{0U};
 
+  /**
+   * @brief Performs the operator operation for this subsystem.
+   *
+   * Arguments:
+   * - @p argument_1: Supplies argument 1 input to the operation.
+   *
+   * Returns:
+   * - `bool` containing the operation result.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   bool operator==(const AdvisorContribution&) const = default;
 };
 
+/**
+ * @brief Encapsulates predicted action result state and behavior for this
+ * subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - Not applicable to this declaration.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 struct PredictedActionResult {
+  /**
+   * @brief Performs the pause operation for this subsystem.
+   *
+   * Arguments:
+   * - None.
+   *
+   * Returns:
+   * - `domain::Action action{` containing the operation result.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   domain::Action action{domain::Action::pause()};
   domain::Pose2D predicted_pose;
   bool viable{false};
   std::string evidence_source;
 };
 
+/**
+ * @brief Encapsulates decision confidence state and behavior for this
+ * subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - Not applicable to this declaration.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 struct DecisionConfidence {
   double gini_agreement{0.0};
   double standardized_total{0.0};
@@ -156,7 +429,32 @@ struct DecisionConfidence {
   std::string category{"not_available"};
 };
 
+/**
+ * @brief Encapsulates tier three action total state and behavior for this
+ * subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - Not applicable to this declaration.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 struct TierThreeActionTotal {
+  /**
+   * @brief Performs the pause operation for this subsystem.
+   *
+   * Arguments:
+   * - None.
+   *
+   * Returns:
+   * - `domain::Action action{` containing the operation result.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   domain::Action action{domain::Action::pause()};
   double total{0.0};
   bool viable{true};
@@ -167,18 +465,68 @@ struct TierThreeActionTotal {
   std::size_t circumstance_action_evidence{0U};
   double circumstance_action_confidence{0.0};
 
+  /**
+   * @brief Performs the operator operation for this subsystem.
+   *
+   * Arguments:
+   * - @p argument_1: Supplies argument 1 input to the operation.
+   *
+   * Returns:
+   * - `bool` containing the operation result.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   bool operator==(const TierThreeActionTotal&) const = default;
 };
 
+/**
+ * @brief Encapsulates task diagnostic state and behavior for this
+ * subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - Not applicable to this declaration.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 struct TaskDiagnostic {
   std::uint64_t task_index{0U};
   std::uint64_t decision_count{0U};
   domain::Point2D target;
   std::optional<domain::Point2D> waypoint;
 
+  /**
+   * @brief Performs the operator operation for this subsystem.
+   *
+   * Arguments:
+   * - @p argument_1: Supplies argument 1 input to the operation.
+   *
+   * Returns:
+   * - `bool` containing the operation result.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   bool operator==(const TaskDiagnostic&) const = default;
 };
 
+/**
+ * @brief Encapsulates plan candidate diagnostic state and behavior for this
+ * subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - Not applicable to this declaration.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 struct PlanCandidateDiagnostic {
   planning::PlanId plan_id = 0U;
   std::string planner;
@@ -205,6 +553,19 @@ struct PlanCandidateDiagnostic {
   bool formation_evidence_participated{false};
 };
 
+/**
+ * @brief Encapsulates decision result state and behavior for this
+ * subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - Not applicable to this declaration.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 struct DecisionResult {
   std::uint64_t sequence{0U};
   domain::DecisionId decision_id{0U};
@@ -220,6 +581,18 @@ struct DecisionResult {
   std::vector<domain::Action> candidates;
   std::vector<domain::Action> viable_actions;
   std::vector<PredictedActionResult> predicted_actions;
+  /**
+   * @brief Performs the pause operation for this subsystem.
+   *
+   * Arguments:
+   * - None.
+   *
+   * Returns:
+   * - `domain::Action action{` containing the operation result.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   domain::Action action{domain::Action::pause()};
   DecisionSource source{DecisionSource::SafeStop};
   DecisionTier tier{DecisionTier::SafeStop};
@@ -285,10 +658,70 @@ struct DecisionResult {
   bool formation_evidence_participated{false};
 };
 
+/**
+ * @brief Converts string for this subsystem.
+ *
+ * Arguments:
+ * - @p source: Supplies source input to the operation.
+ *
+ * Returns:
+ * - `std::string_view` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::string_view toString(DecisionSource source) noexcept;
+/**
+ * @brief Converts string for this subsystem.
+ *
+ * Arguments:
+ * - @p tier: Supplies tier input to the operation.
+ *
+ * Returns:
+ * - `std::string_view` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::string_view toString(DecisionTier tier) noexcept;
+/**
+ * @brief Converts string for this subsystem.
+ *
+ * Arguments:
+ * - @p outcome: Supplies outcome input to the operation.
+ *
+ * Returns:
+ * - `std::string_view` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::string_view toString(ActionOutcome outcome) noexcept;
+/**
+ * @brief Converts string for this subsystem.
+ *
+ * Arguments:
+ * - @p kind: Supplies kind input to the operation.
+ *
+ * Returns:
+ * - `std::string_view` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::string_view toString(RejectionKind kind) noexcept;
+/**
+ * @brief Converts string for this subsystem.
+ *
+ * Arguments:
+ * - @p category: Supplies category input to the operation.
+ *
+ * Returns:
+ * - `std::string_view` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::string_view toString(VetoCategory category) noexcept;
 
 }  // namespace semaforr::decision

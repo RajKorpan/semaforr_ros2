@@ -1,3 +1,12 @@
+/**
+ * @file grid_learners.cpp
+ * @brief Grid learners responsibilities.
+ *
+ * @details This file implements grid learners behavior for learned spatial
+ * representations and their lifecycle. It records the declarations,
+ * settings, fixtures, or guidance needed by that responsibility. Its
+ * package-relative location is `src/spatial/grid_learners.cpp`.
+ */
 #include <algorithm>
 #include <cmath>
 #include <limits>
@@ -8,6 +17,23 @@
 namespace semaforr::spatial {
 namespace {
 
+/**
+ * @brief Performs the geometry operation for this subsystem.
+ *
+ * Arguments:
+ * - @p columns: Supplies columns input to the operation.
+ * - @p rows: Supplies rows input to the operation.
+ * - @p resolution_m: Supplies resolution m input to the operation.
+ * - @p origin: Supplies origin input to the operation.
+ * - @p policy: Supplies policy input to the operation.
+ * - @p frame_id: Supplies frame id input to the operation.
+ *
+ * Returns:
+ * - `GridGeometry` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 GridGeometry geometry(std::size_t columns, std::size_t rows,
                       double resolution_m, domain::Point2D origin,
                       GridExtentPolicy policy, std::string frame_id) {
@@ -23,17 +49,55 @@ GridGeometry geometry(std::size_t columns, std::size_t rows,
   return result;
 }
 
+/**
+ * @brief Performs the index of operation for this subsystem.
+ *
+ * Arguments:
+ * - @p grid: Supplies grid input to the operation.
+ * - @p point: Supplies point input to the operation.
+ *
+ * Returns:
+ * - `std::optional<std::size_t>` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::optional<std::size_t> indexOf(const GridGeometry& grid,
                                    domain::Point2D point) {
   return grid.index(point);
 }
 
+/**
+ * @brief Performs the increment operation for this subsystem.
+ *
+ * Arguments:
+ * - @p cells: Supplies cells input to the operation.
+ * - @p index: Supplies index input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void increment(std::unordered_map<std::size_t, std::uint32_t>& cells,
                std::size_t index) {
   auto& value = cells[index];
   if (value != std::numeric_limits<std::uint32_t>::max()) ++value;
 }
 
+/**
+ * @brief Performs the sparse snapshot operation for this subsystem.
+ *
+ * Arguments:
+ * - @p cells: Supplies cells input to the operation.
+ *
+ * Returns:
+ * - `std::vector<SparseGridCell>` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::vector<SparseGridCell> sparseSnapshot(
     const std::unordered_map<std::size_t, std::uint32_t>& cells) {
   std::vector<SparseGridCell> result;
@@ -46,6 +110,19 @@ std::vector<SparseGridCell> sparseSnapshot(
   return result;
 }
 
+/**
+ * @brief Performs the valid ray operation for this subsystem.
+ *
+ * Arguments:
+ * - @p laser: Supplies laser input to the operation.
+ * - @p measured: Supplies measured input to the operation.
+ *
+ * Returns:
+ * - `bool` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 bool validRay(const domain::LaserObservation& laser, double measured) {
   return !std::isnan(measured) && measured >= laser.minimum_range.meters() &&
          (std::isfinite(measured)
@@ -53,22 +130,75 @@ bool validRay(const domain::LaserObservation& laser, double measured) {
               : measured > 0.0);
 }
 
+/**
+ * @brief Performs the ray extent operation for this subsystem.
+ *
+ * Arguments:
+ * - @p laser: Supplies laser input to the operation.
+ * - @p measured: Supplies measured input to the operation.
+ *
+ * Returns:
+ * - `double` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 double rayExtent(const domain::LaserObservation& laser, double measured) {
   return std::isfinite(measured) ? measured : laser.maximum_range.meters();
 }
 
+/**
+ * @brief Performs the obstacle hit operation for this subsystem.
+ *
+ * Arguments:
+ * - @p laser: Supplies laser input to the operation.
+ * - @p measured: Supplies measured input to the operation.
+ *
+ * Returns:
+ * - `bool` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 bool obstacleHit(const domain::LaserObservation& laser, double measured) {
   return std::isfinite(measured) &&
          measured < laser.maximum_range.meters() -
                         domain::geometry_tolerance_m;
 }
 
+/**
+ * @brief Performs the saturating increment operation for this subsystem.
+ *
+ * Arguments:
+ * - @p value: Supplies value input to the operation.
+ *
+ * Returns:
+ * - `std::uint16_t` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::uint16_t saturatingIncrement(std::uint16_t value) {
   return value == std::numeric_limits<std::uint16_t>::max()
              ? value
              : static_cast<std::uint16_t>(value + 1U);
 }
 
+/**
+ * @brief Performs the expanded geometry operation for this subsystem.
+ *
+ * Arguments:
+ * - @p grid: Supplies grid input to the operation.
+ * - @p points: Supplies points input to the operation.
+ * - @p policy: Supplies policy input to the operation.
+ * - @p expansion: Supplies expansion input to the operation.
+ *
+ * Returns:
+ * - `GridGeometry` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 GridGeometry expandedGeometry(const GridGeometry& grid,
                               const std::vector<domain::Point2D>& points,
                               GridExtentPolicy policy,
@@ -83,6 +213,19 @@ GridGeometry expandedGeometry(const GridGeometry& grid,
   return result;
 }
 
+/**
+ * @brief Performs the initialize around operation for this subsystem.
+ *
+ * Arguments:
+ * - @p grid: Supplies grid input to the operation.
+ * - @p pose: Supplies pose input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void initializeAround(GridGeometry& grid, domain::Point2D pose) {
   const double width = grid.widthMeters();
   const double height = grid.heightMeters();
@@ -92,6 +235,20 @@ void initializeAround(GridGeometry& grid, domain::Point2D pose) {
   ++grid.geometry_revision;
 }
 
+/**
+ * @brief Performs the remap operation for this subsystem.
+ *
+ * Arguments:
+ * - @p cells: Supplies cells input to the operation.
+ * - @p old_grid: Supplies old grid input to the operation.
+ * - @p new_grid: Supplies new grid input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 template <typename Value>
 void remap(std::unordered_map<std::size_t, Value>& cells,
            const GridGeometry& old_grid, const GridGeometry& new_grid) {
@@ -108,6 +265,18 @@ void remap(std::unordered_map<std::size_t, Value>& cells,
   cells = std::move(result);
 }
 
+/**
+ * @brief Processes d extent points for this subsystem.
+ *
+ * Arguments:
+ * - @p episode: Supplies episode input to the operation.
+ *
+ * Returns:
+ * - `std::vector<domain::Point2D>` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::vector<domain::Point2D> observedExtentPoints(
     const NavigationEpisode& episode) {
   std::vector<domain::Point2D> points{episode.observation.pose.position};
@@ -128,6 +297,26 @@ std::vector<domain::Point2D> observedExtentPoints(
 
 }  // namespace
 
+/**
+ * @brief Performs the known grid learner operation for this subsystem.
+ *
+ * Arguments:
+ * - @p columns: Supplies columns input to the operation.
+ * - @p rows: Supplies rows input to the operation.
+ * - @p resolution_m: Supplies resolution m input to the operation.
+ * - @p origin: Supplies origin input to the operation.
+ * - @p extent_policy: Supplies extent policy input to the operation.
+ * - @p expansion_policy: Supplies expansion policy input to the operation.
+ * - @p initialize_around_first_pose: Supplies initialize around first pose
+ * input to the operation.
+ * - @p frame_id: Supplies frame id input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 KnownGridLearner::KnownGridLearner(std::size_t columns, std::size_t rows,
                                    double resolution_m,
                                    domain::Point2D origin,
@@ -147,6 +336,18 @@ KnownGridLearner::KnownGridLearner(std::size_t columns, std::size_t rows,
       expansion_policy_(expansion_policy),
       initialize_around_first_pose_(initialize_around_first_pose) {}
 
+/**
+ * @brief Performs the on observe operation for this subsystem.
+ *
+ * Arguments:
+ * - @p episode: Supplies episode input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void KnownGridLearner::onObserve(const NavigationEpisode& episode) {
   if (initialize_around_first_pose_) {
     initializeAround(geometry_, episode.observation.pose.position);
@@ -212,6 +413,18 @@ void KnownGridLearner::onObserve(const NavigationEpisode& episode) {
               " fixed-extent observations rejected");
 }
 
+/**
+ * @brief Performs the on rebuild operation for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void KnownGridLearner::onRebuild() {
   std::vector<FamiliarityCellMetadata> metadata;
   for (const auto& [index, sequence] : last_observed_sequence_) {
@@ -228,6 +441,28 @@ void KnownGridLearner::onRebuild() {
           "known grid snapshot refreshed");
 }
 
+/**
+ * @brief Performs the sensed occupancy learner operation for this
+ * subsystem.
+ *
+ * Arguments:
+ * - @p columns: Supplies columns input to the operation.
+ * - @p rows: Supplies rows input to the operation.
+ * - @p resolution_m: Supplies resolution m input to the operation.
+ * - @p origin: Supplies origin input to the operation.
+ * - @p configuration: Supplies configuration input to the operation.
+ * - @p extent_policy: Supplies extent policy input to the operation.
+ * - @p expansion_policy: Supplies expansion policy input to the operation.
+ * - @p initialize_around_first_pose: Supplies initialize around first pose
+ * input to the operation.
+ * - @p frame_id: Supplies frame id input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 SensedOccupancyLearner::SensedOccupancyLearner(
     std::size_t columns, std::size_t rows, double resolution_m,
     domain::Point2D origin, SensedOccupancyLearningConfiguration configuration,
@@ -252,6 +487,19 @@ SensedOccupancyLearner::SensedOccupancyLearner(
     throw std::invalid_argument("sensed occupancy thresholds must be positive");
 }
 
+/**
+ * @brief Performs the integrate free operation for this subsystem.
+ *
+ * Arguments:
+ * - @p index: Supplies index input to the operation.
+ * - @p sequence: Supplies sequence input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void SensedOccupancyLearner::integrateFree(std::size_t index,
                                            std::size_t sequence) {
   auto& cell = cells_[index];
@@ -274,6 +522,19 @@ void SensedOccupancyLearner::integrateFree(std::size_t index,
                 domain::OccupancyEvidenceSource::AccumulatedSensorModel;
 }
 
+/**
+ * @brief Performs the integrate occupied operation for this subsystem.
+ *
+ * Arguments:
+ * - @p index: Supplies index input to the operation.
+ * - @p sequence: Supplies sequence input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void SensedOccupancyLearner::integrateOccupied(std::size_t index,
                                                std::size_t sequence) {
   auto& cell = cells_[index];
@@ -291,6 +552,18 @@ void SensedOccupancyLearner::integrateOccupied(std::size_t index,
     cell.source = cell.source | domain::OccupancyEvidenceSource::DynamicObstacle;
 }
 
+/**
+ * @brief Performs the expire dynamic operation for this subsystem.
+ *
+ * Arguments:
+ * - @p sequence: Supplies sequence input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void SensedOccupancyLearner::expireDynamic(std::size_t sequence) {
   for (auto& [index, cell] : cells_) {
     static_cast<void>(index);
@@ -311,6 +584,18 @@ void SensedOccupancyLearner::expireDynamic(std::size_t sequence) {
   }
 }
 
+/**
+ * @brief Performs the snapshot model operation for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - `SensedOccupancyModel` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 SensedOccupancyModel SensedOccupancyLearner::snapshotModel() const {
   SensedOccupancyModel model;
   model.geometry = geometry_;
@@ -324,6 +609,18 @@ SensedOccupancyModel SensedOccupancyLearner::snapshotModel() const {
   return model;
 }
 
+/**
+ * @brief Performs the on observe operation for this subsystem.
+ *
+ * Arguments:
+ * - @p episode: Supplies episode input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void SensedOccupancyLearner::onObserve(const NavigationEpisode& episode) {
   if (initialize_around_first_pose_) {
     initializeAround(geometry_, episode.observation.pose.position);
@@ -372,11 +669,43 @@ void SensedOccupancyLearner::onObserve(const NavigationEpisode& episode) {
               " fixed-extent observations rejected");
 }
 
+/**
+ * @brief Performs the on rebuild operation for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void SensedOccupancyLearner::onRebuild() {
   publish(snapshotModel(), ModelStatus::Fresh,
           "sensed occupancy snapshot refreshed");
 }
 
+/**
+ * @brief Performs the inclusion grid learner operation for this subsystem.
+ *
+ * Arguments:
+ * - @p columns: Supplies columns input to the operation.
+ * - @p rows: Supplies rows input to the operation.
+ * - @p resolution_m: Supplies resolution m input to the operation.
+ * - @p origin: Supplies origin input to the operation.
+ * - @p extent_policy: Supplies extent policy input to the operation.
+ * - @p expansion_policy: Supplies expansion policy input to the operation.
+ * - @p initialize_around_first_pose: Supplies initialize around first pose
+ * input to the operation.
+ * - @p frame_id: Supplies frame id input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 InclusionGridLearner::InclusionGridLearner(
     std::size_t columns, std::size_t rows, double resolution_m,
     domain::Point2D origin, GridExtentPolicy extent_policy,
@@ -395,6 +724,18 @@ InclusionGridLearner::InclusionGridLearner(
       expansion_policy_(expansion_policy),
       initialize_around_first_pose_(initialize_around_first_pose) {}
 
+/**
+ * @brief Performs the on observe operation for this subsystem.
+ *
+ * Arguments:
+ * - @p episode: Supplies episode input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void InclusionGridLearner::onObserve(const NavigationEpisode& episode) {
   if (initialize_around_first_pose_) {
     initializeAround(geometry_, episode.observation.pose.position);
@@ -432,6 +773,19 @@ void InclusionGridLearner::onObserve(const NavigationEpisode& episode) {
             "successful LLE traversal added as learned subtrail inclusion");
 }
 
+/**
+ * @brief Performs the replace represented operation for this subsystem.
+ *
+ * Arguments:
+ * - @p regions: Supplies regions input to the operation.
+ * - @p skeleton: Supplies skeleton input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void InclusionGridLearner::replaceRepresented(
     const RegionModel& regions, const PassageSkeletonModel& skeleton) {
   std::vector<domain::Point2D> extent;
@@ -496,6 +850,18 @@ void InclusionGridLearner::replaceRepresented(
           "inclusion rebuilt from learned region area and supporting subtrails");
 }
 
+/**
+ * @brief Performs the on rebuild operation for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void InclusionGridLearner::onRebuild() {
   publish(InclusionGridModel{geometry_, {}, sparseSnapshot(included_)},
           ModelStatus::Fresh,

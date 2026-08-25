@@ -1,3 +1,5 @@
+<!-- File overview: This file documents or configures testing behavior for the maintained architecture and user documentation. It records the declarations, settings, fixtures, or guidance needed by that responsibility. Its package-relative location is `docs/testing.md`. -->
+
 # Testing strategy
 
 Replay round-trip, deterministic reproduction, divergence attribution, and

@@ -1,5 +1,27 @@
 #!/usr/bin/env python3
-"""Convert the five legacy SemaFORR configuration files to ROS parameter YAML."""
+"""SemaFORR module overview.
+
+Summary:
+    This file implements convert legacy config behavior for developer tooling and experiment automation. It centers on `rows`, `parse_parameters`, `scalar`, `flag`, `emit`, `modern_advisor_name`, `convert`, `main`. Its package-relative location is `scripts/convert_legacy_config.py`.
+
+Arguments:
+    Not applicable at module scope.
+
+Returns:
+    Not applicable at module scope.
+
+Raises:
+    Import-time dependency errors may propagate.
+"""
+
+
+
+
+
+
+
+
+
 
 import argparse
 import json
@@ -7,6 +29,18 @@ from pathlib import Path
 
 
 def rows(path):
+    """Summary:
+        Performs the rows operation for this subsystem.
+
+    Args:
+        path (Any): Supplies path input to the operation.
+
+    Returns:
+        Any
+
+    Raises:
+        None documented; dependency failures may propagate.
+    """
     for raw in path.read_text(encoding="utf-8").splitlines():
         line = raw.split("#", 1)[0].strip()
         if line:
@@ -14,6 +48,18 @@ def rows(path):
 
 
 def parse_parameters(path):
+    """Summary:
+        Parses parameters for this subsystem.
+
+    Args:
+        path (Any): Supplies path input to the operation.
+
+    Returns:
+        Any
+
+    Raises:
+        None documented; dependency failures may propagate.
+    """
     parsed = {}
     for fields in rows(path):
         key, *values = fields
@@ -22,6 +68,20 @@ def parse_parameters(path):
 
 
 def scalar(parameters, key, cast=float):
+    """Summary:
+        Performs the scalar operation for this subsystem.
+
+    Args:
+        parameters (Any): Supplies parameters input to the operation.
+        key (Any): Supplies key input to the operation.
+        cast (Any): Supplies cast input to the operation.
+
+    Returns:
+        Any
+
+    Raises:
+        ValueError: If required input or state is invalid.
+    """
     values = parameters.get(key)
     if values is None or len(values) != 1:
         raise ValueError(f"{key}: expected exactly one value")
@@ -29,6 +89,19 @@ def scalar(parameters, key, cast=float):
 
 
 def flag(parameters, key):
+    """Summary:
+        Performs the flag operation for this subsystem.
+
+    Args:
+        parameters (Any): Supplies parameters input to the operation.
+        key (Any): Supplies key input to the operation.
+
+    Returns:
+        Any
+
+    Raises:
+        ValueError: If required input or state is invalid.
+    """
     value = scalar(parameters, key, int)
     if value not in (0, 1):
         raise ValueError(f"{key}: expected 0 or 1")
@@ -36,11 +109,37 @@ def flag(parameters, key):
 
 
 def emit(name, value, indentation=6):
+    """Summary:
+        Performs the emit operation for this subsystem.
+
+    Args:
+        name (Any): Supplies name input to the operation.
+        value (Any): Supplies value input to the operation.
+        indentation (Any): Supplies indentation input to the operation.
+
+    Returns:
+        Any
+
+    Raises:
+        None documented; dependency failures may propagate.
+    """
     encoded = json.dumps(value)
     return f"{' ' * indentation}{name}: {encoded}"
 
 
 def modern_advisor_name(legacy_name):
+    """Summary:
+        Performs the modern advisor name operation for this subsystem.
+
+    Args:
+        legacy_name (Any): Supplies legacy name input to the operation.
+
+    Returns:
+        Any
+
+    Raises:
+        None documented; dependency failures may propagate.
+    """
     lower = legacy_name.lower()
     if "interpersonal" in lower:
         return "social_navigation"
@@ -58,6 +157,18 @@ def modern_advisor_name(legacy_name):
 
 
 def convert(arguments):
+    """Summary:
+        Performs the convert operation for this subsystem.
+
+    Args:
+        arguments (Any): Supplies arguments input to the operation.
+
+    Returns:
+        Any
+
+    Raises:
+        ValueError: If required input or state is invalid.
+    """
     parameters = parse_parameters(arguments.parameters)
     dimensions_rows = list(rows(arguments.dimensions))
     if len(dimensions_rows) != 1 or len(dimensions_rows[0]) != 3:
@@ -159,6 +270,18 @@ def convert(arguments):
 
 
 def main():
+    """Summary:
+        Performs the main operation for this subsystem.
+
+    Args:
+        None.
+
+    Returns:
+        Any
+
+    Raises:
+        None documented; dependency failures may propagate.
+    """
     parser = argparse.ArgumentParser()
     parser.add_argument("--advisors", type=Path, required=True)
     parser.add_argument("--parameters", type=Path, required=True)

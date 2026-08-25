@@ -1,3 +1,13 @@
+/**
+ * @file exploration_strategy.hpp
+ * @brief Exploration strategy responsibilities.
+ *
+ * @details This file defines exploration strategy behavior for initial or reactive
+ * exploration. It centers on `HleBehaviorPolicy`, `HleAngularSector`,
+ * `HighLevelExplorationConfiguration`, `ExplorationInput`,
+ * `ExplorationStrategy`. Its package-relative location is
+ * `include/semaforr/exploration/exploration_strategy.hpp`.
+ */
 #ifndef SEMAFORR_EXPLORATION_EXPLORATION_STRATEGY_HPP
 #define SEMAFORR_EXPLORATION_EXPLORATION_STRATEGY_HPP
 
@@ -12,13 +22,52 @@
 
 namespace semaforr::exploration {
 
+/**
+ * @brief Enumerates the supported hle behavior policy values used by this
+ * subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - Not applicable to this declaration.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 enum class HleBehaviorPolicy { Modernized, Compatibility };
 
+/**
+ * @brief Encapsulates hle angular sector state and behavior for this
+ * subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - Not applicable to this declaration.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 struct HleAngularSector {
   domain::Angle minimum;
   domain::Angle maximum;
 };
 
+/**
+ * @brief Encapsulates high level exploration configuration state and
+ * behavior for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - Not applicable to this declaration.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 struct HighLevelExplorationConfiguration {
   HleBehaviorPolicy behavior_policy = HleBehaviorPolicy::Modernized;
   domain::Distance minimum_clearance{0.8};
@@ -29,12 +78,60 @@ struct HighLevelExplorationConfiguration {
   std::size_t minimum_bundle_beams = 1U;
   // Robot-relative angular sectors. Focus sectors are narrow cue generators;
   // Open sectors independently measure the wider side-space geometry.
+  /**
+   * @brief Performs the angle operation for this subsystem.
+   *
+   * Arguments:
+   * - @p argument_1: Supplies argument 1 input to the operation.
+   *
+   * Returns:
+   * - `HleAngularSector left_focus{` containing the operation result.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   HleAngularSector left_focus{domain::Angle(0.6544984694978736),
                               domain::Angle(0.9162978572970231)};
+  /**
+   * @brief Performs the angle operation for this subsystem.
+   *
+   * Arguments:
+   * - @p argument_1: Supplies argument 1 input to the operation.
+   *
+   * Returns:
+   * - `HleAngularSector right_focus{` containing the operation result.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   HleAngularSector right_focus{domain::Angle(-0.9162978572970231),
                                domain::Angle(-0.6544984694978736)};
+  /**
+   * @brief Performs the angle operation for this subsystem.
+   *
+   * Arguments:
+   * - @p argument_1: Supplies argument 1 input to the operation.
+   *
+   * Returns:
+   * - `HleAngularSector left_open{` containing the operation result.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   HleAngularSector left_open{domain::Angle(0.0),
                              domain::Angle(1.5707963267948966)};
+  /**
+   * @brief Performs the angle operation for this subsystem.
+   *
+   * Arguments:
+   * - @p argument_1: Supplies argument 1 input to the operation.
+   *
+   * Returns:
+   * - `HleAngularSector right_open{` containing the operation result.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   HleAngularSector right_open{domain::Angle(-1.5707963267948966),
                               domain::Angle(0.0)};
   double minimum_length_to_width_ratio = 1.5;
@@ -52,19 +149,93 @@ struct HighLevelExplorationConfiguration {
   // around the first observation. A valid value supplies fixed/shared geometry.
   domain::GridGeometry passage_grid_geometry;
 
+  /**
+   * @brief Validates package content for this subsystem.
+   *
+   * Arguments:
+   * - None.
+   *
+   * Returns:
+   * - No value; effects are applied to owned state or outputs.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   void validate() const;
 };
 
+/**
+ * @brief Encapsulates exploration input state and behavior for this
+ * subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - Not applicable to this declaration.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 struct ExplorationInput {
   const domain::RobotObservation& observation;
   const domain::ActionSpace& action_space;
   std::chrono::duration<double> elapsed{};
 };
 
+/**
+ * @brief Encapsulates exploration strategy state and behavior for this
+ * subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - Not applicable to this declaration.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 class ExplorationStrategy {
  public:
+  /**
+   * @brief Performs the exploration strategy operation for this subsystem.
+   *
+   * Arguments:
+   * - None.
+   *
+   * Returns:
+   * - No value; effects are applied to owned state or outputs.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   virtual ~ExplorationStrategy() = default;
+  /**
+   * @brief Updates package content for this subsystem.
+   *
+   * Arguments:
+   * - @p input: Supplies input input to the operation.
+   *
+   * Returns:
+   * - `ExplorationResult` containing the operation result.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   virtual ExplorationResult update(const ExplorationInput& input) = 0;
+  /**
+   * @brief Performs the finish operation for this subsystem.
+   *
+   * Arguments:
+   * - None.
+   *
+   * Returns:
+   * - No value; effects are applied to owned state or outputs.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   virtual void finish() noexcept = 0;
 };
 

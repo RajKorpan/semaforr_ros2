@@ -1,3 +1,18 @@
+/**
+ * @file tier_two_enforcer_test.cpp
+ * @brief Tier two enforcer test responsibilities.
+ *
+ * @details This file exercises tier two enforcer test behavior for automated
+ * verification and regression testing. It centers on `EvidencePlanner`,
+ * `CompressesStraightPathToFarthestTraversablePoint`,
+ * `RefusesObstacleShortcutAndDetectsRelevantRevision`,
+ * `DetectsPathDeviationAndCompletion`,
+ * `FollowsAPathTurnWithAHeadingAction`,
+ * `OperationalizesRegionsSubtrailsAndSkeletonTransitions`,
+ * `OperationalizesHighwayTrailAndRejectsStaleGraph`,
+ * `HandlesRegionIntersectionEntryExitAndFinalTargetTypes`. Its
+ * package-relative location is `test/unit/tier_two_enforcer_test.cpp`.
+ */
 #include <gtest/gtest.h>
 
 #include <semaforr/decision/enforcer.hpp>
@@ -9,6 +24,18 @@
 namespace {
 using namespace semaforr;
 
+/**
+ * @brief Performs the free grid operation for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - `domain::SpatialModel` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 domain::SpatialModel freeGrid() {
   domain::SpatialModel spatial;
   spatial.sensed_occupancy.geometry = {8U, 3U, 1.0, {0.0, 0.0}};
@@ -19,6 +46,18 @@ domain::SpatialModel freeGrid() {
   return spatial;
 }
 
+/**
+ * @brief Performs the grid plan operation for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - `planning::HierarchicalPlan` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 planning::HierarchicalPlan gridPlan() {
   planning::HierarchicalPlan plan;
   plan.id = 41U;
@@ -33,6 +72,19 @@ planning::HierarchicalPlan gridPlan() {
   return plan;
 }
 
+/**
+ * @brief Performs the zero inflation operation for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - `planning::TraversabilityConfiguration` containing the operation
+ * result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 planning::TraversabilityConfiguration zeroInflation() {
   planning::TraversabilityConfiguration config;
   config.robot_radius_m = 0.0;
@@ -42,6 +94,21 @@ planning::TraversabilityConfiguration zeroInflation() {
   return config;
 }
 
+/**
+ * @brief Performs the context operation for this subsystem.
+ *
+ * Arguments:
+ * - @p spatial: Supplies spatial input to the operation.
+ * - @p pose: Supplies pose input to the operation.
+ * - @p actions: Supplies actions input to the operation.
+ * - @p viable: Supplies viable input to the operation.
+ *
+ * Returns:
+ * - `decision::PlanEnforcementContext` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 decision::PlanEnforcementContext context(
     const domain::SpatialModel& spatial, const domain::Pose2D& pose,
     const domain::ActionSpace& actions,
@@ -233,16 +300,91 @@ TEST(ModelPlanEnforcer, ReportsInvalidRegionRepairFailurePrecisely) {
   EXPECT_EQ(plan.diagnostics.back(), "invalid_region_step");
 }
 
+/**
+ * @brief Encapsulates evidence planner state and behavior for this
+ * subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - Not applicable to this declaration.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 class EvidencePlanner final : public planning::Planner {
  public:
+  /**
+   * @brief Performs the evidence planner operation for this subsystem.
+   *
+   * Arguments:
+   * - @p name: Supplies name input to the operation.
+   * - @p objective: Supplies objective input to the operation.
+   * - @p path: Supplies path input to the operation.
+   *
+   * Returns:
+   * - No value; effects are applied to owned state or outputs.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   EvidencePlanner(std::string name, planning::PlanObjective objective,
                   std::vector<domain::Point2D> path)
       : name_(std::move(name)), objective_(objective), path_(std::move(path)) {}
+  /**
+   * @brief Performs the name operation for this subsystem.
+   *
+   * Arguments:
+   * - None.
+   *
+   * Returns:
+   * - `std::string_view` containing the operation result.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   std::string_view name() const noexcept override { return name_; }
+  /**
+   * @brief Performs the objective operation for this subsystem.
+   *
+   * Arguments:
+   * - None.
+   *
+   * Returns:
+   * - `planning::PlanObjective` containing the operation result.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   planning::PlanObjective objective() const noexcept override { return objective_; }
+  /**
+   * @brief Constructs family for this subsystem.
+   *
+   * Arguments:
+   * - None.
+   *
+   * Returns:
+   * - `planning::PlanFamily` containing the operation result.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   planning::PlanFamily planFamily() const noexcept override {
     return planning::PlanFamily::Grid;
   }
+  /**
+   * @brief Constructs package content for this subsystem.
+   *
+   * Arguments:
+   * - @p PlanningRequest: Supplies planning request input to the operation.
+   *
+   * Returns:
+   * - `planning::PlanResult` containing the operation result.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   planning::PlanResult plan(const planning::PlanningRequest&) override {
     return {planning::PlanStatus::Success, path_, 1.0, "evidence fixture"};
   }

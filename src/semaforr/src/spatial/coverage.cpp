@@ -1,3 +1,11 @@
+/**
+ * @file coverage.cpp
+ * @brief Coverage responsibilities.
+ *
+ * @details This file implements coverage behavior for learned spatial
+ * representations and their lifecycle. It centers on `CoverageGrid`. Its
+ * package-relative location is `src/spatial/coverage.cpp`.
+ */
 #include <algorithm>
 #include <cmath>
 #include <semaforr/spatial/coverage.hpp>
@@ -8,12 +16,36 @@ namespace {
 
 constexpr double coverage_resolution_m = 1.0;
 
+/**
+ * @brief Encapsulates coverage grid state and behavior for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - Not applicable to this declaration.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 struct CoverageGrid {
   std::size_t columns = 0U;
   std::size_t rows = 0U;
   domain::Point2D origin;
 };
 
+/**
+ * @brief Performs the grid for operation for this subsystem.
+ *
+ * Arguments:
+ * - @p model: Supplies model input to the operation.
+ *
+ * Returns:
+ * - `CoverageGrid` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 CoverageGrid gridFor(const domain::SpatialModel& model) {
   if (model.inclusion_grid.columns != 0U)
     return {static_cast<std::size_t>(std::ceil(
@@ -32,6 +64,20 @@ CoverageGrid gridFor(const domain::SpatialModel& model) {
           model.known_grid.origin};
 }
 
+/**
+ * @brief Performs the mark operation for this subsystem.
+ *
+ * Arguments:
+ * - @p grid: Supplies grid input to the operation.
+ * - @p point: Supplies point input to the operation.
+ * - @p cells: Supplies cells input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void mark(const CoverageGrid& grid, domain::Point2D point,
           std::unordered_set<std::size_t>& cells) {
   const auto column = static_cast<long long>(
@@ -48,6 +94,19 @@ void mark(const CoverageGrid& grid, domain::Point2D point,
 
 }  // namespace
 
+/**
+ * @brief Performs the represented coverage cells operation for this
+ * subsystem.
+ *
+ * Arguments:
+ * - @p model: Supplies model input to the operation.
+ *
+ * Returns:
+ * - `std::size_t` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::size_t representedCoverageCells(const domain::SpatialModel& model) {
   const CoverageGrid grid = gridFor(model);
   if (grid.columns == 0U || grid.rows == 0U) return 0U;

@@ -1,3 +1,5 @@
+<!-- File overview: This file documents or configures spatial learning behavior for the maintained architecture and user documentation. It records the declarations, settings, fixtures, or guidance needed by that responsibility. Its package-relative location is `docs/spatial-learning.md`. -->
+
 # Modular spatial learning
 
 Spatial representations are split into immutable value snapshots under

@@ -1,3 +1,5 @@
+<!-- File overview: This file documents or configures deployment behavior for the maintained architecture and user documentation. It records the declarations, settings, fixtures, or guidance needed by that responsibility. Its package-relative location is `docs/deployment.md`. -->
+
 # Build and run
 
 ## Native ROS 2 Humble

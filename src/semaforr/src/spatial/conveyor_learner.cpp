@@ -1,3 +1,12 @@
+/**
+ * @file conveyor_learner.cpp
+ * @brief Conveyor learner responsibilities.
+ *
+ * @details This file implements conveyor learner behavior for learned spatial
+ * representations and their lifecycle. It records the declarations,
+ * settings, fixtures, or guidance needed by that responsibility. Its
+ * package-relative location is `src/spatial/conveyor_learner.cpp`.
+ */
 #include <cmath>
 #include <semaforr/spatial/learners/conveyor_learner.hpp>
 #include <stdexcept>
@@ -6,6 +15,21 @@
 
 namespace semaforr::spatial {
 
+/**
+ * @brief Performs the conveyor learner operation for this subsystem.
+ *
+ * Arguments:
+ * - @p minimum_traversal_distance_m: Supplies minimum traversal distance m
+ * input to the operation.
+ * - @p mode: Supplies mode input to the operation.
+ * - @p compatibility: Supplies compatibility input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 ConveyorLearner::ConveyorLearner(
     double minimum_traversal_distance_m, SpatialLearningMode mode,
     ConveyorLearningConfiguration compatibility)
@@ -35,6 +59,18 @@ ConveyorLearner::ConveyorLearner(
   }
 }
 
+/**
+ * @brief Performs the on observe operation for this subsystem.
+ *
+ * Arguments:
+ * - @p episode: Supplies episode input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void ConveyorLearner::onObserve(const NavigationEpisode& episode) {
   if (mode_ == SpatialLearningMode::Compatibility) return;
   if (!episode.actionSucceeded()) return;
@@ -63,6 +99,18 @@ void ConveyorLearner::onObserve(const NavigationEpisode& episode) {
                                : "conveyor flows updated incrementally");
 }
 
+/**
+ * @brief Performs the on rebuild operation for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void ConveyorLearner::onRebuild() {
   if (mode_ == SpatialLearningMode::Compatibility) {
     std::vector<domain::LearnedTrail> successful_trails;

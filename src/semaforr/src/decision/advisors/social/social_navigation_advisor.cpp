@@ -1,3 +1,13 @@
+/**
+ * @file social_navigation_advisor.cpp
+ * @brief Social navigation advisor responsibilities.
+ *
+ * @details This file implements social navigation advisor behavior for tiered
+ * decision making and action arbitration. It records the declarations,
+ * settings, fixtures, or guidance needed by that responsibility. Its
+ * package-relative location is
+ * `src/decision/advisors/social/social_navigation_advisor.cpp`.
+ */
 #include <algorithm>
 #include <cmath>
 #include <semaforr/decision/advisors/social/social_navigation_advisor.hpp>
@@ -8,6 +18,19 @@
 namespace semaforr::decision {
 namespace {
 
+/**
+ * @brief Validates positive for this subsystem.
+ *
+ * Arguments:
+ * - @p value: Supplies value input to the operation.
+ * - @p name: Supplies name input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void validatePositive(double value, std::string_view name) {
   if (!std::isfinite(value) || value <= 0.0) {
     throw std::invalid_argument(std::string(name) +
@@ -15,17 +38,58 @@ void validatePositive(double value, std::string_view name) {
   }
 }
 
+/**
+ * @brief Performs the interpolate operation for this subsystem.
+ *
+ * Arguments:
+ * - @p from: Supplies from input to the operation.
+ * - @p to: Supplies to input to the operation.
+ * - @p fraction: Supplies fraction input to the operation.
+ *
+ * Returns:
+ * - `domain::Point2D` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 domain::Point2D interpolate(const domain::Point2D& from,
                             const domain::Point2D& to, double fraction) {
   return {from.x_m + (to.x_m - from.x_m) * fraction,
           from.y_m + (to.y_m - from.y_m) * fraction};
 }
 
+/**
+ * @brief Performs the euclidean distance operation for this subsystem.
+ *
+ * Arguments:
+ * - @p left: Supplies left input to the operation.
+ * - @p right: Supplies right input to the operation.
+ *
+ * Returns:
+ * - `double` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 double euclideanDistance(const domain::Point2D& left,
                          const domain::Point2D& right) {
   return std::hypot(left.x_m - right.x_m, left.y_m - right.y_m);
 }
 
+/**
+ * @brief Performs the pedestrian at operation for this subsystem.
+ *
+ * Arguments:
+ * - @p pedestrian: Supplies pedestrian input to the operation.
+ * - @p observed_at: Supplies observed at input to the operation.
+ * - @p seconds: Supplies seconds input to the operation.
+ *
+ * Returns:
+ * - `domain::Point2D` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 domain::Point2D pedestrianAt(const domain::PedestrianObservation& pedestrian,
                              domain::SocialTimestamp observed_at,
                              double seconds) {
@@ -56,6 +120,19 @@ domain::Point2D pedestrianAt(const domain::PedestrianObservation& pedestrian,
 
 }  // namespace
 
+/**
+ * @brief Performs the social navigation advisor operation for this
+ * subsystem.
+ *
+ * Arguments:
+ * - @p configuration: Supplies configuration input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 SocialNavigationAdvisor::SocialNavigationAdvisor(
     SocialAdvisorConfiguration configuration)
     : configuration_(std::move(configuration)) {
@@ -95,6 +172,19 @@ SocialNavigationAdvisor::SocialNavigationAdvisor(
   }
 }
 
+/**
+ * @brief Evaluates package content for this subsystem.
+ *
+ * Arguments:
+ * - @p context: Supplies context input to the operation.
+ * - @p candidates: Supplies candidates input to the operation.
+ *
+ * Returns:
+ * - `AdvisorEvaluation` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 AdvisorEvaluation SocialNavigationAdvisor::evaluate(
     const DecisionContext& context,
     std::span<const domain::Action> candidates) const {
@@ -121,6 +211,20 @@ AdvisorEvaluation SocialNavigationAdvisor::evaluate(
   return evaluation;
 }
 
+/**
+ * @brief Performs the score operation for this subsystem.
+ *
+ * Arguments:
+ * - @p world: Supplies world input to the operation.
+ * - @p crowd: Supplies crowd input to the operation.
+ * - @p action: Supplies action input to the operation.
+ *
+ * Returns:
+ * - `double` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 double SocialNavigationAdvisor::score(const domain::WorldModel& world,
                                       const domain::CrowdObservation& crowd,
                                       const domain::Action& action) const {

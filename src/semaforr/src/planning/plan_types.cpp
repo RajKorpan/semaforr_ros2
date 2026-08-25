@@ -1,12 +1,45 @@
+/**
+ * @file plan_types.cpp
+ * @brief Plan types responsibilities.
+ *
+ * @details This file implements plan types behavior for path planning and
+ * hierarchical plan construction. It records the declarations, settings,
+ * fixtures, or guidance needed by that responsibility. Its
+ * package-relative location is `src/planning/plan_types.cpp`.
+ */
 #include <semaforr/planning/planner.hpp>
 #include <sstream>
 
 namespace semaforr::planning {
 
+/**
+ * @brief Converts string for this subsystem.
+ *
+ * Arguments:
+ * - @p family: Supplies family input to the operation.
+ *
+ * Returns:
+ * - `std::string_view` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::string_view toString(PlanFamily family) noexcept {
   return family == PlanFamily::Grid ? "grid" : "model";
 }
 
+/**
+ * @brief Converts string for this subsystem.
+ *
+ * Arguments:
+ * - @p validity: Supplies validity input to the operation.
+ *
+ * Returns:
+ * - `std::string_view` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::string_view toString(PlanValidity validity) noexcept {
   switch (validity) {
     case PlanValidity::Valid: return "valid";
@@ -17,11 +50,35 @@ std::string_view toString(PlanValidity validity) noexcept {
   return "invalid";
 }
 
+/**
+ * @brief Converts string for this subsystem.
+ *
+ * Arguments:
+ * - @p mode: Supplies mode input to the operation.
+ *
+ * Returns:
+ * - `std::string_view` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::string_view toString(PlanningOperatingMode mode) noexcept {
   return mode == PlanningOperatingMode::MapEnabled ? "map_enabled"
                                                    : "mapless";
 }
 
+/**
+ * @brief Performs the step target operation for this subsystem.
+ *
+ * Arguments:
+ * - @p step: Supplies step input to the operation.
+ *
+ * Returns:
+ * - `std::optional<domain::Point2D>` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::optional<domain::Point2D> stepTarget(const PlanStep& step) noexcept {
   return std::visit(
       [](const auto& value) -> std::optional<domain::Point2D> {
@@ -57,6 +114,18 @@ std::optional<domain::Point2D> stepTarget(const PlanStep& step) noexcept {
       step);
 }
 
+/**
+ * @brief Converts string for this subsystem.
+ *
+ * Arguments:
+ * - @p objective: Supplies objective input to the operation.
+ *
+ * Returns:
+ * - `std::string_view` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::string_view toString(PlanObjective objective) noexcept {
   switch (objective) {
     case PlanObjective::Distance:
@@ -83,6 +152,18 @@ std::string_view toString(PlanObjective objective) noexcept {
   return "distance";
 }
 
+/**
+ * @brief Performs the objective description operation for this subsystem.
+ *
+ * Arguments:
+ * - @p objective: Supplies objective input to the operation.
+ *
+ * Returns:
+ * - `std::string_view` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::string_view objectiveDescription(PlanObjective objective) noexcept {
   switch (objective) {
     case PlanObjective::Distance:
@@ -109,6 +190,18 @@ std::string_view objectiveDescription(PlanObjective objective) noexcept {
   return "unknown planning objective";
 }
 
+/**
+ * @brief Performs the metadata operation for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - `PlannerMetadata` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 PlannerMetadata Planner::metadata() const {
   return {std::string(name()), planFamily(), objective(),
           std::string(toString(objective())),
@@ -116,6 +209,19 @@ PlannerMetadata Planner::metadata() const {
           planFamily() == PlanFamily::Model};
 }
 
+/**
+ * @brief Performs the current revision operation for this subsystem.
+ *
+ * Arguments:
+ * - @p request: Supplies request input to the operation.
+ * - @p dependency: Supplies dependency input to the operation.
+ *
+ * Returns:
+ * - `domain::Revision` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 domain::Revision currentRevision(const PlanningRequest& request,
                                  domain::ModelDependency dependency) noexcept {
   using D = domain::ModelDependency;
@@ -138,6 +244,23 @@ domain::Revision currentRevision(const PlanningRequest& request,
   }
 }
 
+/**
+ * @brief Performs the stale plan reasons operation for this subsystem.
+ *
+ * Arguments:
+ * - @p plan: Supplies plan input to the operation.
+ * - @p request: Supplies request input to the operation.
+ * - @p start_tolerance: Supplies start tolerance input to the operation.
+ * - @p target_tolerance: Supplies target tolerance input to the operation.
+ * - @p execution_invalidated: Supplies execution invalidated input to the
+ * operation.
+ *
+ * Returns:
+ * - `std::vector<std::string>` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::vector<std::string> stalePlanReasons(
     const PlanResult& plan, const PlanningRequest& request,
     domain::Distance start_tolerance, domain::Distance target_tolerance,
@@ -155,6 +278,20 @@ std::vector<std::string> stalePlanReasons(
   return reasons;
 }
 
+/**
+ * @brief Performs the dependency change reasons operation for this
+ * subsystem.
+ *
+ * Arguments:
+ * - @p consumed: Supplies consumed input to the operation.
+ * - @p request: Supplies request input to the operation.
+ *
+ * Returns:
+ * - `std::vector<std::string>` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::vector<std::string> dependencyChangeReasons(
     const domain::DependencyRevisions& consumed,
     const PlanningRequest& request) {
@@ -171,6 +308,21 @@ std::vector<std::string> dependencyChangeReasons(
   return reasons;
 }
 
+/**
+ * @brief Performs the attach dependency snapshot operation for this
+ * subsystem.
+ *
+ * Arguments:
+ * - @p plan: Supplies plan input to the operation.
+ * - @p request: Supplies request input to the operation.
+ * - @p dependencies: Supplies dependencies input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void attachDependencySnapshot(
     PlanResult& plan, const PlanningRequest& request,
     std::vector<domain::ModelDependency> dependencies) {

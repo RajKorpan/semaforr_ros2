@@ -1,3 +1,12 @@
+/**
+ * @file grid_geometry.cpp
+ * @brief Grid geometry responsibilities.
+ *
+ * @details This file implements grid geometry behavior for ROS-independent domain
+ * state and value types. It records the declarations, settings, fixtures,
+ * or guidance needed by that responsibility. Its package-relative location
+ * is `src/domain/grid_geometry.cpp`.
+ */
 #include <algorithm>
 #include <cmath>
 #include <iomanip>
@@ -9,12 +18,39 @@
 namespace semaforr::domain {
 namespace {
 
+/**
+ * @brief Performs the checked cell count operation for this subsystem.
+ *
+ * Arguments:
+ * - @p columns: Supplies columns input to the operation.
+ * - @p rows: Supplies rows input to the operation.
+ *
+ * Returns:
+ * - `std::size_t` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::size_t checkedCellCount(std::size_t columns, std::size_t rows) {
   if (columns != 0U && rows > std::numeric_limits<std::size_t>::max() / columns)
     throw std::overflow_error("grid cell count overflow");
   return columns * rows;
 }
 
+/**
+ * @brief Performs the aligned cells operation for this subsystem.
+ *
+ * Arguments:
+ * - @p amount_m: Supplies amount m input to the operation.
+ * - @p resolution_m: Supplies resolution m input to the operation.
+ * - @p increment: Supplies increment input to the operation.
+ *
+ * Returns:
+ * - `std::size_t` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::size_t alignedCells(double amount_m, double resolution_m,
                          std::size_t increment) {
   const auto needed = static_cast<std::size_t>(
@@ -25,6 +61,23 @@ std::size_t alignedCells(double amount_m, double resolution_m,
 
 }  // namespace
 
+/**
+ * @brief Performs the grid geometry operation for this subsystem.
+ *
+ * Arguments:
+ * - @p column_count: Supplies column count input to the operation.
+ * - @p row_count: Supplies row count input to the operation.
+ * - @p resolution: Supplies resolution input to the operation.
+ * - @p grid_origin: Supplies grid origin input to the operation.
+ * - @p mode: Supplies mode input to the operation.
+ * - @p source: Supplies source input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 GridGeometry::GridGeometry(std::size_t column_count, std::size_t row_count,
                            double resolution, Point2D grid_origin,
                            GridExtentMode mode, GridExtentSource source)
@@ -45,6 +98,23 @@ GridGeometry::GridGeometry(std::size_t column_count, std::size_t row_count,
   if (column_count > 0U && row_count > 0U) validate();
 }
 
+/**
+ * @brief Performs the grid geometry operation for this subsystem.
+ *
+ * Arguments:
+ * - @p frame: Supplies frame input to the operation.
+ * - @p width_m: Supplies width m input to the operation.
+ * - @p height_m: Supplies height m input to the operation.
+ * - @p resolution: Supplies resolution input to the operation.
+ * - @p origin_x_m: Supplies origin x m input to the operation.
+ * - @p origin_y_m: Supplies origin y m input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 GridGeometry::GridGeometry(std::string frame, double width_m, double height_m,
                            double resolution, double origin_x_m,
                            double origin_y_m)
@@ -54,6 +124,28 @@ GridGeometry::GridGeometry(std::string frame, double width_m, double height_m,
           GridExtentMode::Fixed, GridExtentSource::RepresentationLocalBounds,
           GridOutOfBoundsBehavior::NonTraversable)) {}
 
+/**
+ * @brief Constructs bounds for this subsystem.
+ *
+ * Arguments:
+ * - @p frame: Supplies frame input to the operation.
+ * - @p grid_minimum: Supplies grid minimum input to the operation.
+ * - @p requested_maximum: Supplies requested maximum input to the
+ * operation.
+ * - @p resolution: Supplies resolution input to the operation.
+ * - @p mode: Supplies mode input to the operation.
+ * - @p source: Supplies source input to the operation.
+ * - @p out_of_bounds_behavior: Supplies out of bounds behavior input to the
+ * operation.
+ * - @p revision: Supplies revision input to the operation.
+ * - @p map_id: Supplies map id input to the operation.
+ *
+ * Returns:
+ * - `GridGeometry` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 GridGeometry GridGeometry::fromBounds(
     std::string frame, Point2D grid_minimum, Point2D requested_maximum,
     double resolution, GridExtentMode mode, GridExtentSource source,
@@ -86,6 +178,18 @@ GridGeometry GridGeometry::fromBounds(
   return result;
 }
 
+/**
+ * @brief Performs the valid operation for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - `bool` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 bool GridGeometry::valid() const noexcept {
   if (frame_id.empty() || !minimum.finite() || !maximum.finite() ||
       !origin.finite() || !std::isfinite(resolution_m) || resolution_m <= 0.0 ||
@@ -97,21 +201,81 @@ bool GridGeometry::valid() const noexcept {
          std::abs(expected_y - maximum.y_m) <= geometry_tolerance_m;
 }
 
+/**
+ * @brief Validates package content for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void GridGeometry::validate() const {
   if (!valid()) throw std::invalid_argument("grid geometry is inconsistent");
   if (cellCount() > 100'000'000U)
     throw std::invalid_argument("grid geometry exceeds the hard cell limit");
 }
 
+/**
+ * @brief Performs the width meters operation for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - `double` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 double GridGeometry::widthMeters() const noexcept {
   return maximum.x_m - minimum.x_m;
 }
+/**
+ * @brief Performs the height meters operation for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - `double` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 double GridGeometry::heightMeters() const noexcept {
   return maximum.y_m - minimum.y_m;
 }
+/**
+ * @brief Performs the cell count operation for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - `std::size_t` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::size_t GridGeometry::cellCount() const {
   return checkedCellCount(columns, rows);
 }
+/**
+ * @brief Performs the contains operation for this subsystem.
+ *
+ * Arguments:
+ * - @p point: Supplies point input to the operation.
+ *
+ * Returns:
+ * - `bool` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 bool GridGeometry::contains(Point2D point) const noexcept {
   return point.finite() && point.x_m >= minimum.x_m &&
          point.y_m >= minimum.y_m && point.x_m < maximum.x_m &&
@@ -121,22 +285,83 @@ std::optional<std::pair<std::size_t, std::size_t>> GridGeometry::cell(
     Point2D point) const noexcept {
   if (!contains(point)) return std::nullopt;
   const auto column = static_cast<std::size_t>(
+      /**
+       * @brief Performs the floor operation for this subsystem.
+       *
+       * Arguments:
+       * - @p resolution_m: Supplies resolution m input to the operation.
+       *
+       * Returns:
+       * - No value; effects are applied to owned state or outputs.
+       *
+       * Exceptions:
+       * - None documented; validation or dependency failures may propagate.
+       */
       std::floor((point.x_m - origin.x_m) / resolution_m));
   const auto row = static_cast<std::size_t>(
+      /**
+       * @brief Performs the floor operation for this subsystem.
+       *
+       * Arguments:
+       * - @p resolution_m: Supplies resolution m input to the operation.
+       *
+       * Returns:
+       * - No value; effects are applied to owned state or outputs.
+       *
+       * Exceptions:
+       * - None documented; validation or dependency failures may propagate.
+       */
       std::floor((point.y_m - origin.y_m) / resolution_m));
   if (column >= columns || row >= rows) return std::nullopt;
   return std::pair{column, row};
 }
+/**
+ * @brief Performs the index operation for this subsystem.
+ *
+ * Arguments:
+ * - @p point: Supplies point input to the operation.
+ *
+ * Returns:
+ * - `std::optional<std::size_t>` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::optional<std::size_t> GridGeometry::index(Point2D point) const noexcept {
   const auto grid_cell = cell(point);
   if (!grid_cell) return std::nullopt;
   return grid_cell->second * columns + grid_cell->first;
 }
+/**
+ * @brief Performs the center operation for this subsystem.
+ *
+ * Arguments:
+ * - @p index_value: Supplies index value input to the operation.
+ *
+ * Returns:
+ * - `Point2D` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 Point2D GridGeometry::center(std::size_t index_value) const {
   if (index_value >= cellCount())
     throw std::out_of_range("grid cell index is out of range");
   return center(index_value % columns, index_value / columns);
 }
+/**
+ * @brief Performs the center operation for this subsystem.
+ *
+ * Arguments:
+ * - @p column: Supplies column input to the operation.
+ * - @p row: Supplies row input to the operation.
+ *
+ * Returns:
+ * - `Point2D` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 Point2D GridGeometry::center(std::size_t column, std::size_t row) const {
   if (column >= columns || row >= rows)
     throw std::out_of_range("grid row or column is out of range");
@@ -144,6 +369,20 @@ Point2D GridGeometry::center(std::size_t column, std::size_t row) const {
           origin.y_m + (static_cast<double>(row) + 0.5) * resolution_m};
 }
 
+/**
+ * @brief Performs the expand to include operation for this subsystem.
+ *
+ * Arguments:
+ * - @p geometry: Supplies geometry input to the operation.
+ * - @p point: Supplies point input to the operation.
+ * - @p policy: Supplies policy input to the operation.
+ *
+ * Returns:
+ * - `GridExpansionResult` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 GridExpansionResult expandToInclude(const GridGeometry& geometry, Point2D point,
                                     const GridExpansionPolicy& policy) {
   geometry.validate();
@@ -191,6 +430,18 @@ GridExpansionResult expandToInclude(const GridGeometry& geometry, Point2D point,
   return {std::move(result), true, false, "grid geometry expanded"};
 }
 
+/**
+ * @brief Performs the serialize grid geometry operation for this subsystem.
+ *
+ * Arguments:
+ * - @p geometry: Supplies geometry input to the operation.
+ *
+ * Returns:
+ * - `std::string` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::string serializeGridGeometry(const GridGeometry& geometry) {
   geometry.validate();
   std::ostringstream output;
@@ -208,6 +459,19 @@ std::string serializeGridGeometry(const GridGeometry& geometry) {
   return output.str();
 }
 
+/**
+ * @brief Performs the deserialize grid geometry operation for this
+ * subsystem.
+ *
+ * Arguments:
+ * - @p serialized: Supplies serialized input to the operation.
+ *
+ * Returns:
+ * - `GridGeometry` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 GridGeometry deserializeGridGeometry(const std::string& serialized) {
   std::istringstream input(serialized);
   std::string magic;
@@ -229,6 +493,18 @@ GridGeometry deserializeGridGeometry(const std::string& serialized) {
   return result;
 }
 
+/**
+ * @brief Converts string for this subsystem.
+ *
+ * Arguments:
+ * - @p source: Supplies source input to the operation.
+ *
+ * Returns:
+ * - `const char*` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 const char* toString(GridExtentSource source) noexcept {
   switch (source) {
     case GridExtentSource::StaticMapBounds: return "static_map_bounds";

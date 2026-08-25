@@ -1,7 +1,28 @@
+/**
+ * @file model_revision.cpp
+ * @brief Model revision responsibilities.
+ *
+ * @details This file implements model revision behavior for ROS-independent domain
+ * state and value types. It records the declarations, settings, fixtures,
+ * or guidance needed by that responsibility. Its package-relative location
+ * is `src/domain/model_revision.cpp`.
+ */
 #include <semaforr/domain/model_revision.hpp>
 
 namespace semaforr::domain {
 
+/**
+ * @brief Converts string for this subsystem.
+ *
+ * Arguments:
+ * - @p dependency: Supplies dependency input to the operation.
+ *
+ * Returns:
+ * - `std::string_view` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::string_view toString(ModelDependency dependency) noexcept {
   switch (dependency) {
     case ModelDependency::StaticMapGeometry: return "static_map_geometry";

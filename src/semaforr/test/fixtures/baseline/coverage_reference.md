@@ -1,3 +1,5 @@
+<!-- File overview: This file exercises coverage reference behavior for automated verification and regression testing. It records the declarations, settings, fixtures, or guidance needed by that responsibility. Its package-relative location is `test/fixtures/baseline/coverage_reference.md`. -->
+
 # Coverage reference
 
 The baseline profile was regenerated against the current package structure

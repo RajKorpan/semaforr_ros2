@@ -1,3 +1,13 @@
+/**
+ * @file learned_crowd_advisor.cpp
+ * @brief Learned crowd advisor responsibilities.
+ *
+ * @details This file implements learned crowd advisor behavior for tiered decision
+ * making and action arbitration. It records the declarations, settings,
+ * fixtures, or guidance needed by that responsibility. Its
+ * package-relative location is
+ * `src/decision/advisors/social/learned_crowd_advisor.cpp`.
+ */
 #include <cmath>
 #include <semaforr/decision/advisors/social/learned_crowd_advisor.hpp>
 #include <stdexcept>
@@ -6,6 +16,20 @@
 namespace semaforr::decision {
 namespace {
 
+/**
+ * @brief Validates positive magnitudes for this subsystem.
+ *
+ * Arguments:
+ * - @p values: Supplies values input to the operation.
+ * - @p description: Supplies description input to the operation.
+ * - @p allow_empty: Supplies allow empty input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void validatePositiveMagnitudes(const std::vector<double>& values,
                                 std::string_view description,
                                 bool allow_empty = false) {
@@ -23,6 +47,18 @@ void validatePositiveMagnitudes(const std::vector<double>& values,
 
 }  // namespace
 
+/**
+ * @brief Performs the learned crowd advisor operation for this subsystem.
+ *
+ * Arguments:
+ * - @p configuration: Supplies configuration input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 LearnedCrowdAdvisor::LearnedCrowdAdvisor(
     LearnedCrowdAdvisorConfiguration configuration)
     : configuration_(std::move(configuration)) {
@@ -46,6 +82,20 @@ LearnedCrowdAdvisor::LearnedCrowdAdvisor(
   }
 }
 
+/**
+ * @brief Performs the expected operation for this subsystem.
+ *
+ * Arguments:
+ * - @p world: Supplies world input to the operation.
+ * - @p action: Supplies action input to the operation.
+ *
+ * Returns:
+ * - `std::pair<domain::Point2D, domain::Angle>` containing the operation
+ * result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::pair<domain::Point2D, domain::Angle> LearnedCrowdAdvisor::expected(
     const domain::WorldModel& world, const domain::Action& action) const {
   domain::Point2D position = world.robot.pose.position;
@@ -75,6 +125,19 @@ std::pair<domain::Point2D, domain::Angle> LearnedCrowdAdvisor::expected(
   return {position, heading};
 }
 
+/**
+ * @brief Evaluates package content for this subsystem.
+ *
+ * Arguments:
+ * - @p context: Supplies context input to the operation.
+ * - @p candidates: Supplies candidates input to the operation.
+ *
+ * Returns:
+ * - `AdvisorEvaluation` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 AdvisorEvaluation LearnedCrowdAdvisor::evaluate(
     const DecisionContext& context,
     std::span<const domain::Action> candidates) const {

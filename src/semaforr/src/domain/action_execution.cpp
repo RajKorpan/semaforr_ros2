@@ -1,7 +1,28 @@
+/**
+ * @file action_execution.cpp
+ * @brief Action execution responsibilities.
+ *
+ * @details This file implements action execution behavior for ROS-independent
+ * domain state and value types. It records the declarations, settings,
+ * fixtures, or guidance needed by that responsibility. Its
+ * package-relative location is `src/domain/action_execution.cpp`.
+ */
 #include <semaforr/domain/action_execution.hpp>
 
 namespace semaforr::domain {
 
+/**
+ * @brief Converts string for this subsystem.
+ *
+ * Arguments:
+ * - @p status: Supplies status input to the operation.
+ *
+ * Returns:
+ * - `std::string_view` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::string_view toString(ExecutionCompletionStatus status) noexcept {
   switch (status) {
     case ExecutionCompletionStatus::Succeeded: return "succeeded";
@@ -26,6 +47,18 @@ std::string_view toString(ExecutionCompletionStatus status) noexcept {
   return "unknown";
 }
 
+/**
+ * @brief Converts string for this subsystem.
+ *
+ * Arguments:
+ * - @p disposition: Supplies disposition input to the operation.
+ *
+ * Returns:
+ * - `std::string_view` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::string_view toString(FeedbackDisposition disposition) noexcept {
   switch (disposition) {
     case FeedbackDisposition::Accepted: return "accepted";

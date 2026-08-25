@@ -1,3 +1,19 @@
+/**
+ * @file grid_layers_test.cpp
+ * @brief Grid layers test responsibilities.
+ *
+ * @details This file exercises grid layers test behavior for automated verification
+ * and regression testing. It centers on
+ * `HitEndpointIsOccupiedWhileFamiliarityOnlyRecordsObservation`,
+ * `MaximumRangeIsFreeAndInvalidBeamsAreIgnored`,
+ * `FamiliarityCountsEachCoveredCellOncePerDecisionObservation`,
+ * `FamiliarityCountsMaximumRangeButIgnoresInvalidRays`,
+ * `FamiliarityIsInvariantToDifferentRayCountsAcrossAdjacentCells`,
+ * `ExtentPolicyExpandsOrClipsExplicitly`,
+ * `MaplessGeometryInitializesAroundFirstPoseWithoutFabricatingFreeSpace`,
+ * `RepeatedFreeEvidenceClearsDynamicOccupancyAndStaleHitsExpire`. Its
+ * package-relative location is `test/unit/grid_layers_test.cpp`.
+ */
 #include <gtest/gtest.h>
 
 #include <algorithm>
@@ -8,6 +24,20 @@
 
 namespace {
 
+/**
+ * @brief Performs the scan operation for this subsystem.
+ *
+ * Arguments:
+ * - @p sequence: Supplies sequence input to the operation.
+ * - @p range: Supplies range input to the operation.
+ * - @p maximum: Supplies maximum input to the operation.
+ *
+ * Returns:
+ * - `semaforr::spatial::NavigationEpisode` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 semaforr::spatial::NavigationEpisode scan(std::size_t sequence, double range,
                                           double maximum = 4.0) {
   semaforr::domain::LaserObservation laser;
@@ -25,6 +55,19 @@ semaforr::spatial::NavigationEpisode scan(std::size_t sequence, double range,
   return episode;
 }
 
+/**
+ * @brief Performs the static map operation for this subsystem.
+ *
+ * Arguments:
+ * - @p columns: Supplies columns input to the operation.
+ * - @p rows: Supplies rows input to the operation.
+ *
+ * Returns:
+ * - `semaforr::domain::StaticMap` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 semaforr::domain::StaticMap staticMap(std::size_t columns,
                                      std::size_t rows = 1U) {
   semaforr::domain::StaticMap map;
@@ -41,6 +84,19 @@ semaforr::domain::StaticMap staticMap(std::size_t columns,
   return map;
 }
 
+/**
+ * @brief Performs the familiarity at operation for this subsystem.
+ *
+ * Arguments:
+ * - @p model: Supplies model input to the operation.
+ * - @p index: Supplies index input to the operation.
+ *
+ * Returns:
+ * - `std::uint32_t` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::uint32_t familiarityAt(const semaforr::spatial::KnownGridModel& model,
                             std::size_t index) {
   const auto found = std::find_if(

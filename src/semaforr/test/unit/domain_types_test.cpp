@@ -1,3 +1,14 @@
+/**
+ * @file domain_types_test.cpp
+ * @brief Domain types test responsibilities.
+ *
+ * @details This file exercises domain types test behavior for automated
+ * verification and regression testing. It centers on
+ * `ValidatesMagnitudeAtConstruction`, `OrdersByTypeThenMagnitude`,
+ * `RequiresStrictlyIncreasingPositiveValues`, `NormalizesAnglesOnce`,
+ * `SeparatesPendingActiveCompletedAndSkippedTasks`. Its package-relative
+ * location is `test/unit/domain_types_test.cpp`.
+ */
 #include <gtest/gtest.h>
 
 #include <algorithm>

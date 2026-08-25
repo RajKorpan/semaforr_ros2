@@ -1,6 +1,28 @@
 #!/usr/bin/env python3
 
-"""Drive a deterministic virtual robot and record SemaFORR's observable output."""
+"""SemaFORR module overview.
+
+Summary:
+    This file implements record baseline behavior for developer tooling and experiment automation. It centers on `_load_environment_walls`, `_segment_intersection_distance`, `BaselineRecorder`, `parse_arguments`, `main`, `__init__`, `_elapsed`, `_command_callback`. Its package-relative location is `scripts/record_baseline.py`.
+
+Arguments:
+    Not applicable at module scope.
+
+Returns:
+    Not applicable at module scope.
+
+Raises:
+    Import-time dependency errors may propagate.
+"""
+
+
+
+
+
+
+
+
+
 
 import argparse
 import json
@@ -12,6 +34,18 @@ import xml.etree.ElementTree as ET
 
 
 def _load_environment_walls(path):
+    """Summary:
+        Performs the load environment walls operation for this subsystem.
+
+    Args:
+        path (Any): Supplies path input to the operation.
+
+    Returns:
+        Any
+
+    Raises:
+        ValueError: If required input or state is invalid.
+    """
     if path is None:
         return []
     try:
@@ -40,6 +74,21 @@ def _load_environment_walls(path):
 
 
 def _segment_intersection_distance(origin, heading, maximum, wall):
+    """Summary:
+        Performs the segment intersection distance operation for this subsystem.
+
+    Args:
+        origin (Any): Supplies origin input to the operation.
+        heading (Any): Supplies heading input to the operation.
+        maximum (Any): Supplies maximum input to the operation.
+        wall (Any): Supplies wall input to the operation.
+
+    Returns:
+        Any
+
+    Raises:
+        None documented; dependency failures may propagate.
+    """
     direction = (math.cos(heading), math.sin(heading))
     edge = (wall[1][0] - wall[0][0], wall[1][1] - wall[0][1])
     denominator = direction[0] * edge[1] - direction[1] * edge[0]
@@ -62,6 +111,18 @@ from semaforr_msgs.msg import DecisionRecord, NavigationState
 
 
 class BaselineRecorder(Node):
+    """Summary:
+        Encapsulates baseline recorder state and behavior for this subsystem.
+
+    Args:
+        None.
+
+    Returns:
+        Not applicable; classes construct instances.
+
+    Raises:
+        None documented; dependency failures may propagate.
+    """
     TICK_HZ = 20.0
     TICK_PERIOD_S = 1.0 / TICK_HZ
 
@@ -76,6 +137,25 @@ class BaselineRecorder(Node):
         scenario_name="stage_tutorial_open_space",
         environment_map=None,
     ):
+        """Summary:
+            Performs the init operation for this subsystem.
+
+        Args:
+            output_path (Any): Supplies output path input to the operation.
+            duration (Any): Supplies duration input to the operation.
+            sensor_cutoff (Any): Supplies sensor cutoff input to the operation.
+            initial_x (Any): Supplies initial x input to the operation.
+            initial_y (Any): Supplies initial y input to the operation.
+            initial_yaw (Any): Supplies initial yaw input to the operation.
+            scenario_name (Any): Supplies scenario name input to the operation.
+            environment_map (Any): Supplies environment map input to the operation.
+
+        Returns:
+            Any
+
+        Raises:
+            None documented; dependency failures may propagate.
+        """
         super().__init__("semaforr_baseline_recorder")
         self._output_path = output_path
         self._duration = duration
@@ -117,9 +197,33 @@ class BaselineRecorder(Node):
         self.create_timer(self.TICK_PERIOD_S, self._tick)
 
     def _elapsed(self):
+        """Summary:
+            Performs the elapsed operation for this subsystem.
+
+        Args:
+            None.
+
+        Returns:
+            Any
+
+        Raises:
+            None documented; dependency failures may propagate.
+        """
         return self._tick_count * self.TICK_PERIOD_S
 
     def _command_callback(self, message):
+        """Summary:
+            Performs the command callback operation for this subsystem.
+
+        Args:
+            message (Any): Supplies message input to the operation.
+
+        Returns:
+            Any
+
+        Raises:
+            None documented; dependency failures may propagate.
+        """
         self._command = message
         signature = (
             round(message.linear.x, 6),
@@ -139,6 +243,18 @@ class BaselineRecorder(Node):
         )
 
     def _decision_callback(self, message):
+        """Summary:
+            Performs the decision callback operation for this subsystem.
+
+        Args:
+            message (Any): Supplies message input to the operation.
+
+        Returns:
+            Any
+
+        Raises:
+            None documented; dependency failures may propagate.
+        """
         tier_names = {
             DecisionRecord.TIER_ONE: "tier_one",
             DecisionRecord.TIER_TWO: "tier_two",
@@ -243,6 +359,18 @@ class BaselineRecorder(Node):
         )
 
     def _navigation_state_callback(self, message):
+        """Summary:
+            Performs the navigation state callback operation for this subsystem.
+
+        Args:
+            message (Any): Supplies message input to the operation.
+
+        Returns:
+            Any
+
+        Raises:
+            None documented; dependency failures may propagate.
+        """
         state_names = {
             NavigationState.WAITING_FOR_SENSORS: "waiting_for_sensors",
             NavigationState.READY_TO_DECIDE: "ready_to_decide",
@@ -267,6 +395,18 @@ class BaselineRecorder(Node):
         )
 
     def _tick(self):
+        """Summary:
+            Performs the tick operation for this subsystem.
+
+        Args:
+            None.
+
+        Returns:
+            Any
+
+        Raises:
+            None documented; dependency failures may propagate.
+        """
         linear_x = self._command.linear.x
         angular_z = self._command.angular.z
         self._pose[2] = math.atan2(
@@ -344,9 +484,33 @@ class BaselineRecorder(Node):
 
     @property
     def finished(self):
+        """Summary:
+            Performs the finished operation for this subsystem.
+
+        Args:
+            None.
+
+        Returns:
+            Any
+
+        Raises:
+            None documented; dependency failures may propagate.
+        """
         return self._finished
 
     def write_trace(self):
+        """Summary:
+            Writes trace for this subsystem.
+
+        Args:
+            None.
+
+        Returns:
+            Any
+
+        Raises:
+            None documented; dependency failures may propagate.
+        """
         if self._trace_written:
             return
         self._trace_written = True
@@ -483,6 +647,18 @@ class BaselineRecorder(Node):
 
 
 def parse_arguments(arguments):
+    """Summary:
+        Parses arguments for this subsystem.
+
+    Args:
+        arguments (Any): Supplies arguments input to the operation.
+
+    Returns:
+        Any
+
+    Raises:
+        None documented; dependency failures may propagate.
+    """
     parser = argparse.ArgumentParser()
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--duration", type=float, default=20.0)
@@ -522,6 +698,18 @@ def parse_arguments(arguments):
 
 
 def main(args=None):
+    """Summary:
+        Performs the main operation for this subsystem.
+
+    Args:
+        args (Any): Supplies args input to the operation.
+
+    Returns:
+        Any
+
+    Raises:
+        None documented; dependency failures may propagate.
+    """
     rclpy.init(args=args)
     parsed = parse_arguments(rclpy.utilities.remove_ros_args(args=args)[1:])
     node = BaselineRecorder(

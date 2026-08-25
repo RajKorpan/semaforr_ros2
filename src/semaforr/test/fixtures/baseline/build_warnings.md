@@ -1,3 +1,5 @@
+<!-- File overview: This file exercises build warnings behavior for automated verification and regression testing. It records the declarations, settings, fixtures, or guidance needed by that responsibility. Its package-relative location is `test/fixtures/baseline/build_warnings.md`. -->
+
 # Initial ROS 2 Humble build warning inventory
 
 The baseline build completed successfully on 2026-07-27 in approximately

@@ -1,3 +1,12 @@
+/**
+ * @file navigation_engine_adapter.cpp
+ * @brief Navigation engine adapter responsibilities.
+ *
+ * @details This file implements navigation engine adapter behavior for the ROS 2
+ * composition and message-adaptation boundary. It centers on
+ * `NavigationEngineAdapter`. Its package-relative location is
+ * `src/ros/navigation_engine_adapter.cpp`.
+ */
 #include <algorithm>
 #include <ament_index_cpp/get_package_share_directory.hpp>
 #include <chrono>
@@ -25,6 +34,18 @@
 namespace semaforr::ros {
 namespace {
 
+/**
+ * @brief Creates world for this subsystem.
+ *
+ * Arguments:
+ * - @p configuration: Supplies configuration input to the operation.
+ *
+ * Returns:
+ * - `domain::WorldModel` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 domain::WorldModel makeWorld(const config::Configuration& configuration) {
   std::vector<domain::NavigationTask> tasks;
   tasks.reserve(configuration.tasks.size());
@@ -39,6 +60,20 @@ domain::WorldModel makeWorld(const config::Configuration& configuration) {
   return world;
 }
 
+/**
+ * @brief Performs the crowd configuration operation for this subsystem.
+ *
+ * Arguments:
+ * - @p configuration: Supplies configuration input to the operation.
+ * - @p static_map: Supplies static map input to the operation.
+ *
+ * Returns:
+ * - `social::CrowdFieldLearnerConfiguration` containing the operation
+ * result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 social::CrowdFieldLearnerConfiguration crowdConfiguration(
     const config::Configuration& configuration,
     const domain::StaticMap* static_map) {
@@ -67,6 +102,20 @@ social::CrowdFieldLearnerConfiguration crowdConfiguration(
   return result;
 }
 
+/**
+ * @brief Performs the circumstance configuration operation for this
+ * subsystem.
+ *
+ * Arguments:
+ * - @p configuration: Supplies configuration input to the operation.
+ *
+ * Returns:
+ * - `spatial::CircumstanceLearningConfiguration` containing the operation
+ * result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 spatial::CircumstanceLearningConfiguration circumstanceConfiguration(
     const config::Configuration& configuration) {
   const auto& source = configuration.navigation.circumstances;
@@ -102,6 +151,18 @@ spatial::CircumstanceLearningConfiguration circumstanceConfiguration(
   return result;
 }
 
+/**
+ * @brief Performs the precedent configuration operation for this subsystem.
+ *
+ * Arguments:
+ * - @p configuration: Supplies configuration input to the operation.
+ *
+ * Returns:
+ * - `decision::PrecedentConfiguration` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 decision::PrecedentConfiguration precedentConfiguration(
     const config::Configuration& configuration) {
   const auto& source = configuration.navigation.circumstances;
@@ -110,6 +171,18 @@ decision::PrecedentConfiguration precedentConfiguration(
           source.action_confidence_threshold};
 }
 
+/**
+ * @brief Performs the map search paths operation for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - `planning::MapSearchPaths` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 planning::MapSearchPaths mapSearchPaths() {
   planning::MapSearchPaths paths;
   paths.working_directory = std::filesystem::current_path();
@@ -132,6 +205,18 @@ planning::MapSearchPaths mapSearchPaths() {
   return paths;
 }
 
+/**
+ * @brief Performs the unknown policy operation for this subsystem.
+ *
+ * Arguments:
+ * - @p value: Supplies value input to the operation.
+ *
+ * Returns:
+ * - `domain::UnknownSpacePolicy` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 domain::UnknownSpacePolicy unknownPolicy(const std::string& value) {
   if (value == "prohibited") return domain::UnknownSpacePolicy::Prohibited;
   if (value == "high_cost") return domain::UnknownSpacePolicy::HighCost;
@@ -143,12 +228,37 @@ domain::UnknownSpacePolicy unknownPolicy(const std::string& value) {
                            "'");
 }
 
+/**
+ * @brief Performs the grid extent policy operation for this subsystem.
+ *
+ * Arguments:
+ * - @p value: Supplies value input to the operation.
+ *
+ * Returns:
+ * - `spatial::GridExtentPolicy` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 spatial::GridExtentPolicy gridExtentPolicy(const std::string& value) {
   if (value == "expand") return spatial::GridExtentPolicy::Expand;
   if (value == "fixed") return spatial::GridExtentPolicy::Fixed;
   throw std::runtime_error("unknown grid extent policy '" + value + "'");
 }
 
+/**
+ * @brief Performs the learned grid configuration operation for this
+ * subsystem.
+ *
+ * Arguments:
+ * - @p configuration: Supplies configuration input to the operation.
+ *
+ * Returns:
+ * - `spatial::LearnedGridConfiguration` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 spatial::LearnedGridConfiguration learnedGridConfiguration(
     const config::Configuration& configuration) {
   const auto& source = configuration.navigation.grids;
@@ -178,6 +288,19 @@ spatial::LearnedGridConfiguration learnedGridConfiguration(
   return result;
 }
 
+/**
+ * @brief Performs the hle configuration operation for this subsystem.
+ *
+ * Arguments:
+ * - @p configuration: Supplies configuration input to the operation.
+ *
+ * Returns:
+ * - `exploration::HighLevelExplorationConfiguration` containing the
+ * operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 exploration::HighLevelExplorationConfiguration hleConfiguration(
     const config::Configuration& configuration) {
   const auto& source = configuration.experiment.initial_exploration;
@@ -228,6 +351,19 @@ exploration::HighLevelExplorationConfiguration hleConfiguration(
   return result;
 }
 
+/**
+ * @brief Performs the lle configuration operation for this subsystem.
+ *
+ * Arguments:
+ * - @p configuration: Supplies configuration input to the operation.
+ *
+ * Returns:
+ * - `planning::LowLevelExplorationConfiguration` containing the operation
+ * result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 planning::LowLevelExplorationConfiguration lleConfiguration(
     const config::Configuration& configuration) {
   planning::LowLevelExplorationConfiguration result;
@@ -250,6 +386,19 @@ planning::LowLevelExplorationConfiguration lleConfiguration(
   return result;
 }
 
+/**
+ * @brief Performs the arbitration configuration operation for this
+ * subsystem.
+ *
+ * Arguments:
+ * - @p configuration: Supplies configuration input to the operation.
+ *
+ * Returns:
+ * - `decision::ArbitrationConfiguration` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 decision::ArbitrationConfiguration arbitrationConfiguration(
     const config::Configuration& configuration) {
   decision::ArbitrationConfiguration result;
@@ -297,8 +446,33 @@ decision::ArbitrationConfiguration arbitrationConfiguration(
 
 }  // namespace
 
+/**
+ * @brief Encapsulates navigation engine adapter state and behavior for this
+ * subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - Not applicable to this declaration.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 class NavigationEngineAdapter::Impl {
  public:
+  /**
+   * @brief Performs the impl operation for this subsystem.
+   *
+   * Arguments:
+   * - @p configuration: Supplies configuration input to the operation.
+   *
+   * Returns:
+   * - No value; effects are applied to owned state or outputs.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   explicit Impl(config::Configuration configuration)
       : configuration_(std::move(configuration)),
         action_space_(configuration_.navigation.move_actions,
@@ -421,6 +595,20 @@ class NavigationEngineAdapter::Impl {
     validateRuntimeActivation();
   }
 
+  /**
+   * @brief Performs the configure reproducibility operation for this
+   * subsystem.
+   *
+   * Arguments:
+   * - @p component_manifest: Supplies component manifest input to the
+   * operation.
+   *
+   * Returns:
+   * - No value; effects are applied to owned state or outputs.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   void configureReproducibility(
       const std::vector<std::string>& component_manifest) {
     const auto& reproducibility = configuration_.experiment.reproducibility;
@@ -470,6 +658,18 @@ class NavigationEngineAdapter::Impl {
         std::move(metadata), reproducibility.trace_path);
   }
 
+  /**
+   * @brief Validates runtime activation for this subsystem.
+   *
+   * Arguments:
+   * - None.
+   *
+   * Returns:
+   * - No value; effects are applied to owned state or outputs.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   void validateRuntimeActivation() {
     const auto& planners = configuration_.navigation.planners;
     const bool planner_requested =
@@ -506,6 +706,18 @@ class NavigationEngineAdapter::Impl {
     map_diagnostics_.push_back("runtime_validation:passed");
   }
 
+  /**
+   * @brief Performs the configure static map operation for this subsystem.
+   *
+   * Arguments:
+   * - None.
+   *
+   * Returns:
+   * - No value; effects are applied to owned state or outputs.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   void configureStaticMap() {
     if (configuration_.static_map.mode == config::MapOperatingMode::Mapless) {
       map_diagnostics_.push_back("map_mode:mapless");
@@ -561,6 +773,18 @@ class NavigationEngineAdapter::Impl {
     }
   }
 
+  /**
+   * @brief Performs the configure learning operation for this subsystem.
+   *
+   * Arguments:
+   * - None.
+   *
+   * Returns:
+   * - No value; effects are applied to owned state or outputs.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   void configureLearning() {
     const auto& features = configuration_.navigation;
     learning_.setEnabled(spatial::SpatialRepresentation::Trails,
@@ -593,6 +817,18 @@ class NavigationEngineAdapter::Impl {
                          features.circumstances_on);
   }
 
+  /**
+   * @brief Performs the configure planning operation for this subsystem.
+   *
+   * Arguments:
+   * - None.
+   *
+   * Returns:
+   * - No value; effects are applied to owned state or outputs.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   void configurePlanning() {
     if (!configuration_.experiment.tiers.tier_two) return;
     const auto& planners = configuration_.navigation.planners;
@@ -635,6 +871,18 @@ class NavigationEngineAdapter::Impl {
     }
   }
 
+  /**
+   * @brief Performs the configure decisions operation for this subsystem.
+   *
+   * Arguments:
+   * - None.
+   *
+   * Returns:
+   * - No value; effects are applied to owned state or outputs.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   void configureDecisions() {
     decision::TierOneRegistry tier_one_registry;
     decision::AdvisorRegistry tier_three_registry;
@@ -689,16 +937,81 @@ class NavigationEngineAdapter::Impl {
   std::unique_ptr<validation::RunRecorder> recorder_;
 };
 
+/**
+ * @brief Performs the navigation engine adapter operation for this
+ * subsystem.
+ *
+ * Arguments:
+ * - @p configuration: Supplies configuration input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 NavigationEngineAdapter::NavigationEngineAdapter(
     config::Configuration configuration)
     : impl_(std::make_unique<Impl>(std::move(configuration))) {}
 
+/**
+ * @brief Performs the navigation engine adapter operation for this
+ * subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 NavigationEngineAdapter::~NavigationEngineAdapter() = default;
+/**
+ * @brief Performs the navigation engine adapter operation for this
+ * subsystem.
+ *
+ * Arguments:
+ * - @p argument_1: Supplies argument 1 input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 NavigationEngineAdapter::NavigationEngineAdapter(
     NavigationEngineAdapter&&) noexcept = default;
+/**
+ * @brief Performs the operator operation for this subsystem.
+ *
+ * Arguments:
+ * - @p argument_1: Supplies argument 1 input to the operation.
+ *
+ * Returns:
+ * - `NavigationEngineAdapter& NavigationEngineAdapter::` containing the
+ * operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 NavigationEngineAdapter& NavigationEngineAdapter::operator=(
     NavigationEngineAdapter&&) noexcept = default;
 
+/**
+ * @brief Processes package content for this subsystem.
+ *
+ * Arguments:
+ * - @p sensors: Supplies sensors input to the operation.
+ * - @p crowd: Supplies crowd input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void NavigationEngineAdapter::observe(const SynchronizedSensors& sensors,
                                       const domain::CrowdState& crowd) {
   domain::RobotObservation observation{sensors.pose, sensors.scan,
@@ -713,14 +1026,50 @@ void NavigationEngineAdapter::observe(const SynchronizedSensors& sensors,
   impl_->engine_->observe(observation);
 }
 
+/**
+ * @brief Performs the mission complete operation for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - `bool` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 bool NavigationEngineAdapter::missionComplete() {
   return impl_->engine_->missionComplete();
 }
 
+/**
+ * @brief Performs the phase operation for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - `navigation::NavigationPhase` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 navigation::NavigationPhase NavigationEngineAdapter::phase() const noexcept {
   return impl_->engine_->phase();
 }
 
+/**
+ * @brief Selects package content for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - `decision::DecisionResult` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 decision::DecisionResult NavigationEngineAdapter::decide() {
   auto result = impl_->engine_->decide();
   if (impl_->recorder_) {
@@ -736,6 +1085,18 @@ decision::DecisionResult NavigationEngineAdapter::decide() {
   return result;
 }
 
+/**
+ * @brief Performs the execution request operation for this subsystem.
+ *
+ * Arguments:
+ * - @p decision: Supplies decision input to the operation.
+ *
+ * Returns:
+ * - `ActionExecutionRequest` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 ActionExecutionRequest NavigationEngineAdapter::executionRequest(
     const decision::DecisionResult& decision) const {
   const domain::Action& action = decision.action;
@@ -753,6 +1114,18 @@ ActionExecutionRequest NavigationEngineAdapter::executionRequest(
   return request;
 }
 
+/**
+ * @brief Performs the on action started operation for this subsystem.
+ *
+ * Arguments:
+ * - @p update: Supplies update input to the operation.
+ *
+ * Returns:
+ * - `domain::FeedbackDisposition` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 domain::FeedbackDisposition NavigationEngineAdapter::onActionStarted(
     const ActionExecutionUpdate& update) {
   return impl_->engine_->onActionStarted(
@@ -760,6 +1133,18 @@ domain::FeedbackDisposition NavigationEngineAdapter::onActionStarted(
        update.start_pose});
 }
 
+/**
+ * @brief Performs the on action progress operation for this subsystem.
+ *
+ * Arguments:
+ * - @p update: Supplies update input to the operation.
+ *
+ * Returns:
+ * - `domain::FeedbackDisposition` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 domain::FeedbackDisposition NavigationEngineAdapter::onActionProgress(
     const ActionExecutionUpdate& update) {
   return impl_->engine_->onActionProgress(
@@ -768,6 +1153,20 @@ domain::FeedbackDisposition NavigationEngineAdapter::onActionProgress(
        update.rotation_achieved_rad});
 }
 
+/**
+ * @brief Performs the on action terminal operation for this subsystem.
+ *
+ * Arguments:
+ * - @p update: Supplies update input to the operation.
+ * - @p status: Supplies status input to the operation.
+ * - @p detail: Supplies detail input to the operation.
+ *
+ * Returns:
+ * - `domain::FeedbackDisposition` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 domain::FeedbackDisposition NavigationEngineAdapter::onActionTerminal(
     const ActionExecutionUpdate& update,
     domain::ExecutionCompletionStatus status, std::string detail) {
@@ -801,16 +1200,52 @@ domain::FeedbackDisposition NavigationEngineAdapter::onActionTerminal(
   return impl_->engine_->onActionFailed(std::move(result));
 }
 
+/**
+ * @brief Performs the on controller restart operation for this subsystem.
+ *
+ * Arguments:
+ * - @p pose: Supplies pose input to the operation.
+ *
+ * Returns:
+ * - `domain::FeedbackDisposition` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 domain::FeedbackDisposition NavigationEngineAdapter::onControllerRestart(
     const domain::Pose2D& pose) {
   return impl_->engine_->onControllerRestart(std::chrono::steady_clock::now(),
                                              pose);
 }
 
+/**
+ * @brief Performs the world model operation for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - `const domain::WorldModel&` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 const domain::WorldModel& NavigationEngineAdapter::worldModel() const noexcept {
   return impl_->world_;
 }
 
+/**
+ * @brief Performs the startup diagnostics operation for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - `const std::vector<std::string>&` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 const std::vector<std::string>& NavigationEngineAdapter::startupDiagnostics()
     const noexcept {
   return impl_->map_diagnostics_;

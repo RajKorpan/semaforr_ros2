@@ -1,3 +1,19 @@
+/**
+ * @file ros_execution_test.cpp
+ * @brief Ros execution test responsibilities.
+ *
+ * @details This file exercises ros execution test behavior for automated
+ * verification and regression testing. It centers on
+ * `ProducesOnlyCoherentFreshObservations`,
+ * `RejectsFramesAndExcessiveSkew`,
+ * `RejectsStaleSourceStampsAndClockResets`,
+ * `SeparatesTargetDistanceFromVelocity`,
+ * `SmallTurnsRequireMeasuredProgressAndWrapAngles`,
+ * `ReportsTimeoutsAndOdometryResetsSafely`,
+ * `EnforcesActionVelocityAndAccelerationBounds`,
+ * `SensorTimeoutCancellationPublishesAZeroCommand`. Its package-relative
+ * location is `test/unit/ros_execution_test.cpp`.
+ */
 #include <gtest/gtest.h>
 #include <rcl/time.h>
 
@@ -12,10 +28,38 @@
 
 namespace {
 
+/**
+ * @brief Performs the at operation for this subsystem.
+ *
+ * Arguments:
+ * - @p seconds: Supplies seconds input to the operation.
+ *
+ * Returns:
+ * - `rclcpp::Time` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 rclcpp::Time at(double seconds) {
   return rclcpp::Time(static_cast<std::int64_t>(seconds * 1.0e9), RCL_ROS_TIME);
 }
 
+/**
+ * @brief Performs the pose operation for this subsystem.
+ *
+ * Arguments:
+ * - @p stamp_s: Supplies stamp s input to the operation.
+ * - @p x: Supplies x input to the operation.
+ * - @p y: Supplies y input to the operation.
+ * - @p yaw: Supplies yaw input to the operation.
+ * - @p frame: Supplies frame input to the operation.
+ *
+ * Returns:
+ * - `geometry_msgs::msg::PoseStamped` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 geometry_msgs::msg::PoseStamped pose(double stamp_s, double x, double y,
                                      double yaw, std::string frame = "map") {
   geometry_msgs::msg::PoseStamped message;
@@ -28,6 +72,19 @@ geometry_msgs::msg::PoseStamped pose(double stamp_s, double x, double y,
   return message;
 }
 
+/**
+ * @brief Performs the scan operation for this subsystem.
+ *
+ * Arguments:
+ * - @p stamp_s: Supplies stamp s input to the operation.
+ * - @p frame: Supplies frame input to the operation.
+ *
+ * Returns:
+ * - `sensor_msgs::msg::LaserScan` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 sensor_msgs::msg::LaserScan scan(double stamp_s,
                                  std::string frame = "base_laser_link") {
   sensor_msgs::msg::LaserScan message;
@@ -42,6 +99,20 @@ sensor_msgs::msg::LaserScan scan(double stamp_s,
   return message;
 }
 
+/**
+ * @brief Performs the domain pose operation for this subsystem.
+ *
+ * Arguments:
+ * - @p x: Supplies x input to the operation.
+ * - @p y: Supplies y input to the operation.
+ * - @p yaw: Supplies yaw input to the operation.
+ *
+ * Returns:
+ * - `semaforr::domain::Pose2D` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 semaforr::domain::Pose2D domainPose(double x, double y, double yaw) {
   return {{x, y}, semaforr::domain::Angle(yaw)};
 }

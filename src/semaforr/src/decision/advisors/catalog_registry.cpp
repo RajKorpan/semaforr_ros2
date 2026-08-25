@@ -1,3 +1,12 @@
+/**
+ * @file catalog_registry.cpp
+ * @brief Catalog registry responsibilities.
+ *
+ * @details This file implements catalog registry behavior for tiered decision
+ * making and action arbitration. It centers on `RandomTieAdvisor`. Its
+ * package-relative location is
+ * `src/decision/advisors/catalog_registry.cpp`.
+ */
 #include <semaforr/decision/advisors/catalog_registry.hpp>
 #include <semaforr/decision/advisors/heuristic_advisor.hpp>
 #include <semaforr/decision/advisors/social/learned_crowd_advisor.hpp>
@@ -9,9 +18,46 @@
 namespace semaforr::decision {
 namespace {
 
+/**
+ * @brief Encapsulates random tie advisor state and behavior for this
+ * subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - Not applicable to this declaration.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 class RandomTieAdvisor final : public Advisor {
  public:
+  /**
+   * @brief Performs the name operation for this subsystem.
+   *
+   * Arguments:
+   * - None.
+   *
+   * Returns:
+   * - `std::string_view` containing the operation result.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   std::string_view name() const noexcept override { return "random"; }
+  /**
+   * @brief Performs the metadata operation for this subsystem.
+   *
+   * Arguments:
+   * - None.
+   *
+   * Returns:
+   * - `AdvisorMetadata` containing the operation result.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   AdvisorMetadata metadata() const override {
     return {{},
             {domain::ActionType::Pause, domain::ActionType::Forward,
@@ -19,6 +65,19 @@ class RandomTieAdvisor final : public Advisor {
             true, ScoreNormalization::None,
             "leave all viable actions tied for seeded selection"};
   }
+  /**
+   * @brief Evaluates package content for this subsystem.
+   *
+   * Arguments:
+   * - @p argument_1: Supplies argument 1 input to the operation.
+   * - @p candidates: Supplies candidates input to the operation.
+   *
+   * Returns:
+   * - `AdvisorEvaluation` containing the operation result.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   AdvisorEvaluation evaluate(
       const DecisionContext&,
       std::span<const domain::Action> candidates) const override {
@@ -32,6 +91,20 @@ class RandomTieAdvisor final : public Advisor {
 
 }  // namespace
 
+/**
+ * @brief Registers advisor catalog for this subsystem.
+ *
+ * Arguments:
+ * - @p registry: Supplies registry input to the operation.
+ * - @p action_space: Supplies action space input to the operation.
+ * - @p configured: Supplies configured input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void registerAdvisorCatalog(
     AdvisorRegistry& registry, const domain::ActionSpace& action_space,
     const std::vector<config::AdvisorConfiguration>& configured) {

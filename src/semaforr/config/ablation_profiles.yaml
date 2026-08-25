@@ -1,3 +1,4 @@
+# File overview: This file defines ablation profiles behavior for runtime configuration and reproducible experiment setup. It records the declarations, settings, fixtures, or guidance needed by that responsibility. Its package-relative location is `config/ablation_profiles.yaml`.
 # Named experiment profiles. `experiment.profile` expands these invariants in
 # the ROS-independent configuration layer; explicit custom settings use
 # `profile: custom`.

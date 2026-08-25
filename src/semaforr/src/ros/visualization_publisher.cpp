@@ -1,3 +1,12 @@
+/**
+ * @file visualization_publisher.cpp
+ * @brief Visualization publisher responsibilities.
+ *
+ * @details This file implements visualization publisher behavior for the ROS 2
+ * composition and message-adaptation boundary. It centers on
+ * `VisualizationPublisher`. Its package-relative location is
+ * `src/ros/visualization_publisher.cpp`.
+ */
 #include <cmath>
 #include <cstdint>
 #include <geometry_msgs/msg/point_stamped.hpp>
@@ -17,6 +26,18 @@
 namespace semaforr::ros {
 namespace {
 
+/**
+ * @brief Converts message for this subsystem.
+ *
+ * Arguments:
+ * - @p source: Supplies source input to the operation.
+ *
+ * Returns:
+ * - `semaforr_msgs::msg::DecisionAction` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 semaforr_msgs::msg::DecisionAction toMessage(const domain::Action& source) {
   semaforr_msgs::msg::DecisionAction result;
   switch (source.type()) {
@@ -37,6 +58,18 @@ semaforr_msgs::msg::DecisionAction toMessage(const domain::Action& source) {
   return result;
 }
 
+/**
+ * @brief Converts message for this subsystem.
+ *
+ * Arguments:
+ * - @p source: Supplies source input to the operation.
+ *
+ * Returns:
+ * - `geometry_msgs::msg::Point` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 geometry_msgs::msg::Point toMessage(const domain::Point2D& source) {
   geometry_msgs::msg::Point result;
   result.x = source.x_m;
@@ -44,6 +77,18 @@ geometry_msgs::msg::Point toMessage(const domain::Point2D& source) {
   return result;
 }
 
+/**
+ * @brief Converts message for this subsystem.
+ *
+ * Arguments:
+ * - @p source: Supplies source input to the operation.
+ *
+ * Returns:
+ * - `geometry_msgs::msg::Pose2D` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 geometry_msgs::msg::Pose2D toMessage(const domain::Pose2D& source) {
   geometry_msgs::msg::Pose2D result;
   result.x = source.position.x_m;
@@ -52,6 +97,18 @@ geometry_msgs::msg::Pose2D toMessage(const domain::Pose2D& source) {
   return result;
 }
 
+/**
+ * @brief Converts message for this subsystem.
+ *
+ * Arguments:
+ * - @p source: Supplies source input to the operation.
+ *
+ * Returns:
+ * - `semaforr_msgs::msg::PlannerMetadata` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 semaforr_msgs::msg::PlannerMetadata toMessage(
     const planning::PlannerMetadata& source) {
   semaforr_msgs::msg::PlannerMetadata result;
@@ -65,6 +122,19 @@ semaforr_msgs::msg::PlannerMetadata toMessage(
   return result;
 }
 
+/**
+ * @brief Converts message for this subsystem.
+ *
+ * Arguments:
+ * - @p source: Supplies source input to the operation.
+ *
+ * Returns:
+ * - `std::vector<semaforr_msgs::msg::ModelRevision>` containing the
+ * operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::vector<semaforr_msgs::msg::ModelRevision> toMessage(
     const domain::DependencyRevisions& source) {
   std::vector<semaforr_msgs::msg::ModelRevision> result;
@@ -77,6 +147,19 @@ std::vector<semaforr_msgs::msg::ModelRevision> toMessage(
   return result;
 }
 
+/**
+ * @brief Converts message for this subsystem.
+ *
+ * Arguments:
+ * - @p source: Supplies source input to the operation.
+ * - @p index: Supplies index input to the operation.
+ *
+ * Returns:
+ * - `semaforr_msgs::msg::PlanStepTrace` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 semaforr_msgs::msg::PlanStepTrace toMessage(
     const planning::PlanStep& source, std::size_t index) {
   semaforr_msgs::msg::PlanStepTrace result;
@@ -155,6 +238,18 @@ semaforr_msgs::msg::PlanStepTrace toMessage(
   return result;
 }
 
+/**
+ * @brief Converts message for this subsystem.
+ *
+ * Arguments:
+ * - @p tier: Supplies tier input to the operation.
+ *
+ * Returns:
+ * - `std::uint8_t` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::uint8_t toMessage(decision::DecisionTier tier) {
   switch (tier) {
     case decision::DecisionTier::TierOne:
@@ -173,6 +268,18 @@ std::uint8_t toMessage(decision::DecisionTier tier) {
   return semaforr_msgs::msg::DecisionRecord::SAFE_STOP;
 }
 
+/**
+ * @brief Converts message for this subsystem.
+ *
+ * Arguments:
+ * - @p source: Supplies source input to the operation.
+ *
+ * Returns:
+ * - `std::uint8_t` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::uint8_t toMessage(decision::DecisionSource source) {
   switch (source) {
     case decision::DecisionSource::MandatoryRule:
@@ -191,6 +298,18 @@ std::uint8_t toMessage(decision::DecisionSource source) {
   return semaforr_msgs::msg::DecisionRecord::SOURCE_SAFE_STOP;
 }
 
+/**
+ * @brief Converts message for this subsystem.
+ *
+ * Arguments:
+ * - @p outcome: Supplies outcome input to the operation.
+ *
+ * Returns:
+ * - `std::uint8_t` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::uint8_t toMessage(decision::ActionOutcome outcome) {
   switch (outcome) {
     case decision::ActionOutcome::Pending:
@@ -227,6 +346,18 @@ std::uint8_t toMessage(decision::ActionOutcome outcome) {
   return semaforr_msgs::msg::DecisionRecord::OUTCOME_CANCELLED;
 }
 
+/**
+ * @brief Converts message for this subsystem.
+ *
+ * Arguments:
+ * - @p phase: Supplies phase input to the operation.
+ *
+ * Returns:
+ * - `std::uint8_t` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::uint8_t toMessage(navigation::NavigationPhase phase) {
   switch (phase) {
     case navigation::NavigationPhase::InitialExploration:
@@ -239,6 +370,20 @@ std::uint8_t toMessage(navigation::NavigationPhase phase) {
   return semaforr_msgs::msg::DecisionRecord::PHASE_MISSION_COMPLETE;
 }
 
+/**
+ * @brief Converts message for this subsystem.
+ *
+ * Arguments:
+ * - @p source: Supplies source input to the operation.
+ * - @p stamp: Supplies stamp input to the operation.
+ * - @p frame_id: Supplies frame id input to the operation.
+ *
+ * Returns:
+ * - `semaforr_msgs::msg::DecisionRecord` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 semaforr_msgs::msg::DecisionRecord toMessage(
     const decision::DecisionResult& source, const rclcpp::Time& stamp,
     const std::string& frame_id) {
@@ -516,8 +661,34 @@ semaforr_msgs::msg::DecisionRecord toMessage(
 
 }  // namespace
 
+/**
+ * @brief Encapsulates visualization publisher state and behavior for this
+ * subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - Not applicable to this declaration.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 class VisualizationPublisher::Impl {
  public:
+  /**
+   * @brief Performs the impl operation for this subsystem.
+   *
+   * Arguments:
+   * - @p node: Supplies node input to the operation.
+   * - @p world: Supplies world input to the operation.
+   *
+   * Returns:
+   * - No value; effects are applied to owned state or outputs.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   Impl(rclcpp::Node& node, const domain::WorldModel& world)
       : node_(node),
         world_(world),
@@ -588,6 +759,18 @@ class VisualizationPublisher::Impl {
         pose_publisher_(node.create_publisher<geometry_msgs::msg::PoseStamped>(
             "decision_pose", rclcpp::QoS(10).reliable())) {}
 
+  /**
+   * @brief Publishes decision for this subsystem.
+   *
+   * Arguments:
+   * - @p result: Supplies result input to the operation.
+   *
+   * Returns:
+   * - No value; effects are applied to owned state or outputs.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   void publishDecision(const decision::DecisionResult& result) {
     decision_publisher_->publish(toMessage(result, node_.now(), frame_id_));
     if (result.task &&
@@ -636,6 +819,18 @@ class VisualizationPublisher::Impl {
     }
   }
 
+  /**
+   * @brief Publishes snapshot for this subsystem.
+   *
+   * Arguments:
+   * - None.
+   *
+   * Returns:
+   * - No value; effects are applied to owned state or outputs.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   void publishSnapshot() {
     const rclcpp::Time stamp = node_.now();
     geometry_msgs::msg::PoseStamped pose;
@@ -712,6 +907,23 @@ class VisualizationPublisher::Impl {
     }
   }
 
+  /**
+   * @brief Performs the grid marker operation for this subsystem.
+   *
+   * Arguments:
+   * - @p header: Supplies header input to the operation.
+   * - @p name: Supplies name input to the operation.
+   * - @p resolution: Supplies resolution input to the operation.
+   * - @p red: Supplies red input to the operation.
+   * - @p green: Supplies green input to the operation.
+   * - @p blue: Supplies blue input to the operation.
+   *
+   * Returns:
+   * - `visualization_msgs::msg::Marker` containing the operation result.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   visualization_msgs::msg::Marker gridMarker(
       const std_msgs::msg::Header& header, const std::string& name,
       double resolution, float red, float green, float blue) const {
@@ -731,6 +943,18 @@ class VisualizationPublisher::Impl {
     return marker;
   }
 
+  /**
+   * @brief Publishes grid layers for this subsystem.
+   *
+   * Arguments:
+   * - @p header: Supplies header input to the operation.
+   *
+   * Returns:
+   * - No value; effects are applied to owned state or outputs.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   void publishGridLayers(const std_msgs::msg::Header& header) {
     const auto& familiarity = world_.spatial.known_grid;
     if (familiarity.valid() &&
@@ -806,6 +1030,20 @@ class VisualizationPublisher::Impl {
     }
   }
 
+  /**
+   * @brief Performs the crowd grid operation for this subsystem.
+   *
+   * Arguments:
+   * - @p header: Supplies header input to the operation.
+   * - @p snapshot: Supplies snapshot input to the operation.
+   * - @p risk: Supplies risk input to the operation.
+   *
+   * Returns:
+   * - `nav_msgs::msg::OccupancyGrid` containing the operation result.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   nav_msgs::msg::OccupancyGrid crowdGrid(
       const std_msgs::msg::Header& header,
       const domain::CrowdFieldSnapshot& snapshot, bool risk) const {
@@ -831,6 +1069,19 @@ class VisualizationPublisher::Impl {
     return result;
   }
 
+  /**
+   * @brief Clears all visualization markers for this subsystem.
+   *
+   * Arguments:
+   * - @p header: Supplies header input to the operation.
+   * - @p name: Supplies name input to the operation.
+   *
+   * Returns:
+   * - `visualization_msgs::msg::Marker` containing the operation result.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   visualization_msgs::msg::Marker deleteAll(
       const std_msgs::msg::Header& header, const std::string& name) const {
     visualization_msgs::msg::Marker marker;
@@ -840,6 +1091,18 @@ class VisualizationPublisher::Impl {
     return marker;
   }
 
+  /**
+   * @brief Publishes learned crowd for this subsystem.
+   *
+   * Arguments:
+   * - @p header: Supplies header input to the operation.
+   *
+   * Returns:
+   * - No value; effects are applied to owned state or outputs.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   void publishLearnedCrowd(const std_msgs::msg::Header& header) {
     const auto& field = world_.crowd.learned();
     const auto density_revision =
@@ -899,6 +1162,18 @@ class VisualizationPublisher::Impl {
     last_flow_revision_ = flow_revision;
   }
 
+  /**
+   * @brief Publishes live crowd for this subsystem.
+   *
+   * Arguments:
+   * - @p header: Supplies header input to the operation.
+   *
+   * Returns:
+   * - No value; effects are applied to owned state or outputs.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   void publishLiveCrowd(const std_msgs::msg::Header& header) {
     const auto revision = world_.crowd.revisionOf(
         domain::ModelDependency::LiveCrowdObservation);
@@ -977,6 +1252,18 @@ class VisualizationPublisher::Impl {
     last_live_crowd_revision_ = revision;
   }
 
+  /**
+   * @brief Publishes crowd layers for this subsystem.
+   *
+   * Arguments:
+   * - @p header: Supplies header input to the operation.
+   *
+   * Returns:
+   * - No value; effects are applied to owned state or outputs.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   void publishCrowdLayers(const std_msgs::msg::Header& header) {
     publishLearnedCrowd(header);
     publishLiveCrowd(header);
@@ -1029,18 +1316,92 @@ class VisualizationPublisher::Impl {
   std::optional<std::uint64_t> last_task_index_;
 };
 
+/**
+ * @brief Performs the visualization publisher operation for this subsystem.
+ *
+ * Arguments:
+ * - @p node: Supplies node input to the operation.
+ * - @p world: Supplies world input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 VisualizationPublisher::VisualizationPublisher(rclcpp::Node& node,
                                                const domain::WorldModel& world)
     : impl_(std::make_unique<Impl>(node, world)) {}
 
+/**
+ * @brief Performs the visualization publisher operation for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 VisualizationPublisher::~VisualizationPublisher() = default;
+/**
+ * @brief Performs the visualization publisher operation for this subsystem.
+ *
+ * Arguments:
+ * - @p argument_1: Supplies argument 1 input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 VisualizationPublisher::VisualizationPublisher(
     VisualizationPublisher&&) noexcept = default;
+/**
+ * @brief Performs the operator operation for this subsystem.
+ *
+ * Arguments:
+ * - @p argument_1: Supplies argument 1 input to the operation.
+ *
+ * Returns:
+ * - `VisualizationPublisher& VisualizationPublisher::` containing the
+ * operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 VisualizationPublisher& VisualizationPublisher::operator=(
     VisualizationPublisher&&) noexcept = default;
 
+/**
+ * @brief Publishes snapshot for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void VisualizationPublisher::publishSnapshot() { impl_->publishSnapshot(); }
 
+/**
+ * @brief Publishes decision for this subsystem.
+ *
+ * Arguments:
+ * - @p result: Supplies result input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void VisualizationPublisher::publishDecision(
     const decision::DecisionResult& result) {
   impl_->publishDecision(result);

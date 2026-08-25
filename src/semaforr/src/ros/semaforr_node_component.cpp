@@ -1,3 +1,12 @@
+/**
+ * @file semaforr_node_component.cpp
+ * @brief Semaforr node component responsibilities.
+ *
+ * @details This file implements semaforr node component behavior for the ROS 2
+ * composition and message-adaptation boundary. It centers on
+ * `QosConfiguration`, `RuntimeConfiguration`, `SemaFORRNode`. Its
+ * package-relative location is `src/ros/semaforr_node_component.cpp`.
+ */
 #include <tf2/time.h>
 #include <tf2_ros/buffer.h>
 #include <tf2_ros/transform_listener.h>
@@ -37,12 +46,38 @@
 namespace semaforr::ros {
 namespace {
 
+/**
+ * @brief Encapsulates qos configuration state and behavior for this
+ * subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - Not applicable to this declaration.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 struct QosConfiguration {
   std::size_t depth{10U};
   std::string reliability{"reliable"};
   std::string durability{"volatile"};
 };
 
+/**
+ * @brief Encapsulates runtime configuration state and behavior for this
+ * subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - Not applicable to this declaration.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 struct RuntimeConfiguration {
   std::string pose_topic{"pose"};
   std::string scan_topic{"scan_raw"};
@@ -65,6 +100,19 @@ struct RuntimeConfiguration {
   double transform_timeout_s{0.05};
 };
 
+/**
+ * @brief Performs the require non empty operation for this subsystem.
+ *
+ * Arguments:
+ * - @p value: Supplies value input to the operation.
+ * - @p name: Supplies name input to the operation.
+ *
+ * Returns:
+ * - `std::string` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::string requireNonEmpty(std::string value, std::string_view name) {
   if (value.empty()) {
     throw std::runtime_error(std::string(name) + " must not be empty");
@@ -72,6 +120,19 @@ std::string requireNonEmpty(std::string value, std::string_view name) {
   return value;
 }
 
+/**
+ * @brief Performs the require positive operation for this subsystem.
+ *
+ * Arguments:
+ * - @p value: Supplies value input to the operation.
+ * - @p name: Supplies name input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void requirePositive(double value, std::string_view name) {
   if (!std::isfinite(value) || value <= 0.0) {
     throw std::runtime_error(std::string(name) +
@@ -79,6 +140,19 @@ void requirePositive(double value, std::string_view name) {
   }
 }
 
+/**
+ * @brief Performs the declare runtime parameters operation for this
+ * subsystem.
+ *
+ * Arguments:
+ * - @p node: Supplies node input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void declareRuntimeParameters(rclcpp::Node& node) {
   node.declare_parameter("topics.pose", std::string{"pose"});
   node.declare_parameter("topics.scan", std::string{"scan_raw"});
@@ -168,6 +242,19 @@ void declareRuntimeParameters(rclcpp::Node& node) {
   node.declare_parameter("command.odometry_reset_angle_rad", 2.8);
 }
 
+/**
+ * @brief Reads qos for this subsystem.
+ *
+ * Arguments:
+ * - @p node: Supplies node input to the operation.
+ * - @p prefix: Supplies prefix input to the operation.
+ *
+ * Returns:
+ * - `QosConfiguration` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 QosConfiguration readQos(rclcpp::Node& node, const std::string& prefix) {
   const auto depth = node.get_parameter(prefix + ".depth").as_int();
   if (depth <= 0) {
@@ -178,6 +265,18 @@ QosConfiguration readQos(rclcpp::Node& node, const std::string& prefix) {
           node.get_parameter(prefix + ".durability").as_string()};
 }
 
+/**
+ * @brief Creates qos for this subsystem.
+ *
+ * Arguments:
+ * - @p configuration: Supplies configuration input to the operation.
+ *
+ * Returns:
+ * - `rclcpp::QoS` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 rclcpp::QoS makeQos(const QosConfiguration& configuration) {
   rclcpp::QoS qos(rclcpp::KeepLast(configuration.depth));
   if (configuration.reliability == "reliable") {
@@ -199,6 +298,18 @@ rclcpp::QoS makeQos(const QosConfiguration& configuration) {
   return qos;
 }
 
+/**
+ * @brief Reads runtime configuration for this subsystem.
+ *
+ * Arguments:
+ * - @p node: Supplies node input to the operation.
+ *
+ * Returns:
+ * - `RuntimeConfiguration` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 RuntimeConfiguration readRuntimeConfiguration(rclcpp::Node& node) {
   RuntimeConfiguration configuration;
   configuration.pose_topic = requireNonEmpty(
@@ -363,6 +474,18 @@ RuntimeConfiguration readRuntimeConfiguration(rclcpp::Node& node) {
   return configuration;
 }
 
+/**
+ * @brief Converts ros for this subsystem.
+ *
+ * Arguments:
+ * - @p command: Supplies command input to the operation.
+ *
+ * Returns:
+ * - `geometry_msgs::msg::Twist` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 geometry_msgs::msg::Twist toRos(const domain::VelocityCommand& command) {
   geometry_msgs::msg::Twist message;
   message.linear.x = command.linear_mps;
@@ -370,11 +493,35 @@ geometry_msgs::msg::Twist toRos(const domain::VelocityCommand& command) {
   return message;
 }
 
+/**
+ * @brief Reports whether waiting status for this subsystem.
+ *
+ * Arguments:
+ * - @p status: Supplies status input to the operation.
+ *
+ * Returns:
+ * - `bool` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 bool isWaitingStatus(SensorStatus status) noexcept {
   return status == SensorStatus::WaitingForPose ||
          status == SensorStatus::WaitingForScan;
 }
 
+/**
+ * @brief Performs the action name operation for this subsystem.
+ *
+ * Arguments:
+ * - @p type: Supplies type input to the operation.
+ *
+ * Returns:
+ * - `std::string_view` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::string_view actionName(domain::ActionType type) noexcept {
   switch (type) {
     case domain::ActionType::Forward:
@@ -389,6 +536,18 @@ std::string_view actionName(domain::ActionType type) noexcept {
   return "unknown";
 }
 
+/**
+ * @brief Converts outcome for this subsystem.
+ *
+ * Arguments:
+ * - @p status: Supplies status input to the operation.
+ *
+ * Returns:
+ * - `decision::ActionOutcome` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 decision::ActionOutcome toOutcome(ActionExecutionStatus status) noexcept {
   switch (status) {
     case ActionExecutionStatus::Completed:
@@ -422,6 +581,19 @@ decision::ActionOutcome toOutcome(ActionExecutionStatus status) noexcept {
   return decision::ActionOutcome::Cancelled;
 }
 
+/**
+ * @brief Converts execution status for this subsystem.
+ *
+ * Arguments:
+ * - @p status: Supplies status input to the operation.
+ * - @p outcome: Supplies outcome input to the operation.
+ *
+ * Returns:
+ * - `domain::ExecutionCompletionStatus` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 domain::ExecutionCompletionStatus toExecutionStatus(
     ActionExecutionStatus status, decision::ActionOutcome outcome) noexcept {
   switch (outcome) {
@@ -460,6 +632,18 @@ domain::ExecutionCompletionStatus toExecutionStatus(
              : domain::ExecutionCompletionStatus::Cancelled;
 }
 
+/**
+ * @brief Converts message for this subsystem.
+ *
+ * Arguments:
+ * - @p state: Supplies state input to the operation.
+ *
+ * Returns:
+ * - `std::uint8_t` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::uint8_t toMessage(NavigationNodeState state) noexcept {
   switch (state) {
     case NavigationNodeState::WaitingForSensors:
@@ -474,6 +658,18 @@ std::uint8_t toMessage(NavigationNodeState state) noexcept {
   return semaforr_msgs::msg::NavigationState::STOPPED;
 }
 
+/**
+ * @brief Converts message for this subsystem.
+ *
+ * Arguments:
+ * - @p phase: Supplies phase input to the operation.
+ *
+ * Returns:
+ * - `std::uint8_t` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::uint8_t toMessage(navigation::NavigationPhase phase) noexcept {
   switch (phase) {
     case navigation::NavigationPhase::InitialExploration:
@@ -486,6 +682,20 @@ std::uint8_t toMessage(navigation::NavigationPhase phase) noexcept {
   return semaforr_msgs::msg::NavigationState::PHASE_MISSION_COMPLETE;
 }
 
+/**
+ * @brief Performs the rotate position covariance operation for this
+ * subsystem.
+ *
+ * Arguments:
+ * - @p covariance: Supplies covariance input to the operation.
+ * - @p transform: Supplies transform input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void rotatePositionCovariance(
     std::array<double, 4>& covariance,
     const geometry_msgs::msg::TransformStamped& transform) {
@@ -510,6 +720,22 @@ void rotatePositionCovariance(
                   cosine * cosine * source[3];
 }
 
+/**
+ * @brief Performs the transform crowd observation operation for this
+ * subsystem.
+ *
+ * Arguments:
+ * - @p observation: Supplies observation input to the operation.
+ * - @p source_header: Supplies source header input to the operation.
+ * - @p transform: Supplies transform input to the operation.
+ * - @p target_frame: Supplies target frame input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void transformCrowdObservation(
     domain::CrowdObservation& observation,
     const std_msgs::msg::Header& source_header,
@@ -540,8 +766,32 @@ void transformCrowdObservation(
 
 }  // namespace
 
+/**
+ * @brief Encapsulates sema forrnode state and behavior for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - Not applicable to this declaration.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 class SemaFORRNode::Impl {
  public:
+  /**
+   * @brief Performs the impl operation for this subsystem.
+   *
+   * Arguments:
+   * - @p node: Supplies node input to the operation.
+   *
+   * Returns:
+   * - No value; effects are applied to owned state or outputs.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   explicit Impl(SemaFORRNode& node)
       : node_(node), transform_buffer_(node.get_clock()) {
     declareConfigurationParameters(node_);
@@ -602,6 +852,18 @@ class SemaFORRNode::Impl {
                                     : "disabled");
   }
 
+  /**
+   * @brief Performs the start operation for this subsystem.
+   *
+   * Arguments:
+   * - None.
+   *
+   * Returns:
+   * - No value; effects are applied to owned state or outputs.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   void start() {
     std::scoped_lock lock(mutex_);
     if (started_ || state_ == NavigationNodeState::Stopped) {
@@ -671,6 +933,18 @@ class SemaFORRNode::Impl {
     transition(NavigationNodeState::WaitingForSensors, "started");
   }
 
+  /**
+   * @brief Performs the stop operation for this subsystem.
+   *
+   * Arguments:
+   * - None.
+   *
+   * Returns:
+   * - No value; effects are applied to owned state or outputs.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   void stop() {
     std::scoped_lock lock(mutex_);
     if (state_ == NavigationNodeState::Stopped) {
@@ -689,17 +963,53 @@ class SemaFORRNode::Impl {
     transition(NavigationNodeState::Stopped, "shutdown");
   }
 
+  /**
+   * @brief Performs the state operation for this subsystem.
+   *
+   * Arguments:
+   * - None.
+   *
+   * Returns:
+   * - `NavigationNodeState` containing the operation result.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   NavigationNodeState state() const noexcept {
     std::scoped_lock lock(mutex_);
     return state_;
   }
 
+  /**
+   * @brief Performs the last failure operation for this subsystem.
+   *
+   * Arguments:
+   * - None.
+   *
+   * Returns:
+   * - `std::string` containing the operation result.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   std::string lastFailure() const {
     std::scoped_lock lock(mutex_);
     return last_failure_;
   }
 
  private:
+  /**
+   * @brief Performs the handle runtime error operation for this subsystem.
+   *
+   * Arguments:
+   * - @p detail: Supplies detail input to the operation.
+   *
+   * Returns:
+   * - No value; effects are applied to owned state or outputs.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   void handleRuntimeError(const std::string& detail) {
     std::scoped_lock lock(mutex_);
     RCLCPP_ERROR(node_.get_logger(), "Navigation invariant failed: %s",
@@ -716,6 +1026,18 @@ class SemaFORRNode::Impl {
     transition(NavigationNodeState::Stopped, last_failure_, true);
   }
 
+  /**
+   * @brief Performs the on pose operation for this subsystem.
+   *
+   * Arguments:
+   * - @p message: Supplies message input to the operation.
+   *
+   * Returns:
+   * - No value; effects are applied to owned state or outputs.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   void onPose(const geometry_msgs::msg::PoseStamped& message) {
     std::scoped_lock lock(mutex_);
     if (state_ == NavigationNodeState::Stopped) {
@@ -740,6 +1062,18 @@ class SemaFORRNode::Impl {
     }
   }
 
+  /**
+   * @brief Performs the on scan operation for this subsystem.
+   *
+   * Arguments:
+   * - @p message: Supplies message input to the operation.
+   *
+   * Returns:
+   * - No value; effects are applied to owned state or outputs.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   void onScan(const sensor_msgs::msg::LaserScan& message) {
     std::scoped_lock lock(mutex_);
     if (state_ != NavigationNodeState::Stopped) {
@@ -747,6 +1081,20 @@ class SemaFORRNode::Impl {
     }
   }
 
+  /**
+   * @brief Performs the normalize social observation operation for this
+   * subsystem.
+   *
+   * Arguments:
+   * - @p observation: Supplies observation input to the operation.
+   * - @p header: Supplies header input to the operation.
+   *
+   * Returns:
+   * - `bool` containing the operation result.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   bool normalizeSocialObservation(domain::CrowdObservation& observation,
                                   const std_msgs::msg::Header& header) {
     if (observation.frame_id == runtime_.social.frame) return true;
@@ -767,6 +1115,21 @@ class SemaFORRNode::Impl {
     }
   }
 
+  /**
+   * @brief Performs the finish current social observation operation for
+   * this subsystem.
+   *
+   * Arguments:
+   * - @p observation: Supplies observation input to the operation.
+   * - @p header: Supplies header input to the operation.
+   * - @p received_at: Supplies received at input to the operation.
+   *
+   * Returns:
+   * - No value; effects are applied to owned state or outputs.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   void finishCurrentSocialObservation(domain::CrowdObservation observation,
                                       const std_msgs::msg::Header& header,
                                       const rclcpp::Time& received_at) {
@@ -789,6 +1152,18 @@ class SemaFORRNode::Impl {
     last_social_failure_.clear();
   }
 
+  /**
+   * @brief Performs the on tracked people operation for this subsystem.
+   *
+   * Arguments:
+   * - @p message: Supplies message input to the operation.
+   *
+   * Returns:
+   * - No value; effects are applied to owned state or outputs.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   void onTrackedPeople(
       const social_context_msgs::msg::TrackedPersonArray& message) {
     std::scoped_lock lock(mutex_);
@@ -805,6 +1180,18 @@ class SemaFORRNode::Impl {
     }
   }
 
+  /**
+   * @brief Performs the on hunav agents operation for this subsystem.
+   *
+   * Arguments:
+   * - @p message: Supplies message input to the operation.
+   *
+   * Returns:
+   * - No value; effects are applied to owned state or outputs.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   void onHunavAgents(const hunav_msgs::msg::Agents& message) {
     std::scoped_lock lock(mutex_);
     if (state_ == NavigationNodeState::Stopped) return;
@@ -820,6 +1207,18 @@ class SemaFORRNode::Impl {
     }
   }
 
+  /**
+   * @brief Performs the on social prediction operation for this subsystem.
+   *
+   * Arguments:
+   * - @p message: Supplies message input to the operation.
+   *
+   * Returns:
+   * - No value; effects are applied to owned state or outputs.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   void onSocialPrediction(const geometry_msgs::msg::PoseStamped& message) {
     std::scoped_lock lock(mutex_);
     if (state_ != NavigationNodeState::Stopped &&
@@ -831,6 +1230,18 @@ class SemaFORRNode::Impl {
     }
   }
 
+  /**
+   * @brief Performs the on formations operation for this subsystem.
+   *
+   * Arguments:
+   * - @p message: Supplies message input to the operation.
+   *
+   * Returns:
+   * - No value; effects are applied to owned state or outputs.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   void onFormations(
       const social_context_msgs::msg::FormationGroupArray& message) {
     std::scoped_lock lock(mutex_);
@@ -865,6 +1276,18 @@ class SemaFORRNode::Impl {
     }
   }
 
+  /**
+   * @brief Performs the control tick operation for this subsystem.
+   *
+   * Arguments:
+   * - None.
+   *
+   * Returns:
+   * - No value; effects are applied to owned state or outputs.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   void controlTick() {
     std::scoped_lock lock(mutex_);
     if (!started_ || state_ == NavigationNodeState::Stopped) {
@@ -898,6 +1321,20 @@ class SemaFORRNode::Impl {
     }
   }
 
+  /**
+   * @brief Performs the handle unavailable sensors operation for this
+   * subsystem.
+   *
+   * Arguments:
+   * - @p status: Supplies status input to the operation.
+   * - @p now: Supplies now input to the operation.
+   *
+   * Returns:
+   * - No value; effects are applied to owned state or outputs.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   void handleUnavailableSensors(SensorStatus status, const rclcpp::Time& now) {
     if (status == SensorStatus::ClockReset) {
       synchronizer_->clear();
@@ -923,6 +1360,19 @@ class SemaFORRNode::Impl {
     transition(NavigationNodeState::WaitingForSensors, last_failure_, true);
   }
 
+  /**
+   * @brief Updates navigation engine for this subsystem.
+   *
+   * Arguments:
+   * - @p sensors: Supplies sensors input to the operation.
+   * - @p now: Supplies now input to the operation.
+   *
+   * Returns:
+   * - No value; effects are applied to owned state or outputs.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   void updateNavigationEngine(const SynchronizedSensors& sensors,
                               const rclcpp::Time& now) {
     domain::CrowdState effective_crowd = crowd_state_;
@@ -945,6 +1395,19 @@ class SemaFORRNode::Impl {
     last_observation_generation_ = sensors.generation;
   }
 
+  /**
+   * @brief Selects package content for this subsystem.
+   *
+   * Arguments:
+   * - @p sensors: Supplies sensors input to the operation.
+   * - @p now: Supplies now input to the operation.
+   *
+   * Returns:
+   * - No value; effects are applied to owned state or outputs.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   void decide(const SynchronizedSensors& sensors, const rclcpp::Time& now) {
     if (navigation_engine_->missionComplete()) {
       publishZero();
@@ -998,6 +1461,19 @@ class SemaFORRNode::Impl {
                    std::string(actionName(pending_decision_->action.type())));
   }
 
+  /**
+   * @brief Performs the execute operation for this subsystem.
+   *
+   * Arguments:
+   * - @p sensors: Supplies sensors input to the operation.
+   * - @p now: Supplies now input to the operation.
+   *
+   * Returns:
+   * - No value; effects are applied to owned state or outputs.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   void execute(const SynchronizedSensors& sensors, const rclcpp::Time& now) {
     const ActionExecutionUpdate update = executor_->update(sensors.pose, now);
     if (update.status == ActionExecutionStatus::Executing) {
@@ -1033,6 +1509,21 @@ class SemaFORRNode::Impl {
     }
   }
 
+  /**
+   * @brief Performs the complete decision operation for this subsystem.
+   *
+   * Arguments:
+   * - @p now: Supplies now input to the operation.
+   * - @p outcome: Supplies outcome input to the operation.
+   * - @p update: Supplies update input to the operation.
+   * - @p detail: Supplies detail input to the operation.
+   *
+   * Returns:
+   * - No value; effects are applied to owned state or outputs.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   void completeDecision(const rclcpp::Time& now,
                         decision::ActionOutcome outcome,
                         const ActionExecutionUpdate& update,
@@ -1099,6 +1590,18 @@ class SemaFORRNode::Impl {
     action_started_at_.reset();
   }
 
+  /**
+   * @brief Publishes command for this subsystem.
+   *
+   * Arguments:
+   * - @p command: Supplies command input to the operation.
+   *
+   * Returns:
+   * - No value; effects are applied to owned state or outputs.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   void publishCommand(const domain::VelocityCommand& command) {
     if (!command.finite() ||
         std::abs(command.linear_mps) >
@@ -1111,6 +1614,18 @@ class SemaFORRNode::Impl {
     zero_latched_ = command.linear_mps == 0.0 && command.angular_radps == 0.0;
   }
 
+  /**
+   * @brief Publishes zero for this subsystem.
+   *
+   * Arguments:
+   * - @p force: Supplies force input to the operation.
+   *
+   * Returns:
+   * - No value; effects are applied to owned state or outputs.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   void publishZero(bool force = false) {
     if ((force || !zero_latched_) && command_publisher_) {
       command_publisher_->publish(geometry_msgs::msg::Twist{});
@@ -1118,6 +1633,20 @@ class SemaFORRNode::Impl {
     }
   }
 
+  /**
+   * @brief Performs the transition operation for this subsystem.
+   *
+   * Arguments:
+   * - @p next: Supplies next input to the operation.
+   * - @p detail: Supplies detail input to the operation.
+   * - @p failure: Supplies failure input to the operation.
+   *
+   * Returns:
+   * - No value; effects are applied to owned state or outputs.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   void transition(NavigationNodeState next, const std::string& detail,
                   bool failure = false) {
     if (state_ == next && last_transition_detail_ == detail) {
@@ -1192,6 +1721,18 @@ class SemaFORRNode::Impl {
   std::uint64_t transition_sequence_{0U};
 };
 
+/**
+ * @brief Converts string for this subsystem.
+ *
+ * Arguments:
+ * - @p state: Supplies state input to the operation.
+ *
+ * Returns:
+ * - `std::string_view` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::string_view toString(NavigationNodeState state) noexcept {
   switch (state) {
     case NavigationNodeState::WaitingForSensors:
@@ -1206,19 +1747,91 @@ std::string_view toString(NavigationNodeState state) noexcept {
   return "Unknown";
 }
 
+/**
+ * @brief Performs the sema forrnode operation for this subsystem.
+ *
+ * Arguments:
+ * - @p options: Supplies options input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 SemaFORRNode::SemaFORRNode(const rclcpp::NodeOptions& options)
     : rclcpp::Node("semaforr", options), impl_(std::make_unique<Impl>(*this)) {}
 
+/**
+ * @brief Performs the sema forrnode operation for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 SemaFORRNode::~SemaFORRNode() { impl_->stop(); }
 
+/**
+ * @brief Performs the start operation for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void SemaFORRNode::start() { impl_->start(); }
 
+/**
+ * @brief Performs the stop operation for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void SemaFORRNode::stop() { impl_->stop(); }
 
+/**
+ * @brief Performs the state operation for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - `NavigationNodeState` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 NavigationNodeState SemaFORRNode::state() const noexcept {
   return impl_->state();
 }
 
+/**
+ * @brief Performs the last failure operation for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - `std::string` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::string SemaFORRNode::lastFailure() const { return impl_->lastFailure(); }
 
 }  // namespace semaforr::ros

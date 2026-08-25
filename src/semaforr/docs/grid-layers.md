@@ -1,3 +1,5 @@
+<!-- File overview: This file documents or configures grid layers behavior for the maintained architecture and user documentation. It records the declarations, settings, fixtures, or guidance needed by that responsibility. Its package-relative location is `docs/grid-layers.md`. -->
+
 # Grid layers and traversability
 
 SemaFORR does not use familiarity as occupancy. The runtime keeps four

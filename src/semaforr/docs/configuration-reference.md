@@ -1,3 +1,5 @@
+<!-- File overview: This file documents or configures configuration reference behavior for the maintained architecture and user documentation. It records the declarations, settings, fixtures, or guidance needed by that responsibility. Its package-relative location is `docs/configuration-reference.md`. -->
+
 # Configuration reference
 
 `config/semaforr.yaml` is the canonical ROS 2 configuration. The node name is

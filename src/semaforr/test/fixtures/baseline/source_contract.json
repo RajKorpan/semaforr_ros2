@@ -1,4 +1,5 @@
 {
+  "$comment": "This file exercises source contract behavior for automated verification and regression testing. It records the declarations, settings, fixtures, or guidance needed by that responsibility. Its package-relative location is `test/fixtures/baseline/source_contract.json`.",
   "schema_version": 1,
   "description": "Source-level behavioral contract captured before the SemaFORR refactor.",
   "ros": {
@@ -39,8 +40,24 @@
     "odometry_reset_angle_rad": 2.8
   },
   "configuration": {
-    "move_m": [0.0, 0.1, 0.2, 0.4, 0.8, 1.6, 3.2],
-    "rotate_rad": [0.0, 0.0873, 0.2618, 0.5236, 0.7854, 1.0472, 1.5708],
+    "move_m": [
+      0.0,
+      0.1,
+      0.2,
+      0.4,
+      0.8,
+      1.6,
+      3.2
+    ],
+    "rotate_rad": [
+      0.0,
+      0.0873,
+      0.2618,
+      0.5236,
+      0.7854,
+      1.0472,
+      1.5708
+    ],
     "decisionlimit": 20,
     "features": {
       "trailsOn": 1,
@@ -60,13 +77,37 @@
     }
   },
   "tutorial_targets": [
-    [1.0, 1.0],
-    [105.0, 105.0],
-    [102.0, 102.0],
-    [100.0, 100.0],
-    [101.0, 102.0],
-    [103.0, 98.0],
-    [104.0, 110.0],
-    [97.0, 95.0]
+    [
+      1.0,
+      1.0
+    ],
+    [
+      105.0,
+      105.0
+    ],
+    [
+      102.0,
+      102.0
+    ],
+    [
+      100.0,
+      100.0
+    ],
+    [
+      101.0,
+      102.0
+    ],
+    [
+      103.0,
+      98.0
+    ],
+    [
+      104.0,
+      110.0
+    ],
+    [
+      97.0,
+      95.0
+    ]
   ]
 }

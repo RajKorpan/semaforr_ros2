@@ -1,6 +1,28 @@
 #!/usr/bin/env python3
 
-"""Verify the live stale-sensor safe-stop trace produced by the recorder."""
+"""SemaFORR module overview.
+
+Summary:
+    This file implements verify sensor timeout behavior for developer tooling and experiment automation. It centers on `is_zero`, `main`. Its package-relative location is `scripts/verify_sensor_timeout.py`.
+
+Arguments:
+    Not applicable at module scope.
+
+Returns:
+    Not applicable at module scope.
+
+Raises:
+    Import-time dependency errors may propagate.
+"""
+
+
+
+
+
+
+
+
+
 
 import argparse
 import json
@@ -8,6 +30,18 @@ from pathlib import Path
 
 
 def is_zero(command):
+    """Summary:
+        Reports whether zero for this subsystem.
+
+    Args:
+        command (Any): Supplies command input to the operation.
+
+    Returns:
+        Any
+
+    Raises:
+        None documented; dependency failures may propagate.
+    """
     return all(
         command[field] == 0.0
         for field in ("linear_x", "linear_y", "angular_z")
@@ -15,6 +49,18 @@ def is_zero(command):
 
 
 def main():
+    """Summary:
+        Performs the main operation for this subsystem.
+
+    Args:
+        None.
+
+    Returns:
+        Any
+
+    Raises:
+        None documented; dependency failures may propagate.
+    """
     parser = argparse.ArgumentParser()
     parser.add_argument("trace", type=Path)
     args = parser.parse_args()

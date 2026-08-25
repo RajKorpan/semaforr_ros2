@@ -1,3 +1,18 @@
+/**
+ * @file domain_planning_test.cpp
+ * @brief Domain planning test responsibilities.
+ *
+ * @details This file exercises domain planning test behavior for automated
+ * verification and regression testing. It centers on
+ * `RepeatedSearchDoesNotMutateGraphState`,
+ * `IdenticalStartAndGoalReturnsSingleVertex`,
+ * `DisconnectedGoalIsTypedAsUnreachable`,
+ * `InvalidVertexIsReportedWithoutThrowing`,
+ * `RequiresStaticMapAndReturnsTypedResults`,
+ * `SearchesValidatedStaticOccupancy`,
+ * `AffordancePlannerNeverSubstitutesTheLearnedSkeleton`. Its
+ * package-relative location is `test/unit/domain_planning_test.cpp`.
+ */
 #include <gtest/gtest.h>
 
 #include <limits>
@@ -7,6 +22,18 @@
 
 namespace {
 
+/**
+ * @brief Performs the line graph operation for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - `semaforr::planning::Graph` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 semaforr::planning::Graph lineGraph() {
   semaforr::planning::Graph graph;
   const auto first = graph.addVertex({0.0, 0.0});
@@ -17,6 +44,18 @@ semaforr::planning::Graph lineGraph() {
   return graph;
 }
 
+/**
+ * @brief Performs the open map operation for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - `semaforr::domain::StaticMap` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 semaforr::domain::StaticMap openMap() {
   semaforr::domain::StaticMap map;
   map.source = "unit-test";

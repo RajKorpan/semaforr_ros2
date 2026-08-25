@@ -1,3 +1,17 @@
+/**
+ * @file environment_regression_test.cpp
+ * @brief Environment regression test responsibilities.
+ *
+ * @details This file exercises environment regression test behavior for automated
+ * verification and regression testing. It centers on
+ * `HallwayNetworkLearnsBothTravelOrientations`,
+ * `HighwayCrossingOperationalizesThroughIntersection`,
+ * `LargeRoomIsAnExplicitExplorationCue`,
+ * `DynamicObstacleBlocksRouteWithoutChangingStaticOccupancy`,
+ * `FailedMovementRemainsNonTraversalEvidence`,
+ * `NegativeCoordinateMapRoutesWithinBounds`. Its package-relative location
+ * is `test/integration/environment_regression_test.cpp`.
+ */
 #include <gtest/gtest.h>
 
 #include <algorithm>
@@ -10,6 +24,20 @@
 
 namespace {
 
+/**
+ * @brief Performs the observation operation for this subsystem.
+ *
+ * Arguments:
+ * - @p x: Supplies x input to the operation.
+ * - @p y: Supplies y input to the operation.
+ * - @p heading: Supplies heading input to the operation.
+ *
+ * Returns:
+ * - `semaforr::domain::RobotObservation` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 semaforr::domain::RobotObservation observation(double x, double y,
                                                 double heading = 0.0) {
   semaforr::domain::RobotObservation result;
@@ -22,6 +50,19 @@ semaforr::domain::RobotObservation observation(double x, double y,
   return result;
 }
 
+/**
+ * @brief Performs the path observation operation for this subsystem.
+ *
+ * Arguments:
+ * - @p x: Supplies x input to the operation.
+ * - @p y: Supplies y input to the operation.
+ *
+ * Returns:
+ * - `semaforr::domain::RobotObservation` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 semaforr::domain::RobotObservation pathObservation(double x, double y) {
   auto result = observation(x, y);
   result.laser.angle_min = semaforr::domain::Angle(-3.14159265358979323846);
@@ -31,6 +72,22 @@ semaforr::domain::RobotObservation pathObservation(double x, double y) {
   return result;
 }
 
+/**
+ * @brief Performs the traversal operation for this subsystem.
+ *
+ * Arguments:
+ * - @p id: Supplies id input to the operation.
+ * - @p start_x: Supplies start x input to the operation.
+ * - @p start_y: Supplies start y input to the operation.
+ * - @p finish_x: Supplies finish x input to the operation.
+ * - @p finish_y: Supplies finish y input to the operation.
+ *
+ * Returns:
+ * - `semaforr::domain::PathDecisionPoint` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 semaforr::domain::PathDecisionPoint traversal(std::uint64_t id,
                                                double start_x,
                                                double start_y,
@@ -59,6 +116,19 @@ semaforr::domain::PathDecisionPoint traversal(std::uint64_t id,
   return point;
 }
 
+/**
+ * @brief Performs the path operation for this subsystem.
+ *
+ * Arguments:
+ * - @p id: Supplies id input to the operation.
+ * - @p point: Supplies point input to the operation.
+ *
+ * Returns:
+ * - `semaforr::domain::CompletedPath` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 semaforr::domain::CompletedPath path(std::uint64_t id,
                                      semaforr::domain::PathDecisionPoint point) {
   semaforr::domain::CompletedPath result;

@@ -1,3 +1,4 @@
+# File overview: This file exercises compatibility modes behavior for automated verification and regression testing. It records the declarations, settings, fixtures, or guidance needed by that responsibility. Its package-relative location is `test/compatibility_modes.yaml`.
 schema_version: 1
 
 # Test claims are explicit. A passing modernized test is not evidence of

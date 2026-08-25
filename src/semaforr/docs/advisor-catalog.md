@@ -1,3 +1,5 @@
+<!-- File overview: This file documents or configures advisor catalog behavior for the maintained architecture and user documentation. It records the declarations, settings, fixtures, or guidance needed by that responsibility. Its package-relative location is `docs/advisor-catalog.md`. -->
+
 # Advisor catalog
 
 This catalog uses the same names accepted by configuration and registered by

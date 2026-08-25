@@ -1,3 +1,12 @@
+/**
+ * @file circumstance_learner.cpp
+ * @brief Circumstance learner responsibilities.
+ *
+ * @details This file implements circumstance learner behavior for learned spatial
+ * representations and their lifecycle. It records the declarations,
+ * settings, fixtures, or guidance needed by that responsibility. Its
+ * package-relative location is `src/spatial/circumstance_learner.cpp`.
+ */
 #include <algorithm>
 #include <cmath>
 #include <filesystem>
@@ -9,11 +18,37 @@
 namespace semaforr::spatial {
 namespace {
 
+/**
+ * @brief Performs the assignment confidence operation for this subsystem.
+ *
+ * Arguments:
+ * - @p distance: Supplies distance input to the operation.
+ * - @p cells: Supplies cells input to the operation.
+ *
+ * Returns:
+ * - `double` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 double assignmentConfidence(double distance, std::size_t cells) {
   if (cells == 0U) return 0.0;
   return std::clamp(1.0 - distance / static_cast<double>(cells), 0.0, 1.0);
 }
 
+/**
+ * @brief Sets ting configuration for this subsystem.
+ *
+ * Arguments:
+ * - @p configuration: Supplies configuration input to the operation.
+ *
+ * Returns:
+ * - `domain::SettingNormalizationConfiguration` containing the operation
+ * result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 domain::SettingNormalizationConfiguration settingConfiguration(
     const CircumstanceLearningConfiguration& configuration) {
   return {configuration.setting_resolution_m,
@@ -24,6 +59,19 @@ domain::SettingNormalizationConfiguration settingConfiguration(
           configuration.angle_bin_count};
 }
 
+/**
+ * @brief Performs the matching cluster operation for this subsystem.
+ *
+ * Arguments:
+ * - @p model: Supplies model input to the operation.
+ * - @p setting: Supplies setting input to the operation.
+ *
+ * Returns:
+ * - `std::optional<std::size_t>` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::optional<std::size_t> matchingCluster(
     const CircumstanceModel& model, const domain::NormalizedSetting& setting) {
   const auto match = domain::matchCircumstance(model, setting);
@@ -37,6 +85,18 @@ std::optional<std::size_t> matchingCluster(
                    static_cast<std::size_t>(cluster - model.clusters.begin()));
 }
 
+/**
+ * @brief Performs the case outcome operation for this subsystem.
+ *
+ * Arguments:
+ * - @p status: Supplies status input to the operation.
+ *
+ * Returns:
+ * - `domain::CaseOutcome` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 domain::CaseOutcome caseOutcome(
     domain::ExecutionCompletionStatus status) noexcept {
   using S = domain::ExecutionCompletionStatus;
@@ -62,6 +122,18 @@ domain::CaseOutcome caseOutcome(
   return domain::CaseOutcome::Unknown;
 }
 
+/**
+ * @brief Performs the recompute case operation for this subsystem.
+ *
+ * Arguments:
+ * - @p evidence: Supplies evidence input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void recomputeCase(domain::CircumstanceCaseEvidence& evidence) {
   evidence.evidence = 0U;
   evidence.confidence.clear();
@@ -86,6 +158,18 @@ void recomputeCase(domain::CircumstanceCaseEvidence& evidence) {
 
 }  // namespace
 
+/**
+ * @brief Validates package content for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void CircumstanceLearningConfiguration::validate() const {
   const bool finite = std::isfinite(setting_resolution_m) &&
                       std::isfinite(setting_radius_m) &&
@@ -115,6 +199,18 @@ void CircumstanceLearningConfiguration::validate() const {
         "circumstance learning thresholds are outside their valid ranges");
 }
 
+/**
+ * @brief Performs the circumstance learner operation for this subsystem.
+ *
+ * Arguments:
+ * - @p configuration: Supplies configuration input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 CircumstanceLearner::CircumstanceLearner(
     CircumstanceLearningConfiguration configuration)
     : SpatialLearnerBase(
@@ -167,6 +263,18 @@ CircumstanceLearner::CircumstanceLearner(
   }
 }
 
+/**
+ * @brief Updates clusters for this subsystem.
+ *
+ * Arguments:
+ * - @p setting: Supplies setting input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void CircumstanceLearner::updateClusters(
     const domain::NormalizedSetting& setting) {
   ++model_.metrics.observations;
@@ -198,6 +306,18 @@ void CircumstanceLearner::updateClusters(
   model_.unclustered_settings = unclustered_.size();
 }
 
+/**
+ * @brief Performs the recluster operation for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void CircumstanceLearner::recluster() {
   ++model_.metrics.reclusterings;
   std::vector<bool> assigned(unclustered_.size(), false);
@@ -266,6 +386,18 @@ void CircumstanceLearner::recluster() {
   unclustered_ = std::move(remainder);
 }
 
+/**
+ * @brief Performs the on observe operation for this subsystem.
+ *
+ * Arguments:
+ * - @p episode: Supplies episode input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void CircumstanceLearner::onObserve(const NavigationEpisode& episode) {
   if (episode.event == LearningEvent::ActionTerminal) {
     recordTerminal(episode);
@@ -281,11 +413,37 @@ void CircumstanceLearner::onObserve(const NavigationEpisode& episode) {
     recordDecision(episode, setting);
 }
 
+/**
+ * @brief Performs the classify operation for this subsystem.
+ *
+ * Arguments:
+ * - @p setting: Supplies setting input to the operation.
+ *
+ * Returns:
+ * - `std::optional<domain::CircumstanceMatch>` containing the operation
+ * result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::optional<domain::CircumstanceMatch> CircumstanceLearner::classify(
     const domain::NormalizedSetting& setting) const {
   return domain::matchCircumstance(model_, setting);
 }
 
+/**
+ * @brief Records decision for this subsystem.
+ *
+ * Arguments:
+ * - @p episode: Supplies episode input to the operation.
+ * - @p setting: Supplies setting input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void CircumstanceLearner::recordDecision(
     const NavigationEpisode& episode,
     const domain::NormalizedSetting& setting) {
@@ -310,6 +468,18 @@ void CircumstanceLearner::recordDecision(
   pending_experiences_.push_back(std::move(pending));
 }
 
+/**
+ * @brief Records terminal for this subsystem.
+ *
+ * Arguments:
+ * - @p episode: Supplies episode input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void CircumstanceLearner::recordTerminal(const NavigationEpisode& episode) {
   if (!episode.execution_result) return;
   const auto& result = *episode.execution_result;
@@ -349,6 +519,19 @@ void CircumstanceLearner::recordTerminal(const NavigationEpisode& episode) {
   }
 }
 
+/**
+ * @brief Updates case for this subsystem.
+ *
+ * Arguments:
+ * - @p pending: Supplies pending input to the operation.
+ * - @p result: Supplies result input to the operation.
+ *
+ * Returns:
+ * - `bool` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 bool CircumstanceLearner::updateCase(
     PendingExperience& pending,
     const domain::ActionExecutionResult& result) {
@@ -446,6 +629,18 @@ bool CircumstanceLearner::updateCase(
   return true;
 }
 
+/**
+ * @brief Performs the on rebuild operation for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void CircumstanceLearner::onRebuild() {
   if (unclustered_.size() >= configuration_.minimum_cluster_size) recluster();
   for (auto& pending : pending_experiences_)

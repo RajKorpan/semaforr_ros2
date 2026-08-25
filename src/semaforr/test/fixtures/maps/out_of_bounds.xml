@@ -1,4 +1,5 @@
 <?xml version="1.0"?>
+<!-- File overview: This file exercises out of bounds behavior for automated verification and regression testing. It records the declarations, settings, fixtures, or guidance needed by that responsibility. Its package-relative location is `test/fixtures/maps/out_of_bounds.xml`. -->
 <Experiment><ObstacleSet>
   <Obstacle><Vertex p_x="1" p_y="1"/><Vertex p_x="11" p_y="1"/></Obstacle>
 </ObstacleSet></Experiment>

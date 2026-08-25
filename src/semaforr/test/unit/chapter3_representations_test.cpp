@@ -1,3 +1,19 @@
+/**
+ * @file chapter3_representations_test.cpp
+ * @brief Chapter3 representations test responsibilities.
+ *
+ * @details This file exercises chapter3 representations test behavior for automated
+ * verification and regression testing. It centers on
+ * `RetainsSelectionExecutionOutcomesAndInterruptions`,
+ * `SelectsHandComputedHistoricalVisibilityMarkers`,
+ * `UsesOnlyActualReachedTranslationGeometry`,
+ * `SuccessfulRotationIsNotTraversedPathGeometry`,
+ * `RepeatedSuccessfulTrailsIncreaseCellStrength`,
+ * `FailedTargetTraversalAddsNoFrequency`,
+ * `UsesMinimumRangeAndDeterministicReconciliation`,
+ * `BuildsFirstClassExitsAndExitDerivedArc`. Its package-relative location
+ * is `test/unit/chapter3_representations_test.cpp`.
+ */
 #include <gtest/gtest.h>
 
 #include <algorithm>
@@ -15,6 +31,20 @@ namespace {
 
 constexpr double pi = 3.14159265358979323846;
 
+/**
+ * @brief Performs the observation operation for this subsystem.
+ *
+ * Arguments:
+ * - @p x: Supplies x input to the operation.
+ * - @p y: Supplies y input to the operation.
+ * - @p range: Supplies range input to the operation.
+ *
+ * Returns:
+ * - `semaforr::domain::RobotObservation` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 semaforr::domain::RobotObservation observation(double x, double y,
                                                 double range = 10.0) {
   semaforr::domain::RobotObservation result;
@@ -27,6 +57,21 @@ semaforr::domain::RobotObservation observation(double x, double y,
   return result;
 }
 
+/**
+ * @brief Performs the path point operation for this subsystem.
+ *
+ * Arguments:
+ * - @p id: Supplies id input to the operation.
+ * - @p start: Supplies start input to the operation.
+ * - @p finish: Supplies finish input to the operation.
+ * - @p status: Supplies status input to the operation.
+ *
+ * Returns:
+ * - `semaforr::domain::PathDecisionPoint` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 semaforr::domain::PathDecisionPoint pathPoint(
     std::uint64_t id, semaforr::domain::Point2D start,
     semaforr::domain::Point2D finish,
@@ -52,6 +97,20 @@ semaforr::domain::PathDecisionPoint pathPoint(
   return point;
 }
 
+/**
+ * @brief Performs the path operation for this subsystem.
+ *
+ * Arguments:
+ * - @p id: Supplies id input to the operation.
+ * - @p points: Supplies points input to the operation.
+ * - @p target: Supplies target input to the operation.
+ *
+ * Returns:
+ * - `semaforr::domain::CompletedPath` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 semaforr::domain::CompletedPath path(
     semaforr::domain::PathId id,
     std::vector<semaforr::domain::PathDecisionPoint> points,
@@ -65,6 +124,19 @@ semaforr::domain::CompletedPath path(
   return result;
 }
 
+/**
+ * @brief Performs the straight trail operation for this subsystem.
+ *
+ * Arguments:
+ * - @p id: Supplies id input to the operation.
+ * - @p y: Supplies y input to the operation.
+ *
+ * Returns:
+ * - `semaforr::domain::LearnedTrail` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 semaforr::domain::LearnedTrail straightTrail(semaforr::domain::TrailId id,
                                               double y) {
   semaforr::domain::LearnedTrail trail;

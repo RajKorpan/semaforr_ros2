@@ -1,3 +1,12 @@
+/**
+ * @file decision_coordinator.cpp
+ * @brief Decision coordinator responsibilities.
+ *
+ * @details This file implements decision coordinator behavior for tiered decision
+ * making and action arbitration. It records the declarations, settings,
+ * fixtures, or guidance needed by that responsibility. Its
+ * package-relative location is `src/decision/decision_coordinator.cpp`.
+ */
 #include <algorithm>
 #include <cmath>
 #include <map>
@@ -12,17 +21,57 @@ namespace {
 
 using Action = domain::Action;
 
+/**
+ * @brief Performs the veto less operation for this subsystem.
+ *
+ * Arguments:
+ * - @p left: Supplies left input to the operation.
+ * - @p right: Supplies right input to the operation.
+ *
+ * Returns:
+ * - `bool` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 bool vetoLess(const Veto& left, const Veto& right) {
   return std::tie(left.action, left.rule, left.explanation) <
          std::tie(right.action, right.rule, right.explanation);
 }
 
+/**
+ * @brief Performs the contribution less operation for this subsystem.
+ *
+ * Arguments:
+ * - @p left: Supplies left input to the operation.
+ * - @p right: Supplies right input to the operation.
+ *
+ * Returns:
+ * - `bool` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 bool contributionLess(const AdvisorContribution& left,
                       const AdvisorContribution& right) {
   return std::tie(left.advisor, left.action, left.explanation) <
          std::tie(right.advisor, right.action, right.explanation);
 }
 
+/**
+ * @brief Performs the transform scores operation for this subsystem.
+ *
+ * Arguments:
+ * - @p evaluation: Supplies evaluation input to the operation.
+ * - @p normalization: Supplies normalization input to the operation.
+ * - @p policy: Supplies policy input to the operation.
+ *
+ * Returns:
+ * - `std::vector<double>` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::vector<double> transformScores(
     const AdvisorEvaluation& evaluation, ScoreNormalization normalization,
     TierThreeScoringPolicy policy) {
@@ -64,6 +113,18 @@ std::vector<double> transformScores(
 
 }  // namespace
 
+/**
+ * @brief Performs the decision coordinator operation for this subsystem.
+ *
+ * Arguments:
+ * - @p configuration: Supplies configuration input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 DecisionCoordinator::DecisionCoordinator(ArbitrationConfiguration configuration)
     : configuration_(std::move(configuration)),
       random_(configuration_.random_seed) {
@@ -76,6 +137,19 @@ DecisionCoordinator::DecisionCoordinator(ArbitrationConfiguration configuration)
   }
 }
 
+/**
+ * @brief Performs the mandatory decision operation for this subsystem.
+ *
+ * Arguments:
+ * - @p context: Supplies context input to the operation.
+ * - @p candidates: Supplies candidates input to the operation.
+ *
+ * Returns:
+ * - `std::optional<DecisionResult>` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::optional<DecisionResult> DecisionCoordinator::mandatoryDecision(
     const DecisionContext& context,
     std::span<const Action> candidates) const {
@@ -98,6 +172,19 @@ std::optional<DecisionResult> DecisionCoordinator::mandatoryDecision(
   return std::nullopt;
 }
 
+/**
+ * @brief Evaluates tier one for this subsystem.
+ *
+ * Arguments:
+ * - @p context: Supplies context input to the operation.
+ * - @p candidates: Supplies candidates input to the operation.
+ *
+ * Returns:
+ * - `TierOnePass` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 TierOnePass DecisionCoordinator::evaluateTierOne(
     const DecisionContext& context,
     std::span<const Action> candidates) const {
@@ -135,6 +222,20 @@ TierOnePass DecisionCoordinator::evaluateTierOne(
   return pass;
 }
 
+/**
+ * @brief Evaluates tier one stage for this subsystem.
+ *
+ * Arguments:
+ * - @p context: Supplies context input to the operation.
+ * - @p candidates: Supplies candidates input to the operation.
+ * - @p stage: Supplies stage input to the operation.
+ *
+ * Returns:
+ * - `TierOnePass` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 TierOnePass DecisionCoordinator::evaluateTierOneStage(
     const DecisionContext& context, std::span<const Action> candidates,
     TierOneStage stage) const {
@@ -210,6 +311,18 @@ TierOnePass DecisionCoordinator::evaluateTierOneStage(
   return pass;
 }
 
+/**
+ * @brief Performs the add mandatory rule operation for this subsystem.
+ *
+ * Arguments:
+ * - @p rule: Supplies rule input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void DecisionCoordinator::addMandatoryRule(
     std::unique_ptr<MandatoryRule> rule) {
   if (!rule) {
@@ -220,6 +333,18 @@ void DecisionCoordinator::addMandatoryRule(
       {RegisteredRuleKind::Mandatory, mandatory_rules_.size() - 1U});
 }
 
+/**
+ * @brief Performs the add veto rule operation for this subsystem.
+ *
+ * Arguments:
+ * - @p rule: Supplies rule input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void DecisionCoordinator::addVetoRule(std::unique_ptr<VetoRule> rule) {
   if (!rule) {
     throw std::invalid_argument("veto rule must not be null");
@@ -229,6 +354,18 @@ void DecisionCoordinator::addVetoRule(std::unique_ptr<VetoRule> rule) {
       {RegisteredRuleKind::Veto, veto_rules_.size() - 1U});
 }
 
+/**
+ * @brief Performs the add advisor operation for this subsystem.
+ *
+ * Arguments:
+ * - @p advisor: Supplies advisor input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void DecisionCoordinator::addAdvisor(std::unique_ptr<Advisor> advisor) {
   if (!advisor) {
     throw std::invalid_argument("advisor must not be null");
@@ -236,6 +373,19 @@ void DecisionCoordinator::addAdvisor(std::unique_ptr<Advisor> advisor) {
   advisors_.push_back(std::move(advisor));
 }
 
+/**
+ * @brief Selects tier three for this subsystem.
+ *
+ * Arguments:
+ * - @p context: Supplies context input to the operation.
+ * - @p candidates: Supplies candidates input to the operation.
+ *
+ * Returns:
+ * - `DecisionResult` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 DecisionResult DecisionCoordinator::decideTierThree(
     const DecisionContext& context, std::span<const Action> candidates) {
   DecisionResult result;
@@ -621,6 +771,19 @@ DecisionResult DecisionCoordinator::decideTierThree(
   return result;
 }
 
+/**
+ * @brief Selects package content for this subsystem.
+ *
+ * Arguments:
+ * - @p context: Supplies context input to the operation.
+ * - @p candidates: Supplies candidates input to the operation.
+ *
+ * Returns:
+ * - `DecisionResult` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 DecisionResult DecisionCoordinator::decide(
     const DecisionContext& context, std::span<const Action> candidates) {
   auto tier_one = evaluateTierOne(context, candidates);

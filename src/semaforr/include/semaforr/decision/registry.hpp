@@ -1,3 +1,12 @@
+/**
+ * @file registry.hpp
+ * @brief Registry responsibilities.
+ *
+ * @details This file defines registry behavior for tiered decision making and
+ * action arbitration. It centers on `AdvisorRegistry`, `PlannerRegistry`.
+ * Its package-relative location is
+ * `include/semaforr/decision/registry.hpp`.
+ */
 #ifndef SEMAFORR_DECISION_REGISTRY_HPP
 #define SEMAFORR_DECISION_REGISTRY_HPP
 
@@ -12,10 +21,36 @@
 
 namespace semaforr::decision {
 
+/**
+ * @brief Encapsulates advisor registry state and behavior for this
+ * subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - Not applicable to this declaration.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 class AdvisorRegistry {
  public:
   using Factory = std::function<std::unique_ptr<Advisor>()>;
 
+  /**
+   * @brief Registers factory for this subsystem.
+   *
+   * Arguments:
+   * - @p name: Supplies name input to the operation.
+   * - @p factory: Supplies factory input to the operation.
+   *
+   * Returns:
+   * - No value; effects are applied to owned state or outputs.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   void registerFactory(std::string name, Factory factory) {
     if (name.empty() || !factory) {
       throw std::invalid_argument(
@@ -26,6 +61,18 @@ class AdvisorRegistry {
     }
   }
 
+  /**
+   * @brief Creates package content for this subsystem.
+   *
+   * Arguments:
+   * - @p name: Supplies name input to the operation.
+   *
+   * Returns:
+   * - `std::unique_ptr<Advisor>` containing the operation result.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   std::unique_ptr<Advisor> create(std::string_view name) const {
     const auto found = factories_.find(std::string(name));
     if (found == factories_.end()) {
@@ -39,10 +86,36 @@ class AdvisorRegistry {
   std::unordered_map<std::string, Factory> factories_;
 };
 
+/**
+ * @brief Encapsulates planner registry state and behavior for this
+ * subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - Not applicable to this declaration.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 class PlannerRegistry {
  public:
   using Factory = std::function<std::unique_ptr<planning::Planner>()>;
 
+  /**
+   * @brief Registers factory for this subsystem.
+   *
+   * Arguments:
+   * - @p name: Supplies name input to the operation.
+   * - @p factory: Supplies factory input to the operation.
+   *
+   * Returns:
+   * - No value; effects are applied to owned state or outputs.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   void registerFactory(std::string name, Factory factory) {
     if (name.empty() || !factory) {
       throw std::invalid_argument(
@@ -53,6 +126,18 @@ class PlannerRegistry {
     }
   }
 
+  /**
+   * @brief Creates package content for this subsystem.
+   *
+   * Arguments:
+   * - @p name: Supplies name input to the operation.
+   *
+   * Returns:
+   * - `std::unique_ptr<planning::Planner>` containing the operation result.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   std::unique_ptr<planning::Planner> create(std::string_view name) const {
     const auto found = factories_.find(std::string(name));
     if (found == factories_.end()) {

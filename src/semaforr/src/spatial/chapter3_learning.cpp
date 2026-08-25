@@ -1,3 +1,12 @@
+/**
+ * @file chapter3_learning.cpp
+ * @brief Chapter3 learning responsibilities.
+ *
+ * @details This file implements chapter3 learning behavior for learned spatial
+ * representations and their lifecycle. It centers on `Candidate`,
+ * `ExitAccumulator`, `TravelSegment`, `PairScore`, `Evidence`. Its
+ * package-relative location is `src/spatial/chapter3_learning.cpp`.
+ */
 #include <algorithm>
 #include <cmath>
 #include <limits>
@@ -16,17 +25,54 @@ namespace {
 
 constexpr double pi = 3.14159265358979323846;
 
+/**
+ * @brief Performs the normalize operation for this subsystem.
+ *
+ * Arguments:
+ * - @p angle: Supplies angle input to the operation.
+ *
+ * Returns:
+ * - `double` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 double normalize(double angle) {
   while (angle <= -pi) angle += 2.0 * pi;
   while (angle > pi) angle -= 2.0 * pi;
   return angle;
 }
 
+/**
+ * @brief Performs the positive angle operation for this subsystem.
+ *
+ * Arguments:
+ * - @p angle: Supplies angle input to the operation.
+ *
+ * Returns:
+ * - `double` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 double positiveAngle(double angle) {
   angle = std::fmod(angle, 2.0 * pi);
   return angle < 0.0 ? angle + 2.0 * pi : angle;
 }
 
+/**
+ * @brief Performs the point segment distance operation for this subsystem.
+ *
+ * Arguments:
+ * - @p point: Supplies point input to the operation.
+ * - @p segment: Supplies segment input to the operation.
+ *
+ * Returns:
+ * - `double` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 double pointSegmentDistance(domain::Point2D point,
                             const domain::Segment2D& segment) {
   const double dx = segment.end.x_m - segment.start.x_m;
@@ -42,6 +88,18 @@ double pointSegmentDistance(domain::Point2D point,
                     point.y_m - segment.start.y_m - t * dy);
 }
 
+/**
+ * @brief Performs the ray endpoints operation for this subsystem.
+ *
+ * Arguments:
+ * - @p observation: Supplies observation input to the operation.
+ *
+ * Returns:
+ * - `std::vector<domain::Point2D>` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::vector<domain::Point2D> rayEndpoints(
     const domain::RobotObservation& observation) {
   std::vector<domain::Point2D> result;
@@ -62,6 +120,19 @@ std::vector<domain::Point2D> rayEndpoints(
   return result;
 }
 
+/**
+ * @brief Performs the containing region operation for this subsystem.
+ *
+ * Arguments:
+ * - @p regions: Supplies regions input to the operation.
+ * - @p point: Supplies point input to the operation.
+ *
+ * Returns:
+ * - `std::optional<std::size_t>` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::optional<std::size_t> containingRegion(
     const std::vector<domain::LearnedRegion>& regions,
     domain::Point2D point) {
@@ -77,6 +148,19 @@ std::optional<std::size_t> containingRegion(
   return result;
 }
 
+/**
+ * @brief Performs the rasterize operation for this subsystem.
+ *
+ * Arguments:
+ * - @p segment: Supplies segment input to the operation.
+ * - @p resolution: Supplies resolution input to the operation.
+ *
+ * Returns:
+ * - `std::vector<domain::Point2D>` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::vector<domain::Point2D> rasterize(domain::Segment2D segment,
                                        double resolution) {
   const double length = segment.length().meters();
@@ -92,6 +176,18 @@ std::vector<domain::Point2D> rasterize(domain::Segment2D segment,
   return result;
 }
 
+/**
+ * @brief Performs the direction for operation for this subsystem.
+ *
+ * Arguments:
+ * - @p segment: Supplies segment input to the operation.
+ *
+ * Returns:
+ * - `domain::HallwayDirection` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 domain::HallwayDirection directionFor(domain::Segment2D segment) {
   double angle = positiveAngle(std::atan2(segment.end.y_m - segment.start.y_m,
                                           segment.end.x_m - segment.start.x_m));
@@ -105,6 +201,18 @@ domain::HallwayDirection directionFor(domain::Segment2D segment) {
   }
 }
 
+/**
+ * @brief Performs the direction angle operation for this subsystem.
+ *
+ * Arguments:
+ * - @p direction: Supplies direction input to the operation.
+ *
+ * Returns:
+ * - `double` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 double directionAngle(domain::HallwayDirection direction) {
   switch (direction) {
     case domain::HallwayDirection::Horizontal: return 0.0;
@@ -115,6 +223,20 @@ double directionAngle(domain::HallwayDirection direction) {
   return 0.0;
 }
 
+/**
+ * @brief Performs the stable cell id operation for this subsystem.
+ *
+ * Arguments:
+ * - @p argument_1: Supplies argument 1 input to the operation.
+ * - @p argument_2: Supplies argument 2 input to the operation.
+ * - @p label: Supplies label input to the operation.
+ *
+ * Returns:
+ * - `std::uint64_t` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::uint64_t stableCellId(long long x, long long y, std::uint64_t label) {
   std::uint64_t seed = label + 0x9e3779b97f4a7c15ULL;
   seed ^= static_cast<std::uint64_t>(x) + 0x9e3779b97f4a7c15ULL +
@@ -126,6 +248,19 @@ std::uint64_t stableCellId(long long x, long long y, std::uint64_t label) {
 
 }  // namespace
 
+/**
+ * @brief Performs the completed paths from episodes operation for this
+ * subsystem.
+ *
+ * Arguments:
+ * - @p episodes: Supplies episodes input to the operation.
+ *
+ * Returns:
+ * - `std::vector<domain::CompletedPath>` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::vector<domain::CompletedPath> completedPathsFromEpisodes(
     const std::vector<NavigationEpisode>& episodes) {
   std::vector<domain::CompletedPath> result;
@@ -175,6 +310,21 @@ std::vector<domain::CompletedPath> completedPathsFromEpisodes(
   return result;
 }
 
+/**
+ * @brief Performs the historically visible operation for this subsystem.
+ *
+ * Arguments:
+ * - @p observation: Supplies observation input to the operation.
+ * - @p marker: Supplies marker input to the operation.
+ * - @p tolerance_m: Supplies tolerance m input to the operation.
+ * - @p evidence: Supplies evidence input to the operation.
+ *
+ * Returns:
+ * - `bool` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 bool historicallyVisible(const domain::RobotObservation& observation,
                          domain::Point2D marker, double tolerance_m,
                          domain::VisibilityEvidence* evidence) {
@@ -218,6 +368,20 @@ bool historicallyVisible(const domain::RobotObservation& observation,
   return true;
 }
 
+/**
+ * @brief Performs the learn visibility trail operation for this subsystem.
+ *
+ * Arguments:
+ * - @p path: Supplies path input to the operation.
+ * - @p id: Supplies id input to the operation.
+ * - @p configuration: Supplies configuration input to the operation.
+ *
+ * Returns:
+ * - `domain::LearnedTrail` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 domain::LearnedTrail learnVisibilityTrail(
     const domain::CompletedPath& path, domain::TrailId id,
     const TrailLearningConfiguration& configuration) {
@@ -332,6 +496,20 @@ domain::LearnedTrail learnVisibilityTrail(
   return trail;
 }
 
+/**
+ * @brief Performs the learn decision regions operation for this subsystem.
+ *
+ * Arguments:
+ * - @p decision_episodes: Supplies decision episodes input to the
+ * operation.
+ * - @p configuration: Supplies configuration input to the operation.
+ *
+ * Returns:
+ * - `RegionModel` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 RegionModel learnDecisionRegions(
     const std::vector<NavigationEpisode>& decision_episodes,
     const RegionLearningConfiguration& configuration) {
@@ -437,6 +615,21 @@ RegionModel learnDecisionRegions(
   return result;
 }
 
+/**
+ * @brief Performs the learn region exits and doors operation for this
+ * subsystem.
+ *
+ * Arguments:
+ * - @p regions: Supplies regions input to the operation.
+ * - @p paths: Supplies paths input to the operation.
+ * - @p configuration: Supplies configuration input to the operation.
+ *
+ * Returns:
+ * - `DoorExitModel` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 DoorExitModel learnRegionExitsAndDoors(
     const RegionModel& regions,
     const std::vector<domain::CompletedPath>& paths,
@@ -593,6 +786,20 @@ DoorExitModel learnRegionExitsAndDoors(
   return result;
 }
 
+/**
+ * @brief Performs the learn compatibility hallways operation for this
+ * subsystem.
+ *
+ * Arguments:
+ * - @p paths: Supplies paths input to the operation.
+ * - @p configuration: Supplies configuration input to the operation.
+ *
+ * Returns:
+ * - `HallwayModel` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 HallwayModel learnCompatibilityHallways(
     const std::vector<domain::CompletedPath>& paths,
     const HallwayLearningConfiguration& configuration) {
@@ -907,6 +1114,19 @@ HallwayModel learnCompatibilityHallways(
   return result;
 }
 
+/**
+ * @brief Performs the learn conveyor grid operation for this subsystem.
+ *
+ * Arguments:
+ * - @p trails: Supplies trails input to the operation.
+ * - @p configuration: Supplies configuration input to the operation.
+ *
+ * Returns:
+ * - `ConveyorModel` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 ConveyorModel learnConveyorGrid(
     const std::vector<domain::LearnedTrail>& trails,
     const ConveyorLearningConfiguration& configuration) {
@@ -994,6 +1214,20 @@ ConveyorModel learnConveyorGrid(
   return result;
 }
 
+/**
+ * @brief Performs the learn region skeleton operation for this subsystem.
+ *
+ * Arguments:
+ * - @p regions: Supplies regions input to the operation.
+ * - @p trails: Supplies trails input to the operation.
+ * - @p paths: Supplies paths input to the operation.
+ *
+ * Returns:
+ * - `PassageSkeletonModel` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 PassageSkeletonModel learnRegionSkeleton(
     const RegionModel& regions,
     const std::vector<domain::LearnedTrail>& trails,

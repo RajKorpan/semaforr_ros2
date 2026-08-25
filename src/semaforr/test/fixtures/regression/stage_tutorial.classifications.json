@@ -1,1 +1,3 @@
-{}
+{
+  "$comment": "This file exercises stage tutorial classifications behavior for automated verification and regression testing. It records the declarations, settings, fixtures, or guidance needed by that responsibility. Its package-relative location is `test/fixtures/regression/stage_tutorial.classifications.json`."
+}

@@ -1,11 +1,15 @@
 {
+  "$comment": "This file exercises evaluation scenarios behavior for automated verification and regression testing. It records the declarations, settings, fixtures, or guidance needed by that responsibility. Its package-relative location is `test/fixtures/scenarios/evaluation_scenarios.json`.",
   "schema_version": 1,
   "coordinate_units": "meters",
   "scenario_families": [
     {
       "name": "compact_five_room",
       "environment_class": "artificial",
-      "size": [20.2, 20.2],
+      "size": [
+        20.2,
+        20.2
+      ],
       "freespace_cells": 384,
       "target_sequences": 5,
       "targets_per_sequence": 40,
@@ -14,7 +18,10 @@
     {
       "name": "compact_ten_room",
       "environment_class": "artificial",
-      "size": [20.2, 20.2],
+      "size": [
+        20.2,
+        20.2
+      ],
       "freespace_cells": 380,
       "target_sequences": 5,
       "targets_per_sequence": 40,
@@ -23,7 +30,10 @@
     {
       "name": "compact_twelve_room",
       "environment_class": "artificial",
-      "size": [20.2, 20.2],
+      "size": [
+        20.2,
+        20.2
+      ],
       "freespace_cells": 378,
       "target_sequences": 5,
       "targets_per_sequence": 40,
@@ -32,7 +42,10 @@
     {
       "name": "open_museum",
       "environment_class": "museum",
-      "size": [54.0, 62.0],
+      "size": [
+        54.0,
+        62.0
+      ],
       "freespace_cells": 1585,
       "target_sequences": 5,
       "targets_per_sequence": 40,
@@ -41,7 +54,10 @@
     {
       "name": "large_museum",
       "environment_class": "museum",
-      "size": [314.0, 192.0],
+      "size": [
+        314.0,
+        192.0
+      ],
       "freespace_cells": 29707,
       "target_sequences": 5,
       "targets_per_sequence": 40,
@@ -50,7 +66,10 @@
     {
       "name": "segmented_office",
       "environment_class": "office",
-      "size": [89.0, 58.0],
+      "size": [
+        89.0,
+        58.0
+      ],
       "freespace_cells": 2627,
       "target_sequences": 5,
       "targets_per_sequence": 40,
@@ -59,7 +78,10 @@
     {
       "name": "complex_office",
       "environment_class": "office",
-      "size": [110.0, 70.0],
+      "size": [
+        110.0,
+        70.0
+      ],
       "freespace_cells": 4021,
       "target_sequences": 5,
       "targets_per_sequence": 40,
@@ -68,7 +90,10 @@
     {
       "name": "nested_office",
       "environment_class": "office",
-      "size": [130.0, 81.0],
+      "size": [
+        130.0,
+        81.0
+      ],
       "freespace_cells": 3921,
       "target_sequences": 5,
       "targets_per_sequence": 40,
@@ -76,8 +101,25 @@
     }
   ],
   "parameter_sweeps": {
-    "target_decision_limit": [50, 100, 200, 300, 400, 500, 750, 1000],
-    "initial_exploration_minutes": [5, 10, 20, 30, 40, 50, 60],
+    "target_decision_limit": [
+      50,
+      100,
+      200,
+      300,
+      400,
+      500,
+      750,
+      1000
+    ],
+    "initial_exploration_minutes": [
+      5,
+      10,
+      20,
+      30,
+      40,
+      50,
+      60
+    ],
     "long_target_sequence": 100,
     "repeated_target_sequence": 40
   },

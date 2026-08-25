@@ -1,3 +1,14 @@
+/**
+ * @file exploration_result.hpp
+ * @brief Exploration result responsibilities.
+ *
+ * @details This file defines exploration result behavior for initial or reactive
+ * exploration. It centers on `HleState`, `CandidateLifecycleEvent`,
+ * `PursuitTerminationReason`, `CandidateDiagnosticKind`,
+ * `CandidateDiagnostic`, `ExplorationCompletionReason`,
+ * `ExplorationSubgoal`, `ExplorationResult`. Its package-relative location
+ * is `include/semaforr/exploration/exploration_result.hpp`.
+ */
 #ifndef SEMAFORR_EXPLORATION_EXPLORATION_RESULT_HPP
 #define SEMAFORR_EXPLORATION_EXPLORATION_RESULT_HPP
 
@@ -12,6 +23,18 @@
 
 namespace semaforr::exploration {
 
+/**
+ * @brief Enumerates the supported hle state values used by this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - Not applicable to this declaration.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 enum class HleState {
   Initialize,
   DiscoverCandidate,
@@ -23,6 +46,19 @@ enum class HleState {
   Complete
 };
 
+/**
+ * @brief Enumerates the supported candidate lifecycle event values used by
+ * this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - Not applicable to this declaration.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 enum class CandidateLifecycleEvent {
   None,
   Discovered,
@@ -36,6 +72,19 @@ enum class CandidateLifecycleEvent {
   Exhausted
 };
 
+/**
+ * @brief Enumerates the supported pursuit termination reason values used by
+ * this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - Not applicable to this declaration.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 enum class PursuitTerminationReason {
   None,
   EndpointReached,
@@ -49,6 +98,19 @@ enum class PursuitTerminationReason {
   ExplicitlyFinished
 };
 
+/**
+ * @brief Enumerates the supported candidate diagnostic kind values used by
+ * this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - Not applicable to this declaration.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 enum class CandidateDiagnosticKind {
   Created,
   Merged,
@@ -59,6 +121,19 @@ enum class CandidateDiagnosticKind {
   Abandoned
 };
 
+/**
+ * @brief Encapsulates candidate diagnostic state and behavior for this
+ * subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - Not applicable to this declaration.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 struct CandidateDiagnostic {
   std::uint64_t sequence = 0U;
   ExplorationCandidateId candidate_id = 0U;
@@ -67,6 +142,19 @@ struct CandidateDiagnostic {
   ExplorationCandidate candidate;
 };
 
+/**
+ * @brief Enumerates the supported exploration completion reason values used
+ * by this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - Not applicable to this declaration.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 enum class ExplorationCompletionReason {
   None,
   CandidateQueueExhausted,
@@ -75,11 +163,37 @@ enum class ExplorationCompletionReason {
   ExplicitlyFinished
 };
 
+/**
+ * @brief Encapsulates exploration subgoal state and behavior for this
+ * subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - Not applicable to this declaration.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 struct ExplorationSubgoal {
   domain::Point2D position;
   ExplorationCandidateId candidate_id = 0U;
 };
 
+/**
+ * @brief Encapsulates exploration result state and behavior for this
+ * subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - Not applicable to this declaration.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 struct ExplorationResult {
   domain::Action action = domain::Action::pause();
   std::optional<ExplorationSubgoal> subgoal;
@@ -96,16 +210,89 @@ struct ExplorationResult {
   std::string_view rationale;
 };
 
+/**
+ * @brief Encapsulates hle trace entry state and behavior for this
+ * subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - Not applicable to this declaration.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 struct HleTraceEntry {
   std::uint64_t decision_id = 0U;
   domain::RobotObservation observation;
   ExplorationResult result;
 };
 
+/**
+ * @brief Converts string for this subsystem.
+ *
+ * Arguments:
+ * - @p state: Supplies state input to the operation.
+ *
+ * Returns:
+ * - `std::string_view` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::string_view toString(HleState state) noexcept;
+/**
+ * @brief Converts string for this subsystem.
+ *
+ * Arguments:
+ * - @p event: Supplies event input to the operation.
+ *
+ * Returns:
+ * - `std::string_view` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::string_view toString(CandidateLifecycleEvent event) noexcept;
+/**
+ * @brief Converts string for this subsystem.
+ *
+ * Arguments:
+ * - @p reason: Supplies reason input to the operation.
+ *
+ * Returns:
+ * - `std::string_view` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::string_view toString(ExplorationCompletionReason reason) noexcept;
+/**
+ * @brief Converts string for this subsystem.
+ *
+ * Arguments:
+ * - @p reason: Supplies reason input to the operation.
+ *
+ * Returns:
+ * - `std::string_view` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::string_view toString(PursuitTerminationReason reason) noexcept;
+/**
+ * @brief Converts string for this subsystem.
+ *
+ * Arguments:
+ * - @p kind: Supplies kind input to the operation.
+ *
+ * Returns:
+ * - `std::string_view` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::string_view toString(CandidateDiagnosticKind kind) noexcept;
 
 }  // namespace semaforr::exploration

@@ -1,3 +1,13 @@
+/**
+ * @file circumstance_learner.hpp
+ * @brief Circumstance learner responsibilities.
+ *
+ * @details This file defines circumstance learner behavior for learned spatial
+ * representations and their lifecycle. It centers on
+ * `CircumstanceLearningConfiguration`, `CircumstanceLearner`,
+ * `PendingExperience`. Its package-relative location is
+ * `include/semaforr/spatial/learners/circumstance_learner.hpp`.
+ */
 #ifndef SEMAFORR_SPATIAL_CIRCUMSTANCE_LEARNER_HPP
 #define SEMAFORR_SPATIAL_CIRCUMSTANCE_LEARNER_HPP
 
@@ -5,6 +15,19 @@
 
 namespace semaforr::spatial {
 
+/**
+ * @brief Encapsulates circumstance learning configuration state and
+ * behavior for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - Not applicable to this declaration.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 struct CircumstanceLearningConfiguration {
   domain::CircumstanceLearningMode mode{
       domain::CircumstanceLearningMode::AdaptedThreshold};
@@ -28,15 +51,65 @@ struct CircumstanceLearningConfiguration {
   std::string persistence_policy{"session_only"};
   std::string model_path;
 
+  /**
+   * @brief Validates package content for this subsystem.
+   *
+   * Arguments:
+   * - None.
+   *
+   * Returns:
+   * - No value; effects are applied to owned state or outputs.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   void validate() const;
 };
 
+/**
+ * @brief Encapsulates circumstance learner state and behavior for this
+ * subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - Not applicable to this declaration.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 class CircumstanceLearner final : public SpatialLearnerBase {
  public:
+  /**
+   * @brief Performs the circumstance learner operation for this subsystem.
+   *
+   * Arguments:
+   * - @p configuration: Supplies configuration input to the operation.
+   *
+   * Returns:
+   * - No value; effects are applied to owned state or outputs.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   explicit CircumstanceLearner(
       CircumstanceLearningConfiguration configuration = {});
 
  private:
+  /**
+   * @brief Encapsulates pending experience state and behavior for this
+   * subsystem.
+   *
+   * Arguments:
+   * - None.
+   *
+   * Returns:
+   * - Not applicable to this declaration.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   struct PendingExperience {
     domain::DecisionId decision_id = 0U;
     domain::ActionId action_id = 0U;
@@ -52,15 +125,114 @@ class CircumstanceLearner final : public SpatialLearnerBase {
     std::optional<domain::ActionExecutionResult> result;
   };
 
+  /**
+   * @brief Performs the on observe operation for this subsystem.
+   *
+   * Arguments:
+   * - @p episode: Supplies episode input to the operation.
+   *
+   * Returns:
+   * - No value; effects are applied to owned state or outputs.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   void onObserve(const NavigationEpisode& episode) override;
+  /**
+   * @brief Performs the on rebuild operation for this subsystem.
+   *
+   * Arguments:
+   * - None.
+   *
+   * Returns:
+   * - No value; effects are applied to owned state or outputs.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   void onRebuild() override;
+  /**
+   * @brief Updates clusters for this subsystem.
+   *
+   * Arguments:
+   * - @p setting: Supplies setting input to the operation.
+   *
+   * Returns:
+   * - No value; effects are applied to owned state or outputs.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   void updateClusters(const domain::NormalizedSetting& setting);
+  /**
+   * @brief Performs the recluster operation for this subsystem.
+   *
+   * Arguments:
+   * - None.
+   *
+   * Returns:
+   * - No value; effects are applied to owned state or outputs.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   void recluster();
+  /**
+   * @brief Records decision for this subsystem.
+   *
+   * Arguments:
+   * - @p episode: Supplies episode input to the operation.
+   * - @p setting: Supplies setting input to the operation.
+   *
+   * Returns:
+   * - No value; effects are applied to owned state or outputs.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   void recordDecision(const NavigationEpisode& episode,
                       const domain::NormalizedSetting& setting);
+  /**
+   * @brief Records terminal for this subsystem.
+   *
+   * Arguments:
+   * - @p episode: Supplies episode input to the operation.
+   *
+   * Returns:
+   * - No value; effects are applied to owned state or outputs.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   void recordTerminal(const NavigationEpisode& episode);
+  /**
+   * @brief Performs the classify operation for this subsystem.
+   *
+   * Arguments:
+   * - @p setting: Supplies setting input to the operation.
+   *
+   * Returns:
+   * - `std::optional<domain::CircumstanceMatch>` containing the operation
+   * result.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   std::optional<domain::CircumstanceMatch> classify(
       const domain::NormalizedSetting& setting) const;
+  /**
+   * @brief Updates case for this subsystem.
+   *
+   * Arguments:
+   * - @p pending: Supplies pending input to the operation.
+   * - @p result: Supplies result input to the operation.
+   *
+   * Returns:
+   * - `bool` containing the operation result.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   bool updateCase(PendingExperience& pending,
                   const domain::ActionExecutionResult& result);
 

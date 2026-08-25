@@ -1,3 +1,15 @@
+/**
+ * @file decision_coordinator_test.cpp
+ * @brief Decision coordinator test responsibilities.
+ *
+ * @details This file exercises decision coordinator test behavior for automated
+ * verification and regression testing. It centers on `FixedAdvisor`,
+ * `FixedVeto`, `FixedMandatory`, `EmptyCandidateSetReturnsSafeStop`,
+ * `ASingleSurvivorIsSelectedBeforeTierThree`, `RejectsNonFiniteAdvice`,
+ * `SameSeedProducesSameTieChoiceAndDiagnostics`,
+ * `CompatibilityCommentsAreZeroToTenAndUnweighted`. Its package-relative
+ * location is `test/unit/decision_coordinator_test.cpp`.
+ */
 #include <gtest/gtest.h>
 
 #include <limits>
@@ -23,8 +35,35 @@ using semaforr::decision::VetoRule;
 using semaforr::domain::Action;
 using semaforr::domain::ActionType;
 
+/**
+ * @brief Encapsulates fixed advisor state and behavior for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - Not applicable to this declaration.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 class FixedAdvisor final : public Advisor {
  public:
+  /**
+   * @brief Performs the fixed advisor operation for this subsystem.
+   *
+   * Arguments:
+   * - @p name: Supplies name input to the operation.
+   * - @p scores: Supplies scores input to the operation.
+   * - @p weight: Supplies weight input to the operation.
+   * - @p normalization: Supplies normalization input to the operation.
+   *
+   * Returns:
+   * - No value; effects are applied to owned state or outputs.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   FixedAdvisor(std::string name, std::vector<ActionScore> scores,
                double weight = 1.0,
                semaforr::decision::ScoreNormalization normalization =
@@ -32,11 +71,49 @@ class FixedAdvisor final : public Advisor {
       : name_(std::move(name)), scores_(std::move(scores)), weight_(weight),
         normalization_(normalization) {}
 
+  /**
+   * @brief Performs the name operation for this subsystem.
+   *
+   * Arguments:
+   * - None.
+   *
+   * Returns:
+   * - `std::string_view` containing the operation result.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   std::string_view name() const noexcept override { return name_; }
+  /**
+   * @brief Performs the metadata operation for this subsystem.
+   *
+   * Arguments:
+   * - None.
+   *
+   * Returns:
+   * - `semaforr::decision::AdvisorMetadata` containing the operation
+   * result.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   semaforr::decision::AdvisorMetadata metadata() const override {
     return {{}, {}, false, normalization_, "fixed test scores"};
   }
 
+  /**
+   * @brief Evaluates package content for this subsystem.
+   *
+   * Arguments:
+   * - @p argument_1: Supplies argument 1 input to the operation.
+   * - @p Action: Supplies action input to the operation.
+   *
+   * Returns:
+   * - `AdvisorEvaluation` containing the operation result.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   AdvisorEvaluation evaluate(const DecisionContext&,
                              std::span<const Action>) const override {
     return {true, scores_, weight_, "fixed test scores"};
@@ -49,13 +126,62 @@ class FixedAdvisor final : public Advisor {
   semaforr::decision::ScoreNormalization normalization_;
 };
 
+/**
+ * @brief Encapsulates fixed veto state and behavior for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - Not applicable to this declaration.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 class FixedVeto final : public VetoRule {
  public:
+  /**
+   * @brief Performs the fixed veto operation for this subsystem.
+   *
+   * Arguments:
+   * - @p action: Supplies action input to the operation.
+   * - @p name: Supplies name input to the operation.
+   *
+   * Returns:
+   * - No value; effects are applied to owned state or outputs.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   explicit FixedVeto(Action action, std::string name = "veto_rule")
       : action_(action), name_(std::move(name)) {}
 
+  /**
+   * @brief Performs the name operation for this subsystem.
+   *
+   * Arguments:
+   * - None.
+   *
+   * Returns:
+   * - `std::string_view` containing the operation result.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   std::string_view name() const noexcept override { return name_; }
 
+  /**
+   * @brief Evaluates package content for this subsystem.
+   *
+   * Arguments:
+   * - @p argument_1: Supplies argument 1 input to the operation.
+   *
+   * Returns:
+   * - `std::vector<Veto>` containing the operation result.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   std::vector<Veto> evaluate(const DecisionContext&) const override {
     return {{action_, "test-veto", "blocked for test"}};
   }
@@ -65,12 +191,62 @@ class FixedVeto final : public VetoRule {
   std::string name_;
 };
 
+/**
+ * @brief Encapsulates fixed mandatory state and behavior for this
+ * subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - Not applicable to this declaration.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 class FixedMandatory final : public MandatoryRule {
  public:
+  /**
+   * @brief Performs the fixed mandatory operation for this subsystem.
+   *
+   * Arguments:
+   * - @p name: Supplies name input to the operation.
+   * - @p decision: Supplies decision input to the operation.
+   *
+   * Returns:
+   * - No value; effects are applied to owned state or outputs.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   FixedMandatory(std::string name, std::optional<Decision> decision)
       : name_(std::move(name)), decision_(std::move(decision)) {}
 
+  /**
+   * @brief Performs the name operation for this subsystem.
+   *
+   * Arguments:
+   * - None.
+   *
+   * Returns:
+   * - `std::string_view` containing the operation result.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   std::string_view name() const noexcept override { return name_; }
+  /**
+   * @brief Evaluates package content for this subsystem.
+   *
+   * Arguments:
+   * - @p argument_1: Supplies argument 1 input to the operation.
+   *
+   * Returns:
+   * - `std::optional<Decision>` containing the operation result.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   std::optional<Decision> evaluate(const DecisionContext&) const override {
     return decision_;
   }
@@ -80,6 +256,18 @@ class FixedMandatory final : public MandatoryRule {
   std::optional<Decision> decision_;
 };
 
+/**
+ * @brief Performs the world operation for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - `semaforr::domain::WorldModel` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 semaforr::domain::WorldModel world() { return {}; }
 
 TEST(DecisionCoordinator, EmptyCandidateSetReturnsSafeStop) {

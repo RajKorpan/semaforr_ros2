@@ -1,7 +1,29 @@
+/**
+ * @file exploration_coordinator.cpp
+ * @brief Exploration coordinator responsibilities.
+ *
+ * @details This file implements exploration coordinator behavior for initial or
+ * reactive exploration. It records the declarations, settings, fixtures,
+ * or guidance needed by that responsibility. Its package-relative location
+ * is `src/exploration/exploration_coordinator.cpp`.
+ */
 #include <semaforr/exploration/exploration_coordinator.hpp>
 
 namespace semaforr::exploration {
 
+/**
+ * @brief Performs the exploration coordinator operation for this subsystem.
+ *
+ * Arguments:
+ * - @p candidate_completion_distance_m: Supplies candidate completion
+ * distance m input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 ExplorationCoordinator::ExplorationCoordinator(
     double candidate_completion_distance_m)
     : ExplorationCoordinator([candidate_completion_distance_m] {
@@ -11,10 +33,35 @@ ExplorationCoordinator::ExplorationCoordinator(
         return configuration;
       }()) {}
 
+/**
+ * @brief Performs the exploration coordinator operation for this subsystem.
+ *
+ * Arguments:
+ * - @p configuration: Supplies configuration input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 ExplorationCoordinator::ExplorationCoordinator(
     HighLevelExplorationConfiguration configuration)
     : explorer_(std::move(configuration)) {}
 
+/**
+ * @brief Selects package content for this subsystem.
+ *
+ * Arguments:
+ * - @p observation: Supplies observation input to the operation.
+ * - @p action_space: Supplies action space input to the operation.
+ *
+ * Returns:
+ * - `ExplorationUpdate` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 ExplorationUpdate ExplorationCoordinator::decide(
     const domain::RobotObservation& observation,
     const domain::ActionSpace& action_space) {
@@ -38,6 +85,18 @@ ExplorationUpdate ExplorationCoordinator::decide(
   return update;
 }
 
+/**
+ * @brief Performs the finish operation for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void ExplorationCoordinator::finish() noexcept {
   explorer_.finish();
   if (!finalized_) {

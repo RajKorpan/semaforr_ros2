@@ -1,3 +1,18 @@
+/**
+ * @file map_parser_test.cpp
+ * @brief Map parser test responsibilities.
+ *
+ * @details This file exercises map parser test behavior for automated verification
+ * and regression testing. It centers on
+ * `ParsesValidatedMeterBasedSegments`,
+ * `RejectsMalformedVerticesPrecisely`, `RejectsEmptyAndMalformedXmlMaps`,
+ * `RejectsMissingRequiredBounds`,
+ * `RetainsConcavePolygonAndDisconnectedObstacles`,
+ * `ResolvesAbsolutePackageRelativeAndNamedExampleMaps`,
+ * `MissingMapDiagnosticIdentifiesRequest`,
+ * `BuildsGeometryOccupancyAndSupportsNegativeOrigin`. Its package-relative
+ * location is `test/unit/map_parser_test.cpp`.
+ */
 #include <gtest/gtest.h>
 
 #include <algorithm>

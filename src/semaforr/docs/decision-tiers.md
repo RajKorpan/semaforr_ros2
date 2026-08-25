@@ -1,3 +1,5 @@
+<!-- File overview: This file documents or configures decision tiers behavior for the maintained architecture and user documentation. It records the declarations, settings, fixtures, or guidance needed by that responsibility. Its package-relative location is `docs/decision-tiers.md`. -->
+
 # Decision-tier guide
 
 SemaFORR uses a strict hierarchy. Higher tiers constrain or bypass lower tiers;

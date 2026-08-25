@@ -1,3 +1,12 @@
+/**
+ * @file hard_safety_filter.cpp
+ * @brief Hard safety filter responsibilities.
+ *
+ * @details This file implements hard safety filter behavior for tiered decision
+ * making and action arbitration. It records the declarations, settings,
+ * fixtures, or guidance needed by that responsibility. Its
+ * package-relative location is `src/decision/hard_safety_filter.cpp`.
+ */
 #include <algorithm>
 #include <chrono>
 #include <semaforr/decision/hard_safety_filter.hpp>
@@ -5,6 +14,19 @@
 
 namespace semaforr::decision {
 
+/**
+ * @brief Performs the filter operation for this subsystem.
+ *
+ * Arguments:
+ * - @p context: Supplies context input to the operation.
+ * - @p candidates: Supplies candidates input to the operation.
+ *
+ * Returns:
+ * - `SafetyFilterResult` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 SafetyFilterResult HardSafetyFilter::filter(
     const DecisionContext& context,
     std::span<const domain::Action> candidates) const {

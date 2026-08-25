@@ -1,3 +1,5 @@
+<!-- File overview: This file documents or configures build and package behavior for the maintained architecture and user documentation. It records the declarations, settings, fixtures, or guidance needed by that responsibility. Its package-relative location is `docs/build-and-package.md`. -->
+
 # Build and package contract
 
 SemaFORR targets ROS 2 Humble and C++20. From a sourced Humble workspace:

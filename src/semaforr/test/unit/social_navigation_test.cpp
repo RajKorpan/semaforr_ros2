@@ -1,3 +1,17 @@
+/**
+ * @file social_navigation_test.cpp
+ * @brief Social navigation test responsibilities.
+ *
+ * @details This file exercises social navigation test behavior for automated
+ * verification and regression testing. It centers on `ForwardGoalAdvisor`,
+ * `InterpersonalDistancePenalizesCloseApproach`,
+ * `CrossingPredictionPenalizesTemporalIntersection`,
+ * `FollowingPenalizesClosingOnSlowerPedestrian`,
+ * `OpposingFlowPenalizesForwardMotion`, `StalePredictionDisablesAdvisor`,
+ * `PredictionStartsAtObservationAge`,
+ * `RecordedTrajectoryChangesDeterministicAction`. Its package-relative
+ * location is `test/unit/social_navigation_test.cpp`.
+ */
 #include <gtest/gtest.h>
 #include <rcl/time.h>
 
@@ -28,6 +42,23 @@ using semaforr::domain::SocialTimestamp;
 
 constexpr auto observed_at = std::chrono::seconds(10);
 
+/**
+ * @brief Performs the pedestrian operation for this subsystem.
+ *
+ * Arguments:
+ * - @p id: Supplies id input to the operation.
+ * - @p x: Supplies x input to the operation.
+ * - @p y: Supplies y input to the operation.
+ * - @p velocity_x: Supplies velocity x input to the operation.
+ * - @p velocity_y: Supplies velocity y input to the operation.
+ * - @p predictions: Supplies predictions input to the operation.
+ *
+ * Returns:
+ * - `PedestrianObservation` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 PedestrianObservation pedestrian(
     std::string id, double x, double y, double velocity_x, double velocity_y,
     std::vector<PredictedPosition> predictions = {}) {
@@ -36,6 +67,18 @@ PedestrianObservation pedestrian(
           "none",                std::nullopt};
 }
 
+/**
+ * @brief Performs the crowd operation for this subsystem.
+ *
+ * Arguments:
+ * - @p person: Supplies person input to the operation.
+ *
+ * Returns:
+ * - `CrowdObservation` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 CrowdObservation crowd(PedestrianObservation person) {
   CrowdObservation observation;
   observation.frame_id = "map";
@@ -47,6 +90,19 @@ CrowdObservation crowd(PedestrianObservation person) {
   return observation;
 }
 
+/**
+ * @brief Performs the advisor operation for this subsystem.
+ *
+ * Arguments:
+ * - @p weight: Supplies weight input to the operation.
+ *
+ * Returns:
+ * - `semaforr::decision::SocialNavigationAdvisor` containing the operation
+ * result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 semaforr::decision::SocialNavigationAdvisor advisor(double weight = 1.0) {
   return semaforr::decision::SocialNavigationAdvisor(
       {{0.2, 1.0},
@@ -59,6 +115,18 @@ semaforr::decision::SocialNavigationAdvisor advisor(double weight = 1.0) {
        weight});
 }
 
+/**
+ * @brief Performs the world with operation for this subsystem.
+ *
+ * Arguments:
+ * - @p observation: Supplies observation input to the operation.
+ *
+ * Returns:
+ * - `semaforr::domain::WorldModel` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 semaforr::domain::WorldModel worldWith(CrowdObservation observation) {
   semaforr::domain::WorldModel world;
   world.robot.pose = {{0.0, 0.0}, semaforr::domain::Angle::zero()};
@@ -66,6 +134,19 @@ semaforr::domain::WorldModel worldWith(CrowdObservation observation) {
   return world;
 }
 
+/**
+ * @brief Performs the score for operation for this subsystem.
+ *
+ * Arguments:
+ * - @p evaluation: Supplies evaluation input to the operation.
+ * - @p action: Supplies action input to the operation.
+ *
+ * Returns:
+ * - `double` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 double scoreFor(const semaforr::decision::AdvisorEvaluation& evaluation,
                 const Action& action) {
   const auto found =
@@ -75,10 +156,49 @@ double scoreFor(const semaforr::decision::AdvisorEvaluation& evaluation,
   return found == evaluation.scores.end() ? 0.0 : found->raw_score;
 }
 
+/**
+ * @brief Encapsulates forward goal advisor state and behavior for this
+ * subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - Not applicable to this declaration.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 class ForwardGoalAdvisor final : public semaforr::decision::Advisor {
  public:
+  /**
+   * @brief Performs the name operation for this subsystem.
+   *
+   * Arguments:
+   * - None.
+   *
+   * Returns:
+   * - `std::string_view` containing the operation result.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   std::string_view name() const noexcept override { return "forward_goal"; }
 
+  /**
+   * @brief Evaluates package content for this subsystem.
+   *
+   * Arguments:
+   * - @p DecisionContext: Supplies decision context input to the operation.
+   * - @p candidates: Supplies candidates input to the operation.
+   *
+   * Returns:
+   * - `semaforr::decision::AdvisorEvaluation` containing the operation
+   * result.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   semaforr::decision::AdvisorEvaluation evaluate(
       const semaforr::decision::DecisionContext&,
       std::span<const Action> candidates) const override {
@@ -246,6 +366,19 @@ TEST(SocialDomain, RejectsDuplicateIdentityAndInvalidCovariance) {
   EXPECT_THROW(invalid.validate(observed_at), std::invalid_argument);
 }
 
+/**
+ * @brief Performs the tracked configuration operation for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - `semaforr::ros::SocialObservationConfiguration` containing the
+ * operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 semaforr::ros::SocialObservationConfiguration trackedConfiguration() {
   semaforr::ros::SocialObservationConfiguration configuration;
   configuration.frame = "map";
@@ -256,6 +389,19 @@ semaforr::ros::SocialObservationConfiguration trackedConfiguration() {
   return configuration;
 }
 
+/**
+ * @brief Performs the tracked message operation for this subsystem.
+ *
+ * Arguments:
+ * - @p id: Supplies id input to the operation.
+ *
+ * Returns:
+ * - `social_context_msgs::msg::TrackedPersonArray` containing the operation
+ * result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 social_context_msgs::msg::TrackedPersonArray trackedMessage(int id = 7) {
   social_context_msgs::msg::TrackedPersonArray message;
   message.header.frame_id = "map";

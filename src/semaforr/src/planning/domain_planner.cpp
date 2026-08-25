@@ -1,3 +1,12 @@
+/**
+ * @file domain_planner.cpp
+ * @brief Domain planner responsibilities.
+ *
+ * @details This file implements domain planner behavior for path planning and
+ * hierarchical plan construction. It records the declarations, settings,
+ * fixtures, or guidance needed by that responsibility. Its
+ * package-relative location is `src/planning/domain_planner.cpp`.
+ */
 #include <algorithm>
 #include <cmath>
 #include <limits>
@@ -8,6 +17,19 @@
 namespace semaforr::planning {
 namespace {
 
+/**
+ * @brief Performs the point segment distance operation for this subsystem.
+ *
+ * Arguments:
+ * - @p p: Supplies p input to the operation.
+ * - @p s: Supplies s input to the operation.
+ *
+ * Returns:
+ * - `double` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 double pointSegmentDistance(domain::Point2D p, const domain::Segment2D& s) {
   const double dx = s.end.x_m - s.start.x_m, dy = s.end.y_m - s.start.y_m;
   const double n = dx * dx + dy * dy;
@@ -21,6 +43,20 @@ double pointSegmentDistance(domain::Point2D p, const domain::Segment2D& s) {
                     p.y_m - (s.start.y_m + t * dy));
 }
 
+/**
+ * @brief Performs the near segments operation for this subsystem.
+ *
+ * Arguments:
+ * - @p p: Supplies p input to the operation.
+ * - @p segments: Supplies segments input to the operation.
+ * - @p radius: Supplies radius input to the operation.
+ *
+ * Returns:
+ * - `std::size_t` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::size_t nearSegments(domain::Point2D p,
                          const std::vector<domain::Segment2D>& segments,
                          double radius = 0.75) {
@@ -29,6 +65,19 @@ std::size_t nearSegments(domain::Point2D p,
       [=](const auto& s) { return pointSegmentDistance(p, s) <= radius; }));
 }
 
+/**
+ * @brief Performs the near trail markers operation for this subsystem.
+ *
+ * Arguments:
+ * - @p p: Supplies p input to the operation.
+ * - @p trails: Supplies trails input to the operation.
+ *
+ * Returns:
+ * - `std::size_t` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::size_t nearTrailMarkers(
     domain::Point2D p,
     const std::vector<std::vector<domain::Point2D>>& trails) {
@@ -40,6 +89,20 @@ std::size_t nearTrailMarkers(
   return count;
 }
 
+/**
+ * @brief Performs the near exits operation for this subsystem.
+ *
+ * Arguments:
+ * - @p point: Supplies point input to the operation.
+ * - @p exits: Supplies exits input to the operation.
+ * - @p radius: Supplies radius input to the operation.
+ *
+ * Returns:
+ * - `std::size_t` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::size_t nearExits(domain::Point2D point,
                       const std::vector<domain::RegionExit>& exits,
                       double radius = 0.5) {
@@ -49,12 +112,42 @@ std::size_t nearExits(domain::Point2D point,
       }));
 }
 
+/**
+ * @brief Performs the hallway contains operation for this subsystem.
+ *
+ * Arguments:
+ * - @p point: Supplies point input to the operation.
+ * - @p hallway: Supplies hallway input to the operation.
+ *
+ * Returns:
+ * - `bool` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 bool hallwayContains(domain::Point2D point,
                      const domain::LearnedHallway& hallway) {
   return pointSegmentDistance(point, hallway.centerline) <=
          std::max(0.5, hallway.width_m / 2.0);
 }
 
+/**
+ * @brief Performs the social penalty operation for this subsystem.
+ *
+ * Arguments:
+ * - @p request: Supplies request input to the operation.
+ * - @p objective: Supplies objective input to the operation.
+ * - @p midpoint: Supplies midpoint input to the operation.
+ * - @p length: Supplies length input to the operation.
+ * - @p from: Supplies from input to the operation.
+ * - @p to: Supplies to input to the operation.
+ *
+ * Returns:
+ * - `double` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 double socialPenalty(const PlanningRequest& request, PlanObjective objective,
                      domain::Point2D midpoint, double length,
                      domain::Point2D from, domain::Point2D to) {
@@ -70,6 +163,21 @@ double socialPenalty(const PlanningRequest& request, PlanObjective objective,
          (2.0 - request.crowd_model->flowAlignmentAt(midpoint, heading));
 }
 
+/**
+ * @brief Performs the edge cost operation for this subsystem.
+ *
+ * Arguments:
+ * - @p objective: Supplies objective input to the operation.
+ * - @p request: Supplies request input to the operation.
+ * - @p a: Supplies a input to the operation.
+ * - @p b: Supplies b input to the operation.
+ *
+ * Returns:
+ * - `double` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 double edgeCost(PlanObjective objective, const PlanningRequest& request,
                 domain::Point2D a, domain::Point2D b) {
   const double w = domain::distance(a, b).meters();
@@ -151,6 +259,19 @@ double edgeCost(PlanObjective objective, const PlanningRequest& request,
   return w;
 }
 
+/**
+ * @brief Performs the complete path operation for this subsystem.
+ *
+ * Arguments:
+ * - @p request: Supplies request input to the operation.
+ * - @p p: Supplies p input to the operation.
+ *
+ * Returns:
+ * - `std::vector<domain::Point2D>` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::vector<domain::Point2D> completePath(
     const PlanningRequest& request, const std::vector<domain::Point2D>& p) {
   std::vector<domain::Point2D> result{request.start.position};
@@ -159,6 +280,18 @@ std::vector<domain::Point2D> completePath(
 }
 }  // namespace
 
+/**
+ * @brief Performs the dependencies operation for this subsystem.
+ *
+ * Arguments:
+ * - @p request: Supplies request input to the operation.
+ *
+ * Returns:
+ * - `std::vector<domain::ModelDependency>` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::vector<domain::ModelDependency> DomainPlanner::dependencies(
     const PlanningRequest& request) const {
   using D = domain::ModelDependency;
@@ -203,6 +336,19 @@ std::vector<domain::ModelDependency> DomainPlanner::dependencies(
   return result;
 }
 
+/**
+ * @brief Evaluates path objectives for this subsystem.
+ *
+ * Arguments:
+ * - @p request: Supplies request input to the operation.
+ * - @p path: Supplies path input to the operation.
+ *
+ * Returns:
+ * - `ObjectiveCosts` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 ObjectiveCosts evaluatePathObjectives(
     const PlanningRequest& request, const std::vector<domain::Point2D>& path) {
   ObjectiveCosts result;
@@ -218,10 +364,37 @@ ObjectiveCosts evaluatePathObjectives(
   return result;
 }
 
+/**
+ * @brief Performs the domain planner operation for this subsystem.
+ *
+ * Arguments:
+ * - @p name: Supplies name input to the operation.
+ * - @p objective: Supplies objective input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 DomainPlanner::DomainPlanner(std::string name, PlannerObjective objective)
     : DomainPlanner(std::move(name), objective,
                     OccupancySourceMode::StaticMapWithSensors) {}
 
+/**
+ * @brief Performs the domain planner operation for this subsystem.
+ *
+ * Arguments:
+ * - @p name: Supplies name input to the operation.
+ * - @p objective: Supplies objective input to the operation.
+ * - @p source_mode: Supplies source mode input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 DomainPlanner::DomainPlanner(std::string name, PlannerObjective objective,
                              OccupancySourceMode source_mode)
     : name_(std::move(name)), objective_(objective), source_mode_(source_mode) {
@@ -229,6 +402,18 @@ DomainPlanner::DomainPlanner(std::string name, PlannerObjective objective,
     throw std::invalid_argument("planner name must not be empty");
 }
 
+/**
+ * @brief Constructs package content for this subsystem.
+ *
+ * Arguments:
+ * - @p request: Supplies request input to the operation.
+ *
+ * Returns:
+ * - `PlanResult` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 PlanResult DomainPlanner::plan(const PlanningRequest& request) {
   if (!request.start.position.finite() || !request.goal.finite())
     return {
@@ -392,6 +577,18 @@ PlanResult DomainPlanner::plan(const PlanningRequest& request) {
 }
 }  // namespace semaforr::planning
 semaforr::planning::PlannerMetadata
+/**
+ * @brief Performs the metadata operation for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 semaforr::planning::DomainPlanner::metadata() const {
   const bool mapless = source_mode_ != OccupancySourceMode::StaticMapWithSensors;
   return {name_, PlanFamily::Grid, objective_, std::string(toString(objective_)),

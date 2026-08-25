@@ -1,3 +1,11 @@
+/**
+ * @file learner.cpp
+ * @brief Learner responsibilities.
+ *
+ * @details This file implements learner behavior for learned spatial
+ * representations and their lifecycle. It centers on `PayloadShape`. Its
+ * package-relative location is `src/spatial/learner.cpp`.
+ */
 #include <algorithm>
 #include <iomanip>
 #include <semaforr/spatial/learner_base.hpp>
@@ -8,6 +16,20 @@
 namespace semaforr::spatial {
 namespace {
 
+/**
+ * @brief Performs the changed sparse indices operation for this subsystem.
+ *
+ * Arguments:
+ * - @p before: Supplies before input to the operation.
+ * - @p after: Supplies after input to the operation.
+ * - @p value: Supplies value input to the operation.
+ *
+ * Returns:
+ * - `std::vector<std::size_t>` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 template <typename Cell, typename Value>
 std::vector<std::size_t> changedSparseIndices(
     const std::vector<Cell>& before, const std::vector<Cell>& after,
@@ -30,6 +52,18 @@ std::vector<std::size_t> changedSparseIndices(
   return changed;
 }
 
+/**
+ * @brief Performs the ranges operation for this subsystem.
+ *
+ * Arguments:
+ * - @p indices: Supplies indices input to the operation.
+ *
+ * Returns:
+ * - `std::vector<ChangedCellRange>` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::vector<ChangedCellRange> ranges(std::vector<std::size_t> indices) {
   if (indices.empty()) return {};
   std::sort(indices.begin(), indices.end());
@@ -48,6 +82,18 @@ std::vector<ChangedCellRange> ranges(std::vector<std::size_t> indices) {
   return result;
 }
 
+/**
+ * @brief Encapsulates payload shape state and behavior for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - Not applicable to this declaration.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 struct PayloadShape {
   std::size_t entities = 0U;
   std::size_t graph_nodes = 0U;
@@ -55,6 +101,18 @@ struct PayloadShape {
   bool grid = false;
 };
 
+/**
+ * @brief Performs the shape operation for this subsystem.
+ *
+ * Arguments:
+ * - @p payload: Supplies payload input to the operation.
+ *
+ * Returns:
+ * - `PayloadShape` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 PayloadShape shape(const SpatialPayload& payload) {
   return std::visit(
       [](const auto& model) {
@@ -96,6 +154,20 @@ PayloadShape shape(const SpatialPayload& payload) {
       payload);
 }
 
+/**
+ * @brief Performs the change set operation for this subsystem.
+ *
+ * Arguments:
+ * - @p before: Supplies before input to the operation.
+ * - @p after: Supplies after input to the operation.
+ * - @p revision: Supplies revision input to the operation.
+ *
+ * Returns:
+ * - `RepresentationChangeSet` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 RepresentationChangeSet changeSet(const SpatialPayload* before,
                                   const SpatialPayload& after,
                                   std::size_t revision) {
@@ -162,6 +234,18 @@ RepresentationChangeSet changeSet(const SpatialPayload* before,
   return result;
 }
 
+/**
+ * @brief Performs the quote operation for this subsystem.
+ *
+ * Arguments:
+ * - @p value: Supplies value input to the operation.
+ *
+ * Returns:
+ * - `std::string` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::string quote(std::string_view value) {
   std::string result{"\""};
   for (const char character : value) {
@@ -190,10 +274,36 @@ std::string quote(std::string_view value) {
   return result;
 }
 
+/**
+ * @brief Performs the point operation for this subsystem.
+ *
+ * Arguments:
+ * - @p output: Supplies output input to the operation.
+ * - @p value: Supplies value input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void point(std::ostream& output, const domain::Point2D& value) {
   output << "{\"x_m\":" << value.x_m << ",\"y_m\":" << value.y_m << '}';
 }
 
+/**
+ * @brief Performs the segment operation for this subsystem.
+ *
+ * Arguments:
+ * - @p output: Supplies output input to the operation.
+ * - @p value: Supplies value input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void segment(std::ostream& output, const domain::Segment2D& value) {
   output << "{\"start\":";
   point(output, value.start);
@@ -202,6 +312,19 @@ void segment(std::ostream& output, const domain::Segment2D& value) {
   output << '}';
 }
 
+/**
+ * @brief Performs the grid geometry operation for this subsystem.
+ *
+ * Arguments:
+ * - @p output: Supplies output input to the operation.
+ * - @p geometry: Supplies geometry input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void gridGeometry(std::ostream& output,
                   const domain::GridGeometry& geometry) {
   output << "{\"schema_version\":1,\"frame_id\":"
@@ -226,6 +349,20 @@ void gridGeometry(std::ostream& output,
          << ",\"map_identifier\":" << quote(geometry.map_identifier) << '}';
 }
 
+/**
+ * @brief Performs the array operation for this subsystem.
+ *
+ * Arguments:
+ * - @p output: Supplies output input to the operation.
+ * - @p values: Supplies values input to the operation.
+ * - @p writer: Supplies writer input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 template <typename Range, typename Writer>
 void array(std::ostream& output, const Range& values, Writer writer) {
   output << '[';
@@ -240,6 +377,19 @@ void array(std::ostream& output, const Range& values, Writer writer) {
   output << ']';
 }
 
+/**
+ * @brief Performs the payload operation for this subsystem.
+ *
+ * Arguments:
+ * - @p output: Supplies output input to the operation.
+ * - @p value: Supplies value input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void payload(std::ostream& output, const SpatialPayload& value) {
   std::visit(
       [&output](const auto& model) {
@@ -718,6 +868,18 @@ void payload(std::ostream& output, const SpatialPayload& value) {
 
 }  // namespace
 
+/**
+ * @brief Converts string for this subsystem.
+ *
+ * Arguments:
+ * - @p representation: Supplies representation input to the operation.
+ *
+ * Returns:
+ * - `std::string_view` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::string_view toString(SpatialRepresentation representation) noexcept {
   switch (representation) {
     case SpatialRepresentation::Trails:
@@ -748,10 +910,34 @@ std::string_view toString(SpatialRepresentation representation) noexcept {
   return "unknown";
 }
 
+/**
+ * @brief Converts string for this subsystem.
+ *
+ * Arguments:
+ * - @p mode: Supplies mode input to the operation.
+ *
+ * Returns:
+ * - `std::string_view` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::string_view toString(UpdateMode mode) noexcept {
   return mode == UpdateMode::Incremental ? "incremental" : "rebuild_on_demand";
 }
 
+/**
+ * @brief Converts string for this subsystem.
+ *
+ * Arguments:
+ * - @p schedule: Supplies schedule input to the operation.
+ *
+ * Returns:
+ * - `std::string_view` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::string_view toString(UpdateSchedule schedule) noexcept {
   switch (schedule) {
     case UpdateSchedule::EveryObservation:
@@ -784,6 +970,18 @@ std::string_view toString(UpdateSchedule schedule) noexcept {
   return "on_demand";
 }
 
+/**
+ * @brief Converts string for this subsystem.
+ *
+ * Arguments:
+ * - @p status: Supplies status input to the operation.
+ *
+ * Returns:
+ * - `std::string_view` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::string_view toString(ModelStatus status) noexcept {
   switch (status) {
     case ModelStatus::Empty:
@@ -798,6 +996,18 @@ std::string_view toString(ModelStatus status) noexcept {
   return "unknown";
 }
 
+/**
+ * @brief Performs the serialize operation for this subsystem.
+ *
+ * Arguments:
+ * - @p update: Supplies update input to the operation.
+ *
+ * Returns:
+ * - `std::string` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::string serialize(const SpatialModelUpdate& update) {
   std::ostringstream output;
   output << std::setprecision(17)
@@ -843,6 +1053,21 @@ std::string serialize(const SpatialModelUpdate& update) {
   return output.str();
 }
 
+/**
+ * @brief Performs the spatial learner base operation for this subsystem.
+ *
+ * Arguments:
+ * - @p representation: Supplies representation input to the operation.
+ * - @p name: Supplies name input to the operation.
+ * - @p mode: Supplies mode input to the operation.
+ * - @p contract: Supplies contract input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 SpatialLearnerBase::SpatialLearnerBase(SpatialRepresentation representation,
                                        std::string name, UpdateMode mode,
                                        ObservationContract contract)
@@ -865,6 +1090,18 @@ SpatialLearnerBase::SpatialLearnerBase(SpatialRepresentation representation,
   update_.consumers = contract_.consumers;
 }
 
+/**
+ * @brief Processes package content for this subsystem.
+ *
+ * Arguments:
+ * - @p episode: Supplies episode input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void SpatialLearnerBase::observe(const NavigationEpisode& episode) {
   if (!episode.observation.pose.position.finite()) {
     throw std::invalid_argument("navigation episode pose must be finite");
@@ -895,8 +1132,32 @@ void SpatialLearnerBase::observe(const NavigationEpisode& episode) {
   onObserve(episode);
 }
 
+/**
+ * @brief Performs the rebuild operation for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void SpatialLearnerBase::rebuild() { onRebuild(); }
 
+/**
+ * @brief Performs the snapshot operation for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - `SpatialModelUpdate` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 SpatialModelUpdate SpatialLearnerBase::snapshot() const {
   SpatialModelUpdate result = published_ ? *published_ : update_;
   result.observed_episodes = update_.observed_episodes;
@@ -906,6 +1167,18 @@ SpatialModelUpdate SpatialLearnerBase::snapshot() const {
   return result;
 }
 
+/**
+ * @brief Performs the shared snapshot operation for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - `SharedSpatialSnapshot` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 SharedSpatialSnapshot SpatialLearnerBase::sharedSnapshot() const {
   if (published_ && published_->revision == update_.revision &&
       published_->status == update_.status)
@@ -918,6 +1191,20 @@ SharedSpatialSnapshot SpatialLearnerBase::sharedSnapshot() const {
   return metadata_snapshot_;
 }
 
+/**
+ * @brief Publishes package content for this subsystem.
+ *
+ * Arguments:
+ * - @p payload_value: Supplies payload value input to the operation.
+ * - @p status: Supplies status input to the operation.
+ * - @p diagnostic: Supplies diagnostic input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void SpatialLearnerBase::publish(SpatialPayload payload_value,
                                  ModelStatus status, std::string diagnostic) {
   if (status == ModelStatus::Empty || status == ModelStatus::Stale) {
@@ -944,6 +1231,18 @@ void SpatialLearnerBase::publish(SpatialPayload payload_value,
   published_ = std::move(publication);
 }
 
+/**
+ * @brief Performs the mark incomplete operation for this subsystem.
+ *
+ * Arguments:
+ * - @p diagnostic: Supplies diagnostic input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void SpatialLearnerBase::markIncomplete(std::string diagnostic) {
   publish(std::monostate{}, ModelStatus::Incomplete, std::move(diagnostic));
 }

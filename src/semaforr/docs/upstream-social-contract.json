@@ -1,7 +1,13 @@
 {
+  "$comment": "This file defines upstream social contract behavior for the maintained architecture and user documentation. It records the declarations, settings, fixtures, or guidance needed by that responsibility. Its package-relative location is `docs/upstream-social-contract.json`.",
   "schema_version": 1,
   "ownership": {
-    "read_only_packages": ["hunav_msgs", "semaforr_bridge", "social_context", "social_context_msgs"],
+    "read_only_packages": [
+      "hunav_msgs",
+      "semaforr_bridge",
+      "social_context",
+      "social_context_msgs"
+    ],
     "allowed_upstream_removals": [
       "social_context_msgs/msg/CrowdField.msg",
       "social_context_msgs/msg/CrowdFieldCell.msg"
@@ -9,12 +15,30 @@
     "crowd_model_owner": "semaforr"
   },
   "interfaces": [
-    {"path": "src/social_context_msgs/msg/TrackedPerson.msg", "sha256": "33dff759fd9f4706a267df3497beff6b4ad332c366e0119dc4de4fecaced39fa"},
-    {"path": "src/social_context_msgs/msg/TrackedPersonArray.msg", "sha256": "62f8944041febc8b397ed3b1d5e40ffcc2607daa339ab9117a775b9f9089e0f0"},
-    {"path": "src/social_context_msgs/msg/FormationGroup.msg", "sha256": "4e2c5160589ca2c7c5227ea53d7e8f78f60dbeca028493de10fdc984c0d4dd78"},
-    {"path": "src/social_context_msgs/msg/FormationGroupArray.msg", "sha256": "49b2c3eb4bc1e447290e0ec1ba6c36249ca34d9be7af1cd4519b200b9633245f"},
-    {"path": "src/hunav_msgs/msg/Agent.msg", "sha256": "ecdaa0f4d4c1ff9411c64322d61cf7ef0796a4e9af520db88d6e1671772a965d"},
-    {"path": "src/hunav_msgs/msg/Agents.msg", "sha256": "760556b710021a4e7348797492c47e294c6e217b32ce8920d7766706c35e7d4a"}
+    {
+      "path": "src/social_context_msgs/msg/TrackedPerson.msg",
+      "sha256": "33dff759fd9f4706a267df3497beff6b4ad332c366e0119dc4de4fecaced39fa"
+    },
+    {
+      "path": "src/social_context_msgs/msg/TrackedPersonArray.msg",
+      "sha256": "62f8944041febc8b397ed3b1d5e40ffcc2607daa339ab9117a775b9f9089e0f0"
+    },
+    {
+      "path": "src/social_context_msgs/msg/FormationGroup.msg",
+      "sha256": "4e2c5160589ca2c7c5227ea53d7e8f78f60dbeca028493de10fdc984c0d4dd78"
+    },
+    {
+      "path": "src/social_context_msgs/msg/FormationGroupArray.msg",
+      "sha256": "49b2c3eb4bc1e447290e0ec1ba6c36249ca34d9be7af1cd4519b200b9633245f"
+    },
+    {
+      "path": "src/hunav_msgs/msg/Agent.msg",
+      "sha256": "ecdaa0f4d4c1ff9411c64322d61cf7ef0796a4e9af520db88d6e1671772a965d"
+    },
+    {
+      "path": "src/hunav_msgs/msg/Agents.msg",
+      "sha256": "760556b710021a4e7348797492c47e294c6e217b32ce8920d7766706c35e7d4a"
+    }
   ],
   "topics": {
     "tracked_current": "/human_poses_3d_tracked_global",

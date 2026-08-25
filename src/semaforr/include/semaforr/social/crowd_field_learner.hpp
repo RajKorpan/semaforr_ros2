@@ -1,3 +1,13 @@
+/**
+ * @file crowd_field_learner.hpp
+ * @brief Crowd field learner responsibilities.
+ *
+ * @details This file defines crowd field learner behavior for social observation
+ * processing and crowd learning. It centers on `CrowdEstimatorStrategy`,
+ * `CrowdFieldLearnerConfiguration`, `CrowdLearningUpdate`,
+ * `CrowdFieldLearner`, `CusumState`. Its package-relative location is
+ * `include/semaforr/social/crowd_field_learner.hpp`.
+ */
 #ifndef SEMAFORR_SOCIAL_CROWD_FIELD_LEARNER_HPP
 #define SEMAFORR_SOCIAL_CROWD_FIELD_LEARNER_HPP
 
@@ -12,6 +22,19 @@
 
 namespace semaforr::social {
 
+/**
+ * @brief Enumerates the supported crowd estimator strategy values used by
+ * this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - Not applicable to this declaration.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 enum class CrowdEstimatorStrategy {
   CountExposure,
   DiscountedCount,
@@ -19,9 +42,47 @@ enum class CrowdEstimatorStrategy {
   Thompson
 };
 
+/**
+ * @brief Converts string for this subsystem.
+ *
+ * Arguments:
+ * - @p strategy: Supplies strategy input to the operation.
+ *
+ * Returns:
+ * - `std::string_view` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::string_view toString(CrowdEstimatorStrategy strategy) noexcept;
+/**
+ * @brief Performs the crowd estimator strategy from string operation for
+ * this subsystem.
+ *
+ * Arguments:
+ * - @p value: Supplies value input to the operation.
+ *
+ * Returns:
+ * - `CrowdEstimatorStrategy` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 CrowdEstimatorStrategy crowdEstimatorStrategyFromString(std::string_view value);
 
+/**
+ * @brief Encapsulates crowd field learner configuration state and behavior
+ * for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - Not applicable to this declaration.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 struct CrowdFieldLearnerConfiguration {
   domain::GridGeometry geometry;
   CrowdEstimatorStrategy strategy{CrowdEstimatorStrategy::CountExposure};
@@ -35,9 +96,34 @@ struct CrowdFieldLearnerConfiguration {
   double cusum_threshold{10.0};
   std::uint32_t random_seed{0U};
 
+  /**
+   * @brief Validates package content for this subsystem.
+   *
+   * Arguments:
+   * - None.
+   *
+   * Returns:
+   * - No value; effects are applied to owned state or outputs.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   void validate() const;
 };
 
+/**
+ * @brief Encapsulates crowd learning update state and behavior for this
+ * subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - Not applicable to this declaration.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 struct CrowdLearningUpdate {
   bool accepted{false};
   bool published{false};
@@ -52,40 +138,214 @@ struct CrowdLearningUpdate {
   std::string status{"not_observed"};
 };
 
+/**
+ * @brief Encapsulates crowd field learner state and behavior for this
+ * subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - Not applicable to this declaration.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 class CrowdFieldLearner {
  public:
+  /**
+   * @brief Performs the crowd field learner operation for this subsystem.
+   *
+   * Arguments:
+   * - @p configuration: Supplies configuration input to the operation.
+   *
+   * Returns:
+   * - No value; effects are applied to owned state or outputs.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   explicit CrowdFieldLearner(CrowdFieldLearnerConfiguration configuration);
 
+  /**
+   * @brief Processes package content for this subsystem.
+   *
+   * Arguments:
+   * - @p robot_pose: Supplies robot pose input to the operation.
+   * - @p laser: Supplies laser input to the operation.
+   * - @p crowd: Supplies crowd input to the operation.
+   *
+   * Returns:
+   * - `bool` containing the operation result.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   bool observe(const domain::Pose2D& robot_pose,
                const domain::LaserObservation& laser,
                const domain::CrowdObservation& crowd);
 
+  /**
+   * @brief Performs the snapshot operation for this subsystem.
+   *
+   * Arguments:
+   * - None.
+   *
+   * Returns:
+   * - `const domain::CrowdFieldSnapshot&` containing the operation result.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   const domain::CrowdFieldSnapshot& snapshot() const noexcept {
     return snapshot_;
   }
+  /**
+   * @brief Performs the last update operation for this subsystem.
+   *
+   * Arguments:
+   * - None.
+   *
+   * Returns:
+   * - `const CrowdLearningUpdate&` containing the operation result.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   const CrowdLearningUpdate& lastUpdate() const noexcept {
     return last_update_;
   }
 
+  /**
+   * @brief Performs the restore operation for this subsystem.
+   *
+   * Arguments:
+   * - @p snapshot: Supplies snapshot input to the operation.
+   *
+   * Returns:
+   * - No value; effects are applied to owned state or outputs.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   void restore(domain::CrowdFieldSnapshot snapshot);
+  /**
+   * @brief Resets package content for this subsystem.
+   *
+   * Arguments:
+   * - None.
+   *
+   * Returns:
+   * - No value; effects are applied to owned state or outputs.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   void reset();
 
  private:
+  /**
+   * @brief Encapsulates cusum state state and behavior for this subsystem.
+   *
+   * Arguments:
+   * - None.
+   *
+   * Returns:
+   * - Not applicable to this declaration.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   struct CusumState {
     double log_likelihood{0.0};
     double minimum_log_likelihood{0.0};
     double sample_sum{0.0};
     std::size_t sample_count{0U};
 
+    /**
+     * @brief Performs the detect operation for this subsystem.
+     *
+     * Arguments:
+     * - @p sample: Supplies sample input to the operation.
+     * - @p change: Supplies change input to the operation.
+     * - @p threshold: Supplies threshold input to the operation.
+     *
+     * Returns:
+     * - `bool` containing the operation result.
+     *
+     * Exceptions:
+     * - None documented; validation or dependency failures may propagate.
+     */
     bool detect(double sample, double change, double threshold);
+    /**
+     * @brief Resets package content for this subsystem.
+     *
+     * Arguments:
+     * - None.
+     *
+     * Returns:
+     * - No value; effects are applied to owned state or outputs.
+     *
+     * Exceptions:
+     * - None documented; validation or dependency failures may propagate.
+     */
     void reset() noexcept;
   };
 
+  /**
+   * @brief Performs the visible cells operation for this subsystem.
+   *
+   * Arguments:
+   * - @p robot_pose: Supplies robot pose input to the operation.
+   * - @p laser: Supplies laser input to the operation.
+   *
+   * Returns:
+   * - `std::vector<bool>` containing the operation result.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   std::vector<bool> visibleCells(const domain::Pose2D& robot_pose,
                                  const domain::LaserObservation& laser) const;
+  /**
+   * @brief Performs the direction bin operation for this subsystem.
+   *
+   * Arguments:
+   * - @p velocity: Supplies velocity input to the operation.
+   *
+   * Returns:
+   * - `std::optional<std::size_t>` containing the operation result.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   std::optional<std::size_t> directionBin(
       const domain::Point2D& velocity) const noexcept;
+  /**
+   * @brief Performs the rebuild operation for this subsystem.
+   *
+   * Arguments:
+   * - @p generated_at: Supplies generated at input to the operation.
+   *
+   * Returns:
+   * - No value; effects are applied to owned state or outputs.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   void rebuild(domain::SocialTimestamp generated_at);
+  /**
+   * @brief Resets cell for this subsystem.
+   *
+   * Arguments:
+   * - @p index: Supplies index input to the operation.
+   *
+   * Returns:
+   * - No value; effects are applied to owned state or outputs.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   void resetCell(std::size_t index);
 
   CrowdFieldLearnerConfiguration configuration_;

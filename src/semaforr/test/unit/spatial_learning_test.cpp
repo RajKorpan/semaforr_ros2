@@ -1,3 +1,14 @@
+/**
+ * @file spatial_learning_test.cpp
+ * @brief Spatial learning test responsibilities.
+ *
+ * @details This file exercises spatial learning test behavior for automated
+ * verification and regression testing. It centers on `CapturingLearner`,
+ * `CountingReactive`, `PassiveReactive`, `TraceMandatory`, `TraceVeto`,
+ * `FixedPlanner`, `DefaultModulesDeclareLifecycleAndConsumers`,
+ * `LearnersCanBeEnabledAndObservedIndependently`. Its package-relative
+ * location is `test/unit/spatial_learning_test.cpp`.
+ */
 #include <gtest/gtest.h>
 
 #include <algorithm>
@@ -17,6 +28,20 @@
 
 namespace {
 
+/**
+ * @brief Performs the episode operation for this subsystem.
+ *
+ * Arguments:
+ * - @p sequence: Supplies sequence input to the operation.
+ * - @p x_m: Supplies x m input to the operation.
+ * - @p task_started: Supplies task started input to the operation.
+ *
+ * Returns:
+ * - `semaforr::spatial::NavigationEpisode` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 semaforr::spatial::NavigationEpisode episode(std::size_t sequence, double x_m,
                                              bool task_started = false) {
   using namespace semaforr;
@@ -51,23 +76,111 @@ semaforr::spatial::NavigationEpisode episode(std::size_t sequence, double x_m,
   return result;
 }
 
+/**
+ * @brief Encapsulates capturing learner state and behavior for this
+ * subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - Not applicable to this declaration.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 class CapturingLearner final : public semaforr::spatial::SpatialLearner {
  public:
+  /**
+   * @brief Processes package content for this subsystem.
+   *
+   * Arguments:
+   * - @p episode: Supplies episode input to the operation.
+   *
+   * Returns:
+   * - No value; effects are applied to owned state or outputs.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   void observe(const semaforr::spatial::NavigationEpisode& episode) override {
     captured = episode;
     ++update.observed_episodes;
     update.status = semaforr::spatial::ModelStatus::Fresh;
   }
 
+  /**
+   * @brief Performs the rebuild operation for this subsystem.
+   *
+   * Arguments:
+   * - None.
+   *
+   * Returns:
+   * - No value; effects are applied to owned state or outputs.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   void rebuild() override { ++update.revision; }
+  /**
+   * @brief Performs the snapshot operation for this subsystem.
+   *
+   * Arguments:
+   * - None.
+   *
+   * Returns:
+   * - `semaforr::spatial::SpatialModelUpdate` containing the operation
+   * result.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   semaforr::spatial::SpatialModelUpdate snapshot() const override {
     return update;
   }
+  /**
+   * @brief Performs the representation operation for this subsystem.
+   *
+   * Arguments:
+   * - None.
+   *
+   * Returns:
+   * - `semaforr::spatial::SpatialRepresentation` containing the operation
+   * result.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   semaforr::spatial::SpatialRepresentation representation()
       const noexcept override {
     return semaforr::spatial::SpatialRepresentation::Trails;
   }
+  /**
+   * @brief Performs the name operation for this subsystem.
+   *
+   * Arguments:
+   * - None.
+   *
+   * Returns:
+   * - `std::string_view` containing the operation result.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   std::string_view name() const noexcept override { return "capture"; }
+  /**
+   * @brief Performs the contract operation for this subsystem.
+   *
+   * Arguments:
+   * - None.
+   *
+   * Returns:
+   * - `const semaforr::spatial::ObservationContract&` containing the
+   * operation result.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   const semaforr::spatial::ObservationContract& contract()
       const noexcept override {
     return observation_contract;
@@ -85,18 +198,93 @@ class CapturingLearner final : public semaforr::spatial::SpatialLearner {
       semaforr::spatial::UpdateSchedule::AfterSuccessfulActionCompletion};
 };
 
+/**
+ * @brief Encapsulates counting reactive state and behavior for this
+ * subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - Not applicable to this declaration.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 class CountingReactive final : public semaforr::planning::ReactivePlanner {
  public:
+  /**
+   * @brief Performs the counting reactive operation for this subsystem.
+   *
+   * Arguments:
+   * - @p action: Supplies action input to the operation.
+   *
+   * Returns:
+   * - No value; effects are applied to owned state or outputs.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   explicit CountingReactive(semaforr::domain::Action action)
       : action_(action) {}
+  /**
+   * @brief Performs the name operation for this subsystem.
+   *
+   * Arguments:
+   * - None.
+   *
+   * Returns:
+   * - `std::string_view` containing the operation result.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   std::string_view name() const noexcept override { return "counting_reactive"; }
+  /**
+   * @brief Performs the dependencies operation for this subsystem.
+   *
+   * Arguments:
+   * - None.
+   *
+   * Returns:
+   * - `std::vector<std::string_view>` containing the operation result.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   std::vector<std::string_view> dependencies() const override { return {}; }
+  /**
+   * @brief Evaluates trigger for this subsystem.
+   *
+   * Arguments:
+   * - @p DecisionContext: Supplies decision context input to the operation.
+   *
+   * Returns:
+   * - `semaforr::planning::TriggerEvaluation` containing the operation
+   * result.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   semaforr::planning::TriggerEvaluation evaluateTrigger(
       const semaforr::decision::DecisionContext&) const override {
     ++trigger_count;
     return {triggered, triggered ? "active for ordering test"
                                  : "inactive for ordering test"};
   }
+  /**
+   * @brief Updates package content for this subsystem.
+   *
+   * Arguments:
+   * - @p DecisionContext: Supplies decision context input to the operation.
+   *
+   * Returns:
+   * - `semaforr::planning::ReactivePlanUpdate` containing the operation
+   * result.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   semaforr::planning::ReactivePlanUpdate update(
       const semaforr::decision::DecisionContext&) override {
     ++update_count;
@@ -106,6 +294,19 @@ class CountingReactive final : public semaforr::planning::ReactivePlanner {
     result.explanation = "ordering test action";
     return result;
   }
+  /**
+   * @brief Performs the cancel operation for this subsystem.
+   *
+   * Arguments:
+   * - @p InterruptionReason: Supplies interruption reason input to the
+   * operation.
+   *
+   * Returns:
+   * - No value; effects are applied to owned state or outputs.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   void cancel(semaforr::planning::InterruptionReason) override {
     ++cancel_count;
   }
@@ -119,29 +320,167 @@ class CountingReactive final : public semaforr::planning::ReactivePlanner {
   semaforr::domain::Action action_;
 };
 
+/**
+ * @brief Encapsulates passive reactive state and behavior for this
+ * subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - Not applicable to this declaration.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 class PassiveReactive final : public semaforr::planning::ReactivePlanner {
  public:
+  /**
+   * @brief Performs the passive reactive operation for this subsystem.
+   *
+   * Arguments:
+   * - @p name: Supplies name input to the operation.
+   *
+   * Returns:
+   * - No value; effects are applied to owned state or outputs.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   explicit PassiveReactive(std::string name) : name_(std::move(name)) {}
+  /**
+   * @brief Performs the name operation for this subsystem.
+   *
+   * Arguments:
+   * - None.
+   *
+   * Returns:
+   * - `std::string_view` containing the operation result.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   std::string_view name() const noexcept override { return name_; }
+  /**
+   * @brief Performs the dependencies operation for this subsystem.
+   *
+   * Arguments:
+   * - None.
+   *
+   * Returns:
+   * - `std::vector<std::string_view>` containing the operation result.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   std::vector<std::string_view> dependencies() const override { return {}; }
+  /**
+   * @brief Evaluates trigger for this subsystem.
+   *
+   * Arguments:
+   * - @p DecisionContext: Supplies decision context input to the operation.
+   *
+   * Returns:
+   * - `semaforr::planning::TriggerEvaluation` containing the operation
+   * result.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   semaforr::planning::TriggerEvaluation evaluateTrigger(
       const semaforr::decision::DecisionContext&) const override {
     return {false, "ordering fixture inactive"};
   }
+  /**
+   * @brief Updates package content for this subsystem.
+   *
+   * Arguments:
+   * - @p DecisionContext: Supplies decision context input to the operation.
+   *
+   * Returns:
+   * - `semaforr::planning::ReactivePlanUpdate` containing the operation
+   * result.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   semaforr::planning::ReactivePlanUpdate update(
       const semaforr::decision::DecisionContext&) override {
     return {};
   }
+  /**
+   * @brief Performs the cancel operation for this subsystem.
+   *
+   * Arguments:
+   * - @p InterruptionReason: Supplies interruption reason input to the
+   * operation.
+   *
+   * Returns:
+   * - No value; effects are applied to owned state or outputs.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   void cancel(semaforr::planning::InterruptionReason) override {}
 
  private:
   std::string name_;
 };
 
+/**
+ * @brief Encapsulates trace mandatory state and behavior for this
+ * subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - Not applicable to this declaration.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 class TraceMandatory final : public semaforr::decision::MandatoryRule {
  public:
+  /**
+   * @brief Performs the trace mandatory operation for this subsystem.
+   *
+   * Arguments:
+   * - @p name: Supplies name input to the operation.
+   *
+   * Returns:
+   * - No value; effects are applied to owned state or outputs.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   explicit TraceMandatory(std::string name) : name_(std::move(name)) {}
+  /**
+   * @brief Performs the name operation for this subsystem.
+   *
+   * Arguments:
+   * - None.
+   *
+   * Returns:
+   * - `std::string_view` containing the operation result.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   std::string_view name() const noexcept override { return name_; }
+  /**
+   * @brief Evaluates package content for this subsystem.
+   *
+   * Arguments:
+   * - @p DecisionContext: Supplies decision context input to the operation.
+   *
+   * Returns:
+   * - `std::optional<semaforr::decision::Decision>` containing the
+   * operation result.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   std::optional<semaforr::decision::Decision> evaluate(
       const semaforr::decision::DecisionContext&) const override {
     return std::nullopt;
@@ -151,10 +490,59 @@ class TraceMandatory final : public semaforr::decision::MandatoryRule {
   std::string name_;
 };
 
+/**
+ * @brief Encapsulates trace veto state and behavior for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - Not applicable to this declaration.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 class TraceVeto final : public semaforr::decision::VetoRule {
  public:
+  /**
+   * @brief Performs the trace veto operation for this subsystem.
+   *
+   * Arguments:
+   * - @p name: Supplies name input to the operation.
+   *
+   * Returns:
+   * - No value; effects are applied to owned state or outputs.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   explicit TraceVeto(std::string name) : name_(std::move(name)) {}
+  /**
+   * @brief Performs the name operation for this subsystem.
+   *
+   * Arguments:
+   * - None.
+   *
+   * Returns:
+   * - `std::string_view` containing the operation result.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   std::string_view name() const noexcept override { return name_; }
+  /**
+   * @brief Evaluates package content for this subsystem.
+   *
+   * Arguments:
+   * - @p DecisionContext: Supplies decision context input to the operation.
+   *
+   * Returns:
+   * - `std::vector<semaforr::decision::Veto>` containing the operation
+   * result.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   std::vector<semaforr::decision::Veto> evaluate(
       const semaforr::decision::DecisionContext&) const override {
     return {};
@@ -164,10 +552,58 @@ class TraceVeto final : public semaforr::decision::VetoRule {
   std::string name_;
 };
 
+/**
+ * @brief Encapsulates fixed planner state and behavior for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - Not applicable to this declaration.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 class FixedPlanner final : public semaforr::planning::Planner {
  public:
+  /**
+   * @brief Performs the fixed planner operation for this subsystem.
+   *
+   * Arguments:
+   * - @p succeeds: Supplies succeeds input to the operation.
+   *
+   * Returns:
+   * - No value; effects are applied to owned state or outputs.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   explicit FixedPlanner(bool succeeds) : succeeds_(succeeds) {}
+  /**
+   * @brief Performs the name operation for this subsystem.
+   *
+   * Arguments:
+   * - None.
+   *
+   * Returns:
+   * - `std::string_view` containing the operation result.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   std::string_view name() const noexcept override { return "fixed_planner"; }
+  /**
+   * @brief Constructs package content for this subsystem.
+   *
+   * Arguments:
+   * - @p request: Supplies request input to the operation.
+   *
+   * Returns:
+   * - `semaforr::planning::PlanResult` containing the operation result.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   semaforr::planning::PlanResult plan(
       const semaforr::planning::PlanningRequest& request) override {
     ++calls;
@@ -185,6 +621,21 @@ class FixedPlanner final : public semaforr::planning::Planner {
   bool succeeds_;
 };
 
+/**
+ * @brief Performs the complete selected action operation for this
+ * subsystem.
+ *
+ * Arguments:
+ * - @p engine: Supplies engine input to the operation.
+ * - @p result: Supplies result input to the operation.
+ * - @p pose: Supplies pose input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void completeSelectedAction(semaforr::decision::NavigationEngine& engine,
                             const semaforr::decision::DecisionResult& result,
                             const semaforr::domain::Pose2D& pose) {

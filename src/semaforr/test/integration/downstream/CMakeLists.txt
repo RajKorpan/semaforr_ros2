@@ -1,3 +1,4 @@
+# File overview: This file exercises build behavior for automated verification and regression testing. It records the declarations, settings, fixtures, or guidance needed by that responsibility. Its package-relative location is `test/integration/downstream/CMakeLists.txt`.
 cmake_minimum_required(VERSION 3.16)
 project(semaforr_downstream_smoke LANGUAGES CXX)
 

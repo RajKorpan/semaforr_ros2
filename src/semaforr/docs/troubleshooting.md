@@ -1,3 +1,5 @@
+<!-- File overview: This file documents or configures troubleshooting behavior for the maintained architecture and user documentation. It records the declarations, settings, fixtures, or guidance needed by that responsibility. Its package-relative location is `docs/troubleshooting.md`. -->
+
 # Troubleshooting
 
 ## The node exits during configuration

@@ -1,3 +1,5 @@
+<!-- File overview: This file documents or configures readme behavior for the SemaFORR navigation package. It records the declarations, settings, fixtures, or guidance needed by that responsibility. Its package-relative location is `README.md`. -->
+
 
 # SemaFORR Navigation Package
 

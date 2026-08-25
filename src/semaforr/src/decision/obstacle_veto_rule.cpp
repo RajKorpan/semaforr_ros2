@@ -1,3 +1,12 @@
+/**
+ * @file obstacle_veto_rule.cpp
+ * @brief Obstacle veto rule responsibilities.
+ *
+ * @details This file implements obstacle veto rule behavior for tiered decision
+ * making and action arbitration. It records the declarations, settings,
+ * fixtures, or guidance needed by that responsibility. Its
+ * package-relative location is `src/decision/obstacle_veto_rule.cpp`.
+ */
 #include <algorithm>
 #include <cmath>
 #include <limits>
@@ -8,6 +17,21 @@
 
 namespace semaforr::decision {
 
+/**
+ * @brief Performs the obstacle veto rule operation for this subsystem.
+ *
+ * Arguments:
+ * - @p move_distances_m: Supplies move distances m input to the operation.
+ * - @p robot_radius_m: Supplies robot radius m input to the operation.
+ * - @p obstacle_buffer_m: Supplies obstacle buffer m input to the
+ * operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 ObstacleVetoRule::ObstacleVetoRule(std::vector<double> move_distances_m,
                                    double robot_radius_m,
                                    double obstacle_buffer_m)
@@ -28,6 +52,18 @@ ObstacleVetoRule::ObstacleVetoRule(std::vector<double> move_distances_m,
   }
 }
 
+/**
+ * @brief Evaluates package content for this subsystem.
+ *
+ * Arguments:
+ * - @p context: Supplies context input to the operation.
+ *
+ * Returns:
+ * - `std::vector<Veto>` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::vector<Veto> ObstacleVetoRule::evaluate(
     const DecisionContext& context) const {
   const auto& laser = context.world.robot.laser;

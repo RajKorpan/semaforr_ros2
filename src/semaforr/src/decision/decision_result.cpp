@@ -1,7 +1,28 @@
+/**
+ * @file decision_result.cpp
+ * @brief Decision result responsibilities.
+ *
+ * @details This file implements decision result behavior for tiered decision making
+ * and action arbitration. It records the declarations, settings, fixtures,
+ * or guidance needed by that responsibility. Its package-relative location
+ * is `src/decision/decision_result.cpp`.
+ */
 #include <semaforr/decision/decision_result.hpp>
 
 namespace semaforr::decision {
 
+/**
+ * @brief Converts string for this subsystem.
+ *
+ * Arguments:
+ * - @p source: Supplies source input to the operation.
+ *
+ * Returns:
+ * - `std::string_view` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::string_view toString(DecisionSource source) noexcept {
   switch (source) {
     case DecisionSource::MandatoryRule:
@@ -20,6 +41,18 @@ std::string_view toString(DecisionSource source) noexcept {
   return "unknown";
 }
 
+/**
+ * @brief Converts string for this subsystem.
+ *
+ * Arguments:
+ * - @p tier: Supplies tier input to the operation.
+ *
+ * Returns:
+ * - `std::string_view` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::string_view toString(DecisionTier tier) noexcept {
   switch (tier) {
     case DecisionTier::TierOne:
@@ -38,6 +71,18 @@ std::string_view toString(DecisionTier tier) noexcept {
   return "unknown";
 }
 
+/**
+ * @brief Converts string for this subsystem.
+ *
+ * Arguments:
+ * - @p outcome: Supplies outcome input to the operation.
+ *
+ * Returns:
+ * - `std::string_view` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::string_view toString(ActionOutcome outcome) noexcept {
   switch (outcome) {
     case ActionOutcome::Pending:
@@ -74,6 +119,18 @@ std::string_view toString(ActionOutcome outcome) noexcept {
   return "unknown";
 }
 
+/**
+ * @brief Converts string for this subsystem.
+ *
+ * Arguments:
+ * - @p kind: Supplies kind input to the operation.
+ *
+ * Returns:
+ * - `std::string_view` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::string_view toString(RejectionKind kind) noexcept {
   switch (kind) {
     case RejectionKind::Safety: return "safety_rejection";
@@ -83,6 +140,18 @@ std::string_view toString(RejectionKind kind) noexcept {
   return "not_viable";
 }
 
+/**
+ * @brief Converts string for this subsystem.
+ *
+ * Arguments:
+ * - @p category: Supplies category input to the operation.
+ *
+ * Returns:
+ * - `std::string_view` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::string_view toString(VetoCategory category) noexcept {
   switch (category) {
     case VetoCategory::Unsafe: return "unsafe";

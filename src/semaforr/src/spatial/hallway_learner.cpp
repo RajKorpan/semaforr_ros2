@@ -1,3 +1,12 @@
+/**
+ * @file hallway_learner.cpp
+ * @brief Hallway learner responsibilities.
+ *
+ * @details This file implements hallway learner behavior for learned spatial
+ * representations and their lifecycle. It records the declarations,
+ * settings, fixtures, or guidance needed by that responsibility. Its
+ * package-relative location is `src/spatial/hallway_learner.cpp`.
+ */
 #include <cmath>
 #include <cstdint>
 #include <semaforr/spatial/learners/hallway_learner.hpp>
@@ -8,6 +17,21 @@
 
 namespace semaforr::spatial {
 
+/**
+ * @brief Performs the hallway learner operation for this subsystem.
+ *
+ * Arguments:
+ * - @p minimum_centerline_length_m: Supplies minimum centerline length m
+ * input to the operation.
+ * - @p mode: Supplies mode input to the operation.
+ * - @p compatibility: Supplies compatibility input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 HallwayLearner::HallwayLearner(
     double minimum_centerline_length_m, SpatialLearningMode mode,
     HallwayLearningConfiguration compatibility)
@@ -33,8 +57,32 @@ HallwayLearner::HallwayLearner(
   }
 }
 
+/**
+ * @brief Performs the on observe operation for this subsystem.
+ *
+ * Arguments:
+ * - @p argument_1: Supplies argument 1 input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void HallwayLearner::onObserve(const NavigationEpisode&) {}
 
+/**
+ * @brief Performs the on rebuild operation for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void HallwayLearner::onRebuild() {
   if (mode_ == SpatialLearningMode::Compatibility) {
     auto model = learnCompatibilityHallways(

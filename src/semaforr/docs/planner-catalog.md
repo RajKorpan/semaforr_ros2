@@ -1,3 +1,5 @@
+<!-- File overview: This file documents or configures planner catalog behavior for the maintained architecture and user documentation. It records the declarations, settings, fixtures, or guidance needed by that responsibility. Its package-relative location is `docs/planner-catalog.md`. -->
+
 # Planner catalog
 
 Planner names are case-sensitive and selected through `planners.enabled`.

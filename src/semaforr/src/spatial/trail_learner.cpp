@@ -1,9 +1,33 @@
+/**
+ * @file trail_learner.cpp
+ * @brief Trail learner responsibilities.
+ *
+ * @details This file implements trail learner behavior for learned spatial
+ * representations and their lifecycle. It records the declarations,
+ * settings, fixtures, or guidance needed by that responsibility. Its
+ * package-relative location is `src/spatial/trail_learner.cpp`.
+ */
 #include <cmath>
 #include <semaforr/spatial/learners/trail_learner.hpp>
 #include <stdexcept>
 
 namespace semaforr::spatial {
 
+/**
+ * @brief Performs the trail learner operation for this subsystem.
+ *
+ * Arguments:
+ * - @p minimum_sample_distance_m: Supplies minimum sample distance m input
+ * to the operation.
+ * - @p mode: Supplies mode input to the operation.
+ * - @p compatibility: Supplies compatibility input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 TrailLearner::TrailLearner(
     double minimum_sample_distance_m, SpatialLearningMode mode,
     TrailLearningConfiguration compatibility)
@@ -33,6 +57,18 @@ TrailLearner::TrailLearner(
   }
 }
 
+/**
+ * @brief Performs the on observe operation for this subsystem.
+ *
+ * Arguments:
+ * - @p episode: Supplies episode input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void TrailLearner::onObserve(const NavigationEpisode& episode) {
   if (mode_ == SpatialLearningMode::Compatibility) return;
   if (!episode.actionSucceeded()) return;
@@ -54,6 +90,18 @@ void TrailLearner::onObserve(const NavigationEpisode& episode) {
                    : "a trail requires at least two distinct poses");
 }
 
+/**
+ * @brief Performs the on rebuild operation for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void TrailLearner::onRebuild() {
   if (mode_ == SpatialLearningMode::Compatibility) {
     TrailModel rebuilt;

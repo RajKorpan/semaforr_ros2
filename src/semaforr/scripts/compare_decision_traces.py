@@ -1,5 +1,27 @@
 #!/usr/bin/env python3
-"""Compare semantic SemaFORR decision traces and classify every difference."""
+"""SemaFORR module overview.
+
+Summary:
+    This file implements compare decision traces behavior for developer tooling and experiment automation. It centers on `_decisions`, `compare`, `main`. Its package-relative location is `scripts/compare_decision_traces.py`.
+
+Arguments:
+    Not applicable at module scope.
+
+Returns:
+    Not applicable at module scope.
+
+Raises:
+    Import-time dependency errors may propagate.
+"""
+
+
+
+
+
+
+
+
+
 
 import argparse
 import json
@@ -19,6 +41,18 @@ ALLOWED_DIFFERENCES = {
 
 
 def _decisions(document: dict[str, Any]) -> list[dict[str, Any]]:
+    """Summary:
+        Performs the decisions operation for this subsystem.
+
+    Args:
+        document (dict[str, Any]): Supplies document input to the operation.
+
+    Returns:
+        list[dict[str, Any]]
+
+    Raises:
+        ValueError: If required input or state is invalid.
+    """
     section = document.get("expected", document.get("result", document))
     decisions = section.get("decisions")
     if not isinstance(decisions, list):
@@ -31,7 +65,20 @@ def compare(
     current: dict[str, Any],
     annotations: dict[str, Any],
 ) -> dict[str, Any]:
-    """Return a complete, deterministic classification report."""
+    """Summary:
+        Return a complete, deterministic classification report.
+
+    Args:
+        baseline (dict[str, Any]): Supplies baseline input to the operation.
+        current (dict[str, Any]): Supplies current input to the operation.
+        annotations (dict[str, Any]): Supplies annotations input to the operation.
+
+    Returns:
+        dict[str, Any]
+
+    Raises:
+        None documented; dependency failures may propagate.
+    """
     expected = {
         f"{decision['task']}:{decision['decision']}": decision
         for decision in _decisions(baseline)
@@ -91,6 +138,18 @@ def compare(
 
 
 def main() -> int:
+    """Summary:
+        Performs the main operation for this subsystem.
+
+    Args:
+        None.
+
+    Returns:
+        int
+
+    Raises:
+        None documented; dependency failures may propagate.
+    """
     parser = argparse.ArgumentParser()
     parser.add_argument("baseline", type=Path)
     parser.add_argument("current", type=Path)

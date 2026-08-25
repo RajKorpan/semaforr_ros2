@@ -1,3 +1,12 @@
+/**
+ * @file configuration_smoke.cpp
+ * @brief Configuration smoke responsibilities.
+ *
+ * @details This file exercises configuration smoke behavior for automated
+ * verification and regression testing. It records the declarations,
+ * settings, fixtures, or guidance needed by that responsibility. Its
+ * package-relative location is `test/unit/configuration_smoke.cpp`.
+ */
 #include <algorithm>
 #include <cassert>
 #include <iostream>
@@ -13,6 +22,18 @@
 
 namespace {
 
+/**
+ * @brief Performs the valid configuration operation for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - `semaforr::config::Configuration` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 semaforr::config::Configuration validConfiguration() {
   semaforr::config::Configuration configuration;
   configuration.navigation.task_decision_limit = 20;
@@ -35,6 +56,20 @@ semaforr::config::Configuration validConfiguration() {
   return configuration;
 }
 
+/**
+ * @brief Performs the assert throws containing operation for this
+ * subsystem.
+ *
+ * Arguments:
+ * - @p operation: Supplies operation input to the operation.
+ * - @p expected: Supplies expected input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 template <typename Operation>
 void assertThrowsContaining(Operation operation, const std::string& expected) {
   try {
@@ -50,6 +85,18 @@ void assertThrowsContaining(Operation operation, const std::string& expected) {
 
 }  // namespace
 
+/**
+ * @brief Performs the main operation for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - `int` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 int main() {
   const auto valid = validConfiguration();
   assert(semaforr::config::behaviorModeFromString("modernized") ==

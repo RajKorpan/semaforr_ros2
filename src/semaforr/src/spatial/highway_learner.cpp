@@ -1,3 +1,11 @@
+/**
+ * @file highway_learner.cpp
+ * @brief Highway learner responsibilities.
+ *
+ * @details This file implements highway learner behavior for learned spatial
+ * representations and their lifecycle. It centers on `Score`. Its
+ * package-relative location is `src/spatial/highway_learner.cpp`.
+ */
 #include <algorithm>
 #include <cmath>
 #include <limits>
@@ -10,18 +18,54 @@
 namespace semaforr::spatial {
 namespace {
 
+/**
+ * @brief Performs the smoothing name operation for this subsystem.
+ *
+ * Arguments:
+ * - @p policy: Supplies policy input to the operation.
+ *
+ * Returns:
+ * - `const char*` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 const char* smoothingName(HighwaySmoothingPolicy policy) noexcept {
   return policy == HighwaySmoothingPolicy::VonNeumannThreeOfFour
              ? "von_neumann_three_of_four"
              : "directional_gap_fill";
 }
 
+/**
+ * @brief Performs the component name operation for this subsystem.
+ *
+ * Arguments:
+ * - @p policy: Supplies policy input to the operation.
+ *
+ * Returns:
+ * - `const char*` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 const char* componentName(HighwayComponentSelectionPolicy policy) noexcept {
   return policy == HighwayComponentSelectionPolicy::MostIntersections
              ? "most_intersections"
              : "largest_vertex_count";
 }
 
+/**
+ * @brief Performs the polyline length operation for this subsystem.
+ *
+ * Arguments:
+ * - @p points: Supplies points input to the operation.
+ *
+ * Returns:
+ * - `double` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 double polylineLength(const std::vector<domain::Point2D>& points) {
   double result = 0.0;
   for (std::size_t index = 1U; index < points.size(); ++index)
@@ -29,6 +73,20 @@ double polylineLength(const std::vector<domain::Point2D>& points) {
   return result;
 }
 
+/**
+ * @brief Performs the scan passage count operation for this subsystem.
+ *
+ * Arguments:
+ * - @p laser: Supplies laser input to the operation.
+ * - @p minimum_clearance_m: Supplies minimum clearance m input to the
+ * operation.
+ *
+ * Returns:
+ * - `std::size_t` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::size_t scanPassageCount(const domain::LaserObservation& laser,
                              double minimum_clearance_m) {
   std::size_t run = 0U;
@@ -43,6 +101,22 @@ std::size_t scanPassageCount(const domain::LaserObservation& laser,
   return passages;
 }
 
+/**
+ * @brief Performs the configuration with thresholds operation for this
+ * subsystem.
+ *
+ * Arguments:
+ * - @p minimum_node_spacing_m: Supplies minimum node spacing m input to the
+ * operation.
+ * - @p passage_clearance_m: Supplies passage clearance m input to the
+ * operation.
+ *
+ * Returns:
+ * - `HighwayLearningConfiguration` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 HighwayLearningConfiguration configurationWithThresholds(
     double minimum_node_spacing_m, double passage_clearance_m) {
   HighwayLearningConfiguration result;
@@ -53,6 +127,21 @@ HighwayLearningConfiguration configurationWithThresholds(
 
 }  // namespace
 
+/**
+ * @brief Performs the smooth highway cells operation for this subsystem.
+ *
+ * Arguments:
+ * - @p free_cells: Supplies free cells input to the operation.
+ * - @p obstructed_cells: Supplies obstructed cells input to the operation.
+ * - @p labeled_cells: Supplies labeled cells input to the operation.
+ * - @p policy: Supplies policy input to the operation.
+ *
+ * Returns:
+ * - `HighwayCellSet` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 HighwayCellSet smoothHighwayCells(
     const HighwayCellSet& free_cells,
     const HighwayCellSet& obstructed_cells,
@@ -86,6 +175,20 @@ HighwayCellSet smoothHighwayCells(
   return result;
 }
 
+/**
+ * @brief Performs the select highway component operation for this
+ * subsystem.
+ *
+ * Arguments:
+ * - @p graph: Supplies graph input to the operation.
+ * - @p policy: Supplies policy input to the operation.
+ *
+ * Returns:
+ * - `HighwayComponentSelection` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 HighwayComponentSelection selectHighwayComponent(
     const domain::Graph<domain::Intersection, domain::HighwayEdge>& graph,
     HighwayComponentSelectionPolicy policy) {
@@ -138,11 +241,38 @@ HighwayComponentSelection selectHighwayComponent(
   return result;
 }
 
+/**
+ * @brief Performs the highway learner operation for this subsystem.
+ *
+ * Arguments:
+ * - @p minimum_node_spacing_m: Supplies minimum node spacing m input to the
+ * operation.
+ * - @p passage_clearance_m: Supplies passage clearance m input to the
+ * operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 HighwayLearner::HighwayLearner(double minimum_node_spacing_m,
                                double passage_clearance_m)
     : HighwayLearner(configurationWithThresholds(minimum_node_spacing_m,
                                                  passage_clearance_m)) {}
 
+/**
+ * @brief Performs the highway learner operation for this subsystem.
+ *
+ * Arguments:
+ * - @p configuration: Supplies configuration input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 HighwayLearner::HighwayLearner(HighwayLearningConfiguration configuration)
     : SpatialLearnerBase(
           SpatialRepresentation::Highways, "highways",
@@ -170,6 +300,18 @@ HighwayLearner::HighwayLearner(HighwayLearningConfiguration configuration)
       componentName(configuration_.component_selection_policy);
 }
 
+/**
+ * @brief Performs the world cell operation for this subsystem.
+ *
+ * Arguments:
+ * - @p point: Supplies point input to the operation.
+ *
+ * Returns:
+ * - `std::pair<long long, long long>` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::pair<long long, long long> HighwayLearner::worldCell(
     domain::Point2D point) const {
   return {static_cast<long long>(std::floor(
@@ -180,6 +322,19 @@ std::pair<long long, long long> HighwayLearner::worldCell(
               configuration_.grid_resolution_m))};
 }
 
+/**
+ * @brief Performs the world center operation for this subsystem.
+ *
+ * Arguments:
+ * - @p argument_1: Supplies argument 1 input to the operation.
+ * - @p argument_2: Supplies argument 2 input to the operation.
+ *
+ * Returns:
+ * - `domain::Point2D` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 domain::Point2D HighwayLearner::worldCenter(long long row,
                                             long long column) const {
   return {configuration_.grid_origin.x_m +
@@ -190,6 +345,19 @@ domain::Point2D HighwayLearner::worldCenter(long long row,
                   configuration_.grid_resolution_m};
 }
 
+/**
+ * @brief Performs the historical subtrail operation for this subsystem.
+ *
+ * Arguments:
+ * - @p from: Supplies from input to the operation.
+ * - @p to: Supplies to input to the operation.
+ *
+ * Returns:
+ * - `std::vector<domain::Point2D>` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::vector<domain::Point2D> HighwayLearner::historicalSubtrail(
     domain::Point2D from, domain::Point2D to) const {
   if (model_.nodes.empty()) return {from, to};
@@ -228,6 +396,18 @@ std::vector<domain::Point2D> HighwayLearner::historicalSubtrail(
   return result;
 }
 
+/**
+ * @brief Performs the rebuild intersections operation for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void HighwayLearner::rebuildIntersections() {
   std::vector<std::size_t> degree(model_.nodes.size(), 0U);
   for (const auto& edge : model_.edges) {
@@ -239,6 +419,18 @@ void HighwayLearner::rebuildIntersections() {
     if (degree[node] >= 3U) model_.intersections.push_back({node, degree[node]});
 }
 
+/**
+ * @brief Performs the smooth touched grid operation for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void HighwayLearner::smoothTouchedGrid() {
   const auto smoothed = smoothHighwayCells(
       free_cells_, obstructed_cells_, highway_cells_,
@@ -251,6 +443,18 @@ void HighwayLearner::smoothTouchedGrid() {
   highway_cells_ = smoothed;
 }
 
+/**
+ * @brief Performs the materialize grid operation for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void HighwayLearner::materializeGrid() {
   model_.grid_labels.clear();
   model_.touched_rows.clear();
@@ -302,6 +506,18 @@ void HighwayLearner::materializeGrid() {
     model_.touched_columns.push_back(static_cast<int>(column - minimum_column));
 }
 
+/**
+ * @brief Performs the extract highways operation for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void HighwayLearner::extractHighways() {
   std::map<int, std::vector<int>> rows;
   std::map<int, std::vector<int>> columns;
@@ -438,6 +654,18 @@ void HighwayLearner::extractHighways() {
   model_.graph.vertices = std::move(vertices);
 }
 
+/**
+ * @brief Performs the on observe operation for this subsystem.
+ *
+ * Arguments:
+ * - @p episode: Supplies episode input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void HighwayLearner::onObserve(const NavigationEpisode& episode) {
   if (!episode.initial_exploration) return;
   const auto& observation = episode.observation;
@@ -529,6 +757,18 @@ void HighwayLearner::onObserve(const NavigationEpisode& episode) {
   }
 }
 
+/**
+ * @brief Performs the on rebuild operation for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void HighwayLearner::onRebuild() {
   smoothTouchedGrid();
   materializeGrid();

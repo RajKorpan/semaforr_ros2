@@ -1,3 +1,26 @@
+"""SemaFORR module overview.
+
+Summary:
+    This file exercises test social navigation contract behavior for automated verification and regression testing. It centers on `read`, `test_upstream_social_messages_are_adapted_at_the_ros_boundary`, `test_crowd_model_unifies_live_and_learned_social_state`, `test_advisors_and_planners_consume_domain_crowd_model`, `test_stale_social_data_has_explicit_fallback`, `test_structured_social_modes_validate_only_selected_dependencies`, `test_crowd_visualization_is_direct_and_ros_transport_is_absent`, `test_decisions_plans_replay_and_why_share_social_diagnostics`. Its package-relative location is `test/contracts/test_social_navigation_contract.py`.
+
+Arguments:
+    Not applicable at module scope.
+
+Returns:
+    Not applicable at module scope.
+
+Raises:
+    Import-time dependency errors may propagate.
+"""
+
+
+
+
+
+
+
+
+
 import os
 from pathlib import Path
 
@@ -8,10 +31,34 @@ SOURCE_DIR = Path(
 
 
 def read(relative):
+    """Summary:
+        Reads package content for this subsystem.
+
+    Args:
+        relative (Any): Supplies relative input to the operation.
+
+    Returns:
+        Any
+
+    Raises:
+        None documented; dependency failures may propagate.
+    """
     return (SOURCE_DIR / relative).read_text(encoding="utf-8")
 
 
 def test_upstream_social_messages_are_adapted_at_the_ros_boundary():
+    """Summary:
+        Performs the test upstream social messages are adapted at the ros boundary operation for this subsystem.
+
+    Args:
+        None.
+
+    Returns:
+        Any
+
+    Raises:
+        None documented; dependency failures may propagate.
+    """
     adapters = read("src/ros/message_adapters.cpp")
     node = read("src/ros/semaforr_node_component.cpp")
     assert "TrackedPersonArray" in adapters + node
@@ -24,6 +71,18 @@ def test_upstream_social_messages_are_adapted_at_the_ros_boundary():
 
 
 def test_crowd_model_unifies_live_and_learned_social_state():
+    """Summary:
+        Performs the test crowd model unifies live and learned social state operation for this subsystem.
+
+    Args:
+        None.
+
+    Returns:
+        Any
+
+    Raises:
+        None documented; dependency failures may propagate.
+    """
     model = read("include/semaforr/domain/crowd_model.hpp")
     revisions = read("include/semaforr/domain/model_revision.hpp")
     for concept in (
@@ -43,6 +102,18 @@ def test_crowd_model_unifies_live_and_learned_social_state():
 
 
 def test_advisors_and_planners_consume_domain_crowd_model():
+    """Summary:
+        Performs the test advisors and planners consume domain crowd model operation for this subsystem.
+
+    Args:
+        None.
+
+    Returns:
+        Any
+
+    Raises:
+        None documented; dependency failures may propagate.
+    """
     advisor = read("src/decision/advisors/social/social_navigation_advisor.cpp")
     learned = read("src/decision/advisors/social/learned_crowd_advisor.cpp")
     planner = read("src/planning/domain_planner.cpp")
@@ -53,6 +124,18 @@ def test_advisors_and_planners_consume_domain_crowd_model():
 
 
 def test_stale_social_data_has_explicit_fallback():
+    """Summary:
+        Performs the test stale social data has explicit fallback operation for this subsystem.
+
+    Args:
+        None.
+
+    Returns:
+        Any
+
+    Raises:
+        None documented; dependency failures may propagate.
+    """
     advisor = read("src/decision/advisors/social/social_navigation_advisor.cpp")
     planner = read("src/planning/domain_planner.cpp")
     assert "current->usable" in advisor
@@ -61,6 +144,18 @@ def test_stale_social_data_has_explicit_fallback():
 
 
 def test_structured_social_modes_validate_only_selected_dependencies():
+    """Summary:
+        Performs the test structured social modes validate only selected dependencies operation for this subsystem.
+
+    Args:
+        None.
+
+    Returns:
+        Any
+
+    Raises:
+        None documented; dependency failures may propagate.
+    """
     node = read("src/ros/semaforr_node_component.cpp")
     parameter_config = read("src/ros/parameter_configuration.cpp")
     config = read("config/semaforr.yaml")
@@ -86,6 +181,18 @@ def test_structured_social_modes_validate_only_selected_dependencies():
 
 
 def test_crowd_visualization_is_direct_and_ros_transport_is_absent():
+    """Summary:
+        Performs the test crowd visualization is direct and ros transport is absent operation for this subsystem.
+
+    Args:
+        None.
+
+    Returns:
+        Any
+
+    Raises:
+        None documented; dependency failures may propagate.
+    """
     visualization = read("src/ros/visualization_publisher.cpp")
     assert "world_.crowd" in visualization
     assert "nav_msgs::msg::OccupancyGrid" in visualization
@@ -104,6 +211,18 @@ def test_crowd_visualization_is_direct_and_ros_transport_is_absent():
 
 
 def test_decisions_plans_replay_and_why_share_social_diagnostics():
+    """Summary:
+        Performs the test decisions plans replay and why share social diagnostics operation for this subsystem.
+
+    Args:
+        None.
+
+    Returns:
+        Any
+
+    Raises:
+        None documented; dependency failures may propagate.
+    """
     decision = read("include/semaforr/decision/decision_result.hpp")
     navigation = read("src/decision/navigation_engine.cpp")
     replay = read("src/validation/replay.cpp")

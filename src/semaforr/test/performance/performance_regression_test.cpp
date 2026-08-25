@@ -1,3 +1,15 @@
+/**
+ * @file performance_regression_test.cpp
+ * @brief Performance regression test responsibilities.
+ *
+ * @details This file exercises performance regression test behavior for automated
+ * verification and regression testing. It centers on `ForwardAdvisor`,
+ * `MeasuresDecisionLatencyAndAllocations`,
+ * `MeasuresLargeSparseGridBehavior`, `MeasuresHighLevelCueProcessing`,
+ * `MeasuresHallwayPairProcessing`, `MeasuresSerializationTimeAndSize`,
+ * `MeasuresPlanCacheHitRate`. Its package-relative location is
+ * `test/performance/performance_regression_test.cpp`.
+ */
 #include <gtest/gtest.h>
 
 #include <chrono>
@@ -19,6 +31,18 @@ namespace {
 
 using Clock = std::chrono::steady_clock;
 
+/**
+ * @brief Performs the seconds operation for this subsystem.
+ *
+ * Arguments:
+ * - @p duration: Supplies duration input to the operation.
+ *
+ * Returns:
+ * - `std::string` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::string seconds(Clock::duration duration) {
   std::ostringstream stream;
   stream << std::setprecision(17)
@@ -26,10 +50,49 @@ std::string seconds(Clock::duration duration) {
   return stream.str();
 }
 
+/**
+ * @brief Encapsulates forward advisor state and behavior for this
+ * subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - Not applicable to this declaration.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 class ForwardAdvisor final : public semaforr::decision::Advisor {
  public:
+  /**
+   * @brief Performs the name operation for this subsystem.
+   *
+   * Arguments:
+   * - None.
+   *
+   * Returns:
+   * - `std::string_view` containing the operation result.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   std::string_view name() const noexcept override { return "forward"; }
 
+  /**
+   * @brief Evaluates package content for this subsystem.
+   *
+   * Arguments:
+   * - @p DecisionContext: Supplies decision context input to the operation.
+   * - @p candidates: Supplies candidates input to the operation.
+   *
+   * Returns:
+   * - `semaforr::decision::AdvisorEvaluation` containing the operation
+   * result.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   semaforr::decision::AdvisorEvaluation evaluate(
       const semaforr::decision::DecisionContext&,
       std::span<const semaforr::domain::Action> candidates) const override {
@@ -46,6 +109,19 @@ class ForwardAdvisor final : public semaforr::decision::Advisor {
   }
 };
 
+/**
+ * @brief Performs the observation operation for this subsystem.
+ *
+ * Arguments:
+ * - @p x: Supplies x input to the operation.
+ * - @p y: Supplies y input to the operation.
+ *
+ * Returns:
+ * - `semaforr::domain::RobotObservation` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 semaforr::domain::RobotObservation observation(double x = 0.0,
                                                 double y = 0.0) {
   semaforr::domain::RobotObservation result;
@@ -58,6 +134,19 @@ semaforr::domain::RobotObservation observation(double x = 0.0,
   return result;
 }
 
+/**
+ * @brief Performs the episode operation for this subsystem.
+ *
+ * Arguments:
+ * - @p sequence: Supplies sequence input to the operation.
+ * - @p x: Supplies x input to the operation.
+ *
+ * Returns:
+ * - `semaforr::spatial::NavigationEpisode` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 semaforr::spatial::NavigationEpisode episode(std::size_t sequence,
                                               double x = 0.0) {
   semaforr::spatial::NavigationEpisode result;
@@ -66,6 +155,19 @@ semaforr::spatial::NavigationEpisode episode(std::size_t sequence,
   return result;
 }
 
+/**
+ * @brief Performs the path point operation for this subsystem.
+ *
+ * Arguments:
+ * - @p id: Supplies id input to the operation.
+ * - @p y: Supplies y input to the operation.
+ *
+ * Returns:
+ * - `semaforr::domain::PathDecisionPoint` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 semaforr::domain::PathDecisionPoint pathPoint(std::uint64_t id, double y) {
   semaforr::domain::PathDecisionPoint point;
   point.selection.decision_id = id;
@@ -92,6 +194,19 @@ semaforr::domain::PathDecisionPoint pathPoint(std::uint64_t id, double y) {
   return point;
 }
 
+/**
+ * @brief Performs the hallway evidence operation for this subsystem.
+ *
+ * Arguments:
+ * - @p count: Supplies count input to the operation.
+ *
+ * Returns:
+ * - `std::vector<semaforr::domain::CompletedPath>` containing the operation
+ * result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::vector<semaforr::domain::CompletedPath> hallwayEvidence(
     std::size_t count) {
   std::vector<semaforr::domain::CompletedPath> paths;
@@ -107,6 +222,18 @@ std::vector<semaforr::domain::CompletedPath> hallwayEvidence(
   return paths;
 }
 
+/**
+ * @brief Constructs ning map for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - `semaforr::domain::StaticMap` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 semaforr::domain::StaticMap planningMap() {
   semaforr::domain::StaticMap map;
   map.source = "performance-fixture";

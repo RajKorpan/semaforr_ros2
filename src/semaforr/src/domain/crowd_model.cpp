@@ -1,3 +1,12 @@
+/**
+ * @file crowd_model.cpp
+ * @brief Crowd model responsibilities.
+ *
+ * @details This file implements crowd model behavior for ROS-independent domain
+ * state and value types. It records the declarations, settings, fixtures,
+ * or guidance needed by that responsibility. Its package-relative location
+ * is `src/domain/crowd_model.cpp`.
+ */
 #include <algorithm>
 #include <cmath>
 #include <iomanip>
@@ -14,20 +23,69 @@ namespace {
 constexpr double kPi = 3.14159265358979323846;
 constexpr const char* kSerializationMagic = "SEMAFORR_CROWD_FIELD_V1";
 
+/**
+ * @brief Performs the finite nonnegative operation for this subsystem.
+ *
+ * Arguments:
+ * - @p value: Supplies value input to the operation.
+ *
+ * Returns:
+ * - `bool` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 bool finiteNonnegative(double value) noexcept {
   return std::isfinite(value) && value >= 0.0;
 }
 
 }  // namespace
 
+/**
+ * @brief Performs the crowd flow direction angle operation for this
+ * subsystem.
+ *
+ * Arguments:
+ * - @p direction: Supplies direction input to the operation.
+ *
+ * Returns:
+ * - `double` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 double crowdFlowDirectionAngle(CrowdFlowDirection direction) noexcept {
   return static_cast<double>(static_cast<std::size_t>(direction)) * (kPi / 4.0);
 }
 
+/**
+ * @brief Reports whether evidence for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - `bool` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 bool CrowdFieldCell::hasEvidence() const noexcept {
   return visibility_exposures > 0.0 || risk_experiences > 0.0;
 }
 
+/**
+ * @brief Performs the finite operation for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - `bool` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 bool CrowdFieldCell::finite() const noexcept {
   return finiteNonnegative(density) &&
          finiteNonnegative(learned_encounter_risk) &&
@@ -40,6 +98,18 @@ bool CrowdFieldCell::finite() const noexcept {
          std::isfinite(confidence) && confidence >= 0.0 && confidence <= 1.0;
 }
 
+/**
+ * @brief Validates package content for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void CrowdFieldSnapshot::validate() const {
   geometry.validate();
   if (cells.size() != geometry.cellCount()) {
@@ -58,6 +128,18 @@ void CrowdFieldSnapshot::validate() const {
   }
 }
 
+/**
+ * @brief Performs the available operation for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - `bool` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 bool CrowdFieldSnapshot::available() const noexcept {
   return version > 0U && std::any_of(cells.begin(), cells.end(),
                                      [](const CrowdFieldCell& cell) {
@@ -65,6 +147,20 @@ bool CrowdFieldSnapshot::available() const noexcept {
                                      });
 }
 
+/**
+ * @brief Performs the sample operation for this subsystem.
+ *
+ * Arguments:
+ * - @p point: Supplies point input to the operation.
+ * - @p now: Supplies now input to the operation.
+ * - @p maximum_age: Supplies maximum age input to the operation.
+ *
+ * Returns:
+ * - `std::optional<CrowdFieldSample>` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::optional<CrowdFieldSample> CrowdFieldSnapshot::sample(
     Point2D point, SocialTimestamp now,
     std::chrono::nanoseconds maximum_age) const noexcept {
@@ -82,6 +178,18 @@ std::optional<CrowdFieldSample> CrowdFieldSnapshot::sample(
                           stale};
 }
 
+/**
+ * @brief Serializes package content for this subsystem.
+ *
+ * Arguments:
+ * - @p output: Supplies output input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void CrowdFieldSnapshot::save(std::ostream& output) const {
   validate();
   output << kSerializationMagic << '\n'
@@ -105,6 +213,18 @@ void CrowdFieldSnapshot::save(std::ostream& output) const {
   }
 }
 
+/**
+ * @brief Loads package content for this subsystem.
+ *
+ * Arguments:
+ * - @p input: Supplies input input to the operation.
+ *
+ * Returns:
+ * - `CrowdFieldSnapshot` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 CrowdFieldSnapshot CrowdFieldSnapshot::load(std::istream& input) {
   std::string magic;
   std::getline(input, magic);
@@ -142,6 +262,19 @@ CrowdFieldSnapshot CrowdFieldSnapshot::load(std::istream& input) {
   return result;
 }
 
+/**
+ * @brief Records mutation for this subsystem.
+ *
+ * Arguments:
+ * - @p dependency: Supplies dependency input to the operation.
+ * - @p summary: Supplies summary input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void CrowdModel::recordMutation(ModelDependency dependency,
                                 std::string summary) {
   const Revision revision = ++revisions_[dependency];
@@ -150,6 +283,18 @@ void CrowdModel::recordMutation(ModelDependency dependency,
                                std::move(summary)});
 }
 
+/**
+ * @brief Updates input diagnostics for this subsystem.
+ *
+ * Arguments:
+ * - @p observation: Supplies observation input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void CrowdModel::updateInputDiagnostics(
     const CrowdObservation& observation) {
   input_source_ = observation.provenance.empty() ? "unknown"
@@ -184,6 +329,19 @@ void CrowdModel::updateInputDiagnostics(
   }
 }
 
+/**
+ * @brief Updates package content for this subsystem.
+ *
+ * Arguments:
+ * - @p observation: Supplies observation input to the operation.
+ * - @p history_limit: Supplies history limit input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void CrowdModel::update(CrowdObservation observation,
                         std::size_t history_limit) {
   observation.validate();
@@ -196,6 +354,18 @@ void CrowdModel::update(CrowdObservation observation,
                    "validated live social observation updated");
 }
 
+/**
+ * @brief Performs the replace current operation for this subsystem.
+ *
+ * Arguments:
+ * - @p observation: Supplies observation input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void CrowdModel::replaceCurrent(CrowdObservation observation) {
   observation.validate();
   const bool changed = !observations_.current() ||
@@ -207,6 +377,18 @@ void CrowdModel::replaceCurrent(CrowdObservation observation) {
                    "live social observation replaced");
 }
 
+/**
+ * @brief Clears current for this subsystem.
+ *
+ * Arguments:
+ * - @p status: Supplies status input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void CrowdModel::clearCurrent(std::string status) {
   const bool changed = observations_.current().has_value();
   observations_.clearCurrent();
@@ -219,6 +401,18 @@ void CrowdModel::clearCurrent(std::string status) {
                    "live social observation cleared: " + input_status_);
 }
 
+/**
+ * @brief Sets learned for this subsystem.
+ *
+ * Arguments:
+ * - @p snapshot: Supplies snapshot input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void CrowdModel::setLearned(CrowdFieldSnapshot snapshot) {
   snapshot.validate();
   const bool geometry_changed = learned_.geometry != snapshot.geometry ||
@@ -251,6 +445,18 @@ void CrowdModel::setLearned(CrowdFieldSnapshot snapshot) {
   learned_ = std::move(snapshot);
 }
 
+/**
+ * @brief Performs the status operation for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - `CrowdModelStatus` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 CrowdModelStatus CrowdModel::status() const noexcept {
   const bool live = current().has_value();
   const bool learned = learnedAvailable();
@@ -260,32 +466,107 @@ CrowdModelStatus CrowdModel::status() const noexcept {
   return CrowdModelStatus::Unavailable;
 }
 
+/**
+ * @brief Performs the learned at operation for this subsystem.
+ *
+ * Arguments:
+ * - @p point: Supplies point input to the operation.
+ * - @p now: Supplies now input to the operation.
+ * - @p maximum_age: Supplies maximum age input to the operation.
+ *
+ * Returns:
+ * - `std::optional<CrowdFieldSample>` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::optional<CrowdFieldSample> CrowdModel::learnedAt(
     Point2D point, SocialTimestamp now,
     std::chrono::nanoseconds maximum_age) const noexcept {
   return learned_.sample(point, now, maximum_age);
 }
 
+/**
+ * @brief Performs the density at operation for this subsystem.
+ *
+ * Arguments:
+ * - @p point: Supplies point input to the operation.
+ *
+ * Returns:
+ * - `double` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 double CrowdModel::densityAt(Point2D point) const noexcept {
   const auto sample = learnedAt(point);
   return sample && !sample->stale ? sample->cell.density : 0.0;
 }
 
+/**
+ * @brief Performs the learned encounter risk at operation for this
+ * subsystem.
+ *
+ * Arguments:
+ * - @p point: Supplies point input to the operation.
+ *
+ * Returns:
+ * - `double` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 double CrowdModel::learnedEncounterRiskAt(Point2D point) const noexcept {
   const auto sample = learnedAt(point);
   return sample && !sample->stale ? sample->cell.learned_encounter_risk : 0.0;
 }
 
+/**
+ * @brief Performs the visibility exposures at operation for this subsystem.
+ *
+ * Arguments:
+ * - @p point: Supplies point input to the operation.
+ *
+ * Returns:
+ * - `double` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 double CrowdModel::visibilityExposuresAt(Point2D point) const noexcept {
   const auto sample = learnedAt(point);
   return sample ? sample->cell.visibility_exposures : 0.0;
 }
 
+/**
+ * @brief Performs the risk experiences at operation for this subsystem.
+ *
+ * Arguments:
+ * - @p point: Supplies point input to the operation.
+ *
+ * Returns:
+ * - `double` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 double CrowdModel::riskExperiencesAt(Point2D point) const noexcept {
   const auto sample = learnedAt(point);
   return sample ? sample->cell.risk_experiences : 0.0;
 }
 
+/**
+ * @brief Performs the flow observation at operation for this subsystem.
+ *
+ * Arguments:
+ * - @p point: Supplies point input to the operation.
+ *
+ * Returns:
+ * - `double` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 double CrowdModel::flowObservationAt(Point2D point) const noexcept {
   const auto sample = learnedAt(point);
   if (!sample) return 0.0;
@@ -296,6 +577,19 @@ double CrowdModel::flowObservationAt(Point2D point) const noexcept {
   return total;
 }
 
+/**
+ * @brief Performs the flow alignment at operation for this subsystem.
+ *
+ * Arguments:
+ * - @p point: Supplies point input to the operation.
+ * - @p travel_direction: Supplies travel direction input to the operation.
+ *
+ * Returns:
+ * - `double` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 double CrowdModel::flowAlignmentAt(Point2D point,
                                    Angle travel_direction) const noexcept {
   const auto sample = learnedAt(point);
@@ -310,6 +604,21 @@ double CrowdModel::flowAlignmentAt(Point2D point,
   return alignment;
 }
 
+/**
+ * @brief Performs the predictive collision risk at operation for this
+ * subsystem.
+ *
+ * Arguments:
+ * - @p point: Supplies point input to the operation.
+ * - @p gaussian_variance_m2: Supplies gaussian variance m2 input to the
+ * operation.
+ *
+ * Returns:
+ * - `double` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 double CrowdModel::predictiveCollisionRiskAt(
     Point2D point, double gaussian_variance_m2) const noexcept {
   if (!current() || !std::isfinite(gaussian_variance_m2) ||
@@ -333,6 +642,20 @@ double CrowdModel::predictiveCollisionRiskAt(
   return risk;
 }
 
+/**
+ * @brief Performs the navigation risk at operation for this subsystem.
+ *
+ * Arguments:
+ * - @p point: Supplies point input to the operation.
+ * - @p gaussian_variance_m2: Supplies gaussian variance m2 input to the
+ * operation.
+ *
+ * Returns:
+ * - `double` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 double CrowdModel::navigationRiskAt(
     Point2D point, double gaussian_variance_m2) const noexcept {
   return std::max(learnedEncounterRiskAt(point),

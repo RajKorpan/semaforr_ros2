@@ -1,3 +1,12 @@
+/**
+ * @file reactive_planner.cpp
+ * @brief Reactive planner responsibilities.
+ *
+ * @details This file implements reactive planner behavior for path planning and
+ * hierarchical plan construction. It centers on `OutGridGeometry`,
+ * `AverageRay`. Its package-relative location is
+ * `src/planning/reactive_planner.cpp`.
+ */
 #include <algorithm>
 #include <cmath>
 #include <limits>
@@ -13,12 +22,37 @@
 namespace semaforr::planning {
 namespace {
 
+/**
+ * @brief Performs the waypoint operation for this subsystem.
+ *
+ * Arguments:
+ * - @p world: Supplies world input to the operation.
+ *
+ * Returns:
+ * - `std::optional<domain::Point2D>` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::optional<domain::Point2D> waypoint(const domain::WorldModel& world) {
   if (!world.mission.active()) return std::nullopt;
   return world.mission.active()->waypoint().value_or(
       world.mission.active()->target);
 }
 
+/**
+ * @brief Performs the heading error operation for this subsystem.
+ *
+ * Arguments:
+ * - @p pose: Supplies pose input to the operation.
+ * - @p target: Supplies target input to the operation.
+ *
+ * Returns:
+ * - `double` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 double headingError(const domain::Pose2D& pose, domain::Point2D target) {
   return domain::Angle::normalize(
       std::atan2(target.y_m - pose.position.y_m,
@@ -26,6 +60,19 @@ double headingError(const domain::Pose2D& pose, domain::Point2D target) {
       pose.heading.radians());
 }
 
+/**
+ * @brief Performs the turn operation for this subsystem.
+ *
+ * Arguments:
+ * - @p error: Supplies error input to the operation.
+ * - @p actions: Supplies actions input to the operation.
+ *
+ * Returns:
+ * - `domain::Action` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 domain::Action turn(double error, const domain::ActionSpace& actions) {
   const auto& values = actions.rotation_angles_rad();
   if (values.empty()) return domain::Action::pause();
@@ -40,9 +87,35 @@ domain::Action turn(double error, const domain::ActionSpace& actions) {
                         magnitude);
 }
 
+/**
+ * @brief Performs the sensed operation for this subsystem.
+ *
+ * Arguments:
+ * - @p Pose2D: Supplies pose2 d input to the operation.
+ * - @p LaserObservation: Supplies laser observation input to the operation.
+ * - @p Point2D: Supplies point2 d input to the operation.
+ *
+ * Returns:
+ * - `bool` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 bool sensed(const domain::Pose2D&, const domain::LaserObservation&,
             domain::Point2D);
 
+/**
+ * @brief Performs the target sensed operation for this subsystem.
+ *
+ * Arguments:
+ * - @p world: Supplies world input to the operation.
+ *
+ * Returns:
+ * - `bool` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 bool targetSensed(const domain::WorldModel& world) {
   if (!world.mission.active() || !world.robot.laser ||
       world.robot.laser->ranges_m.empty())
@@ -51,6 +124,20 @@ bool targetSensed(const domain::WorldModel& world) {
                 world.mission.active()->target);
 }
 
+/**
+ * @brief Performs the containing region radius operation for this
+ * subsystem.
+ *
+ * Arguments:
+ * - @p spatial: Supplies spatial input to the operation.
+ * - @p point: Supplies point input to the operation.
+ *
+ * Returns:
+ * - `double` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 double containingRegionRadius(const domain::SpatialModel& spatial,
                               domain::Point2D point) {
   double radius_m = 0.0;
@@ -65,6 +152,19 @@ double containingRegionRadius(const domain::SpatialModel& spatial,
   return radius_m;
 }
 
+/**
+ * @brief Performs the available operation for this subsystem.
+ *
+ * Arguments:
+ * - @p context: Supplies context input to the operation.
+ * - @p action: Supplies action input to the operation.
+ *
+ * Returns:
+ * - `bool` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 bool available(const decision::DecisionContext& context,
                domain::Action action) {
   return context.viable_actions.empty() ||
@@ -73,6 +173,18 @@ bool available(const decision::DecisionContext& context,
              context.viable_actions.end();
 }
 
+/**
+ * @brief Performs the recent out window operation for this subsystem.
+ *
+ * Arguments:
+ * - @p history_size: Supplies history size input to the operation.
+ *
+ * Returns:
+ * - `std::size_t` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::size_t recentOutWindow(std::size_t history_size) noexcept {
   return std::min(history_size, 10U + history_size / 50U);
 }
@@ -81,11 +193,36 @@ using ObservationCell = std::pair<std::int64_t, std::int64_t>;
 using ObservationCellSet = std::set<ObservationCell>;
 using RecentObservationGrid = std::map<ObservationCell, std::uint32_t>;
 
+/**
+ * @brief Encapsulates out grid geometry state and behavior for this
+ * subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - Not applicable to this declaration.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 struct OutGridGeometry {
   double resolution_m{1.0};
   domain::Point2D origin;
 };
 
+/**
+ * @brief Performs the out grid geometry operation for this subsystem.
+ *
+ * Arguments:
+ * - @p world: Supplies world input to the operation.
+ *
+ * Returns:
+ * - `OutGridGeometry` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 OutGridGeometry outGridGeometry(const domain::WorldModel& world) {
   const auto& known = world.spatial.known_grid;
   return {std::isfinite(known.resolution_m) && known.resolution_m > 0.0
@@ -94,6 +231,19 @@ OutGridGeometry outGridGeometry(const domain::WorldModel& world) {
           known.origin.finite() ? known.origin : domain::Point2D{}};
 }
 
+/**
+ * @brief Performs the observation cell operation for this subsystem.
+ *
+ * Arguments:
+ * - @p geometry: Supplies geometry input to the operation.
+ * - @p point: Supplies point input to the operation.
+ *
+ * Returns:
+ * - `ObservationCell` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 ObservationCell observationCell(const OutGridGeometry& geometry,
                                 domain::Point2D point) {
   return {static_cast<std::int64_t>(std::floor(
@@ -102,6 +252,19 @@ ObservationCell observationCell(const OutGridGeometry& geometry,
               (point.y_m - geometry.origin.y_m) / geometry.resolution_m))};
 }
 
+/**
+ * @brief Performs the valid observation ray operation for this subsystem.
+ *
+ * Arguments:
+ * - @p laser: Supplies laser input to the operation.
+ * - @p measured: Supplies measured input to the operation.
+ *
+ * Returns:
+ * - `bool` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 bool validObservationRay(const domain::LaserObservation& laser,
                          double measured) {
   return !std::isnan(measured) && measured >= laser.minimum_range.meters() &&
@@ -110,6 +273,19 @@ bool validObservationRay(const domain::LaserObservation& laser,
               : measured > 0.0);
 }
 
+/**
+ * @brief Performs the ray extent operation for this subsystem.
+ *
+ * Arguments:
+ * - @p laser: Supplies laser input to the operation.
+ * - @p measured: Supplies measured input to the operation.
+ *
+ * Returns:
+ * - `std::optional<double>` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::optional<double> rayExtent(const domain::LaserObservation& laser,
                                 double measured) {
   if (std::isnan(measured) || measured < laser.minimum_range.meters())
@@ -121,6 +297,20 @@ std::optional<double> rayExtent(const domain::LaserObservation& laser,
   return std::min(measured, laser.maximum_range.meters());
 }
 
+/**
+ * @brief Processes d cells for this subsystem.
+ *
+ * Arguments:
+ * - @p pose: Supplies pose input to the operation.
+ * - @p laser: Supplies laser input to the operation.
+ * - @p geometry: Supplies geometry input to the operation.
+ *
+ * Returns:
+ * - `ObservationCellSet` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 ObservationCellSet observedCells(const domain::Pose2D& pose,
                                  const domain::LaserObservation& laser,
                                  const OutGridGeometry& geometry) {
@@ -149,6 +339,19 @@ ObservationCellSet observedCells(const domain::Pose2D& pose,
   return cells;
 }
 
+/**
+ * @brief Performs the target history operation for this subsystem.
+ *
+ * Arguments:
+ * - @p world: Supplies world input to the operation.
+ *
+ * Returns:
+ * - `std::vector<const domain::NavigationHistoryEntry*>` containing the
+ * operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::vector<const domain::NavigationHistoryEntry*> targetHistory(
     const domain::WorldModel& world) {
   std::vector<const domain::NavigationHistoryEntry*> result;
@@ -159,6 +362,18 @@ std::vector<const domain::NavigationHistoryEntry*> targetHistory(
   return result;
 }
 
+/**
+ * @brief Performs the recent observation grid operation for this subsystem.
+ *
+ * Arguments:
+ * - @p world: Supplies world input to the operation.
+ *
+ * Returns:
+ * - `RecentObservationGrid` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 RecentObservationGrid recentObservationGrid(const domain::WorldModel& world) {
   RecentObservationGrid result;
   const auto history = targetHistory(world);
@@ -176,12 +391,38 @@ RecentObservationGrid recentObservationGrid(const domain::WorldModel& world) {
   return result;
 }
 
+/**
+ * @brief Performs the current observation grid operation for this
+ * subsystem.
+ *
+ * Arguments:
+ * - @p world: Supplies world input to the operation.
+ *
+ * Returns:
+ * - `ObservationCellSet` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 ObservationCellSet currentObservationGrid(const domain::WorldModel& world) {
   if (!world.robot.laser) return {};
   return observedCells(world.robot.pose, *world.robot.laser,
                        outGridGeometry(world));
 }
 
+/**
+ * @brief Performs the new observation cells operation for this subsystem.
+ *
+ * Arguments:
+ * - @p current: Supplies current input to the operation.
+ * - @p recent: Supplies recent input to the operation.
+ *
+ * Returns:
+ * - `std::size_t` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::size_t newObservationCells(const ObservationCellSet& current,
                                 const RecentObservationGrid& recent) {
   return static_cast<std::size_t>(std::count_if(
@@ -189,6 +430,20 @@ std::size_t newObservationCells(const ObservationCellSet& current,
       [&](const auto& cell) { return !recent.contains(cell); }));
 }
 
+/**
+ * @brief Performs the sensed operation for this subsystem.
+ *
+ * Arguments:
+ * - @p pose: Supplies pose input to the operation.
+ * - @p laser: Supplies laser input to the operation.
+ * - @p point: Supplies point input to the operation.
+ *
+ * Returns:
+ * - `bool` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 bool sensed(const domain::Pose2D& pose,
             const domain::LaserObservation& laser,
             domain::Point2D point) {
@@ -218,6 +473,20 @@ bool sensed(const domain::Pose2D& pose,
   return sampled >= 3U && visible >= 3U;
 }
 
+/**
+ * @brief Performs the forward blocked operation for this subsystem.
+ *
+ * Arguments:
+ * - @p laser: Supplies laser input to the operation.
+ * - @p actions: Supplies actions input to the operation.
+ * - @p clearance_m: Supplies clearance m input to the operation.
+ *
+ * Returns:
+ * - `bool` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 bool forwardBlocked(const domain::LaserObservation& laser,
                     const domain::ActionSpace& actions,
                     double clearance_m = 0.35) {
@@ -236,12 +505,38 @@ bool forwardBlocked(const domain::LaserObservation& laser,
   return actions.move_distances_m().front() + clearance_m >= nearest;
 }
 
+/**
+ * @brief Performs the grid index operation for this subsystem.
+ *
+ * Arguments:
+ * - @p grid: Supplies grid input to the operation.
+ * - @p point: Supplies point input to the operation.
+ *
+ * Returns:
+ * - `std::optional<std::size_t>` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 template <typename Grid>
 std::optional<std::size_t> gridIndex(const Grid& grid,
                                      domain::Point2D point) {
   return grid.extent().index(point);
 }
 
+/**
+ * @brief Performs the point blocked operation for this subsystem.
+ *
+ * Arguments:
+ * - @p world: Supplies world input to the operation.
+ * - @p point: Supplies point input to the operation.
+ *
+ * Returns:
+ * - `bool` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 bool pointBlocked(const domain::WorldModel& world, domain::Point2D point) {
   const auto& sensed_grid = world.spatial.sensed_occupancy;
   if (sensed_grid.valid()) {
@@ -275,11 +570,39 @@ std::optional<std::vector<domain::Point2D>> inclusionRoute(
   if (!grid.cells.empty()) {
     for (std::size_t index = 0U; index < grid.cells.size(); ++index)
       if (grid.cells[index] != 0U &&
+          /**
+           * @brief Performs the point blocked operation for this subsystem.
+           *
+           * Arguments:
+           * - @p argument_1: Supplies argument 1 input to the operation.
+           * - @p index: Supplies index input to the operation.
+           *
+           * Returns:
+           * - `!` containing the operation result.
+           *
+           * Exceptions:
+           * - None documented; validation or dependency failures may
+           * propagate.
+           */
           !pointBlocked(world, grid.extent().center(index)))
         included.insert(index);
   } else {
     for (const auto& cell : grid.sparseCells())
       if (cell.value != 0U &&
+          /**
+           * @brief Performs the point blocked operation for this subsystem.
+           *
+           * Arguments:
+           * - @p argument_1: Supplies argument 1 input to the operation.
+           * - @p index: Supplies index input to the operation.
+           *
+           * Returns:
+           * - `!` containing the operation result.
+           *
+           * Exceptions:
+           * - None documented; validation or dependency failures may
+           * propagate.
+           */
           !pointBlocked(world, grid.extent().center(cell.index)))
         included.insert(cell.index);
   }
@@ -319,6 +642,19 @@ std::optional<std::vector<domain::Point2D>> inclusionRoute(
   for (auto cursor = *goal_index; cursor != *start_index;
        cursor = predecessor.at(cursor))
     reversed.push_back(cursor);
+  /**
+   * @brief Performs the reverse operation for this subsystem.
+   *
+   * Arguments:
+   * - @p begin: Supplies begin input to the operation.
+   * - @p end: Supplies end input to the operation.
+   *
+   * Returns:
+   * - No value; effects are applied to owned state or outputs.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   std::reverse(reversed.begin(), reversed.end());
   std::vector<domain::Point2D> route;
   route.reserve(reversed.size() + 1U);
@@ -331,6 +667,21 @@ std::optional<std::vector<domain::Point2D>> inclusionRoute(
   return route;
 }
 
+/**
+ * @brief Performs the step toward operation for this subsystem.
+ *
+ * Arguments:
+ * - @p pose: Supplies pose input to the operation.
+ * - @p point: Supplies point input to the operation.
+ * - @p actions: Supplies actions input to the operation.
+ * - @p desired_step_m: Supplies desired step m input to the operation.
+ *
+ * Returns:
+ * - `domain::Action` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 domain::Action stepToward(const domain::Pose2D& pose,
                           domain::Point2D point,
                           const domain::ActionSpace& actions,
@@ -347,6 +698,19 @@ domain::Action stepToward(const domain::Pose2D& pose,
   return domain::Action(domain::ActionType::Forward, magnitude);
 }
 
+/**
+ * @brief Performs the result from operation for this subsystem.
+ *
+ * Arguments:
+ * - @p planner: Supplies planner input to the operation.
+ * - @p update: Supplies update input to the operation.
+ *
+ * Returns:
+ * - `ReactiveResult` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 ReactiveResult resultFrom(std::string_view planner,
                           ReactivePlanUpdate update) {
   return {update.status, update.action, std::string(planner),
@@ -357,6 +721,18 @@ ReactiveResult resultFrom(std::string_view planner,
 
 }  // namespace
 
+/**
+ * @brief Evaluates package content for this subsystem.
+ *
+ * Arguments:
+ * - @p request: Supplies request input to the operation.
+ *
+ * Returns:
+ * - `ReactiveResult` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 ReactiveResult ReactivePlanner::evaluate(const ReactiveRequest& request) {
   decision::DecisionContext context{request.world, &request.action_space,
                                     request.viable_actions};
@@ -364,6 +740,18 @@ ReactiveResult ReactivePlanner::evaluate(const ReactiveRequest& request) {
   return resultFrom(name(), update(context));
 }
 
+/**
+ * @brief Converts string for this subsystem.
+ *
+ * Arguments:
+ * - @p reason: Supplies reason input to the operation.
+ *
+ * Returns:
+ * - `std::string_view` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::string_view toString(ReactiveCompletionReason reason) noexcept {
   switch (reason) {
     case ReactiveCompletionReason::None: return "none";
@@ -379,6 +767,18 @@ std::string_view toString(ReactiveCompletionReason reason) noexcept {
   return "none";
 }
 
+/**
+ * @brief Converts string for this subsystem.
+ *
+ * Arguments:
+ * - @p state: Supplies state input to the operation.
+ *
+ * Returns:
+ * - `std::string_view` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::string_view toString(LowLevelExplorationState state) noexcept {
   switch (state) {
     case LowLevelExplorationState::DetectMissingGuidance:
@@ -398,6 +798,31 @@ std::string_view toString(LowLevelExplorationState state) noexcept {
   return "complete";
 }
 
+/**
+ * @brief Performs the thru operation for this subsystem.
+ *
+ * Arguments:
+ * - @p decision_budget: Supplies decision budget input to the operation.
+ * - @p desired_step_m: Supplies desired step m input to the operation.
+ * - @p endpoint_tolerance_m: Supplies endpoint tolerance m input to the
+ * operation.
+ * - @p beam_neighborhood_half_width: Supplies beam neighborhood half width
+ * input to the operation.
+ * - @p minimum_clear_beams: Supplies minimum clear beams input to the
+ * operation.
+ * - @p openness_bundle_beams: Supplies openness bundle beams input to the
+ * operation.
+ * - @p corridor_half_width_m: Supplies corridor half width m input to the
+ * operation.
+ * - @p corridor_longitudinal_tolerance_m: Supplies corridor longitudinal
+ * tolerance m input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 Thru::Thru(std::size_t decision_budget, double desired_step_m,
            double endpoint_tolerance_m,
            std::size_t beam_neighborhood_half_width,
@@ -428,6 +853,18 @@ Thru::Thru(std::size_t decision_budget, double desired_step_m,
     throw std::invalid_argument("invalid Thru configuration");
 }
 
+/**
+ * @brief Performs the sensed objective operation for this subsystem.
+ *
+ * Arguments:
+ * - @p world: Supplies world input to the operation.
+ *
+ * Returns:
+ * - `std::optional<Thru::SensedObjective>` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::optional<Thru::SensedObjective> Thru::sensedObjective(
     const domain::WorldModel& world) const {
   if (!world.mission.active() || !world.robot.laser ||
@@ -500,6 +937,18 @@ std::optional<Thru::SensedObjective> Thru::sensedObjective(
   return std::nullopt;
 }
 
+/**
+ * @brief Evaluates trigger for this subsystem.
+ *
+ * Arguments:
+ * - @p context: Supplies context input to the operation.
+ *
+ * Returns:
+ * - `TriggerEvaluation` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 TriggerEvaluation Thru::evaluateTrigger(
     const decision::DecisionContext& context) const {
   if (endpoint_) return {true, "thru:pursuit_active"};
@@ -536,6 +985,19 @@ TriggerEvaluation Thru::evaluateTrigger(
                     : "thru:sensed_waypoint_forward_obstacle_blocked"};
 }
 
+/**
+ * @brief Performs the choose endpoint operation for this subsystem.
+ *
+ * Arguments:
+ * - @p world: Supplies world input to the operation.
+ * - @p objective: Supplies objective input to the operation.
+ *
+ * Returns:
+ * - `std::optional<Thru::EndpointChoice>` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::optional<Thru::EndpointChoice> Thru::chooseEndpoint(
     const domain::WorldModel& world,
     const SensedObjective& objective) const {
@@ -587,6 +1049,18 @@ std::optional<Thru::EndpointChoice> Thru::chooseEndpoint(
              : EndpointChoice{right->endpoint, "right"};
 }
 
+/**
+ * @brief Updates package content for this subsystem.
+ *
+ * Arguments:
+ * - @p context: Supplies context input to the operation.
+ *
+ * Returns:
+ * - `ReactivePlanUpdate` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 ReactivePlanUpdate Thru::update(
     const decision::DecisionContext& context) {
   if (!context.action_space || !evaluateTrigger(context).triggered) return {};
@@ -655,6 +1129,18 @@ ReactivePlanUpdate Thru::update(
               objective_kind_};
 }
 
+/**
+ * @brief Performs the cancel operation for this subsystem.
+ *
+ * Arguments:
+ * - @p argument_1: Supplies argument 1 input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void Thru::cancel(InterruptionReason) {
   endpoint_.reset();
   mission_id_.reset();
@@ -663,6 +1149,18 @@ void Thru::cancel(InterruptionReason) {
   decisions_ = 0U;
 }
 
+/**
+ * @brief Evaluates trigger for this subsystem.
+ *
+ * Arguments:
+ * - @p context: Supplies context input to the operation.
+ *
+ * Returns:
+ * - `TriggerEvaluation` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 TriggerEvaluation Behind::evaluateTrigger(
     const decision::DecisionContext& context) const {
   const auto target = waypoint(context.world);
@@ -698,6 +1196,18 @@ TriggerEvaluation Behind::evaluateTrigger(
   return {true, "behind:nearby_waypoint_outside_recent_views"};
 }
 
+/**
+ * @brief Updates package content for this subsystem.
+ *
+ * Arguments:
+ * - @p context: Supplies context input to the operation.
+ *
+ * Returns:
+ * - `ReactivePlanUpdate` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 ReactivePlanUpdate Behind::update(
     const decision::DecisionContext& context) {
   const auto target = waypoint(context.world);
@@ -729,6 +1239,22 @@ ReactivePlanUpdate Behind::update(
           "behind:no_quarter_turn_available"};
 }
 
+/**
+ * @brief Performs the out operation for this subsystem.
+ *
+ * Arguments:
+ * - @p coverage_threshold: Supplies coverage threshold input to the
+ * operation.
+ * - @p covered_fraction: Supplies covered fraction input to the operation.
+ * - @p maximum_new_cells: Supplies maximum new cells input to the
+ * operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 Out::Out(std::size_t coverage_threshold, double covered_fraction,
          std::size_t maximum_new_cells)
     : coverage_threshold_(coverage_threshold),
@@ -739,6 +1265,18 @@ Out::Out(std::size_t coverage_threshold, double covered_fraction,
     throw std::invalid_argument("invalid Out configuration");
 }
 
+/**
+ * @brief Evaluates trigger for this subsystem.
+ *
+ * Arguments:
+ * - @p context: Supplies context input to the operation.
+ *
+ * Returns:
+ * - `TriggerEvaluation` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 TriggerEvaluation Out::evaluateTrigger(
     const decision::DecisionContext& context) const {
   if (state_ != State::Idle) return {true, "out:survey_active"};
@@ -762,6 +1300,18 @@ TriggerEvaluation Out::evaluateTrigger(
                               : "out:recent_window_not_confined"};
 }
 
+/**
+ * @brief Updates package content for this subsystem.
+ *
+ * Arguments:
+ * - @p context: Supplies context input to the operation.
+ *
+ * Returns:
+ * - `ReactivePlanUpdate` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 ReactivePlanUpdate Out::update(
     const decision::DecisionContext& context) {
   if (!context.action_space || !evaluateTrigger(context).triggered) return {};
@@ -813,6 +1363,18 @@ ReactivePlanUpdate Out::update(
   return {};
 }
 
+/**
+ * @brief Builds escape for this subsystem.
+ *
+ * Arguments:
+ * - @p world: Supplies world input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void Out::buildEscape(const domain::WorldModel& world) {
   escape_points_.clear();
   recovery_trail_.reset();
@@ -884,6 +1446,18 @@ void Out::buildEscape(const domain::WorldModel& world) {
   recovery_trail_ = std::move(trail);
 }
 
+/**
+ * @brief Resets package content for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void Out::reset() noexcept {
   state_ = State::Idle;
   mission_id_.reset();
@@ -892,15 +1466,65 @@ void Out::reset() noexcept {
   recovery_trail_.reset();
 }
 
+/**
+ * @brief Performs the cancel operation for this subsystem.
+ *
+ * Arguments:
+ * - @p argument_1: Supplies argument 1 input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void Out::cancel(InterruptionReason) { reset(); }
 
+/**
+ * @brief Performs the reactive planner coordinator operation for this
+ * subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 ReactivePlannerCoordinator::ReactivePlannerCoordinator() = default;
 
+/**
+ * @brief Performs the reactive planner coordinator operation for this
+ * subsystem.
+ *
+ * Arguments:
+ * - @p planners: Supplies planners input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 ReactivePlannerCoordinator::ReactivePlannerCoordinator(
     std::vector<std::unique_ptr<ReactivePlanner>> planners) {
   for (auto& planner : planners) add(std::move(planner));
 }
 
+/**
+ * @brief Performs the add operation for this subsystem.
+ *
+ * Arguments:
+ * - @p planner: Supplies planner input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void ReactivePlannerCoordinator::add(
     std::unique_ptr<ReactivePlanner> planner) {
   if (!planner) throw std::invalid_argument("reactive planner is null");
@@ -911,12 +1535,37 @@ void ReactivePlannerCoordinator::add(
   planners_.push_back(std::move(planner));
 }
 
+/**
+ * @brief Evaluates package content for this subsystem.
+ *
+ * Arguments:
+ * - @p request: Supplies request input to the operation.
+ *
+ * Returns:
+ * - `ReactiveResult` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 ReactiveResult ReactivePlannerCoordinator::evaluate(
     const ReactiveRequest& request) {
   return evaluateDetailed(request, {}).result;
 }
 
 ReactivePlannerCoordinator::Evaluation
+/**
+ * @brief Evaluates detailed for this subsystem.
+ *
+ * Arguments:
+ * - @p request: Supplies request input to the operation.
+ * - @p viable_actions: Supplies viable actions input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 ReactivePlannerCoordinator::evaluateDetailed(
     const ReactiveRequest& request,
     std::span<const domain::Action> viable_actions) {
@@ -965,10 +1614,43 @@ ReactivePlannerCoordinator::evaluateDetailed(
   return evaluation;
 }
 
+/**
+ * @brief Performs the cancel all operation for this subsystem.
+ *
+ * Arguments:
+ * - @p reason: Supplies reason input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void ReactivePlannerCoordinator::cancelAll(InterruptionReason reason) {
   for (auto& planner : planners_) planner->cancel(reason);
 }
 
+/**
+ * @brief Performs the low level explorer operation for this subsystem.
+ *
+ * Arguments:
+ * - @p history_window: Supplies history window input to the operation.
+ * - @p progress_threshold_m: Supplies progress threshold m input to the
+ * operation.
+ * - @p decision_budget: Supplies decision budget input to the operation.
+ * - @p minimum_cue_length_m: Supplies minimum cue length m input to the
+ * operation.
+ * - @p target_cue_tolerance_m: Supplies target cue tolerance m input to the
+ * operation.
+ * - @p cue_waypoint_count: Supplies cue waypoint count input to the
+ * operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 LowLevelExplorer::LowLevelExplorer(std::size_t history_window,
                                    double progress_threshold_m,
                                    std::size_t decision_budget,
@@ -980,6 +1662,18 @@ LowLevelExplorer::LowLevelExplorer(std::size_t history_window,
           progress_threshold_m, decision_budget, minimum_cue_length_m,
           target_cue_tolerance_m, cue_waypoint_count, 1.0, 0U}) {}
 
+/**
+ * @brief Performs the low level explorer operation for this subsystem.
+ *
+ * Arguments:
+ * - @p configuration: Supplies configuration input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 LowLevelExplorer::LowLevelExplorer(
     LowLevelExplorationConfiguration configuration)
     : history_window_(configuration.history_window),
@@ -997,6 +1691,18 @@ LowLevelExplorer::LowLevelExplorer(
     throw std::invalid_argument("invalid LLE progress/budget configuration");
 }
 
+/**
+ * @brief Evaluates trigger for this subsystem.
+ *
+ * Arguments:
+ * - @p context: Supplies context input to the operation.
+ *
+ * Returns:
+ * - `TriggerEvaluation` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 TriggerEvaluation LowLevelExplorer::evaluateTrigger(
     const decision::DecisionContext& context) const {
   if (!context.world.mission.active()) return {};
@@ -1046,12 +1752,36 @@ TriggerEvaluation LowLevelExplorer::evaluateTrigger(
   return last_trigger_;
 }
 
+/**
+ * @brief Evaluates replan for this subsystem.
+ *
+ * Arguments:
+ * - @p context: Supplies context input to the operation.
+ *
+ * Returns:
+ * - `decision::ReplanningRequest` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 decision::ReplanningRequest LowLevelExplorer::evaluateReplan(
     const decision::DecisionContext& context) const {
   const auto trigger = evaluateTrigger(context);
   return {trigger.triggered, trigger.rationale};
 }
 
+/**
+ * @brief Performs the assemble candidates operation for this subsystem.
+ *
+ * Arguments:
+ * - @p world: Supplies world input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void LowLevelExplorer::assembleCandidates(const domain::WorldModel& world) {
   ranked_candidates_.clear();
   candidate_cursor_ = 0U;
@@ -1163,6 +1893,18 @@ void LowLevelExplorer::assembleCandidates(const domain::WorldModel& world) {
   }
 }
 
+/**
+ * @brief Performs the select fallback operation for this subsystem.
+ *
+ * Arguments:
+ * - @p candidates: Supplies candidates input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void LowLevelExplorer::selectFallback(std::vector<LLECandidate> candidates) {
   if (candidates.empty()) return;
   std::stable_sort(candidates.begin(), candidates.end(),
@@ -1189,6 +1931,19 @@ void LowLevelExplorer::selectFallback(std::vector<LLECandidate> candidates) {
   ranked_candidates_.push_back(in_bin[choose(random_)]);
 }
 
+/**
+ * @brief Performs the install candidate waypoints operation for this
+ * subsystem.
+ *
+ * Arguments:
+ * - @p candidate: Supplies candidate input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void LowLevelExplorer::installCandidateWaypoints(
     const LLECandidate& candidate) {
   cue_waypoints_.clear();
@@ -1206,6 +1961,19 @@ void LowLevelExplorer::installCandidateWaypoints(
   lost_waypoint_cycles_ = 0U;
 }
 
+/**
+ * @brief Constructs candidate start for this subsystem.
+ *
+ * Arguments:
+ * - @p world: Supplies world input to the operation.
+ * - @p candidate: Supplies candidate input to the operation.
+ *
+ * Returns:
+ * - `bool` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 bool LowLevelExplorer::planCandidateStart(const domain::WorldModel& world,
                                           const LLECandidate& candidate) {
   start_connection_waypoints_.clear();
@@ -1245,6 +2013,19 @@ bool LowLevelExplorer::planCandidateStart(const domain::WorldModel& world,
   return true;
 }
 
+/**
+ * @brief Performs the candidate start plan valid operation for this
+ * subsystem.
+ *
+ * Arguments:
+ * - @p world: Supplies world input to the operation.
+ *
+ * Returns:
+ * - `bool` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 bool LowLevelExplorer::candidateStartPlanValid(
     const domain::WorldModel& world) const {
   if (start_connection_uses_inclusion_ &&
@@ -1264,6 +2045,18 @@ bool LowLevelExplorer::candidateStartPlanValid(
   return true;
 }
 
+/**
+ * @brief Performs the advance candidate operation for this subsystem.
+ *
+ * Arguments:
+ * - @p WorldModel: Supplies world model input to the operation.
+ *
+ * Returns:
+ * - `bool` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 bool LowLevelExplorer::advanceCandidate(const domain::WorldModel&) {
   ++candidate_cursor_;
   start_connection_waypoints_.clear();
@@ -1278,6 +2071,19 @@ bool LowLevelExplorer::advanceCandidate(const domain::WorldModel&) {
   return candidate_cursor_ < ranked_candidates_.size();
 }
 
+/**
+ * @brief Performs the append current view candidates operation for this
+ * subsystem.
+ *
+ * Arguments:
+ * - @p world: Supplies world input to the operation.
+ *
+ * Returns:
+ * - `bool` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 bool LowLevelExplorer::appendCurrentViewCandidates(
     const domain::WorldModel& world) {
   const auto& laser = *world.robot.laser;
@@ -1316,11 +2122,37 @@ bool LowLevelExplorer::appendCurrentViewCandidates(
   return appended;
 }
 
+/**
+ * @brief Performs the included cell count operation for this subsystem.
+ *
+ * Arguments:
+ * - @p world: Supplies world input to the operation.
+ *
+ * Returns:
+ * - `std::size_t` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::size_t LowLevelExplorer::includedCellCount(
     const domain::WorldModel& world) const noexcept {
   return world.spatial.inclusion_grid.observedCellCount();
 }
 
+/**
+ * @brief Performs the action toward operation for this subsystem.
+ *
+ * Arguments:
+ * - @p pose: Supplies pose input to the operation.
+ * - @p target: Supplies target input to the operation.
+ * - @p actions: Supplies actions input to the operation.
+ *
+ * Returns:
+ * - `domain::Action` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 domain::Action LowLevelExplorer::actionToward(
     const domain::Pose2D& pose, domain::Point2D target,
     const domain::ActionSpace& actions) const {
@@ -1330,6 +2162,20 @@ domain::Action LowLevelExplorer::actionToward(
              : domain::Action(domain::ActionType::Forward, 1U);
 }
 
+/**
+ * @brief Performs the complete operation for this subsystem.
+ *
+ * Arguments:
+ * - @p reason: Supplies reason input to the operation.
+ * - @p explanation: Supplies explanation input to the operation.
+ * - @p status: Supplies status input to the operation.
+ *
+ * Returns:
+ * - `ReactivePlanUpdate` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 ReactivePlanUpdate LowLevelExplorer::complete(
     ReactiveCompletionReason reason, std::string explanation,
     ReactiveStatus status) {
@@ -1339,6 +2185,18 @@ ReactivePlanUpdate LowLevelExplorer::complete(
           std::move(explanation)};
 }
 
+/**
+ * @brief Updates package content for this subsystem.
+ *
+ * Arguments:
+ * - @p context: Supplies context input to the operation.
+ *
+ * Returns:
+ * - `ReactivePlanUpdate` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 ReactivePlanUpdate LowLevelExplorer::update(
     const decision::DecisionContext& context) {
   if (!context.world.mission.active())
@@ -1582,6 +2440,18 @@ ReactivePlanUpdate LowLevelExplorer::update(
   return {};
 }
 
+/**
+ * @brief Performs the cancel operation for this subsystem.
+ *
+ * Arguments:
+ * - @p reason: Supplies reason input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void LowLevelExplorer::cancel(InterruptionReason reason) {
   switch (reason) {
     case InterruptionReason::TargetSensed:
@@ -1605,6 +2475,18 @@ void LowLevelExplorer::cancel(InterruptionReason reason) {
   lost_waypoint_cycles_ = 0U;
 }
 
+/**
+ * @brief Evaluates package content for this subsystem.
+ *
+ * Arguments:
+ * - @p request: Supplies request input to the operation.
+ *
+ * Returns:
+ * - `ReactiveResult` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 ReactiveResult LowLevelExplorer::evaluate(const ReactiveRequest& request) {
   decision::DecisionContext context{request.world, &request.action_space};
   if (state_ == LowLevelExplorationState::DetectMissingGuidance &&

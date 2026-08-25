@@ -1,3 +1,5 @@
+<!-- File overview: This file documents or configures map operation behavior for the maintained architecture and user documentation. It records the declarations, settings, fixtures, or guidance needed by that responsibility. Its package-relative location is `docs/map-operation.md`. -->
+
 # Optional static maps
 
 SemaFORR defaults to **mapless** operation. A static map is optional prior

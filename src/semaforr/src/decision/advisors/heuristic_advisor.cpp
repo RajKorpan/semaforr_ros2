@@ -1,3 +1,13 @@
+/**
+ * @file heuristic_advisor.cpp
+ * @brief Heuristic advisor responsibilities.
+ *
+ * @details This file implements heuristic advisor behavior for tiered decision
+ * making and action arbitration. It records the declarations, settings,
+ * fixtures, or guidance needed by that responsibility. Its
+ * package-relative location is
+ * `src/decision/advisors/heuristic_advisor.cpp`.
+ */
 #include <algorithm>
 #include <cmath>
 #include <limits>
@@ -8,6 +18,19 @@
 namespace semaforr::decision {
 namespace {
 
+/**
+ * @brief Performs the nearest operation for this subsystem.
+ *
+ * Arguments:
+ * - @p point: Supplies point input to the operation.
+ * - @p values: Supplies values input to the operation.
+ *
+ * Returns:
+ * - `double` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 double nearest(domain::Point2D point,
                const std::vector<domain::Point2D>& values) {
   double result = std::numeric_limits<double>::infinity();
@@ -16,6 +39,18 @@ double nearest(domain::Point2D point,
   return std::isfinite(result) ? result : 0.0;
 }
 
+/**
+ * @brief Performs the obstacle points operation for this subsystem.
+ *
+ * Arguments:
+ * - @p world: Supplies world input to the operation.
+ *
+ * Returns:
+ * - `std::vector<domain::Point2D>` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::vector<domain::Point2D> obstaclePoints(
     const domain::WorldModel& world) {
   std::vector<domain::Point2D> points;
@@ -52,6 +87,21 @@ std::vector<std::vector<domain::Point2D>> trailPolylines(
   return result;
 }
 
+/**
+ * @brief Performs the forward clearance operation for this subsystem.
+ *
+ * Arguments:
+ * - @p world: Supplies world input to the operation.
+ * - @p heading: Supplies heading input to the operation.
+ * - @p corridor_half_width_m: Supplies corridor half width m input to the
+ * operation.
+ *
+ * Returns:
+ * - `double` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 double forwardClearance(const domain::WorldModel& world, double heading,
                         double corridor_half_width_m = 0.35) {
   if (!world.robot.laser) return std::numeric_limits<double>::infinity();
@@ -70,6 +120,20 @@ double forwardClearance(const domain::WorldModel& world, double heading,
   return std::max(0.0, result);
 }
 
+/**
+ * @brief Performs the anticipated pose operation for this subsystem.
+ *
+ * Arguments:
+ * - @p world: Supplies world input to the operation.
+ * - @p action: Supplies action input to the operation.
+ * - @p action_space: Supplies action space input to the operation.
+ *
+ * Returns:
+ * - `domain::Pose2D` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 domain::Pose2D anticipatedPose(const domain::WorldModel& world,
                                const domain::Action& action,
                                const domain::ActionSpace& action_space) {
@@ -86,10 +150,37 @@ domain::Pose2D anticipatedPose(const domain::WorldModel& world,
   return result;
 }
 
+/**
+ * @brief Performs the angle in arc operation for this subsystem.
+ *
+ * Arguments:
+ * - @p angle: Supplies angle input to the operation.
+ * - @p center: Supplies center input to the operation.
+ * - @p width: Supplies width input to the operation.
+ *
+ * Returns:
+ * - `bool` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 bool angleInArc(double angle, double center, double width) {
   return std::abs(domain::Angle::normalize(angle - center)) <= width * 0.5;
 }
 
+/**
+ * @brief Performs the visual novelty operation for this subsystem.
+ *
+ * Arguments:
+ * - @p world: Supplies world input to the operation.
+ * - @p anticipated: Supplies anticipated input to the operation.
+ *
+ * Returns:
+ * - `double` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 double visualNovelty(const domain::WorldModel& world,
                      const domain::Pose2D& anticipated) {
   if (!world.robot.laser || world.robot.laser->ranges_m.empty()) return 0.0;
@@ -127,6 +218,19 @@ double visualNovelty(const domain::WorldModel& world,
   return static_cast<double>(unseen) / static_cast<double>(samples);
 }
 
+/**
+ * @brief Performs the segment parameter operation for this subsystem.
+ *
+ * Arguments:
+ * - @p point: Supplies point input to the operation.
+ * - @p segment: Supplies segment input to the operation.
+ *
+ * Returns:
+ * - `double` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 double segmentParameter(domain::Point2D point,
                         const domain::Segment2D& segment) {
   const double dx = segment.end.x_m - segment.start.x_m;
@@ -139,6 +243,19 @@ double segmentParameter(domain::Point2D point,
                     0.0, 1.0);
 }
 
+/**
+ * @brief Performs the closest point operation for this subsystem.
+ *
+ * Arguments:
+ * - @p point: Supplies point input to the operation.
+ * - @p segment: Supplies segment input to the operation.
+ *
+ * Returns:
+ * - `domain::Point2D` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 domain::Point2D closestPoint(domain::Point2D point,
                              const domain::Segment2D& segment) {
   const double parameter = segmentParameter(point, segment);
@@ -148,17 +265,57 @@ domain::Point2D closestPoint(domain::Point2D point,
               parameter * (segment.end.y_m - segment.start.y_m)};
 }
 
+/**
+ * @brief Performs the distance to segment operation for this subsystem.
+ *
+ * Arguments:
+ * - @p point: Supplies point input to the operation.
+ * - @p segment: Supplies segment input to the operation.
+ *
+ * Returns:
+ * - `double` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 double distanceToSegment(domain::Point2D point,
                          const domain::Segment2D& segment) {
   return domain::distance(point, closestPoint(point, segment)).meters();
 }
 
+/**
+ * @brief Performs the signed distance to region operation for this
+ * subsystem.
+ *
+ * Arguments:
+ * - @p point: Supplies point input to the operation.
+ * - @p region: Supplies region input to the operation.
+ *
+ * Returns:
+ * - `double` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 double signedDistanceToRegion(domain::Point2D point,
                               const domain::Circle& region) {
   return domain::distance(point, region.center).meters() -
          region.radius.meters();
 }
 
+/**
+ * @brief Performs the region by id operation for this subsystem.
+ *
+ * Arguments:
+ * - @p spatial: Supplies spatial input to the operation.
+ * - @p id: Supplies id input to the operation.
+ *
+ * Returns:
+ * - `const domain::LearnedRegion*` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 const domain::LearnedRegion* regionById(const domain::SpatialModel& spatial,
                                         domain::RegionId id) {
   const auto found = std::find_if(
@@ -167,6 +324,19 @@ const domain::LearnedRegion* regionById(const domain::SpatialModel& spatial,
   return found == spatial.regions.end() ? nullptr : &*found;
 }
 
+/**
+ * @brief Performs the learned door count operation for this subsystem.
+ *
+ * Arguments:
+ * - @p spatial: Supplies spatial input to the operation.
+ * - @p region: Supplies region input to the operation.
+ *
+ * Returns:
+ * - `std::size_t` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::size_t learnedDoorCount(const domain::SpatialModel& spatial,
                              domain::RegionId region) {
   return static_cast<std::size_t>(std::count_if(
@@ -174,6 +344,19 @@ std::size_t learnedDoorCount(const domain::SpatialModel& spatial,
       [region](const auto& door) { return door.region == region; }));
 }
 
+/**
+ * @brief Performs the skeleton degree operation for this subsystem.
+ *
+ * Arguments:
+ * - @p spatial: Supplies spatial input to the operation.
+ * - @p node: Supplies node input to the operation.
+ *
+ * Returns:
+ * - `std::size_t` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::size_t skeletonDegree(const domain::SpatialModel& spatial,
                            std::size_t node) {
   return static_cast<std::size_t>(std::count_if(
@@ -183,6 +366,18 @@ std::size_t skeletonDegree(const domain::SpatialModel& spatial,
       }));
 }
 
+/**
+ * @brief Performs the hallway segments operation for this subsystem.
+ *
+ * Arguments:
+ * - @p spatial: Supplies spatial input to the operation.
+ *
+ * Returns:
+ * - `std::vector<domain::Segment2D>` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::vector<domain::Segment2D> hallwaySegments(
     const domain::SpatialModel& spatial) {
   if (!spatial.hallway_entities.empty()) {
@@ -195,6 +390,19 @@ std::vector<domain::Segment2D> hallwaySegments(
   return spatial.hallways;
 }
 
+/**
+ * @brief Performs the inside hallway operation for this subsystem.
+ *
+ * Arguments:
+ * - @p point: Supplies point input to the operation.
+ * - @p hallway: Supplies hallway input to the operation.
+ *
+ * Returns:
+ * - `bool` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 bool insideHallway(domain::Point2D point,
                    const domain::LearnedHallway& hallway) {
   const double half_width = std::max(0.0, hallway.width_m * 0.5);
@@ -202,6 +410,20 @@ bool insideHallway(domain::Point2D point,
          distanceToSegment(point, hallway.centerline) <= half_width;
 }
 
+/**
+ * @brief Performs the overlaps operation for this subsystem.
+ *
+ * Arguments:
+ * - @p first: Supplies first input to the operation.
+ * - @p second: Supplies second input to the operation.
+ * - @p tolerance_m: Supplies tolerance m input to the operation.
+ *
+ * Returns:
+ * - `bool` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 bool overlaps(const domain::Segment2D& first,
               const domain::Segment2D& second,
               double tolerance_m = 0.75) {
@@ -212,12 +434,37 @@ bool overlaps(const domain::Segment2D& first,
          distanceToSegment(second.end, first) <= tolerance_m;
 }
 
+/**
+ * @brief Performs the grid index operation for this subsystem.
+ *
+ * Arguments:
+ * - @p grid: Supplies grid input to the operation.
+ * - @p point: Supplies point input to the operation.
+ *
+ * Returns:
+ * - `std::optional<std::size_t>` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 template <typename Grid>
 std::optional<std::size_t> gridIndex(const Grid& grid,
                                      domain::Point2D point) {
   return grid.extent().index(point);
 }
 
+/**
+ * @brief Performs the local objective operation for this subsystem.
+ *
+ * Arguments:
+ * - @p context: Supplies context input to the operation.
+ *
+ * Returns:
+ * - `std::optional<domain::Point2D>` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::optional<domain::Point2D> localObjective(
     const DecisionContext& context) {
   if (context.active_plan_objective)
@@ -227,6 +474,19 @@ std::optional<domain::Point2D> localObjective(
       context.world.mission.active()->target);
 }
 
+/**
+ * @brief Performs the target progress operation for this subsystem.
+ *
+ * Arguments:
+ * - @p context: Supplies context input to the operation.
+ * - @p expected: Supplies expected input to the operation.
+ *
+ * Returns:
+ * - `double` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 double targetProgress(const DecisionContext& context,
                       const domain::Pose2D& expected) {
   const auto target = localObjective(context);
@@ -238,6 +498,18 @@ double targetProgress(const DecisionContext& context,
 
 }  // namespace
 
+/**
+ * @brief Performs the heuristic advisor operation for this subsystem.
+ *
+ * Arguments:
+ * - @p configuration: Supplies configuration input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 HeuristicAdvisor::HeuristicAdvisor(
     HeuristicAdvisorConfiguration configuration)
     : configuration_(std::move(configuration)) {
@@ -246,6 +518,18 @@ HeuristicAdvisor::HeuristicAdvisor(
     throw std::invalid_argument("invalid heuristic advisor configuration");
 }
 
+/**
+ * @brief Performs the dependencies operation for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - `std::vector<std::string_view>` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::vector<std::string_view> HeuristicAdvisor::dependencies() const {
   using O = HeuristicObjective;
   switch (configuration_.objective) {
@@ -274,6 +558,18 @@ std::vector<std::string_view> HeuristicAdvisor::dependencies() const {
   return {};
 }
 
+/**
+ * @brief Performs the metadata operation for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - `AdvisorMetadata` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 AdvisorMetadata HeuristicAdvisor::metadata() const {
   using A = domain::ActionType;
   using O = HeuristicObjective;
@@ -315,11 +611,35 @@ AdvisorMetadata HeuristicAdvisor::metadata() const {
           ScoreNormalization::TenPoint, rationale};
 }
 
+/**
+ * @brief Performs the accepts operation for this subsystem.
+ *
+ * Arguments:
+ * - @p type: Supplies type input to the operation.
+ *
+ * Returns:
+ * - `bool` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 bool HeuristicAdvisor::accepts(domain::ActionType type) const noexcept {
   const auto actions = metadata().scored_action_types;
   return std::find(actions.begin(), actions.end(), type) != actions.end();
 }
 
+/**
+ * @brief Performs the applicable operation for this subsystem.
+ *
+ * Arguments:
+ * - @p context: Supplies context input to the operation.
+ *
+ * Returns:
+ * - `bool` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 bool HeuristicAdvisor::applicable(
     const DecisionContext& context) const {
   const auto& world = context.world;
@@ -403,6 +723,19 @@ bool HeuristicAdvisor::applicable(
   }
 }
 
+/**
+ * @brief Performs the score operation for this subsystem.
+ *
+ * Arguments:
+ * - @p context: Supplies context input to the operation.
+ * - @p action: Supplies action input to the operation.
+ *
+ * Returns:
+ * - `double` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 double HeuristicAdvisor::score(const DecisionContext& context,
                                const domain::Action& action) const {
   const auto& world = context.world;
@@ -698,6 +1031,19 @@ double HeuristicAdvisor::score(const DecisionContext& context,
   return 0.0;
 }
 
+/**
+ * @brief Evaluates package content for this subsystem.
+ *
+ * Arguments:
+ * - @p context: Supplies context input to the operation.
+ * - @p candidates: Supplies candidates input to the operation.
+ *
+ * Returns:
+ * - `AdvisorEvaluation` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 AdvisorEvaluation HeuristicAdvisor::evaluate(
     const DecisionContext& context,
     std::span<const domain::Action> candidates) const {

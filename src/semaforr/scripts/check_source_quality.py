@@ -1,5 +1,27 @@
 #!/usr/bin/env python3
-"""Fast source-quality checks for refactored SemaFORR production code."""
+"""SemaFORR module overview.
+
+Summary:
+    This file implements check source quality behavior for developer tooling and experiment automation. It centers on `manifest_paths`, `check`, `main`. Its package-relative location is `scripts/check_source_quality.py`.
+
+Arguments:
+    Not applicable at module scope.
+
+Returns:
+    Not applicable at module scope.
+
+Raises:
+    Import-time dependency errors may propagate.
+"""
+
+
+
+
+
+
+
+
+
 
 import argparse
 import re
@@ -18,6 +40,19 @@ FORBIDDEN = {
 
 
 def manifest_paths(source: Path, manifest: Path) -> list[Path]:
+    """Summary:
+        Performs the manifest paths operation for this subsystem.
+
+    Args:
+        source (Path): Supplies source input to the operation.
+        manifest (Path): Supplies manifest input to the operation.
+
+    Returns:
+        list[Path]
+
+    Raises:
+        None documented; dependency failures may propagate.
+    """
     paths = []
     for line in manifest.read_text(encoding="utf-8").splitlines():
         item = line.strip()
@@ -35,6 +70,18 @@ def manifest_paths(source: Path, manifest: Path) -> list[Path]:
 
 
 def check(paths: list[Path]) -> list[str]:
+    """Summary:
+        Performs the check operation for this subsystem.
+
+    Args:
+        paths (list[Path]): Supplies paths input to the operation.
+
+    Returns:
+        list[str]
+
+    Raises:
+        None documented; dependency failures may propagate.
+    """
     errors = []
     for path in paths:
         if not path.is_file():
@@ -53,6 +100,18 @@ def check(paths: list[Path]) -> list[str]:
 
 
 def main() -> int:
+    """Summary:
+        Performs the main operation for this subsystem.
+
+    Args:
+        None.
+
+    Returns:
+        int
+
+    Raises:
+        None documented; dependency failures may propagate.
+    """
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--source", type=Path, default=Path(__file__).resolve().parents[1])

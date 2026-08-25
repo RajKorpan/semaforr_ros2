@@ -1,3 +1,14 @@
+/**
+ * @file navigation_configuration.hpp
+ * @brief Navigation configuration responsibilities.
+ *
+ * @details This file defines navigation configuration behavior for runtime
+ * configuration and reproducible experiment setup. It centers on
+ * `BehaviorMode`, `SpatialLearningProfile`, `MapOperatingMode`,
+ * `MapLoadFailurePolicy`, `StaticMapConfiguration`, `AblationProfile`,
+ * `TierConfiguration`, `SafetyEnvelopeConfiguration`. Its package-relative
+ * location is `include/semaforr/config/navigation_configuration.hpp`.
+ */
 #ifndef SEMAFORR_CONFIG_CONFIGURATION_HPP
 #define SEMAFORR_CONFIG_CONFIGURATION_HPP
 
@@ -10,6 +21,19 @@
 namespace semaforr {
 namespace config {
 
+/**
+ * @brief Enumerates the supported behavior mode values used by this
+ * subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - Not applicable to this declaration.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 enum class BehaviorMode {
   Compatibility,
   Modernized
@@ -18,11 +42,63 @@ enum class BehaviorMode {
 // Component-scoped selection.  This does not claim whole-system behavioral
 // compatibility; it permits validating the Chapter 3 learning pipeline while
 // unrelated compatibility-mode blockers remain fail-closed.
+/**
+ * @brief Enumerates the supported spatial learning profile values used by
+ * this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - Not applicable to this declaration.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 enum class SpatialLearningProfile { Modernized, Chapter3Compatibility };
 
+/**
+ * @brief Enumerates the supported map operating mode values used by this
+ * subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - Not applicable to this declaration.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 enum class MapOperatingMode { Mapless, MapEnabled };
+/**
+ * @brief Enumerates the supported map load failure policy values used by
+ * this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - Not applicable to this declaration.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 enum class MapLoadFailurePolicy { FailStartup, DisableMap };
 
+/**
+ * @brief Encapsulates static map configuration state and behavior for this
+ * subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - Not applicable to this declaration.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 struct StaticMapConfiguration {
   MapOperatingMode mode = MapOperatingMode::Mapless;
   MapLoadFailurePolicy failure_policy = MapLoadFailurePolicy::FailStartup;
@@ -37,6 +113,19 @@ struct StaticMapConfiguration {
   double inferred_bounds_padding_m = 1.0;
 };
 
+/**
+ * @brief Enumerates the supported ablation profile values used by this
+ * subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - Not applicable to this declaration.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 enum class AblationProfile {
   Full,
   TierOneOnly,
@@ -67,6 +156,19 @@ enum class AblationProfile {
   Custom
 };
 
+/**
+ * @brief Encapsulates tier configuration state and behavior for this
+ * subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - Not applicable to this declaration.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 struct TierConfiguration {
   bool tier_one = true;
   bool tier_two = true;
@@ -80,11 +182,37 @@ struct TierConfiguration {
   std::size_t maximum_planning_attempts_per_task = 3U;
 };
 
+/**
+ * @brief Encapsulates safety envelope configuration state and behavior for
+ * this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - Not applicable to this declaration.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 struct SafetyEnvelopeConfiguration {
   bool enabled = true;
   double sensor_freshness_timeout_s = 0.5;
 };
 
+/**
+ * @brief Encapsulates initial exploration configuration state and behavior
+ * for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - Not applicable to this declaration.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 struct InitialExplorationConfiguration {
   bool enabled = false;
   std::size_t observation_budget = 0U;
@@ -117,10 +245,36 @@ struct InitialExplorationConfiguration {
   double minimum_extension_m = 0.25;
 };
 
+/**
+ * @brief Encapsulates target navigation configuration state and behavior
+ * for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - Not applicable to this declaration.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 struct TargetNavigationConfiguration {
   bool enabled = true;
 };
 
+/**
+ * @brief Encapsulates social configuration state and behavior for this
+ * subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - Not applicable to this declaration.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 struct SocialConfiguration {
   bool enabled = true;
   bool observations = true;
@@ -129,6 +283,19 @@ struct SocialConfiguration {
   bool planners = true;
 };
 
+/**
+ * @brief Encapsulates random seed configuration state and behavior for this
+ * subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - Not applicable to this declaration.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 struct RandomSeedConfiguration {
   unsigned int tier_three_ties = 0U;
   unsigned int lle_fallback = 0U;
@@ -137,6 +304,19 @@ struct RandomSeedConfiguration {
   unsigned int simulation_noise = 0U;
 };
 
+/**
+ * @brief Encapsulates reproducibility configuration state and behavior for
+ * this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - Not applicable to this declaration.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 struct ReproducibilityConfiguration {
   bool recording_enabled = false;
   std::string trace_path;
@@ -144,11 +324,37 @@ struct ReproducibilityConfiguration {
   std::string test_suite_revision{"unknown"};
 };
 
+/**
+ * @brief Encapsulates explanation configuration state and behavior for this
+ * subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - Not applicable to this declaration.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 struct ExplanationConfiguration {
   std::string mode{"why"};
   bool retain_candidate_plans = true;
 };
 
+/**
+ * @brief Encapsulates experiment configuration state and behavior for this
+ * subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - Not applicable to this declaration.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 struct ExperimentConfiguration {
   BehaviorMode behavior_mode = BehaviorMode::Modernized;
   AblationProfile profile = AblationProfile::Custom;
@@ -174,6 +380,19 @@ struct ExperimentConfiguration {
   bool social_enabled = true;
 };
 
+/**
+ * @brief Encapsulates planner configuration state and behavior for this
+ * subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - Not applicable to this declaration.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 struct PlannerConfiguration {
   bool distance = false;
   bool sensor_distance = false;
@@ -190,6 +409,19 @@ struct PlannerConfiguration {
   std::string tie_policy = "profile";
 };
 
+/**
+ * @brief Encapsulates grid layer configuration state and behavior for this
+ * subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - Not applicable to this declaration.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 struct GridLayerConfiguration {
   std::string extent_policy = "expand";
   std::string frame_id = "map";
@@ -215,6 +447,19 @@ struct GridLayerConfiguration {
   double unknown_cost_multiplier = 8.0;
 };
 
+/**
+ * @brief Encapsulates crowd learning configuration state and behavior for
+ * this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - Not applicable to this declaration.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 struct CrowdLearningConfiguration {
   bool enabled = true;
   std::string estimator = "count_exposure";
@@ -233,6 +478,19 @@ struct CrowdLearningConfiguration {
   unsigned int random_seed = 0U;
 };
 
+/**
+ * @brief Encapsulates circumstance configuration state and behavior for
+ * this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - Not applicable to this declaration.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 struct CircumstanceConfiguration {
   std::string learning_mode = "adapted_threshold";
   double setting_resolution_m = 1.0;
@@ -260,6 +518,19 @@ struct CircumstanceConfiguration {
   std::size_t angle_bin_count = 8U;
 };
 
+/**
+ * @brief Encapsulates navigation configuration state and behavior for this
+ * subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - Not applicable to this declaration.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 struct NavigationConfiguration {
   int task_decision_limit = 0;
   double can_see_point_epsilon = 0.0;
@@ -295,12 +566,37 @@ struct NavigationConfiguration {
   CircumstanceConfiguration circumstances;
 };
 
+/**
+ * @brief Encapsulates map dimensions state and behavior for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - Not applicable to this declaration.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 struct MapDimensions {
   int length = 0;
   int height = 0;
   double granularity = 0.0;
 };
 
+/**
+ * @brief Encapsulates advisor configuration state and behavior for this
+ * subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - Not applicable to this declaration.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 struct AdvisorConfiguration {
   std::string name;
   std::string description;
@@ -309,11 +605,36 @@ struct AdvisorConfiguration {
   std::array<double, 4> parameters{{0.0, 0.0, 0.0, 0.0}};
 };
 
+/**
+ * @brief Encapsulates task configuration state and behavior for this
+ * subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - Not applicable to this declaration.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 struct TaskConfiguration {
   double x = 0.0;
   double y = 0.0;
 };
 
+/**
+ * @brief Encapsulates configuration state and behavior for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - Not applicable to this declaration.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 struct Configuration {
   ExperimentConfiguration experiment;
   NavigationConfiguration navigation;
@@ -324,26 +645,228 @@ struct Configuration {
   StaticMapConfiguration static_map;
 };
 
+/**
+ * @brief Converts string for this subsystem.
+ *
+ * Arguments:
+ * - @p profile: Supplies profile input to the operation.
+ *
+ * Returns:
+ * - `std::string_view` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::string_view toString(AblationProfile profile) noexcept;
+/**
+ * @brief Performs the ablation profile from string operation for this
+ * subsystem.
+ *
+ * Arguments:
+ * - @p value: Supplies value input to the operation.
+ *
+ * Returns:
+ * - `AblationProfile` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 AblationProfile ablationProfileFromString(const std::string& value);
+/**
+ * @brief Converts string for this subsystem.
+ *
+ * Arguments:
+ * - @p mode: Supplies mode input to the operation.
+ *
+ * Returns:
+ * - `std::string_view` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::string_view toString(BehaviorMode mode) noexcept;
+/**
+ * @brief Performs the behavior mode from string operation for this
+ * subsystem.
+ *
+ * Arguments:
+ * - @p value: Supplies value input to the operation.
+ *
+ * Returns:
+ * - `BehaviorMode` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 BehaviorMode behaviorModeFromString(const std::string& value);
+/**
+ * @brief Converts string for this subsystem.
+ *
+ * Arguments:
+ * - @p profile: Supplies profile input to the operation.
+ *
+ * Returns:
+ * - `std::string_view` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::string_view toString(SpatialLearningProfile profile) noexcept;
+/**
+ * @brief Performs the spatial learning profile from string operation for
+ * this subsystem.
+ *
+ * Arguments:
+ * - @p value: Supplies value input to the operation.
+ *
+ * Returns:
+ * - `SpatialLearningProfile` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 SpatialLearningProfile spatialLearningProfileFromString(
     const std::string& value);
+/**
+ * @brief Converts string for this subsystem.
+ *
+ * Arguments:
+ * - @p mode: Supplies mode input to the operation.
+ *
+ * Returns:
+ * - `std::string_view` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::string_view toString(MapOperatingMode mode) noexcept;
+/**
+ * @brief Performs the map operating mode from string operation for this
+ * subsystem.
+ *
+ * Arguments:
+ * - @p value: Supplies value input to the operation.
+ *
+ * Returns:
+ * - `MapOperatingMode` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 MapOperatingMode mapOperatingModeFromString(const std::string& value);
+/**
+ * @brief Converts string for this subsystem.
+ *
+ * Arguments:
+ * - @p policy: Supplies policy input to the operation.
+ *
+ * Returns:
+ * - `std::string_view` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::string_view toString(MapLoadFailurePolicy policy) noexcept;
+/**
+ * @brief Performs the map load failure policy from string operation for
+ * this subsystem.
+ *
+ * Arguments:
+ * - @p value: Supplies value input to the operation.
+ *
+ * Returns:
+ * - `MapLoadFailurePolicy` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 MapLoadFailurePolicy mapLoadFailurePolicyFromString(const std::string& value);
+/**
+ * @brief Applies ablation profile for this subsystem.
+ *
+ * Arguments:
+ * - @p configuration: Supplies configuration input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void applyAblationProfile(Configuration& configuration);
+/**
+ * @brief Performs the configuration fingerprint operation for this
+ * subsystem.
+ *
+ * Arguments:
+ * - @p configuration: Supplies configuration input to the operation.
+ *
+ * Returns:
+ * - `std::string` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::string configurationFingerprint(const Configuration& configuration);
+/**
+ * @brief Performs the configuration snapshot operation for this subsystem.
+ *
+ * Arguments:
+ * - @p configuration: Supplies configuration input to the operation.
+ *
+ * Returns:
+ * - `std::string` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::string configurationSnapshot(const Configuration& configuration);
+/**
+ * @brief Performs the component manifest operation for this subsystem.
+ *
+ * Arguments:
+ * - @p configuration: Supplies configuration input to the operation.
+ *
+ * Returns:
+ * - `std::vector<std::string>` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::vector<std::string> componentManifest(const Configuration& configuration);
 
+/**
+ * @brief Loads structured configuration for this subsystem.
+ *
+ * Arguments:
+ * - @p navigation: Supplies navigation input to the operation.
+ * - @p map_dimensions: Supplies map dimensions input to the operation.
+ * - @p advisors: Supplies advisors input to the operation.
+ * - @p tasks_file: Supplies tasks file input to the operation.
+ * - @p map_file: Supplies map file input to the operation.
+ *
+ * Returns:
+ * - `Configuration` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 Configuration loadStructuredConfiguration(
     NavigationConfiguration navigation, MapDimensions map_dimensions,
     std::vector<AdvisorConfiguration> advisors, const std::string& tasks_file,
     const std::string& map_file);
+/**
+ * @brief Validates configuration for this subsystem.
+ *
+ * Arguments:
+ * - @p configuration: Supplies configuration input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void validateConfiguration(const Configuration& configuration);
 
 }  // namespace config

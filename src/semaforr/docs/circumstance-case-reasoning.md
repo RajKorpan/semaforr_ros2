@@ -1,3 +1,5 @@
+<!-- File overview: This file documents or configures circumstance case reasoning behavior for the maintained architecture and user documentation. It records the declarations, settings, fixtures, or guidance needed by that responsibility. Its package-relative location is `docs/circumstance-case-reasoning.md`. -->
+
 # Circumstance case reasoning
 
 Circumstance learning, action cases, Precedent, and optional Tier-3 weighting

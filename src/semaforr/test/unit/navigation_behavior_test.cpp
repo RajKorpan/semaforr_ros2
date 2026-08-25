@@ -1,3 +1,18 @@
+/**
+ * @file navigation_behavior_test.cpp
+ * @brief Navigation behavior test responsibilities.
+ *
+ * @details This file exercises navigation behavior test behavior for automated
+ * verification and regression testing. It centers on
+ * `ComputesExpectedPoseWithoutChangingFramesOrUnits`,
+ * `TransformsLaserEndpointsIntoTheMapFrame`,
+ * `GoalCompletionUsesAnExplicitMetricTolerance`,
+ * `VetoesOnlyForwardActionsThatReachTheObstacle`,
+ * `RegionsAndDoorsUseTheSameMetricGeometry`,
+ * `ScoresGoalClearanceAndExplorationObjectives`,
+ * `FiltersActionsAndHandlesMissingOrInfiniteSensorData`. Its
+ * package-relative location is `test/unit/navigation_behavior_test.cpp`.
+ */
 #include <gtest/gtest.h>
 
 #include <limits>
@@ -20,6 +35,18 @@ using semaforr::domain::LaserObservation;
 using semaforr::domain::Pose2D;
 using semaforr::domain::WorldModel;
 
+/**
+ * @brief Performs the scan operation for this subsystem.
+ *
+ * Arguments:
+ * - @p ranges: Supplies ranges input to the operation.
+ *
+ * Returns:
+ * - `LaserObservation` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 LaserObservation scan(std::vector<double> ranges) {
   return {Angle(-std::numbers::pi / 4.0), Angle(std::numbers::pi / 4.0),
           Distance(0.05), Distance(10.0), std::move(ranges)};

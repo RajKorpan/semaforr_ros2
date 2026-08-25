@@ -1,3 +1,12 @@
+/**
+ * @file crowd_field_learner.cpp
+ * @brief Crowd field learner responsibilities.
+ *
+ * @details This file implements crowd field learner behavior for social observation
+ * processing and crowd learning. It records the declarations, settings,
+ * fixtures, or guidance needed by that responsibility. Its
+ * package-relative location is `src/social/crowd_field_learner.cpp`.
+ */
 #include <algorithm>
 #include <cmath>
 #include <limits>
@@ -10,12 +19,36 @@ namespace {
 
 constexpr double kPi = 3.14159265358979323846;
 
+/**
+ * @brief Performs the seconds operation for this subsystem.
+ *
+ * Arguments:
+ * - @p duration: Supplies duration input to the operation.
+ *
+ * Returns:
+ * - `double` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 double seconds(domain::SocialTimestamp duration) noexcept {
   return std::chrono::duration<double>(duration).count();
 }
 
 }  // namespace
 
+/**
+ * @brief Converts string for this subsystem.
+ *
+ * Arguments:
+ * - @p strategy: Supplies strategy input to the operation.
+ *
+ * Returns:
+ * - `std::string_view` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::string_view toString(CrowdEstimatorStrategy strategy) noexcept {
   switch (strategy) {
     case CrowdEstimatorStrategy::CountExposure:
@@ -30,6 +63,19 @@ std::string_view toString(CrowdEstimatorStrategy strategy) noexcept {
   return "count_exposure";
 }
 
+/**
+ * @brief Performs the crowd estimator strategy from string operation for
+ * this subsystem.
+ *
+ * Arguments:
+ * - @p value: Supplies value input to the operation.
+ *
+ * Returns:
+ * - `CrowdEstimatorStrategy` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 CrowdEstimatorStrategy crowdEstimatorStrategyFromString(
     std::string_view value) {
   if (value == "count_exposure" || value == "count") {
@@ -48,6 +94,18 @@ CrowdEstimatorStrategy crowdEstimatorStrategyFromString(
                               std::string(value) + "'");
 }
 
+/**
+ * @brief Validates package content for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void CrowdFieldLearnerConfiguration::validate() const {
   geometry.validate();
   if (!std::isfinite(discount_factor) || discount_factor <= 0.0 ||
@@ -67,6 +125,20 @@ void CrowdFieldLearnerConfiguration::validate() const {
   }
 }
 
+/**
+ * @brief Performs the detect operation for this subsystem.
+ *
+ * Arguments:
+ * - @p sample: Supplies sample input to the operation.
+ * - @p change: Supplies change input to the operation.
+ * - @p threshold: Supplies threshold input to the operation.
+ *
+ * Returns:
+ * - `bool` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 bool CrowdFieldLearner::CusumState::detect(double sample, double change,
                                            double threshold) {
   ++sample_count;
@@ -82,8 +154,32 @@ bool CrowdFieldLearner::CusumState::detect(double sample, double change,
   return log_likelihood - minimum_log_likelihood > threshold;
 }
 
+/**
+ * @brief Resets package content for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void CrowdFieldLearner::CusumState::reset() noexcept { *this = {}; }
 
+/**
+ * @brief Performs the crowd field learner operation for this subsystem.
+ *
+ * Arguments:
+ * - @p configuration: Supplies configuration input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 CrowdFieldLearner::CrowdFieldLearner(
     CrowdFieldLearnerConfiguration configuration)
     : configuration_(std::move(configuration)),
@@ -98,6 +194,19 @@ CrowdFieldLearner::CrowdFieldLearner(
   snapshot_.estimator = std::string(toString(configuration_.strategy));
 }
 
+/**
+ * @brief Performs the visible cells operation for this subsystem.
+ *
+ * Arguments:
+ * - @p robot_pose: Supplies robot pose input to the operation.
+ * - @p laser: Supplies laser input to the operation.
+ *
+ * Returns:
+ * - `std::vector<bool>` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::vector<bool> CrowdFieldLearner::visibleCells(
     const domain::Pose2D& robot_pose,
     const domain::LaserObservation& laser) const {
@@ -131,6 +240,18 @@ std::vector<bool> CrowdFieldLearner::visibleCells(
   return visible;
 }
 
+/**
+ * @brief Performs the direction bin operation for this subsystem.
+ *
+ * Arguments:
+ * - @p velocity: Supplies velocity input to the operation.
+ *
+ * Returns:
+ * - `std::optional<std::size_t>` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::optional<std::size_t> CrowdFieldLearner::directionBin(
     const domain::Point2D& velocity) const noexcept {
   const double speed = std::hypot(velocity.x_m, velocity.y_m);
@@ -144,6 +265,20 @@ std::optional<std::size_t> CrowdFieldLearner::directionBin(
          domain::kCrowdFlowDirectionCount;
 }
 
+/**
+ * @brief Processes package content for this subsystem.
+ *
+ * Arguments:
+ * - @p robot_pose: Supplies robot pose input to the operation.
+ * - @p laser: Supplies laser input to the operation.
+ * - @p crowd: Supplies crowd input to the operation.
+ *
+ * Returns:
+ * - `bool` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 bool CrowdFieldLearner::observe(const domain::Pose2D& robot_pose,
                                 const domain::LaserObservation& laser,
                                 const domain::CrowdObservation& crowd) {
@@ -265,6 +400,18 @@ bool CrowdFieldLearner::observe(const domain::Pose2D& robot_pose,
   return true;
 }
 
+/**
+ * @brief Performs the rebuild operation for this subsystem.
+ *
+ * Arguments:
+ * - @p generated_at: Supplies generated at input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void CrowdFieldLearner::rebuild(domain::SocialTimestamp generated_at) {
   snapshot_.geometry = configuration_.geometry;
   snapshot_.generated_at = generated_at;
@@ -296,12 +443,36 @@ void CrowdFieldLearner::rebuild(domain::SocialTimestamp generated_at) {
   snapshot_.validate();
 }
 
+/**
+ * @brief Resets cell for this subsystem.
+ *
+ * Arguments:
+ * - @p index: Supplies index input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void CrowdFieldLearner::resetCell(std::size_t index) {
   evidence_.at(index) = {};
   cusum_increase_.at(index).reset();
   cusum_decrease_.at(index).reset();
 }
 
+/**
+ * @brief Performs the restore operation for this subsystem.
+ *
+ * Arguments:
+ * - @p snapshot: Supplies snapshot input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void CrowdFieldLearner::restore(domain::CrowdFieldSnapshot snapshot) {
   snapshot.validate();
   if (!(snapshot.geometry == configuration_.geometry)) {
@@ -323,6 +494,18 @@ void CrowdFieldLearner::restore(domain::CrowdFieldSnapshot snapshot) {
   last_observation_ = snapshot_.generated_at;
 }
 
+/**
+ * @brief Resets package content for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void CrowdFieldLearner::reset() {
   std::fill(evidence_.begin(), evidence_.end(), domain::CrowdFieldCell{});
   std::fill(cusum_increase_.begin(), cusum_increase_.end(), CusumState{});

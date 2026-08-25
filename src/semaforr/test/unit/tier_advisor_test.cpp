@@ -1,3 +1,19 @@
+/**
+ * @file tier_advisor_test.cpp
+ * @brief Tier advisor test responsibilities.
+ *
+ * @details This file exercises tier advisor test behavior for automated
+ * verification and regression testing. It centers on
+ * `RestoresEveryHeuristicAdvisorWithMetadata`,
+ * `SpatialAdvisorReportsSourceRevision`,
+ * `ProductionAdvisorsNormalizeWholeScoreSetToTenPoint`,
+ * `IdenticalRawCommentsBecomeNeutralWithoutDivisionByZero`,
+ * `BigStepAndGreedyUseMetricLookahead`,
+ * `ElbowRoomAndGoAroundRespondToObstacleSide`,
+ * `GoAroundIgnoresMaximumRangeAndScoresOnlyRotations`,
+ * `NoveltyAndCuriosityUseDifferentHistoryScopes`. Its package-relative
+ * location is `test/unit/tier_advisor_test.cpp`.
+ */
 #include <gtest/gtest.h>
 #include <algorithm>
 #include <cmath>
@@ -12,6 +28,18 @@
 
 namespace {
 
+/**
+ * @brief Performs the world with target operation for this subsystem.
+ *
+ * Arguments:
+ * - @p target: Supplies target input to the operation.
+ *
+ * Returns:
+ * - `semaforr::domain::WorldModel` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 semaforr::domain::WorldModel worldWithTarget(
     semaforr::domain::Point2D target = {2.0, 0.0}) {
   semaforr::domain::WorldModel world;
@@ -22,6 +50,18 @@ semaforr::domain::WorldModel worldWithTarget(
   return world;
 }
 
+/**
+ * @brief Performs the laser operation for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - `semaforr::domain::LaserObservation` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 semaforr::domain::LaserObservation laser() {
   semaforr::domain::LaserObservation result;
   result.minimum_range = semaforr::domain::Distance(0.1);
@@ -31,6 +71,19 @@ semaforr::domain::LaserObservation laser() {
   return result;
 }
 
+/**
+ * @brief Performs the score for operation for this subsystem.
+ *
+ * Arguments:
+ * - @p evaluation: Supplies evaluation input to the operation.
+ * - @p action: Supplies action input to the operation.
+ *
+ * Returns:
+ * - `double` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 double scoreFor(const semaforr::decision::AdvisorEvaluation& evaluation,
                 const semaforr::domain::Action& action) {
   const auto found = std::find_if(
@@ -40,6 +93,22 @@ double scoreFor(const semaforr::decision::AdvisorEvaluation& evaluation,
   return found == evaluation.scores.end() ? 0.0 : found->raw_score;
 }
 
+/**
+ * @brief Performs the spatial evaluation operation for this subsystem.
+ *
+ * Arguments:
+ * - @p objective: Supplies objective input to the operation.
+ * - @p world: Supplies world input to the operation.
+ * - @p actions: Supplies actions input to the operation.
+ * - @p candidates: Supplies candidates input to the operation.
+ *
+ * Returns:
+ * - `semaforr::decision::AdvisorEvaluation` containing the operation
+ * result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 semaforr::decision::AdvisorEvaluation spatialEvaluation(
     semaforr::decision::HeuristicObjective objective,
     const semaforr::domain::WorldModel& world,
@@ -50,6 +119,20 @@ semaforr::decision::AdvisorEvaluation spatialEvaluation(
   return advisor.evaluate({world}, candidates);
 }
 
+/**
+ * @brief Performs the learned region operation for this subsystem.
+ *
+ * Arguments:
+ * - @p id: Supplies id input to the operation.
+ * - @p center: Supplies center input to the operation.
+ * - @p radius_m: Supplies radius m input to the operation.
+ *
+ * Returns:
+ * - `semaforr::domain::LearnedRegion` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 semaforr::domain::LearnedRegion learnedRegion(
     semaforr::domain::RegionId id, semaforr::domain::Point2D center,
     double radius_m) {
@@ -59,6 +142,20 @@ semaforr::domain::LearnedRegion learnedRegion(
   return result;
 }
 
+/**
+ * @brief Performs the skeleton node operation for this subsystem.
+ *
+ * Arguments:
+ * - @p id: Supplies id input to the operation.
+ * - @p region: Supplies region input to the operation.
+ * - @p center: Supplies center input to the operation.
+ *
+ * Returns:
+ * - `semaforr::domain::RegionSkeletonNode` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 semaforr::domain::RegionSkeletonNode skeletonNode(
     std::size_t id, semaforr::domain::RegionId region,
     semaforr::domain::Point2D center) {
@@ -69,6 +166,19 @@ semaforr::domain::RegionSkeletonNode skeletonNode(
   return result;
 }
 
+/**
+ * @brief Performs the learned door operation for this subsystem.
+ *
+ * Arguments:
+ * - @p id: Supplies id input to the operation.
+ * - @p region: Supplies region input to the operation.
+ *
+ * Returns:
+ * - `semaforr::domain::LearnedDoor` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 semaforr::domain::LearnedDoor learnedDoor(
     semaforr::domain::DoorId id, semaforr::domain::RegionId region) {
   semaforr::domain::LearnedDoor result;

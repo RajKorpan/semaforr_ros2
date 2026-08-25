@@ -1,3 +1,12 @@
+/**
+ * @file navigation_phase.cpp
+ * @brief Navigation phase responsibilities.
+ *
+ * @details This file implements navigation phase behavior for the SemaFORR
+ * navigation package. It records the declarations, settings, fixtures, or
+ * guidance needed by that responsibility. Its package-relative location is
+ * `src/navigation/navigation_phase.cpp`.
+ */
 #include <semaforr/navigation/navigation_phase.hpp>
 #include <chrono>
 #include <cmath>
@@ -5,6 +14,18 @@
 
 namespace semaforr::navigation {
 
+/**
+ * @brief Converts string for this subsystem.
+ *
+ * Arguments:
+ * - @p phase: Supplies phase input to the operation.
+ *
+ * Returns:
+ * - `std::string_view` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::string_view toString(NavigationPhase phase) noexcept {
   switch (phase) {
     case NavigationPhase::InitialExploration:
@@ -17,6 +38,19 @@ std::string_view toString(NavigationPhase phase) noexcept {
   return "mission_complete";
 }
 
+/**
+ * @brief Performs the navigation phase coordinator operation for this
+ * subsystem.
+ *
+ * Arguments:
+ * - @p configuration: Supplies configuration input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 NavigationPhaseCoordinator::NavigationPhaseCoordinator(
     PhaseConfiguration configuration)
     : configuration_(configuration),
@@ -34,11 +68,36 @@ NavigationPhaseCoordinator::NavigationPhaseCoordinator(
                         : "target_navigation_started");
 }
 
+/**
+ * @brief Processes package content for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void NavigationPhaseCoordinator::observe() {
   if (phase_ != NavigationPhase::InitialExploration) return;
   ++exploration_observations_;
 }
 
+/**
+ * @brief Performs the complete initial exploration operation for this
+ * subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void NavigationPhaseCoordinator::completeInitialExploration() {
   if (phase_ == NavigationPhase::InitialExploration) {
     events_.push_back("initial_model_finalized");
@@ -47,10 +106,35 @@ void NavigationPhaseCoordinator::completeInitialExploration() {
   }
 }
 
+/**
+ * @brief Performs the complete mission operation for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void NavigationPhaseCoordinator::completeMission() {
   phase_ = NavigationPhase::MissionComplete;
 }
 
+/**
+ * @brief Processes package content for this subsystem.
+ *
+ * Arguments:
+ * - @p observation: Supplies observation input to the operation.
+ * - @p WorldModel: Supplies world model input to the operation.
+ *
+ * Returns:
+ * - `PhaseUpdate` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 PhaseUpdate NavigationPhaseCoordinator::observe(
     const domain::RobotObservation& observation, domain::WorldModel&) {
   observe();
@@ -71,12 +155,36 @@ PhaseUpdate NavigationPhaseCoordinator::observe(
   return {phase_, takeEvents()};
 }
 
+/**
+ * @brief Performs the next operation for this subsystem.
+ *
+ * Arguments:
+ * - @p WorldModel: Supplies world model input to the operation.
+ *
+ * Returns:
+ * - `PhaseDecision` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 PhaseDecision NavigationPhaseCoordinator::next(
     const domain::WorldModel&) const noexcept {
   return {phase_, phase_ == NavigationPhase::InitialExploration,
           missionActivationAllowed()};
 }
 
+/**
+ * @brief Performs the take events operation for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - `std::vector<std::string>` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::vector<std::string> NavigationPhaseCoordinator::takeEvents() {
   std::vector<std::string> result;
   result.swap(events_);

@@ -1,3 +1,13 @@
+/**
+ * @file social_observation_buffer.cpp
+ * @brief Social observation buffer responsibilities.
+ *
+ * @details This file implements social observation buffer behavior for the ROS 2
+ * composition and message-adaptation boundary. It records the
+ * declarations, settings, fixtures, or guidance needed by that
+ * responsibility. Its package-relative location is
+ * `src/ros/social_observation_buffer.cpp`.
+ */
 #include <algorithm>
 #include <chrono>
 #include <cmath>
@@ -8,6 +18,20 @@
 namespace semaforr::ros {
 namespace {
 
+/**
+ * @brief Performs the elapsed exceeds operation for this subsystem.
+ *
+ * Arguments:
+ * - @p now: Supplies now input to the operation.
+ * - @p then: Supplies then input to the operation.
+ * - @p seconds: Supplies seconds input to the operation.
+ *
+ * Returns:
+ * - `bool` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 bool elapsedExceeds(const rclcpp::Time& now, const rclcpp::Time& then,
                     double seconds) {
   return now.get_clock_type() != then.get_clock_type() || now < then ||
@@ -16,6 +40,19 @@ bool elapsedExceeds(const rclcpp::Time& now, const rclcpp::Time& then,
 
 }  // namespace
 
+/**
+ * @brief Performs the social input mode from string operation for this
+ * subsystem.
+ *
+ * Arguments:
+ * - @p value: Supplies value input to the operation.
+ *
+ * Returns:
+ * - `SocialInputMode` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 SocialInputMode socialInputModeFromString(std::string_view value) {
   if (value == "none") return SocialInputMode::None;
   if (value == "tracked") return SocialInputMode::Tracked;
@@ -24,6 +61,18 @@ SocialInputMode socialInputModeFromString(std::string_view value) {
       "social input mode must be 'none', 'tracked', or 'hunav'");
 }
 
+/**
+ * @brief Converts string for this subsystem.
+ *
+ * Arguments:
+ * - @p mode: Supplies mode input to the operation.
+ *
+ * Returns:
+ * - `std::string_view` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::string_view toString(SocialInputMode mode) noexcept {
   switch (mode) {
     case SocialInputMode::None:
@@ -36,6 +85,19 @@ std::string_view toString(SocialInputMode mode) noexcept {
   return "unknown";
 }
 
+/**
+ * @brief Performs the social observation buffer operation for this
+ * subsystem.
+ *
+ * Arguments:
+ * - @p configuration: Supplies configuration input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 SocialObservationBuffer::SocialObservationBuffer(
     SocialObservationConfiguration configuration)
     : configuration_(std::move(configuration)) {
@@ -64,6 +126,18 @@ SocialObservationBuffer::SocialObservationBuffer(
   }
 }
 
+/**
+ * @brief Performs the source matches operation for this subsystem.
+ *
+ * Arguments:
+ * - @p provenance: Supplies provenance input to the operation.
+ *
+ * Returns:
+ * - `bool` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 bool SocialObservationBuffer::sourceMatches(
     std::string_view provenance) const noexcept {
   switch (configuration_.input_mode) {
@@ -77,6 +151,19 @@ bool SocialObservationBuffer::sourceMatches(
   return false;
 }
 
+/**
+ * @brief Performs the accept operation for this subsystem.
+ *
+ * Arguments:
+ * - @p observation: Supplies observation input to the operation.
+ * - @p received_at: Supplies received at input to the operation.
+ *
+ * Returns:
+ * - `bool` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 bool SocialObservationBuffer::accept(domain::CrowdObservation observation,
                                      const rclcpp::Time& received_at) {
   if (!sourceMatches(observation.provenance)) {
@@ -106,6 +193,19 @@ bool SocialObservationBuffer::accept(domain::CrowdObservation observation,
   }
 }
 
+/**
+ * @brief Performs the accept tracked operation for this subsystem.
+ *
+ * Arguments:
+ * - @p message: Supplies message input to the operation.
+ * - @p received_at: Supplies received at input to the operation.
+ *
+ * Returns:
+ * - `bool` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 bool SocialObservationBuffer::acceptTracked(
     const social_context_msgs::msg::TrackedPersonArray& message,
     const rclcpp::Time& received_at) {
@@ -127,6 +227,19 @@ bool SocialObservationBuffer::acceptTracked(
   }
 }
 
+/**
+ * @brief Performs the accept hunav operation for this subsystem.
+ *
+ * Arguments:
+ * - @p message: Supplies message input to the operation.
+ * - @p received_at: Supplies received at input to the operation.
+ *
+ * Returns:
+ * - `bool` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 bool SocialObservationBuffer::acceptHunav(
     const hunav_msgs::msg::Agents& message, const rclcpp::Time& received_at) {
   if (configuration_.input_mode != SocialInputMode::Hunav) {
@@ -147,6 +260,19 @@ bool SocialObservationBuffer::acceptHunav(
   }
 }
 
+/**
+ * @brief Performs the accept prediction operation for this subsystem.
+ *
+ * Arguments:
+ * - @p message: Supplies message input to the operation.
+ * - @p received_at: Supplies received at input to the operation.
+ *
+ * Returns:
+ * - `bool` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 bool SocialObservationBuffer::acceptPrediction(
     const geometry_msgs::msg::PoseStamped& message,
     const rclcpp::Time& received_at) {
@@ -191,6 +317,19 @@ bool SocialObservationBuffer::acceptPrediction(
   return true;
 }
 
+/**
+ * @brief Performs the accept formations operation for this subsystem.
+ *
+ * Arguments:
+ * - @p message: Supplies message input to the operation.
+ * - @p received_at: Supplies received at input to the operation.
+ *
+ * Returns:
+ * - `bool` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 bool SocialObservationBuffer::acceptFormations(
     const social_context_msgs::msg::FormationGroupArray& message,
     const rclcpp::Time& received_at) {
@@ -212,6 +351,18 @@ bool SocialObservationBuffer::acceptFormations(
   }
 }
 
+/**
+ * @brief Records lifecycle for this subsystem.
+ *
+ * Arguments:
+ * - @p observation: Supplies observation input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void SocialObservationBuffer::recordLifecycle(
     const domain::CrowdObservation& observation) {
   std::unordered_set<std::string> next;
@@ -234,6 +385,18 @@ void SocialObservationBuffer::recordLifecycle(
   active_ids_ = std::move(next);
 }
 
+/**
+ * @brief Performs the status operation for this subsystem.
+ *
+ * Arguments:
+ * - @p now: Supplies now input to the operation.
+ *
+ * Returns:
+ * - `SocialObservationStatus` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 SocialObservationStatus SocialObservationBuffer::status(
     const rclcpp::Time& now) const {
   if (!observation_ || !received_at_) return last_status_;
@@ -253,6 +416,19 @@ SocialObservationStatus SocialObservationBuffer::status(
   return SocialObservationStatus::Ready;
 }
 
+/**
+ * @brief Performs the snapshot operation for this subsystem.
+ *
+ * Arguments:
+ * - @p now: Supplies now input to the operation.
+ *
+ * Returns:
+ * - `std::optional<domain::CrowdObservation>` containing the operation
+ * result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::optional<domain::CrowdObservation> SocialObservationBuffer::snapshot(
     const rclcpp::Time& now) const {
   if (status(now) != SocialObservationStatus::Ready) return std::nullopt;
@@ -336,12 +512,36 @@ std::optional<domain::CrowdObservation> SocialObservationBuffer::snapshot(
 }
 
 std::vector<TrackLifecycleEvent>
+/**
+ * @brief Performs the take lifecycle events operation for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 SocialObservationBuffer::takeLifecycleEvents() {
   auto result = std::move(lifecycle_events_);
   lifecycle_events_.clear();
   return result;
 }
 
+/**
+ * @brief Clears package content for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void SocialObservationBuffer::clear() noexcept {
   observation_.reset();
   received_at_.reset();
@@ -352,6 +552,18 @@ void SocialObservationBuffer::clear() noexcept {
   last_status_ = SocialObservationStatus::NoData;
 }
 
+/**
+ * @brief Converts string for this subsystem.
+ *
+ * Arguments:
+ * - @p status: Supplies status input to the operation.
+ *
+ * Returns:
+ * - `std::string_view` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::string_view toString(SocialObservationStatus status) noexcept {
   switch (status) {
     case SocialObservationStatus::NoData:
@@ -372,6 +584,18 @@ std::string_view toString(SocialObservationStatus status) noexcept {
   return "unknown";
 }
 
+/**
+ * @brief Converts string for this subsystem.
+ *
+ * Arguments:
+ * - @p type: Supplies type input to the operation.
+ *
+ * Returns:
+ * - `std::string_view` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::string_view toString(TrackLifecycleEvent::Type type) noexcept {
   switch (type) {
     case TrackLifecycleEvent::Type::Appeared:

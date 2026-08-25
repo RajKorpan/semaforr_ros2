@@ -1,3 +1,16 @@
+/**
+ * @file grid_geometry_test.cpp
+ * @brief Grid geometry test responsibilities.
+ *
+ * @details This file exercises grid geometry test behavior for automated
+ * verification and regression testing. It centers on
+ * `SupportsNegativeCoordinatesNonzeroOriginAndFractionalCells`,
+ * `ExpandsInEveryDirectionAndPreservesWorldCellCenters`,
+ * `EnforcesMaximumExtentAndMemoryLimits`,
+ * `SerializationRestoresAllGeometryMetadata`,
+ * `FixedExtentRejectsExpansionAndOutsideQueries`. Its package-relative
+ * location is `test/unit/grid_geometry_test.cpp`.
+ */
 #include <gtest/gtest.h>
 
 #include <semaforr/domain/grid_geometry.hpp>
@@ -9,6 +22,18 @@ using semaforr::domain::GridExtentSource;
 using semaforr::domain::GridGeometry;
 using semaforr::domain::GridOutOfBoundsBehavior;
 
+/**
+ * @brief Performs the expandable geometry operation for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - `GridGeometry` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 GridGeometry expandableGeometry() {
   return GridGeometry::fromBounds(
       "odom", {-2.5, -1.5}, {2.5, 3.5}, 0.25,

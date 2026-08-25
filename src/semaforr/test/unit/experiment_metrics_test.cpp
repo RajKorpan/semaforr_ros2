@@ -1,3 +1,15 @@
+/**
+ * @file experiment_metrics_test.cpp
+ * @brief Experiment metrics test responsibilities.
+ *
+ * @details This file exercises experiment metrics test behavior for automated
+ * verification and regression testing. It centers on
+ * `ReportsPerformanceEfficiencyAndInterventions`,
+ * `CoverageUsesUnionOfRegionsAndTrailsAtOneMetre`,
+ * `RejectsInvalidMeasurements`, `AllocationProbeCountsProcessAllocations`.
+ * Its package-relative location is
+ * `test/unit/experiment_metrics_test.cpp`.
+ */
 #include <gtest/gtest.h>
 
 #include <semaforr/validation/allocation_probe.hpp>
@@ -5,6 +17,21 @@
 
 namespace {
 
+/**
+ * @brief Creates decision for this subsystem.
+ *
+ * Arguments:
+ * - @p x_m: Supplies x m input to the operation.
+ * - @p phase: Supplies phase input to the operation.
+ * - @p policy: Supplies policy input to the operation.
+ * - @p latency_s: Supplies latency s input to the operation.
+ *
+ * Returns:
+ * - `semaforr::decision::DecisionResult` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 semaforr::decision::DecisionResult makeDecision(
     double x_m, semaforr::navigation::NavigationPhase phase,
     std::string policy, double latency_s) {

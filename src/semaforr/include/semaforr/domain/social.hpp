@@ -1,3 +1,12 @@
+/**
+ * @file social.hpp
+ * @brief Social responsibilities.
+ *
+ * @details This file defines social behavior for ROS-independent domain state and
+ * value types. It centers on `PredictedPosition`, `PedestrianObservation`,
+ * `FormationObservation`, `CrowdObservation`, `CrowdState`. Its
+ * package-relative location is `include/semaforr/domain/social.hpp`.
+ */
 #ifndef SEMAFORR_DOMAIN_SOCIAL_HPP
 #define SEMAFORR_DOMAIN_SOCIAL_HPP
 
@@ -18,13 +27,51 @@ namespace semaforr::domain {
 
 using SocialTimestamp = std::chrono::nanoseconds;
 
+/**
+ * @brief Encapsulates predicted position state and behavior for this
+ * subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - Not applicable to this declaration.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 struct PredictedPosition {
   Point2D position;
   SocialTimestamp predicted_at{};
 
+  /**
+   * @brief Performs the operator operation for this subsystem.
+   *
+   * Arguments:
+   * - @p argument_1: Supplies argument 1 input to the operation.
+   *
+   * Returns:
+   * - `bool` containing the operation result.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   bool operator==(const PredictedPosition&) const = default;
 };
 
+/**
+ * @brief Encapsulates pedestrian observation state and behavior for this
+ * subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - Not applicable to this declaration.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 struct PedestrianObservation {
   std::string id;
   Point2D position;
@@ -35,6 +82,18 @@ struct PedestrianObservation {
   std::string prediction_source{"none"};
   std::optional<std::size_t> formation_index;
 
+  /**
+   * @brief Validates package content for this subsystem.
+   *
+   * Arguments:
+   * - @p observed_at: Supplies observed at input to the operation.
+   *
+   * Returns:
+   * - No value; effects are applied to owned state or outputs.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   void validate(SocialTimestamp observed_at) const {
     if (id.empty()) {
       throw std::invalid_argument("pedestrian ID must not be empty");
@@ -73,15 +132,52 @@ struct PedestrianObservation {
     }
   }
 
+  /**
+   * @brief Performs the operator operation for this subsystem.
+   *
+   * Arguments:
+   * - @p argument_1: Supplies argument 1 input to the operation.
+   *
+   * Returns:
+   * - `bool` containing the operation result.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   bool operator==(const PedestrianObservation&) const = default;
 };
 
+/**
+ * @brief Encapsulates formation observation state and behavior for this
+ * subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - Not applicable to this declaration.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 struct FormationObservation {
   std::vector<std::string> member_ids;
   std::string formation_type;
   Point2D center;
   double confidence{0.0};
 
+  /**
+   * @brief Validates package content for this subsystem.
+   *
+   * Arguments:
+   * - None.
+   *
+   * Returns:
+   * - No value; effects are applied to owned state or outputs.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   void validate() const {
     if (member_ids.empty() || formation_type.empty() || !center.finite() ||
         !std::isfinite(confidence) || confidence < 0.0 || confidence > 1.0) {
@@ -96,9 +192,34 @@ struct FormationObservation {
     }
   }
 
+  /**
+   * @brief Performs the operator operation for this subsystem.
+   *
+   * Arguments:
+   * - @p argument_1: Supplies argument 1 input to the operation.
+   *
+   * Returns:
+   * - `bool` containing the operation result.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   bool operator==(const FormationObservation&) const = default;
 };
 
+/**
+ * @brief Encapsulates crowd observation state and behavior for this
+ * subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - Not applicable to this declaration.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 struct CrowdObservation {
   std::string frame_id;
   SocialTimestamp observed_at{};
@@ -107,6 +228,18 @@ struct CrowdObservation {
   std::vector<PedestrianObservation> pedestrians;
   std::vector<FormationObservation> formations;
 
+  /**
+   * @brief Validates package content for this subsystem.
+   *
+   * Arguments:
+   * - None.
+   *
+   * Returns:
+   * - No value; effects are applied to owned state or outputs.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   void validate() const {
     if (frame_id.empty()) {
       throw std::invalid_argument("social observation frame must not be empty");
@@ -142,6 +275,20 @@ struct CrowdObservation {
     }
   }
 
+  /**
+   * @brief Performs the usable operation for this subsystem.
+   *
+   * Arguments:
+   * - @p maximum_age: Supplies maximum age input to the operation.
+   * - @p minimum_confidence: Supplies minimum confidence input to the
+   * operation.
+   *
+   * Returns:
+   * - `bool` containing the operation result.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   bool usable(std::chrono::nanoseconds maximum_age,
               double minimum_confidence = 0.0) const noexcept {
     if (!fresh(maximum_age) || pedestrians.empty()) {
@@ -156,16 +303,65 @@ struct CrowdObservation {
 
   // A valid empty observation is useful negative evidence for the learned
   // crowd field even though no live social advisor should participate.
+  /**
+   * @brief Performs the fresh operation for this subsystem.
+   *
+   * Arguments:
+   * - @p maximum_age: Supplies maximum age input to the operation.
+   *
+   * Returns:
+   * - `bool` containing the operation result.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   bool fresh(std::chrono::nanoseconds maximum_age) const noexcept {
     return !frame_id.empty() && data_age >= std::chrono::nanoseconds::zero() &&
            data_age <= maximum_age;
   }
 
+  /**
+   * @brief Performs the operator operation for this subsystem.
+   *
+   * Arguments:
+   * - @p argument_1: Supplies argument 1 input to the operation.
+   *
+   * Returns:
+   * - `bool` containing the operation result.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   bool operator==(const CrowdObservation&) const = default;
 };
 
+/**
+ * @brief Encapsulates crowd state state and behavior for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - Not applicable to this declaration.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 class CrowdState {
  public:
+  /**
+   * @brief Updates package content for this subsystem.
+   *
+   * Arguments:
+   * - @p observation: Supplies observation input to the operation.
+   * - @p history_limit: Supplies history limit input to the operation.
+   *
+   * Returns:
+   * - No value; effects are applied to owned state or outputs.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   void update(CrowdObservation observation, std::size_t history_limit = 100U) {
     observation.validate();
     current_ = std::move(observation);
@@ -177,21 +373,85 @@ class CrowdState {
     }
   }
 
+  /**
+   * @brief Clears current for this subsystem.
+   *
+   * Arguments:
+   * - None.
+   *
+   * Returns:
+   * - No value; effects are applied to owned state or outputs.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   void clearCurrent() noexcept { current_.reset(); }
 
+  /**
+   * @brief Performs the replace current operation for this subsystem.
+   *
+   * Arguments:
+   * - @p observation: Supplies observation input to the operation.
+   *
+   * Returns:
+   * - No value; effects are applied to owned state or outputs.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   void replaceCurrent(CrowdObservation observation) {
     observation.validate();
     current_ = std::move(observation);
   }
 
+  /**
+   * @brief Performs the current operation for this subsystem.
+   *
+   * Arguments:
+   * - None.
+   *
+   * Returns:
+   * - `const std::optional<CrowdObservation>&` containing the operation
+   * result.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   const std::optional<CrowdObservation>& current() const noexcept {
     return current_;
   }
 
+  /**
+   * @brief Performs the history operation for this subsystem.
+   *
+   * Arguments:
+   * - None.
+   *
+   * Returns:
+   * - `const std::vector<CrowdObservation>&` containing the operation
+   * result.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   const std::vector<CrowdObservation>& history() const noexcept {
     return history_;
   }
 
+  /**
+   * @brief Reports whether valid data for this subsystem.
+   *
+   * Arguments:
+   * - @p maximum_age: Supplies maximum age input to the operation.
+   * - @p minimum_confidence: Supplies minimum confidence input to the
+   * operation.
+   *
+   * Returns:
+   * - `bool` containing the operation result.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   bool hasValidData(std::chrono::nanoseconds maximum_age,
                     double minimum_confidence = 0.0) const noexcept {
     return current_ && current_->usable(maximum_age, minimum_confidence);

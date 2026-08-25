@@ -1,3 +1,5 @@
+<!-- File overview: This file documents or configures reproducibility behavior for the maintained architecture and user documentation. It records the declarations, settings, fixtures, or guidance needed by that responsibility. Its package-relative location is `docs/reproducibility.md`. -->
+
 # Replay and experiment reproducibility
 
 SemaFORR can record a versioned, self-contained decision trace by setting:

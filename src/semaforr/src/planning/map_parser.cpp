@@ -1,3 +1,12 @@
+/**
+ * @file map_parser.cpp
+ * @brief Map parser responsibilities.
+ *
+ * @details This file implements map parser behavior for path planning and
+ * hierarchical plan construction. It records the declarations, settings,
+ * fixtures, or guidance needed by that responsibility. Its
+ * package-relative location is `src/planning/map_parser.cpp`.
+ */
 #include <cmath>
 #include <fstream>
 #include <regex>
@@ -8,6 +17,20 @@
 namespace semaforr::planning {
 namespace {
 
+/**
+ * @brief Performs the attribute operation for this subsystem.
+ *
+ * Arguments:
+ * - @p element: Supplies element input to the operation.
+ * - @p name: Supplies name input to the operation.
+ * - @p source: Supplies source input to the operation.
+ *
+ * Returns:
+ * - `double` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 double attribute(const std::string& element, const char* name,
                  const std::string& source) {
   const std::regex expression(std::string(R"re(\b)re") + name +

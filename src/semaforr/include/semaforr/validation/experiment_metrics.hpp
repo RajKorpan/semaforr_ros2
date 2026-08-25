@@ -1,3 +1,13 @@
+/**
+ * @file experiment_metrics.hpp
+ * @brief Experiment metrics responsibilities.
+ *
+ * @details This file defines experiment metrics behavior for replay, experimental
+ * validation, and performance measurement. It centers on
+ * `AllocationMeasurement`, `ExperimentObservation`, `ExperimentSummary`,
+ * `ExperimentMetricsCollector`. Its package-relative location is
+ * `include/semaforr/validation/experiment_metrics.hpp`.
+ */
 #ifndef SEMAFORR_VALIDATION_EXPERIMENT_METRICS_HPP
 #define SEMAFORR_VALIDATION_EXPERIMENT_METRICS_HPP
 
@@ -11,11 +21,37 @@
 
 namespace semaforr::validation {
 
+/**
+ * @brief Encapsulates allocation measurement state and behavior for this
+ * subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - Not applicable to this declaration.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 struct AllocationMeasurement {
   std::size_t count = 0U;
   std::size_t bytes = 0U;
 };
 
+/**
+ * @brief Encapsulates experiment observation state and behavior for this
+ * subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - Not applicable to this declaration.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 struct ExperimentObservation {
   decision::DecisionResult decision;
   double runtime_s = 0.0;
@@ -25,6 +61,19 @@ struct ExperimentObservation {
   std::optional<std::size_t> covered_cells;
 };
 
+/**
+ * @brief Encapsulates experiment summary state and behavior for this
+ * subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - Not applicable to this declaration.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 struct ExperimentSummary {
   std::string scenario;
   std::string profile;
@@ -50,16 +99,104 @@ struct ExperimentSummary {
   std::map<std::string, double> intervention_frequency;
 };
 
+/**
+ * @brief Encapsulates experiment metrics collector state and behavior for
+ * this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - Not applicable to this declaration.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 class ExperimentMetricsCollector {
  public:
+  /**
+   * @brief Performs the experiment metrics collector operation for this
+   * subsystem.
+   *
+   * Arguments:
+   * - @p scenario: Supplies scenario input to the operation.
+   * - @p profile: Supplies profile input to the operation.
+   * - @p freespace_cells: Supplies freespace cells input to the operation.
+   *
+   * Returns:
+   * - No value; effects are applied to owned state or outputs.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   ExperimentMetricsCollector(std::string scenario, std::string profile,
                              std::size_t freespace_cells);
 
+  /**
+   * @brief Records package content for this subsystem.
+   *
+   * Arguments:
+   * - @p observation: Supplies observation input to the operation.
+   *
+   * Returns:
+   * - No value; effects are applied to owned state or outputs.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   void record(const ExperimentObservation& observation);
+  /**
+   * @brief Records target outcome for this subsystem.
+   *
+   * Arguments:
+   * - @p succeeded: Supplies succeeded input to the operation.
+   *
+   * Returns:
+   * - No value; effects are applied to owned state or outputs.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   void recordTargetOutcome(bool succeeded);
+  /**
+   * @brief Performs the summary operation for this subsystem.
+   *
+   * Arguments:
+   * - None.
+   *
+   * Returns:
+   * - `ExperimentSummary` containing the operation result.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   ExperimentSummary summary() const;
+  /**
+   * @brief Performs the serialize operation for this subsystem.
+   *
+   * Arguments:
+   * - None.
+   *
+   * Returns:
+   * - `std::string` containing the operation result.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   std::string serialize() const;
 
+  /**
+   * @brief Performs the covered cells operation for this subsystem.
+   *
+   * Arguments:
+   * - @p model: Supplies model input to the operation.
+   *
+   * Returns:
+   * - `std::size_t` containing the operation result.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   static std::size_t coveredCells(const domain::SpatialModel& model);
 
  private:

@@ -1,3 +1,4 @@
+# File overview: This file documents or configures quality gate manifest behavior for runtime configuration and reproducible experiment setup. It records the declarations, settings, fixtures, or guidance needed by that responsibility. Its package-relative location is `config/quality_gate_manifest.txt`.
 # All production C++ is part of the source-quality gate. Directory entries
 # expand recursively to .hpp and .cpp files.
 include/semaforr

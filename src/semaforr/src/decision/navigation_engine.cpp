@@ -1,3 +1,12 @@
+/**
+ * @file navigation_engine.cpp
+ * @brief Navigation engine responsibilities.
+ *
+ * @details This file implements navigation engine behavior for tiered decision
+ * making and action arbitration. It records the declarations, settings,
+ * fixtures, or guidance needed by that responsibility. Its
+ * package-relative location is `src/decision/navigation_engine.cpp`.
+ */
 #include <algorithm>
 #include <array>
 #include <chrono>
@@ -12,6 +21,45 @@
 
 namespace semaforr::decision {
 
+/**
+ * @brief Performs the navigation engine operation for this subsystem.
+ *
+ * Arguments:
+ * - @p world: Supplies world input to the operation.
+ * - @p action_space: Supplies action space input to the operation.
+ * - @p decisions: Supplies decisions input to the operation.
+ * - @p mission: Supplies mission input to the operation.
+ * - @p planning: Supplies planning input to the operation.
+ * - @p learning: Supplies learning input to the operation.
+ * - @p crowd_learning: Supplies crowd learning input to the operation.
+ * - @p goal_tolerance: Supplies goal tolerance input to the operation.
+ * - @p hard_safety: Supplies hard safety input to the operation.
+ * - @p phases: Supplies phases input to the operation.
+ * - @p configuration_fingerprint: Supplies configuration fingerprint input
+ * to the operation.
+ * - @p component_manifest: Supplies component manifest input to the
+ * operation.
+ * - @p reactive_planners: Supplies reactive planners input to the
+ * operation.
+ * - @p low_level_exploration_enabled: Supplies low level exploration
+ * enabled input to the operation.
+ * - @p enforcer_enabled: Supplies enforcer enabled input to the operation.
+ * - @p hle_configuration: Supplies hle configuration input to the
+ * operation.
+ * - @p low_level_explorer: Supplies low level explorer input to the
+ * operation.
+ * - @p plan_operationalizer: Supplies plan operationalizer input to the
+ * operation.
+ * - @p traversability: Supplies traversability input to the operation.
+ * - @p maximum_planning_attempts_per_task: Supplies maximum planning
+ * attempts per task input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 NavigationEngine::NavigationEngine(
     domain::WorldModel& world, const domain::ActionSpace& action_space,
     DecisionCoordinator& decisions, MissionManager& mission,
@@ -62,6 +110,18 @@ NavigationEngine::NavigationEngine(
   });
 }
 
+/**
+ * @brief Performs the candidates operation for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - `std::vector<domain::Action>` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::vector<domain::Action> NavigationEngine::candidates() const {
   std::vector<domain::Action> actions;
   actions.reserve(1U + action_space_.move_distances_m().size() +
@@ -79,6 +139,18 @@ std::vector<domain::Action> NavigationEngine::candidates() const {
   return actions;
 }
 
+/**
+ * @brief Performs the enforcer action operation for this subsystem.
+ *
+ * Arguments:
+ * - @p viable_actions: Supplies viable actions input to the operation.
+ *
+ * Returns:
+ * - `std::optional<domain::Action>` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::optional<domain::Action> NavigationEngine::enforcerAction(
     std::span<const domain::Action> viable_actions) const {
   if (!world_.mission.active()) return std::nullopt;
@@ -126,6 +198,18 @@ std::optional<domain::Action> NavigationEngine::enforcerAction(
   return std::nullopt;
 }
 
+/**
+ * @brief Performs the enforce active plan operation for this subsystem.
+ *
+ * Arguments:
+ * - @p viable_actions: Supplies viable actions input to the operation.
+ *
+ * Returns:
+ * - `PlanEnforcementResult` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 PlanEnforcementResult NavigationEngine::enforceActivePlan(
     std::span<const domain::Action> viable_actions) {
   if (!active_hierarchy_) {
@@ -164,6 +248,19 @@ PlanEnforcementResult NavigationEngine::enforceActivePlan(
   return LocalActionEvaluator{}.evaluate(std::move(result), context);
 }
 
+/**
+ * @brief Performs the append cycle diagnostics operation for this
+ * subsystem.
+ *
+ * Arguments:
+ * - @p result: Supplies result input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void NavigationEngine::appendCycleDiagnostics(DecisionResult& result) const {
   for (std::size_t index = 0U; index < result.decision_cycle.size(); ++index) {
     auto& event = result.decision_cycle[index];
@@ -182,6 +279,18 @@ void NavigationEngine::appendCycleDiagnostics(DecisionResult& result) const {
   }
 }
 
+/**
+ * @brief Processes package content for this subsystem.
+ *
+ * Arguments:
+ * - @p observation: Supplies observation input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void NavigationEngine::observe(const domain::RobotObservation& observation) {
   observation.laser.validate();
   observation_ = observation;
@@ -262,6 +371,18 @@ void NavigationEngine::observe(const domain::RobotObservation& observation) {
   }
 }
 
+/**
+ * @brief Performs the prepare plan operation for this subsystem.
+ *
+ * Arguments:
+ * - @p step: Supplies step input to the operation.
+ *
+ * Returns:
+ * - `std::optional<std::string>` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::optional<std::string> NavigationEngine::preparePlan(MissionStep step) {
   if (!world_.mission.active()) {
     return std::nullopt;
@@ -330,6 +451,19 @@ std::optional<std::string> NavigationEngine::preparePlan(MissionStep step) {
   return selected->planner;
 }
 
+/**
+ * @brief Performs the finish initial exploration operation for this
+ * subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void NavigationEngine::finishInitialExploration() {
   world_.spatial.unfinished_hle_candidates.clear();
   for (const auto& candidate : exploration_.unfinishedCandidates()) {
@@ -339,6 +473,18 @@ void NavigationEngine::finishInitialExploration() {
   exploration_.finish();
 }
 
+/**
+ * @brief Selects package content for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - `DecisionResult` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 DecisionResult NavigationEngine::decide() {
   const auto decision_started = std::chrono::steady_clock::now();
   const auto finalize_measurements = [&](DecisionResult& result) {
@@ -964,21 +1110,70 @@ DecisionResult NavigationEngine::decide() {
   return result;
 }
 
+/**
+ * @brief Selects package content for this subsystem.
+ *
+ * Arguments:
+ * - @p observation: Supplies observation input to the operation.
+ *
+ * Returns:
+ * - `DecisionResult` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 DecisionResult NavigationEngine::decide(
     const domain::RobotObservation& observation) {
   observe(observation);
   return decide();
 }
 
+/**
+ * @brief Performs the mission complete operation for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - `bool` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 bool NavigationEngine::missionComplete() noexcept {
   if (mission_.complete()) phases_->completeMission();
   return phases_->phase() == navigation::NavigationPhase::MissionComplete;
 }
 
+/**
+ * @brief Performs the phase operation for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - `navigation::NavigationPhase` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 navigation::NavigationPhase NavigationEngine::phase() const noexcept {
   return phases_->phase();
 }
 
+/**
+ * @brief Registers selection for this subsystem.
+ *
+ * Arguments:
+ * - @p result: Supplies result input to the operation.
+ * - @p episode: Supplies episode input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void NavigationEngine::registerSelection(DecisionResult& result,
                                          spatial::NavigationEpisode episode) {
   if (action_sequence_ == std::numeric_limits<domain::ActionId>::max())
@@ -1017,21 +1212,69 @@ void NavigationEngine::registerSelection(DecisionResult& result,
                                         std::nullopt, std::nullopt};
 }
 
+/**
+ * @brief Performs the terminal seen operation for this subsystem.
+ *
+ * Arguments:
+ * - @p action_id: Supplies action id input to the operation.
+ *
+ * Returns:
+ * - `bool` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 bool NavigationEngine::terminalSeen(domain::ActionId action_id) const noexcept {
   return std::find(terminal_action_ids_.begin(), terminal_action_ids_.end(),
                    action_id) != terminal_action_ids_.end();
 }
 
+/**
+ * @brief Performs the pending action operation for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - `const domain::SelectedActionRecord*` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 const domain::SelectedActionRecord* NavigationEngine::pendingAction() const
     noexcept {
   return pending_execution_ ? &pending_execution_->selection : nullptr;
 }
 
+/**
+ * @brief Performs the execution diagnostics operation for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - `const std::vector<std::string>&` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 const std::vector<std::string>& NavigationEngine::executionDiagnostics() const
     noexcept {
   return execution_diagnostics_;
 }
 
+/**
+ * @brief Performs the retain decision trace operation for this subsystem.
+ *
+ * Arguments:
+ * - @p result: Supplies result input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void NavigationEngine::retainDecisionTrace(const DecisionResult& result) {
   if (result.decision_id == 0U) return;
   explanation_history_.insert_or_assign(result.decision_id, result);
@@ -1046,12 +1289,36 @@ void NavigationEngine::retainDecisionTrace(const DecisionResult& result) {
   }
 }
 
+/**
+ * @brief Performs the decision trace operation for this subsystem.
+ *
+ * Arguments:
+ * - @p id: Supplies id input to the operation.
+ *
+ * Returns:
+ * - `const DecisionResult*` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 const DecisionResult* NavigationEngine::decisionTrace(
     domain::DecisionId id) const noexcept {
   const auto found = explanation_history_.find(id);
   return found == explanation_history_.end() ? nullptr : &found->second;
 }
 
+/**
+ * @brief Performs the action trace operation for this subsystem.
+ *
+ * Arguments:
+ * - @p id: Supplies id input to the operation.
+ *
+ * Returns:
+ * - `const DecisionResult*` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 const DecisionResult* NavigationEngine::actionTrace(
     domain::ActionId id) const noexcept {
   const auto found = action_to_decision_.find(id);
@@ -1059,11 +1326,35 @@ const DecisionResult* NavigationEngine::actionTrace(
                                             : decisionTrace(found->second);
 }
 
+/**
+ * @brief Performs the latest decision trace operation for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - `const DecisionResult*` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 const DecisionResult* NavigationEngine::latestDecisionTrace() const noexcept {
   return explanation_history_.empty() ? nullptr
                                       : &explanation_history_.rbegin()->second;
 }
 
+/**
+ * @brief Performs the on action started operation for this subsystem.
+ *
+ * Arguments:
+ * - @p event: Supplies event input to the operation.
+ *
+ * Returns:
+ * - `domain::FeedbackDisposition` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 domain::FeedbackDisposition NavigationEngine::onActionStarted(
     const domain::ActionStartedEvent& event) {
   if (terminalSeen(event.action_id)) return domain::FeedbackDisposition::Duplicate;
@@ -1088,6 +1379,18 @@ domain::FeedbackDisposition NavigationEngine::onActionStarted(
   return domain::FeedbackDisposition::Accepted;
 }
 
+/**
+ * @brief Performs the on action progress operation for this subsystem.
+ *
+ * Arguments:
+ * - @p event: Supplies event input to the operation.
+ *
+ * Returns:
+ * - `domain::FeedbackDisposition` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 domain::FeedbackDisposition NavigationEngine::onActionProgress(
     const domain::ActionProgressEvent& event) {
   if (terminalSeen(event.action_id)) return domain::FeedbackDisposition::Duplicate;
@@ -1104,6 +1407,18 @@ domain::FeedbackDisposition NavigationEngine::onActionProgress(
   return domain::FeedbackDisposition::Accepted;
 }
 
+/**
+ * @brief Performs the accept terminal operation for this subsystem.
+ *
+ * Arguments:
+ * - @p result: Supplies result input to the operation.
+ *
+ * Returns:
+ * - `domain::FeedbackDisposition` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 domain::FeedbackDisposition NavigationEngine::acceptTerminal(
     domain::ActionExecutionResult result) {
   if (terminalSeen(result.action_id)) return domain::FeedbackDisposition::Duplicate;
@@ -1207,12 +1522,36 @@ domain::FeedbackDisposition NavigationEngine::acceptTerminal(
   return domain::FeedbackDisposition::Accepted;
 }
 
+/**
+ * @brief Performs the on action completed operation for this subsystem.
+ *
+ * Arguments:
+ * - @p result: Supplies result input to the operation.
+ *
+ * Returns:
+ * - `domain::FeedbackDisposition` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 domain::FeedbackDisposition NavigationEngine::onActionCompleted(
     domain::ActionExecutionResult result) {
   result.status = domain::ExecutionCompletionStatus::Succeeded;
   return acceptTerminal(std::move(result));
 }
 
+/**
+ * @brief Performs the on action failed operation for this subsystem.
+ *
+ * Arguments:
+ * - @p result: Supplies result input to the operation.
+ *
+ * Returns:
+ * - `domain::FeedbackDisposition` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 domain::FeedbackDisposition NavigationEngine::onActionFailed(
     domain::ActionExecutionResult result) {
   if (result.status == domain::ExecutionCompletionStatus::Succeeded)
@@ -1220,6 +1559,18 @@ domain::FeedbackDisposition NavigationEngine::onActionFailed(
   return acceptTerminal(std::move(result));
 }
 
+/**
+ * @brief Performs the on action cancelled operation for this subsystem.
+ *
+ * Arguments:
+ * - @p result: Supplies result input to the operation.
+ *
+ * Returns:
+ * - `domain::FeedbackDisposition` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 domain::FeedbackDisposition NavigationEngine::onActionCancelled(
     domain::ActionExecutionResult result) {
   if (result.status == domain::ExecutionCompletionStatus::Succeeded)
@@ -1227,6 +1578,19 @@ domain::FeedbackDisposition NavigationEngine::onActionCancelled(
   return acceptTerminal(std::move(result));
 }
 
+/**
+ * @brief Performs the on controller restart operation for this subsystem.
+ *
+ * Arguments:
+ * - @p when: Supplies when input to the operation.
+ * - @p pose: Supplies pose input to the operation.
+ *
+ * Returns:
+ * - `domain::FeedbackDisposition` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 domain::FeedbackDisposition NavigationEngine::onControllerRestart(
     domain::ExecutionTimestamp when, const domain::Pose2D& pose) {
   if (!pending_execution_) return domain::FeedbackDisposition::UnknownAction;

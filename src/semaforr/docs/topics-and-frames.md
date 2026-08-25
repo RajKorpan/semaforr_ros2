@@ -1,3 +1,5 @@
+<!-- File overview: This file documents or configures topics and frames behavior for the maintained architecture and user documentation. It records the declarations, settings, fixtures, or guidance needed by that responsibility. Its package-relative location is `docs/topics-and-frames.md`. -->
+
 # Topic and frame contract
 
 Default navigation topic names are relative, so a namespace applies

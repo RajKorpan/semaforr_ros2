@@ -1,3 +1,13 @@
+/**
+ * @file experiment_metrics.cpp
+ * @brief Experiment metrics responsibilities.
+ *
+ * @details This file implements experiment metrics behavior for replay,
+ * experimental validation, and performance measurement. It records the
+ * declarations, settings, fixtures, or guidance needed by that
+ * responsibility. Its package-relative location is
+ * `src/validation/experiment_metrics.cpp`.
+ */
 #include <algorithm>
 #include <cmath>
 #include <iomanip>
@@ -9,12 +19,37 @@
 namespace semaforr::validation {
 namespace {
 
+/**
+ * @brief Performs the require measurement operation for this subsystem.
+ *
+ * Arguments:
+ * - @p value: Supplies value input to the operation.
+ * - @p name: Supplies name input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void requireMeasurement(double value, const char* name) {
   if (!std::isfinite(value) || value < 0.0)
     throw std::invalid_argument(std::string(name) +
                                 " must be finite and nonnegative");
 }
 
+/**
+ * @brief Performs the escape operation for this subsystem.
+ *
+ * Arguments:
+ * - @p value: Supplies value input to the operation.
+ *
+ * Returns:
+ * - `std::string` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::string escape(std::string_view value) {
   std::string result;
   for (const char character : value) {
@@ -26,6 +61,21 @@ std::string escape(std::string_view value) {
 
 }  // namespace
 
+/**
+ * @brief Performs the experiment metrics collector operation for this
+ * subsystem.
+ *
+ * Arguments:
+ * - @p scenario: Supplies scenario input to the operation.
+ * - @p profile: Supplies profile input to the operation.
+ * - @p freespace_cells: Supplies freespace cells input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 ExperimentMetricsCollector::ExperimentMetricsCollector(
     std::string scenario, std::string profile, std::size_t freespace_cells)
     : scenario_(std::move(scenario)),
@@ -35,6 +85,18 @@ ExperimentMetricsCollector::ExperimentMetricsCollector(
     throw std::invalid_argument("experiment identity and freespace are required");
 }
 
+/**
+ * @brief Records package content for this subsystem.
+ *
+ * Arguments:
+ * - @p observation: Supplies observation input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void ExperimentMetricsCollector::record(
     const ExperimentObservation& observation) {
   requireMeasurement(observation.runtime_s, "runtime");
@@ -46,11 +108,35 @@ void ExperimentMetricsCollector::record(
   observations_.push_back(observation);
 }
 
+/**
+ * @brief Records target outcome for this subsystem.
+ *
+ * Arguments:
+ * - @p succeeded: Supplies succeeded input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void ExperimentMetricsCollector::recordTargetOutcome(bool succeeded) {
   ++targets_attempted_;
   if (succeeded) ++targets_succeeded_;
 }
 
+/**
+ * @brief Performs the summary operation for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - `ExperimentSummary` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 ExperimentSummary ExperimentMetricsCollector::summary() const {
   ExperimentSummary result;
   result.scenario = scenario_;
@@ -121,6 +207,18 @@ ExperimentSummary ExperimentMetricsCollector::summary() const {
   return result;
 }
 
+/**
+ * @brief Performs the serialize operation for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - `std::string` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::string ExperimentMetricsCollector::serialize() const {
   const auto value = summary();
   std::ostringstream output;
@@ -160,6 +258,18 @@ std::string ExperimentMetricsCollector::serialize() const {
   return output.str();
 }
 
+/**
+ * @brief Performs the covered cells operation for this subsystem.
+ *
+ * Arguments:
+ * - @p model: Supplies model input to the operation.
+ *
+ * Returns:
+ * - `std::size_t` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::size_t ExperimentMetricsCollector::coveredCells(
     const domain::SpatialModel& model) {
   return spatial::representedCoverageCells(model);

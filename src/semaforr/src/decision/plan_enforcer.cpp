@@ -1,3 +1,12 @@
+/**
+ * @file plan_enforcer.cpp
+ * @brief Plan enforcer responsibilities.
+ *
+ * @details This file implements plan enforcer behavior for tiered decision making
+ * and action arbitration. It records the declarations, settings, fixtures,
+ * or guidance needed by that responsibility. Its package-relative location
+ * is `src/decision/plan_enforcer.cpp`.
+ */
 #include <algorithm>
 #include <cmath>
 #include <limits>
@@ -8,11 +17,39 @@
 
 namespace semaforr::decision {
 namespace {
+/**
+ * @brief Performs the reached operation for this subsystem.
+ *
+ * Arguments:
+ * - @p pose: Supplies pose input to the operation.
+ * - @p point: Supplies point input to the operation.
+ * - @p tolerance: Supplies tolerance input to the operation.
+ *
+ * Returns:
+ * - `bool` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 bool reached(const domain::Pose2D& pose, domain::Point2D point,
              domain::Distance tolerance) {
   return domain::distance(pose.position, point).meters() <=
          tolerance.meters() + domain::geometry_tolerance_m;
 }
+/**
+ * @brief Performs the visible operation for this subsystem.
+ *
+ * Arguments:
+ * - @p pose: Supplies pose input to the operation.
+ * - @p point: Supplies point input to the operation.
+ * - @p spatial: Supplies spatial input to the operation.
+ *
+ * Returns:
+ * - `bool` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 bool visible(const domain::Pose2D& pose, domain::Point2D point,
              const domain::SpatialModel& spatial) {
   bool learned_visibility = false;
@@ -48,6 +85,18 @@ bool visible(const domain::Pose2D& pose, domain::Point2D point,
   }
   return true;
 }
+/**
+ * @brief Reports whether spatial dependency for this subsystem.
+ *
+ * Arguments:
+ * - @p dependency: Supplies dependency input to the operation.
+ *
+ * Returns:
+ * - `bool` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 bool isSpatialDependency(domain::ModelDependency dependency) {
   using D = domain::ModelDependency;
   return dependency != D::StaticMapGeometry &&
@@ -55,6 +104,21 @@ bool isSpatialDependency(domain::ModelDependency dependency) {
          dependency != D::CrowdRisk && dependency != D::CrowdFlow &&
          dependency != D::PlannerConfiguration;
 }
+/**
+ * @brief Records package content for this subsystem.
+ *
+ * Arguments:
+ * - @p plan: Supplies plan input to the operation.
+ * - @p operation: Supplies operation input to the operation.
+ * - @p spatial: Supplies spatial input to the operation.
+ * - @p dependencies: Supplies dependencies input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void record(planning::HierarchicalPlan& plan, std::string operation,
             const domain::SpatialModel& spatial,
             std::initializer_list<domain::ModelDependency> dependencies) {
@@ -66,6 +130,19 @@ void record(planning::HierarchicalPlan& plan, std::string operation,
   plan.operationalizations.push_back(std::move(item));
 }
 
+/**
+ * @brief Performs the request for operation for this subsystem.
+ *
+ * Arguments:
+ * - @p plan: Supplies plan input to the operation.
+ * - @p context: Supplies context input to the operation.
+ *
+ * Returns:
+ * - `planning::PlanningRequest` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 planning::PlanningRequest requestFor(
     const planning::HierarchicalPlan& plan,
     const PlanEnforcementContext& context) {
@@ -74,6 +151,19 @@ planning::PlanningRequest requestFor(
           plan.planner_configuration_revision};
 }
 
+/**
+ * @brief Performs the dependency changes operation for this subsystem.
+ *
+ * Arguments:
+ * - @p plan: Supplies plan input to the operation.
+ * - @p context: Supplies context input to the operation.
+ *
+ * Returns:
+ * - `std::vector<std::string>` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::vector<std::string> dependencyChanges(
     const planning::HierarchicalPlan& plan,
     const PlanEnforcementContext& context) {
@@ -81,6 +171,21 @@ std::vector<std::string> dependencyChanges(
                                            requestFor(plan, context));
 }
 
+/**
+ * @brief Performs the segment traversable operation for this subsystem.
+ *
+ * Arguments:
+ * - @p grid: Supplies grid input to the operation.
+ * - @p from: Supplies from input to the operation.
+ * - @p to: Supplies to input to the operation.
+ * - @p evidence: Supplies evidence input to the operation.
+ *
+ * Returns:
+ * - `bool` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 bool segmentTraversable(const domain::TraversabilityGrid& grid,
                         domain::Point2D from, domain::Point2D to,
                         std::string& evidence) {
@@ -103,6 +208,18 @@ bool segmentTraversable(const domain::TraversabilityGrid& grid,
   return true;
 }
 
+/**
+ * @brief Performs the step name operation for this subsystem.
+ *
+ * Arguments:
+ * - @p step: Supplies step input to the operation.
+ *
+ * Returns:
+ * - `std::string` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::string stepName(const planning::PlanStep& step) {
   return std::visit(
       [](const auto& value) -> std::string {
@@ -121,6 +238,19 @@ std::string stepName(const planning::PlanStep& step) {
 }
 }  // namespace
 
+/**
+ * @brief Evaluates package content for this subsystem.
+ *
+ * Arguments:
+ * - @p result: Supplies result input to the operation.
+ * - @p context: Supplies context input to the operation.
+ *
+ * Returns:
+ * - `PlanEnforcementResult` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 PlanEnforcementResult LocalActionEvaluator::evaluate(
     PlanEnforcementResult result,
     const PlanEnforcementContext& context) const {
@@ -160,6 +290,19 @@ PlanEnforcementResult LocalActionEvaluator::evaluate(
   return result;
 }
 
+/**
+ * @brief Performs the enforce operation for this subsystem.
+ *
+ * Arguments:
+ * - @p plan: Supplies plan input to the operation.
+ * - @p context: Supplies context input to the operation.
+ *
+ * Returns:
+ * - `PlanEnforcementResult` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 PlanEnforcementResult GridPlanEnforcer::enforce(
     planning::HierarchicalPlan& plan,
     const PlanEnforcementContext& context) const {
@@ -257,6 +400,19 @@ PlanEnforcementResult GridPlanEnforcer::enforce(
   return LocalActionEvaluator{}.evaluate(std::move(result), context);
 }
 
+/**
+ * @brief Performs the enforce operation for this subsystem.
+ *
+ * Arguments:
+ * - @p plan: Supplies plan input to the operation.
+ * - @p context: Supplies context input to the operation.
+ *
+ * Returns:
+ * - `PlanEnforcementResult` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 PlanEnforcementResult ModelPlanEnforcer::enforce(
     planning::HierarchicalPlan& plan,
     const PlanEnforcementContext& context) const {
@@ -309,6 +465,19 @@ PlanEnforcementResult ModelPlanEnforcer::enforce(
   return LocalActionEvaluator{}.evaluate(std::move(result), context);
 }
 
+/**
+ * @brief Performs the enforce operation for this subsystem.
+ *
+ * Arguments:
+ * - @p plan: Supplies plan input to the operation.
+ * - @p context: Supplies context input to the operation.
+ *
+ * Returns:
+ * - `PlanEnforcementResult` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 PlanEnforcementResult Enforcer::enforce(
     planning::HierarchicalPlan& plan,
     const PlanEnforcementContext& context) const {
@@ -325,6 +494,18 @@ PlanEnforcementResult Enforcer::enforce(
   return result;
 }
 
+/**
+ * @brief Performs the operationalize operation for this subsystem.
+ *
+ * Arguments:
+ * - @p plan: Supplies plan input to the operation.
+ *
+ * Returns:
+ * - `std::vector<domain::Point2D>` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::vector<domain::Point2D> Enforcer::operationalize(
     const planning::HierarchicalPlan& plan) const {
   if (plan.validity != planning::PlanValidity::Valid || plan.exhausted())
@@ -334,6 +515,20 @@ std::vector<domain::Point2D> Enforcer::operationalize(
                 : std::vector<domain::Point2D>{};
 }
 
+/**
+ * @brief Performs the active step operation for this subsystem.
+ *
+ * Arguments:
+ * - @p plan: Supplies plan input to the operation.
+ * - @p pose: Supplies pose input to the operation.
+ * - @p tolerance: Supplies tolerance input to the operation.
+ *
+ * Returns:
+ * - `std::size_t` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::size_t Enforcer::activeStep(const planning::HierarchicalPlan& plan,
                                  const domain::Pose2D& pose,
                                  domain::Distance tolerance) const noexcept {
@@ -357,6 +552,21 @@ std::size_t Enforcer::activeStep(const planning::HierarchicalPlan& plan,
   return cursor;
 }
 
+/**
+ * @brief Performs the operationalize next operation for this subsystem.
+ *
+ * Arguments:
+ * - @p plan: Supplies plan input to the operation.
+ * - @p spatial: Supplies spatial input to the operation.
+ * - @p pose: Supplies pose input to the operation.
+ * - @p tolerance: Supplies tolerance input to the operation.
+ *
+ * Returns:
+ * - `std::optional<domain::Point2D>` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::optional<domain::Point2D> Enforcer::operationalizeNext(
     planning::HierarchicalPlan& plan, const domain::SpatialModel& spatial,
     const domain::Pose2D& pose, domain::Distance tolerance) const {

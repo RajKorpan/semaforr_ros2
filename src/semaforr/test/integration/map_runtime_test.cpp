@@ -1,3 +1,14 @@
+/**
+ * @file map_runtime_test.cpp
+ * @brief Map runtime test responsibilities.
+ *
+ * @details This file exercises map runtime test behavior for automated verification
+ * and regression testing. It centers on
+ * `MaplessStartupSkipsLoadingAndGridPlannerRegistration`,
+ * `MapEnabledStartupInstallsImmutableMapAndEnablesGridPlanner`,
+ * `ExplicitFailurePolicyControlsStartup`. Its package-relative location is
+ * `test/integration/map_runtime_test.cpp`.
+ */
 #include <gtest/gtest.h>
 
 #include <algorithm>
@@ -10,6 +21,18 @@
 
 namespace {
 
+/**
+ * @brief Performs the configuration operation for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - `semaforr::config::Configuration` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 semaforr::config::Configuration configuration() {
   semaforr::config::Configuration result;
   auto& navigation = result.navigation;
@@ -37,6 +60,19 @@ semaforr::config::Configuration configuration() {
   return result;
 }
 
+/**
+ * @brief Reports whether diagnostic for this subsystem.
+ *
+ * Arguments:
+ * - @p adapter: Supplies adapter input to the operation.
+ * - @p value: Supplies value input to the operation.
+ *
+ * Returns:
+ * - `bool` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 bool hasDiagnostic(const semaforr::ros::NavigationEngineAdapter& adapter,
                    const std::string& value) {
   const auto& diagnostics = adapter.startupDiagnostics();

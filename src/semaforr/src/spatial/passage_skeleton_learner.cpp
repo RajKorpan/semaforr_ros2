@@ -1,3 +1,13 @@
+/**
+ * @file passage_skeleton_learner.cpp
+ * @brief Passage skeleton learner responsibilities.
+ *
+ * @details This file implements passage skeleton learner behavior for learned
+ * spatial representations and their lifecycle. It records the
+ * declarations, settings, fixtures, or guidance needed by that
+ * responsibility. Its package-relative location is
+ * `src/spatial/passage_skeleton_learner.cpp`.
+ */
 #include <algorithm>
 #include <cmath>
 #include <semaforr/spatial/learners/passage_skeleton_learner.hpp>
@@ -5,6 +15,25 @@
 
 namespace semaforr::spatial {
 
+/**
+ * @brief Performs the passage skeleton learner operation for this
+ * subsystem.
+ *
+ * Arguments:
+ * - @p minimum_node_spacing_m: Supplies minimum node spacing m input to the
+ * operation.
+ * - @p mode: Supplies mode input to the operation.
+ * - @p region_configuration: Supplies region configuration input to the
+ * operation.
+ * - @p trail_configuration: Supplies trail configuration input to the
+ * operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 PassageSkeletonLearner::PassageSkeletonLearner(
     double minimum_node_spacing_m, SpatialLearningMode mode,
     RegionLearningConfiguration region_configuration,
@@ -36,6 +65,18 @@ PassageSkeletonLearner::PassageSkeletonLearner(
   }
 }
 
+/**
+ * @brief Performs the on observe operation for this subsystem.
+ *
+ * Arguments:
+ * - @p episode: Supplies episode input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void PassageSkeletonLearner::onObserve(const NavigationEpisode& episode) {
   if (mode_ == SpatialLearningMode::Compatibility) return;
   if (!episode.actionSucceeded()) return;
@@ -75,6 +116,18 @@ void PassageSkeletonLearner::onObserve(const NavigationEpisode& episode) {
   last_task_ = episode.active_task;
 }
 
+/**
+ * @brief Performs the on rebuild operation for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void PassageSkeletonLearner::onRebuild() {
   if (mode_ == SpatialLearningMode::Compatibility) {
     const auto paths = completedPathsFromEpisodes(episodes());

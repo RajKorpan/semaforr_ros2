@@ -1,3 +1,5 @@
+<!-- File overview: This file documents or configures social navigation behavior for the maintained architecture and user documentation. It records the declarations, settings, fixtures, or guidance needed by that responsibility. Its package-relative location is `docs/social-navigation.md`. -->
+
 # Social navigation API
 
 SemaFORR adapts the collaborator-owned social interfaces at its ROS boundary

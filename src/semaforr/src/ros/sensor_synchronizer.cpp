@@ -1,3 +1,13 @@
+/**
+ * @file sensor_synchronizer.cpp
+ * @brief Sensor synchronizer responsibilities.
+ *
+ * @details This file implements sensor synchronizer behavior for the ROS 2
+ * composition and message-adaptation boundary. It records the
+ * declarations, settings, fixtures, or guidance needed by that
+ * responsibility. Its package-relative location is
+ * `src/ros/sensor_synchronizer.cpp`.
+ */
 #include <tf2/LinearMath/Matrix3x3.h>
 #include <tf2/LinearMath/Quaternion.h>
 
@@ -10,12 +20,37 @@
 namespace semaforr::ros {
 namespace {
 
+/**
+ * @brief Performs the source stamp operation for this subsystem.
+ *
+ * Arguments:
+ * - @p stamp: Supplies stamp input to the operation.
+ * - @p received_at: Supplies received at input to the operation.
+ *
+ * Returns:
+ * - `rclcpp::Time` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 rclcpp::Time sourceStamp(const builtin_interfaces::msg::Time& stamp,
                          const rclcpp::Time& received_at) {
   rclcpp::Time result(stamp, received_at.get_clock_type());
   return result.nanoseconds() == 0 ? received_at : result;
 }
 
+/**
+ * @brief Performs the finite quaternion operation for this subsystem.
+ *
+ * Arguments:
+ * - @p value: Supplies value input to the operation.
+ *
+ * Returns:
+ * - `bool` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 bool finiteQuaternion(const geometry_msgs::msg::Quaternion& value) noexcept {
   const double norm = value.x * value.x + value.y * value.y +
                       value.z * value.z + value.w * value.w;
@@ -24,6 +59,18 @@ bool finiteQuaternion(const geometry_msgs::msg::Quaternion& value) noexcept {
 
 }  // namespace
 
+/**
+ * @brief Performs the sensor synchronizer operation for this subsystem.
+ *
+ * Arguments:
+ * - @p configuration: Supplies configuration input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 SensorSynchronizer::SensorSynchronizer(
     SensorSynchronizerConfiguration configuration)
     : configuration_(std::move(configuration)) {
@@ -45,6 +92,19 @@ SensorSynchronizer::SensorSynchronizer(
   }
 }
 
+/**
+ * @brief Performs the accept pose operation for this subsystem.
+ *
+ * Arguments:
+ * - @p message: Supplies message input to the operation.
+ * - @p received_at: Supplies received at input to the operation.
+ *
+ * Returns:
+ * - `bool` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 bool SensorSynchronizer::acceptPose(
     const geometry_msgs::msg::PoseStamped& message,
     const rclcpp::Time& received_at) {
@@ -84,6 +144,19 @@ bool SensorSynchronizer::acceptPose(
   return true;
 }
 
+/**
+ * @brief Performs the accept scan operation for this subsystem.
+ *
+ * Arguments:
+ * - @p message: Supplies message input to the operation.
+ * - @p received_at: Supplies received at input to the operation.
+ *
+ * Returns:
+ * - `bool` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 bool SensorSynchronizer::acceptScan(const sensor_msgs::msg::LaserScan& message,
                                     const rclcpp::Time& received_at) {
   if (message.header.frame_id != configuration_.scan_frame) {
@@ -118,6 +191,18 @@ bool SensorSynchronizer::acceptScan(const sensor_msgs::msg::LaserScan& message,
   return true;
 }
 
+/**
+ * @brief Performs the status operation for this subsystem.
+ *
+ * Arguments:
+ * - @p now: Supplies now input to the operation.
+ *
+ * Returns:
+ * - `SensorStatus` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 SensorStatus SensorSynchronizer::status(const rclcpp::Time& now) const {
   if (pose_error_) {
     return *pose_error_;
@@ -160,6 +245,18 @@ SensorStatus SensorSynchronizer::status(const rclcpp::Time& now) const {
   return SensorStatus::Ready;
 }
 
+/**
+ * @brief Performs the snapshot operation for this subsystem.
+ *
+ * Arguments:
+ * - @p now: Supplies now input to the operation.
+ *
+ * Returns:
+ * - `std::optional<SynchronizedSensors>` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::optional<SynchronizedSensors> SensorSynchronizer::snapshot(
     const rclcpp::Time& now) const {
   if (status(now) != SensorStatus::Ready) {
@@ -169,6 +266,18 @@ std::optional<SynchronizedSensors> SensorSynchronizer::snapshot(
                              scan_->stamp, generation_};
 }
 
+/**
+ * @brief Clears package content for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void SensorSynchronizer::clear() noexcept {
   pose_.reset();
   scan_.reset();
@@ -176,6 +285,18 @@ void SensorSynchronizer::clear() noexcept {
   scan_error_.reset();
 }
 
+/**
+ * @brief Converts string for this subsystem.
+ *
+ * Arguments:
+ * - @p status: Supplies status input to the operation.
+ *
+ * Returns:
+ * - `std::string_view` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::string_view toString(SensorStatus status) noexcept {
   switch (status) {
     case SensorStatus::WaitingForPose:

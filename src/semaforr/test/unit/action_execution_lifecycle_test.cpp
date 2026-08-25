@@ -1,3 +1,18 @@
+/**
+ * @file action_execution_lifecycle_test.cpp
+ * @brief Action execution lifecycle test responsibilities.
+ *
+ * @details This file exercises action execution lifecycle test behavior for
+ * automated verification and regression testing. It centers on
+ * `LifecycleFixture`, `TerminalStatusTest`,
+ * `SelectionIsNotExecutionAndStableIdsCorrelateFeedback`,
+ * `DuplicateUnknownAndStaleFeedbackAreRejected`,
+ * `FailuresNeverBecomeSuccessfulTraversal`,
+ * `ControllerRejectionCanTerminateBeforeStart`,
+ * `ExposesEveryTerminalOutcomeClass`,
+ * `TaskMismatchAndPreStartSuccessAreRejected`. Its package-relative
+ * location is `test/unit/action_execution_lifecycle_test.cpp`.
+ */
 #include <gtest/gtest.h>
 
 #include <chrono>
@@ -8,6 +23,18 @@
 
 namespace {
 
+/**
+ * @brief Performs the observation operation for this subsystem.
+ *
+ * Arguments:
+ * - @p x_m: Supplies x m input to the operation.
+ *
+ * Returns:
+ * - `semaforr::domain::RobotObservation` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 semaforr::domain::RobotObservation observation(double x_m = 0.0) {
   semaforr::domain::RobotObservation result;
   result.pose = {{x_m, 0.0}, semaforr::domain::Angle::zero()};
@@ -20,14 +47,51 @@ semaforr::domain::RobotObservation observation(double x_m = 0.0) {
   return result;
 }
 
+/**
+ * @brief Performs the configured world operation for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - `semaforr::domain::WorldModel` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 semaforr::domain::WorldModel configuredWorld() {
   semaforr::domain::WorldModel result;
   result.mission = semaforr::domain::Mission({{7U, {5.0, 0.0}}}, 20U);
   return result;
 }
 
+/**
+ * @brief Encapsulates lifecycle fixture state and behavior for this
+ * subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - Not applicable to this declaration.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 class LifecycleFixture : public ::testing::Test {
  protected:
+  /**
+   * @brief Performs the lifecycle fixture operation for this subsystem.
+   *
+   * Arguments:
+   * - None.
+   *
+   * Returns:
+   * - No value; effects are applied to owned state or outputs.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   LifecycleFixture()
       : action_space({0.2}, {0.5}),
         decisions({1.0e-9,
@@ -41,11 +105,38 @@ class LifecycleFixture : public ::testing::Test {
     learning.addLearner(std::make_unique<semaforr::spatial::TrailLearner>());
   }
 
+  /**
+   * @brief Performs the select operation for this subsystem.
+   *
+   * Arguments:
+   * - None.
+   *
+   * Returns:
+   * - `semaforr::decision::DecisionResult` containing the operation result.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   semaforr::decision::DecisionResult select() {
     engine.observe(observation());
     return engine.decide();
   }
 
+  /**
+   * @brief Performs the result for operation for this subsystem.
+   *
+   * Arguments:
+   * - @p decision: Supplies decision input to the operation.
+   * - @p status: Supplies status input to the operation.
+   * - @p final_x: Supplies final x input to the operation.
+   *
+   * Returns:
+   * - `semaforr::domain::ActionExecutionResult` containing the operation
+   * result.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   semaforr::domain::ActionExecutionResult resultFor(
       const semaforr::decision::DecisionResult& decision,
       semaforr::domain::ExecutionCompletionStatus status,
@@ -69,6 +160,18 @@ class LifecycleFixture : public ::testing::Test {
     return result;
   }
 
+  /**
+   * @brief Performs the start operation for this subsystem.
+   *
+   * Arguments:
+   * - @p decision: Supplies decision input to the operation.
+   *
+   * Returns:
+   * - No value; effects are applied to owned state or outputs.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   void start(const semaforr::decision::DecisionResult& decision) {
     ASSERT_EQ(engine.onActionStarted(
                   {decision.decision_id, decision.action_id,
@@ -148,6 +251,19 @@ TEST_F(LifecycleFixture, DuplicateUnknownAndStaleFeedbackAreRejected) {
             semaforr::domain::FeedbackDisposition::StaleDecision);
 }
 
+/**
+ * @brief Encapsulates terminal status test state and behavior for this
+ * subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - Not applicable to this declaration.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 class TerminalStatusTest
     : public LifecycleFixture,
       public ::testing::WithParamInterface<

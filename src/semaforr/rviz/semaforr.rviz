@@ -1,3 +1,4 @@
+# File overview: This file documents or configures semaforr behavior for the SemaFORR navigation package. It records the declarations, settings, fixtures, or guidance needed by that responsibility. Its package-relative location is `rviz/semaforr.rviz`.
 Panels:
   - Class: rviz_common/Displays
     Name: Displays

@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# File overview: This file implements run quality checks behavior for developer tooling and experiment automation. It records the declarations, settings, fixtures, or guidance needed by that responsibility. Its package-relative location is `scripts/run_quality_checks.sh`.
 set -euo pipefail
 
 workspace_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"

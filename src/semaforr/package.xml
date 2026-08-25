@@ -1,4 +1,5 @@
 <?xml version="1.0"?>
+<!-- File overview: This file defines package behavior for the SemaFORR navigation package. It records the declarations, settings, fixtures, or guidance needed by that responsibility. Its package-relative location is `package.xml`. -->
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
   <name>semaforr</name>

@@ -1,3 +1,13 @@
+/**
+ * @file hierarchical_plan.cpp
+ * @brief Hierarchical plan responsibilities.
+ *
+ * @details This file implements hierarchical plan behavior for path planning and
+ * hierarchical plan construction. It centers on `RegionSurrogate`,
+ * `Selection`, `VisibleCandidate`, `SkeletonRoute`, `RegionAccess`,
+ * `HighwayAttachment`, `HighwayRoute`. Its package-relative location is
+ * `src/planning/hierarchical_plan.cpp`.
+ */
 #include <algorithm>
 #include <cmath>
 #include <limits>
@@ -13,6 +23,18 @@ namespace {
 constexpr double pi = 3.14159265358979323846;
 constexpr double tie_tolerance = 1e-9;
 
+/**
+ * @brief Performs the polyline length operation for this subsystem.
+ *
+ * Arguments:
+ * - @p points: Supplies points input to the operation.
+ *
+ * Returns:
+ * - `double` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 double polylineLength(const std::vector<domain::Point2D>& points) {
   double length = 0.0;
   for (std::size_t index = 1U; index < points.size(); ++index)
@@ -20,6 +42,19 @@ double polylineLength(const std::vector<domain::Point2D>& points) {
   return length;
 }
 
+/**
+ * @brief Performs the region boundary operation for this subsystem.
+ *
+ * Arguments:
+ * - @p spatial: Supplies spatial input to the operation.
+ * - @p node_index: Supplies node index input to the operation.
+ *
+ * Returns:
+ * - `std::optional<domain::Circle>` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::optional<domain::Circle> regionBoundary(const domain::SpatialModel& spatial,
                                              std::size_t node_index) {
   if (node_index >= spatial.region_skeleton_nodes.size()) return std::nullopt;
@@ -33,6 +68,18 @@ std::optional<domain::Circle> regionBoundary(const domain::SpatialModel& spatial
   return std::nullopt;
 }
 
+/**
+ * @brief Performs the skeleton degrees operation for this subsystem.
+ *
+ * Arguments:
+ * - @p spatial: Supplies spatial input to the operation.
+ *
+ * Returns:
+ * - `std::vector<std::size_t>` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::vector<std::size_t> skeletonDegrees(const domain::SpatialModel& spatial) {
   std::vector<std::size_t> result(spatial.region_skeleton_nodes.size(), 0U);
   for (const auto& edge : spatial.region_skeleton_edges) {
@@ -42,19 +89,72 @@ std::vector<std::size_t> skeletonDegrees(const domain::SpatialModel& spatial) {
   return result;
 }
 
+/**
+ * @brief Performs the visibility bin operation for this subsystem.
+ *
+ * Arguments:
+ * - @p origin: Supplies origin input to the operation.
+ * - @p point: Supplies point input to the operation.
+ *
+ * Returns:
+ * - `std::size_t` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::size_t visibilityBin(domain::Point2D origin, domain::Point2D point) {
   double angle = std::atan2(point.y_m - origin.y_m, point.x_m - origin.x_m);
   if (angle < 0.0) angle += 2.0 * pi;
   return static_cast<std::size_t>(std::floor(angle * 180.0 / pi)) % 360U;
 }
 
+/**
+ * @brief Encapsulates region surrogate state and behavior for this
+ * subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - Not applicable to this declaration.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 struct RegionSurrogate {
+  /**
+   * @brief Enumerates the supported selection values used by this
+   * subsystem.
+   *
+   * Arguments:
+   * - None.
+   *
+   * Returns:
+   * - Not applicable to this declaration.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   enum class Selection { Contained, Visible, DegreeDistance } selection;
   std::size_t node{0U};
   std::optional<VisibilityConnectionStep> connection;
   std::vector<std::string> diagnostics;
 };
 
+/**
+ * @brief Performs the select region surrogate operation for this subsystem.
+ *
+ * Arguments:
+ * - @p spatial: Supplies spatial input to the operation.
+ * - @p point: Supplies point input to the operation.
+ * - @p start_side: Supplies start side input to the operation.
+ *
+ * Returns:
+ * - `std::optional<RegionSurrogate>` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::optional<RegionSurrogate> selectRegionSurrogate(
     const domain::SpatialModel& spatial, domain::Point2D point,
     bool start_side) {
@@ -155,11 +255,37 @@ std::optional<RegionSurrogate> selectRegionSurrogate(
   return result;
 }
 
+/**
+ * @brief Encapsulates skeleton route state and behavior for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - Not applicable to this declaration.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 struct SkeletonRoute {
   std::vector<std::size_t> nodes;
   double cost{0.0};
 };
 
+/**
+ * @brief Performs the shortest skeleton route operation for this subsystem.
+ *
+ * Arguments:
+ * - @p spatial: Supplies spatial input to the operation.
+ * - @p start: Supplies start input to the operation.
+ * - @p goal: Supplies goal input to the operation.
+ *
+ * Returns:
+ * - `std::optional<SkeletonRoute>` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::optional<SkeletonRoute> shortestSkeletonRoute(
     const domain::SpatialModel& spatial, std::size_t start, std::size_t goal) {
   const std::size_t count = spatial.region_skeleton_nodes.size();
@@ -208,6 +334,20 @@ std::optional<SkeletonRoute> shortestSkeletonRoute(
   return SkeletonRoute{std::move(nodes), distance[goal]};
 }
 
+/**
+ * @brief Performs the skeleton edge operation for this subsystem.
+ *
+ * Arguments:
+ * - @p spatial: Supplies spatial input to the operation.
+ * - @p from: Supplies from input to the operation.
+ * - @p to: Supplies to input to the operation.
+ *
+ * Returns:
+ * - `const domain::RegionSkeletonEdge*` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 const domain::RegionSkeletonEdge* skeletonEdge(
     const domain::SpatialModel& spatial, std::size_t from, std::size_t to) {
   const auto found = std::find_if(
@@ -219,6 +359,22 @@ const domain::RegionSkeletonEdge* skeletonEdge(
   return found == spatial.region_skeleton_edges.end() ? nullptr : &*found;
 }
 
+/**
+ * @brief Performs the append skeleton route operation for this subsystem.
+ *
+ * Arguments:
+ * - @p spatial: Supplies spatial input to the operation.
+ * - @p route: Supplies route input to the operation.
+ * - @p steps: Supplies steps input to the operation.
+ * - @p include_first_region: Supplies include first region input to the
+ * operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void appendSkeletonRoute(const domain::SpatialModel& spatial,
                          const SkeletonRoute& route,
                          std::vector<PlanStep>& steps,
@@ -242,6 +398,18 @@ void appendSkeletonRoute(const domain::SpatialModel& spatial,
   }
 }
 
+/**
+ * @brief Performs the geometry for operation for this subsystem.
+ *
+ * Arguments:
+ * - @p steps: Supplies steps input to the operation.
+ *
+ * Returns:
+ * - `std::vector<domain::Point2D>` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::vector<domain::Point2D> geometryFor(const std::vector<PlanStep>& steps) {
   std::vector<domain::Point2D> result;
   for (const auto& step : steps)
@@ -251,6 +419,19 @@ std::vector<domain::Point2D> geometryFor(const std::vector<PlanStep>& steps) {
   return result;
 }
 
+/**
+ * @brief Builds skeleton plan for this subsystem.
+ *
+ * Arguments:
+ * - @p request: Supplies request input to the operation.
+ * - @p planner_name: Supplies planner name input to the operation.
+ *
+ * Returns:
+ * - `PlanResult` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 PlanResult buildSkeletonPlan(const PlanningRequest& request,
                              std::string planner_name) {
   if (!request.spatial_model)
@@ -302,6 +483,19 @@ PlanResult buildSkeletonPlan(const PlanningRequest& request,
   return result;
 }
 
+/**
+ * @brief Performs the intersection by id operation for this subsystem.
+ *
+ * Arguments:
+ * - @p graph: Supplies graph input to the operation.
+ * - @p id: Supplies id input to the operation.
+ *
+ * Returns:
+ * - `const domain::Intersection*` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 const domain::Intersection* intersectionById(const domain::HighwayGraph& graph,
                                              domain::IntersectionId id) {
   const auto found = std::find_if(graph.graph.vertices.begin(),
@@ -310,6 +504,20 @@ const domain::Intersection* intersectionById(const domain::HighwayGraph& graph,
   return found == graph.graph.vertices.end() ? nullptr : &*found;
 }
 
+/**
+ * @brief Performs the point in cell operation for this subsystem.
+ *
+ * Arguments:
+ * - @p graph: Supplies graph input to the operation.
+ * - @p point: Supplies point input to the operation.
+ * - @p cell: Supplies cell input to the operation.
+ *
+ * Returns:
+ * - `bool` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 bool pointInCell(const domain::HighwayGraph& graph, domain::Point2D point,
                  domain::GridCell cell) {
   if (!graph.geometry.valid()) return false;
@@ -318,6 +526,20 @@ bool pointInCell(const domain::HighwayGraph& graph, domain::Point2D point,
          static_cast<int>(query->second) == cell.row;
 }
 
+/**
+ * @brief Performs the point intersection operation for this subsystem.
+ *
+ * Arguments:
+ * - @p graph: Supplies graph input to the operation.
+ * - @p point: Supplies point input to the operation.
+ *
+ * Returns:
+ * - `std::optional<domain::IntersectionId>` containing the operation
+ * result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::optional<domain::IntersectionId> pointIntersection(
     const domain::HighwayGraph& graph, domain::Point2D point) {
   for (const auto& intersection : graph.graph.vertices)
@@ -328,6 +550,19 @@ std::optional<domain::IntersectionId> pointIntersection(
   return std::nullopt;
 }
 
+/**
+ * @brief Performs the point highway operation for this subsystem.
+ *
+ * Arguments:
+ * - @p graph: Supplies graph input to the operation.
+ * - @p point: Supplies point input to the operation.
+ *
+ * Returns:
+ * - `const domain::Highway*` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 const domain::Highway* pointHighway(const domain::HighwayGraph& graph,
                                     domain::Point2D point) {
   for (const auto& highway : graph.highways)
@@ -339,6 +574,21 @@ const domain::Highway* pointHighway(const domain::HighwayGraph& graph,
   return nullptr;
 }
 
+/**
+ * @brief Performs the closer endpoint operation for this subsystem.
+ *
+ * Arguments:
+ * - @p graph: Supplies graph input to the operation.
+ * - @p highway: Supplies highway input to the operation.
+ * - @p point: Supplies point input to the operation.
+ *
+ * Returns:
+ * - `std::optional<domain::IntersectionId>` containing the operation
+ * result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::optional<domain::IntersectionId> closerEndpoint(
     const domain::HighwayGraph& graph, const domain::Highway& highway,
     domain::Point2D point) {
@@ -358,11 +608,36 @@ std::optional<domain::IntersectionId> closerEndpoint(
   return selected;
 }
 
+/**
+ * @brief Encapsulates region access state and behavior for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - Not applicable to this declaration.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 struct RegionAccess {
   domain::IntersectionId intersection{0U};
   std::optional<domain::HighwayId> highway;
 };
 
+/**
+ * @brief Performs the region highway access operation for this subsystem.
+ *
+ * Arguments:
+ * - @p spatial: Supplies spatial input to the operation.
+ * - @p node: Supplies node input to the operation.
+ *
+ * Returns:
+ * - `std::optional<RegionAccess>` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::optional<RegionAccess> regionHighwayAccess(
     const domain::SpatialModel& spatial, std::size_t node) {
   const auto boundary = regionBoundary(spatial, node);
@@ -393,6 +668,19 @@ std::optional<RegionAccess> regionHighwayAccess(
   return std::nullopt;
 }
 
+/**
+ * @brief Encapsulates highway attachment state and behavior for this
+ * subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - Not applicable to this declaration.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 struct HighwayAttachment {
   domain::IntersectionId intersection{0U};
   std::vector<PlanStep> point_to_intersection;
@@ -400,6 +688,19 @@ struct HighwayAttachment {
   std::vector<std::string> diagnostics;
 };
 
+/**
+ * @brief Performs the attach to highway operation for this subsystem.
+ *
+ * Arguments:
+ * - @p spatial: Supplies spatial input to the operation.
+ * - @p point: Supplies point input to the operation.
+ *
+ * Returns:
+ * - `std::optional<HighwayAttachment>` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::optional<HighwayAttachment> attachToHighway(
     const domain::SpatialModel& spatial, domain::Point2D point) {
   if (const auto direct = pointIntersection(spatial.highways, point)) {
@@ -482,6 +783,18 @@ std::optional<HighwayAttachment> attachToHighway(
   return result;
 }
 
+/**
+ * @brief Performs the reverse attachment operation for this subsystem.
+ *
+ * Arguments:
+ * - @p forward: Supplies forward input to the operation.
+ *
+ * Returns:
+ * - `std::vector<PlanStep>` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::vector<PlanStep> reverseAttachment(std::vector<PlanStep> forward) {
   std::vector<PlanStep> result;
   result.reserve(forward.size());
@@ -515,12 +828,38 @@ std::vector<PlanStep> reverseAttachment(std::vector<PlanStep> forward) {
   return result;
 }
 
+/**
+ * @brief Encapsulates highway route state and behavior for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - Not applicable to this declaration.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 struct HighwayRoute {
   std::vector<domain::IntersectionId> vertices;
   std::vector<const domain::HighwayEdge*> edges;
   double cost{0.0};
 };
 
+/**
+ * @brief Performs the shortest highway route operation for this subsystem.
+ *
+ * Arguments:
+ * - @p highway: Supplies highway input to the operation.
+ * - @p start: Supplies start input to the operation.
+ * - @p goal: Supplies goal input to the operation.
+ *
+ * Returns:
+ * - `std::optional<HighwayRoute>` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::optional<HighwayRoute> shortestHighwayRoute(
     const domain::HighwayGraph& highway, domain::IntersectionId start,
     domain::IntersectionId goal) {
@@ -575,6 +914,18 @@ std::optional<HighwayRoute> shortestHighwayRoute(
   return result;
 }
 
+/**
+ * @brief Builds highway assisted plan for this subsystem.
+ *
+ * Arguments:
+ * - @p request: Supplies request input to the operation.
+ *
+ * Returns:
+ * - `PlanResult` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 PlanResult buildHighwayAssistedPlan(const PlanningRequest& request) {
   const auto& spatial = *request.spatial_model;
   if (spatial.highways.graph.vertices.empty())
@@ -635,6 +986,18 @@ PlanResult buildHighwayAssistedPlan(const PlanningRequest& request) {
 
 }  // namespace
 
+/**
+ * @brief Performs the dependencies operation for this subsystem.
+ *
+ * Arguments:
+ * - @p argument_1: Supplies argument 1 input to the operation.
+ *
+ * Returns:
+ * - `std::vector<domain::ModelDependency>` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::vector<domain::ModelDependency> SkeletonPlan::dependencies(
     const PlanningRequest&) const {
   return {domain::ModelDependency::Skeleton, domain::ModelDependency::Regions,
@@ -642,6 +1005,18 @@ std::vector<domain::ModelDependency> SkeletonPlan::dependencies(
           domain::ModelDependency::VisibilityGeometry};
 }
 
+/**
+ * @brief Performs the dependencies operation for this subsystem.
+ *
+ * Arguments:
+ * - @p argument_1: Supplies argument 1 input to the operation.
+ *
+ * Returns:
+ * - `std::vector<domain::ModelDependency>` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::vector<domain::ModelDependency> HighwayPlan::dependencies(
     const PlanningRequest&) const {
   using D = domain::ModelDependency;
@@ -649,12 +1024,36 @@ std::vector<domain::ModelDependency> HighwayPlan::dependencies(
           D::VisibilityGeometry};
 }
 
+/**
+ * @brief Constructs package content for this subsystem.
+ *
+ * Arguments:
+ * - @p request: Supplies request input to the operation.
+ *
+ * Returns:
+ * - `PlanResult` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 PlanResult SkeletonPlan::plan(const PlanningRequest& request) {
   auto result = buildSkeletonPlan(request, std::string(name()));
   attachDependencySnapshot(result, request, dependencies(request));
   return result;
 }
 
+/**
+ * @brief Constructs package content for this subsystem.
+ *
+ * Arguments:
+ * - @p request: Supplies request input to the operation.
+ *
+ * Returns:
+ * - `PlanResult` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 PlanResult HighwayPlan::plan(const PlanningRequest& request) {
   if (!request.spatial_model)
     return {PlanStatus::PlannerUnavailable, {}, 0.0,
@@ -685,6 +1084,18 @@ PlanResult HighwayPlan::plan(const PlanningRequest& request) {
 }  // namespace semaforr::planning
 
 semaforr::planning::PlannerMetadata
+/**
+ * @brief Performs the metadata operation for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 semaforr::planning::SkeletonPlan::metadata() const {
   return {std::string(name()), PlanFamily::Model, objective(),
           std::string(toString(objective())),
@@ -694,6 +1105,18 @@ semaforr::planning::SkeletonPlan::metadata() const {
 }
 
 semaforr::planning::PlannerMetadata
+/**
+ * @brief Performs the metadata operation for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 semaforr::planning::HighwayPlan::metadata() const {
   return {std::string(name()), PlanFamily::Model, objective(),
           std::string(toString(objective())),

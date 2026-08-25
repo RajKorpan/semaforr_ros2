@@ -1,3 +1,5 @@
+<!-- File overview: This file documents or configures architecture behavior for the maintained architecture and user documentation. It records the declarations, settings, fixtures, or guidance needed by that responsibility. Its package-relative location is `docs/architecture.md`. -->
+
 # Architecture overview
 
 SemaFORR is split at the ROS boundary. Navigation state, decisions, planning,

@@ -1,3 +1,19 @@
+/**
+ * @file crowd_model_test.cpp
+ * @brief Crowd model test responsibilities.
+ *
+ * @details This file exercises crowd model test behavior for automated verification
+ * and regression testing. It centers on
+ * `UsesVisibilityAsDensityDenominator`,
+ * `EmptyObservationIsNegativeEvidence`,
+ * `NoReturnLaserBeamExposesCellsToMaximumRange`,
+ * `SeededThompsonSnapshotsAreDeterministic`,
+ * `SerializesAndRemainsUsefulWithoutLivePeople`,
+ * `TracksMeaningfulLiveMutationsAndInputDiagnostics`,
+ * `DoesNotPublishWithoutRepresentedEvidence`,
+ * `CanonicalPredictionsProduceDeterministicCollisionRisk`. Its
+ * package-relative location is `test/unit/crowd_model_test.cpp`.
+ */
 #include <gtest/gtest.h>
 
 #include <chrono>
@@ -14,6 +30,18 @@ namespace {
 
 using namespace std::chrono_literals;
 
+/**
+ * @brief Performs the laser operation for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - `semaforr::domain::LaserObservation` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 semaforr::domain::LaserObservation laser() {
   semaforr::domain::LaserObservation result;
   result.angle_min = semaforr::domain::Angle::zero();
@@ -24,6 +52,19 @@ semaforr::domain::LaserObservation laser() {
   return result;
 }
 
+/**
+ * @brief Performs the crowd operation for this subsystem.
+ *
+ * Arguments:
+ * - @p stamp: Supplies stamp input to the operation.
+ * - @p include_person: Supplies include person input to the operation.
+ *
+ * Returns:
+ * - `semaforr::domain::CrowdObservation` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 semaforr::domain::CrowdObservation crowd(std::chrono::nanoseconds stamp,
                                          bool include_person) {
   semaforr::domain::CrowdObservation result;
@@ -41,6 +82,19 @@ semaforr::domain::CrowdObservation crowd(std::chrono::nanoseconds stamp,
   return result;
 }
 
+/**
+ * @brief Performs the configuration operation for this subsystem.
+ *
+ * Arguments:
+ * - @p strategy: Supplies strategy input to the operation.
+ *
+ * Returns:
+ * - `semaforr::social::CrowdFieldLearnerConfiguration` containing the
+ * operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 semaforr::social::CrowdFieldLearnerConfiguration configuration(
     semaforr::social::CrowdEstimatorStrategy strategy =
         semaforr::social::CrowdEstimatorStrategy::CountExposure) {

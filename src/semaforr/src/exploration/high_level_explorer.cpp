@@ -1,3 +1,12 @@
+/**
+ * @file high_level_explorer.cpp
+ * @brief High level explorer responsibilities.
+ *
+ * @details This file implements high level explorer behavior for initial or
+ * reactive exploration. It records the declarations, settings, fixtures,
+ * or guidance needed by that responsibility. Its package-relative location
+ * is `src/exploration/high_level_explorer.cpp`.
+ */
 #include <algorithm>
 #include <cmath>
 #include <limits>
@@ -10,6 +19,20 @@
 namespace semaforr::exploration {
 namespace {
 
+/**
+ * @brief Performs the endpoint operation for this subsystem.
+ *
+ * Arguments:
+ * - @p observation: Supplies observation input to the operation.
+ * - @p beam: Supplies beam input to the operation.
+ * - @p range_m: Supplies range m input to the operation.
+ *
+ * Returns:
+ * - `domain::Point2D` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 domain::Point2D endpoint(const domain::RobotObservation& observation,
                          std::size_t beam, double range_m) {
   const double angle = observation.pose.heading.radians() +
@@ -20,6 +43,19 @@ domain::Point2D endpoint(const domain::RobotObservation& observation,
           observation.pose.position.y_m + range_m * std::sin(angle)};
 }
 
+/**
+ * @brief Performs the clamped range operation for this subsystem.
+ *
+ * Arguments:
+ * - @p laser: Supplies laser input to the operation.
+ * - @p beam: Supplies beam input to the operation.
+ *
+ * Returns:
+ * - `double` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 double clampedRange(const domain::LaserObservation& laser, std::size_t beam) {
   if (beam >= laser.ranges_m.size()) return -1.0;
   const double value = laser.ranges_m[beam];
@@ -30,6 +66,19 @@ double clampedRange(const domain::LaserObservation& laser, std::size_t beam) {
   return std::min(value, laser.maximum_range.meters());
 }
 
+/**
+ * @brief Performs the turn toward operation for this subsystem.
+ *
+ * Arguments:
+ * - @p heading: Supplies heading input to the operation.
+ * - @p action_space: Supplies action space input to the operation.
+ *
+ * Returns:
+ * - `domain::Action` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 domain::Action turnToward(double heading,
                           const domain::ActionSpace& action_space) {
   const auto& turns = action_space.rotation_angles_rad();
@@ -45,12 +94,39 @@ domain::Action turnToward(double heading,
              : domain::Action(domain::ActionType::TurnLeft, index);
 }
 
+/**
+ * @brief Performs the projection operation for this subsystem.
+ *
+ * Arguments:
+ * - @p origin: Supplies origin input to the operation.
+ * - @p direction: Supplies direction input to the operation.
+ * - @p point: Supplies point input to the operation.
+ *
+ * Returns:
+ * - `double` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 double projection(domain::Point2D origin, domain::Angle direction,
                   domain::Point2D point) {
   return (point.x_m - origin.x_m) * std::cos(direction.radians()) +
          (point.y_m - origin.y_m) * std::sin(direction.radians());
 }
 
+/**
+ * @brief Performs the point segment distance operation for this subsystem.
+ *
+ * Arguments:
+ * - @p point: Supplies point input to the operation.
+ * - @p segment: Supplies segment input to the operation.
+ *
+ * Returns:
+ * - `double` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 double pointSegmentDistance(domain::Point2D point,
                             const domain::Segment2D& segment) {
   const double dx = segment.end.x_m - segment.start.x_m;
@@ -67,6 +143,20 @@ double pointSegmentDistance(domain::Point2D point,
                     point.y_m - (segment.start.y_m + fraction * dy));
 }
 
+/**
+ * @brief Performs the similar segments operation for this subsystem.
+ *
+ * Arguments:
+ * - @p left: Supplies left input to the operation.
+ * - @p right: Supplies right input to the operation.
+ * - @p tolerance: Supplies tolerance input to the operation.
+ *
+ * Returns:
+ * - `bool` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 bool similarSegments(const ExplorationCandidate& left,
                      const ExplorationCandidate& right, double tolerance) {
   const double angle = std::abs(domain::Angle::normalize(
@@ -89,6 +179,19 @@ bool similarSegments(const ExplorationCandidate& left,
   return overlap >= -tolerance;
 }
 
+/**
+ * @brief Performs the closest beam operation for this subsystem.
+ *
+ * Arguments:
+ * - @p observation: Supplies observation input to the operation.
+ * - @p point: Supplies point input to the operation.
+ *
+ * Returns:
+ * - `std::optional<std::size_t>` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::optional<std::size_t> closestBeam(
     const domain::RobotObservation& observation, domain::Point2D point) {
   if (observation.laser.ranges_m.empty()) return std::nullopt;
@@ -115,6 +218,19 @@ std::optional<std::size_t> closestBeam(
   return best;
 }
 
+/**
+ * @brief Performs the point clear operation for this subsystem.
+ *
+ * Arguments:
+ * - @p observation: Supplies observation input to the operation.
+ * - @p point: Supplies point input to the operation.
+ *
+ * Returns:
+ * - `bool` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 bool pointClear(const domain::RobotObservation& observation,
                 domain::Point2D point) {
   const double required =
@@ -127,6 +243,18 @@ bool pointClear(const domain::RobotObservation& observation,
          required <= available + domain::geometry_tolerance_m;
 }
 
+/**
+ * @brief Performs the valid sector operation for this subsystem.
+ *
+ * Arguments:
+ * - @p sector: Supplies sector input to the operation.
+ *
+ * Returns:
+ * - `bool` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 bool validSector(const HleAngularSector& sector) {
   return std::isfinite(sector.minimum.radians()) &&
          std::isfinite(sector.maximum.radians()) &&
@@ -135,6 +263,19 @@ bool validSector(const HleAngularSector& sector) {
          sector.maximum.radians() <= std::numbers::pi;
 }
 
+/**
+ * @brief Performs the in sector operation for this subsystem.
+ *
+ * Arguments:
+ * - @p relative_angle: Supplies relative angle input to the operation.
+ * - @p sector: Supplies sector input to the operation.
+ *
+ * Returns:
+ * - `bool` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 bool inSector(double relative_angle, const HleAngularSector& sector) {
   return relative_angle + domain::angle_tolerance_rad >=
              sector.minimum.radians() &&
@@ -142,6 +283,23 @@ bool inSector(double relative_angle, const HleAngularSector& sector) {
              sector.maximum.radians();
 }
 
+/**
+ * @brief Performs the focus candidate operation for this subsystem.
+ *
+ * Arguments:
+ * - @p observation: Supplies observation input to the operation.
+ * - @p configuration: Supplies configuration input to the operation.
+ * - @p focus: Supplies focus input to the operation.
+ * - @p openness: Supplies openness input to the operation.
+ * - @p focus_sector: Supplies focus sector input to the operation.
+ * - @p cue_type: Supplies cue type input to the operation.
+ *
+ * Returns:
+ * - `ExplorationCandidate` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 ExplorationCandidate focusCandidate(
     const domain::RobotObservation& observation,
     const HighLevelExplorationConfiguration& configuration,
@@ -195,6 +353,18 @@ ExplorationCandidate focusCandidate(
 
 }  // namespace
 
+/**
+ * @brief Converts string for this subsystem.
+ *
+ * Arguments:
+ * - @p state: Supplies state input to the operation.
+ *
+ * Returns:
+ * - `const char*` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 const char* toString(PassageCellState state) noexcept {
   switch (state) {
     case PassageCellState::Free: return "free";
@@ -204,6 +374,18 @@ const char* toString(PassageCellState state) noexcept {
   return "free";
 }
 
+/**
+ * @brief Converts string for this subsystem.
+ *
+ * Arguments:
+ * - @p state: Supplies state input to the operation.
+ *
+ * Returns:
+ * - `const char*` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 const char* toString(PassageCompletionState state) noexcept {
   switch (state) {
     case PassageCompletionState::Unassigned: return "unassigned";
@@ -215,6 +397,18 @@ const char* toString(PassageCompletionState state) noexcept {
   return "unassigned";
 }
 
+/**
+ * @brief Validates package content for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void HighLevelExplorationConfiguration::validate() const {
   if (!(minimum_clearance.meters() > 0.0) ||
       !(heading_tolerance.radians() > 0.0) ||
@@ -244,6 +438,18 @@ void HighLevelExplorationConfiguration::validate() const {
         "HLE passage grid geometry and configured resolution disagree");
 }
 
+/**
+ * @brief Converts string for this subsystem.
+ *
+ * Arguments:
+ * - @p state: Supplies state input to the operation.
+ *
+ * Returns:
+ * - `std::string_view` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::string_view toString(HleState state) noexcept {
   switch (state) {
     case HleState::Initialize: return "initialize";
@@ -258,6 +464,18 @@ std::string_view toString(HleState state) noexcept {
   return "complete";
 }
 
+/**
+ * @brief Converts string for this subsystem.
+ *
+ * Arguments:
+ * - @p event: Supplies event input to the operation.
+ *
+ * Returns:
+ * - `std::string_view` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::string_view toString(CandidateLifecycleEvent event) noexcept {
   switch (event) {
     case CandidateLifecycleEvent::None: return "none";
@@ -275,6 +493,18 @@ std::string_view toString(CandidateLifecycleEvent event) noexcept {
   return "none";
 }
 
+/**
+ * @brief Converts string for this subsystem.
+ *
+ * Arguments:
+ * - @p reason: Supplies reason input to the operation.
+ *
+ * Returns:
+ * - `std::string_view` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::string_view toString(ExplorationCompletionReason reason) noexcept {
   switch (reason) {
     case ExplorationCompletionReason::None: return "none";
@@ -290,6 +520,18 @@ std::string_view toString(ExplorationCompletionReason reason) noexcept {
   return "none";
 }
 
+/**
+ * @brief Converts string for this subsystem.
+ *
+ * Arguments:
+ * - @p reason: Supplies reason input to the operation.
+ *
+ * Returns:
+ * - `std::string_view` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::string_view toString(PursuitTerminationReason reason) noexcept {
   switch (reason) {
     case PursuitTerminationReason::None: return "none";
@@ -311,6 +553,18 @@ std::string_view toString(PursuitTerminationReason reason) noexcept {
   return "none";
 }
 
+/**
+ * @brief Converts string for this subsystem.
+ *
+ * Arguments:
+ * - @p kind: Supplies kind input to the operation.
+ *
+ * Returns:
+ * - `std::string_view` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::string_view toString(CandidateDiagnosticKind kind) noexcept {
   switch (kind) {
     case CandidateDiagnosticKind::Created: return "created";
@@ -324,12 +578,37 @@ std::string_view toString(CandidateDiagnosticKind kind) noexcept {
   return "created";
 }
 
+/**
+ * @brief Performs the high level explorer operation for this subsystem.
+ *
+ * Arguments:
+ * - @p configuration: Supplies configuration input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 HighLevelExplorer::HighLevelExplorer(
     HighLevelExplorationConfiguration configuration)
     : configuration_(std::move(configuration)) {
   configuration_.validate();
 }
 
+/**
+ * @brief Performs the cell key operation for this subsystem.
+ *
+ * Arguments:
+ * - @p row: Supplies row input to the operation.
+ * - @p column: Supplies column input to the operation.
+ *
+ * Returns:
+ * - `std::int64_t` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::int64_t HighLevelExplorer::cellKey(int row, int column) noexcept {
   const auto packed =
       (static_cast<std::uint64_t>(static_cast<std::uint32_t>(row)) << 32U) |
@@ -337,6 +616,18 @@ std::int64_t HighLevelExplorer::cellKey(int row, int column) noexcept {
   return static_cast<std::int64_t>(packed);
 }
 
+/**
+ * @brief Performs the cue key operation for this subsystem.
+ *
+ * Arguments:
+ * - @p point: Supplies point input to the operation.
+ *
+ * Returns:
+ * - `std::int64_t` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::int64_t HighLevelExplorer::cueKey(const domain::Point2D& point) const
     noexcept {
   const double size = configuration_.cue_similarity_radius.meters();
@@ -344,6 +635,19 @@ std::int64_t HighLevelExplorer::cueKey(const domain::Point2D& point) const
                  static_cast<int>(std::floor(point.x_m / size)));
 }
 
+/**
+ * @brief Performs the discover candidates operation for this subsystem.
+ *
+ * Arguments:
+ * - @p observation: Supplies observation input to the operation.
+ * - @p configuration: Supplies configuration input to the operation.
+ *
+ * Returns:
+ * - `std::vector<ExplorationCandidate>` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::vector<ExplorationCandidate> HighLevelExplorer::discoverCandidates(
     const domain::RobotObservation& observation,
     const HighLevelExplorationConfiguration& configuration) {
@@ -371,6 +675,19 @@ std::vector<ExplorationCandidate> HighLevelExplorer::discoverCandidates(
   return result;
 }
 
+/**
+ * @brief Performs the measure bundles operation for this subsystem.
+ *
+ * Arguments:
+ * - @p observation: Supplies observation input to the operation.
+ * - @p configuration: Supplies configuration input to the operation.
+ *
+ * Returns:
+ * - `std::array<HleBundleMeasurement, 4U>` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::array<HleBundleMeasurement, 4U> HighLevelExplorer::measureBundles(
     const domain::RobotObservation& observation,
     const HighLevelExplorationConfiguration& configuration) {
@@ -423,6 +740,19 @@ std::array<HleBundleMeasurement, 4U> HighLevelExplorer::measureBundles(
   return result;
 }
 
+/**
+ * @brief Evaluates cue for this subsystem.
+ *
+ * Arguments:
+ * - @p candidate: Supplies candidate input to the operation.
+ * - @p observation: Supplies observation input to the operation.
+ *
+ * Returns:
+ * - `CueValidation` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 CueValidation HighLevelExplorer::evaluateCue(
     const ExplorationCandidate& candidate,
     const domain::RobotObservation& observation) const {
@@ -501,12 +831,39 @@ CueValidation HighLevelExplorer::evaluateCue(
   return result;
 }
 
+/**
+ * @brief Performs the cues similar operation for this subsystem.
+ *
+ * Arguments:
+ * - @p left: Supplies left input to the operation.
+ * - @p right: Supplies right input to the operation.
+ * - @p tolerance_m: Supplies tolerance m input to the operation.
+ *
+ * Returns:
+ * - `bool` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 bool HighLevelExplorer::cuesSimilar(const ExplorationCandidate& left,
                                     const ExplorationCandidate& right,
                                     double tolerance_m) {
   return similarSegments(left, right, tolerance_m);
 }
 
+/**
+ * @brief Performs the merge target operation for this subsystem.
+ *
+ * Arguments:
+ * - @p candidate: Supplies candidate input to the operation.
+ *
+ * Returns:
+ * - `std::optional<ExplorationCandidateId>` containing the operation
+ * result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::optional<ExplorationCandidateId> HighLevelExplorer::mergeTarget(
     const ExplorationCandidate& candidate) const {
   for (const auto& [id, stored] : candidate_registry_)
@@ -517,6 +874,19 @@ std::optional<ExplorationCandidateId> HighLevelExplorer::mergeTarget(
   return std::nullopt;
 }
 
+/**
+ * @brief Performs the merge candidate operation for this subsystem.
+ *
+ * Arguments:
+ * - @p id: Supplies id input to the operation.
+ * - @p observation: Supplies observation input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void HighLevelExplorer::mergeCandidate(
     ExplorationCandidateId id, const ExplorationCandidate& observation) {
   auto& stored = candidate_registry_.at(id);
@@ -533,6 +903,20 @@ void HighLevelExplorer::mergeCandidate(
     candidates_.push(stored);
 }
 
+/**
+ * @brief Records diagnostic for this subsystem.
+ *
+ * Arguments:
+ * - @p id: Supplies id input to the operation.
+ * - @p kind: Supplies kind input to the operation.
+ * - @p reason: Supplies reason input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void HighLevelExplorer::recordDiagnostic(ExplorationCandidateId id,
                                          CandidateDiagnosticKind kind,
                                          std::string reason) {
@@ -545,6 +929,19 @@ void HighLevelExplorer::recordDiagnostic(ExplorationCandidateId id,
        std::move(snapshot)});
 }
 
+/**
+ * @brief Records trace for this subsystem.
+ *
+ * Arguments:
+ * - @p observation: Supplies observation input to the operation.
+ * - @p result: Supplies result input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void HighLevelExplorer::recordTrace(
     const domain::RobotObservation& observation,
     const ExplorationResult& result) {
@@ -552,6 +949,18 @@ void HighLevelExplorer::recordTrace(
                     result});
 }
 
+/**
+ * @brief Performs the replay operation for this subsystem.
+ *
+ * Arguments:
+ * - @p trace: Supplies trace input to the operation.
+ *
+ * Returns:
+ * - `std::vector<ExplorationResult>` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::vector<ExplorationResult> HighLevelExplorer::replay(
     const std::vector<HleTraceEntry>& trace) {
   std::vector<ExplorationResult> results;
@@ -560,6 +969,18 @@ std::vector<ExplorationResult> HighLevelExplorer::replay(
   return results;
 }
 
+/**
+ * @brief Performs the discover operation for this subsystem.
+ *
+ * Arguments:
+ * - @p observation: Supplies observation input to the operation.
+ *
+ * Returns:
+ * - `std::vector<ExplorationCandidate>` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::vector<ExplorationCandidate> HighLevelExplorer::discover(
     const domain::RobotObservation& observation) {
   std::vector<ExplorationCandidate> discovered;
@@ -600,6 +1021,18 @@ std::vector<ExplorationCandidate> HighLevelExplorer::discover(
   return discovered;
 }
 
+/**
+ * @brief Updates candidate extension for this subsystem.
+ *
+ * Arguments:
+ * - @p observation: Supplies observation input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void HighLevelExplorer::updateCandidateExtension(
     const domain::RobotObservation& observation) {
   if (!active_ ||
@@ -635,6 +1068,18 @@ void HighLevelExplorer::updateCandidateExtension(
   }
 }
 
+/**
+ * @brief Performs the pursuit termination operation for this subsystem.
+ *
+ * Arguments:
+ * - @p observation: Supplies observation input to the operation.
+ *
+ * Returns:
+ * - `PursuitTerminationReason` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 PursuitTerminationReason HighLevelExplorer::pursuitTermination(
     const domain::RobotObservation& observation) const {
   if (!active_) return PursuitTerminationReason::CandidateUnreachable;
@@ -689,6 +1134,22 @@ PursuitTerminationReason HighLevelExplorer::pursuitTermination(
   return PursuitTerminationReason::None;
 }
 
+/**
+ * @brief Updates passage grid for this subsystem.
+ *
+ * Arguments:
+ * - @p observation: Supplies observation input to the operation.
+ * - @p candidate_id: Supplies candidate id input to the operation.
+ * - @p passage_number: Supplies passage number input to the operation.
+ * - @p passage_start: Supplies passage start input to the operation.
+ * - @p completion_state: Supplies completion state input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void HighLevelExplorer::updatePassageGrid(
     const domain::RobotObservation& observation,
     ExplorationCandidateId candidate_id, std::uint64_t passage_number,
@@ -782,6 +1243,18 @@ void HighLevelExplorer::updatePassageGrid(
   if (changed) ++passage_revision_;
 }
 
+/**
+ * @brief Performs the pursue operation for this subsystem.
+ *
+ * Arguments:
+ * - @p input: Supplies input input to the operation.
+ *
+ * Returns:
+ * - `domain::Action` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 domain::Action HighLevelExplorer::pursue(const ExplorationInput& input) const {
   if (!active_) return domain::Action::pause();
   const double desired = std::atan2(
@@ -800,6 +1273,18 @@ domain::Action HighLevelExplorer::pursue(const ExplorationInput& input) const {
              : domain::Action(domain::ActionType::Forward, magnitude);
 }
 
+/**
+ * @brief Updates package content for this subsystem.
+ *
+ * Arguments:
+ * - @p input: Supplies input input to the operation.
+ *
+ * Returns:
+ * - `ExplorationResult` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 ExplorationResult HighLevelExplorer::update(const ExplorationInput& input) {
   ++decisions_;
   ++observation_sequence_;
@@ -1001,6 +1486,18 @@ ExplorationResult HighLevelExplorer::update(const ExplorationInput& input) {
   return finish_result(std::move(result));
 }
 
+/**
+ * @brief Performs the finish operation for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void HighLevelExplorer::finish() noexcept {
   if (completion_reason_ == ExplorationCompletionReason::None)
     completion_reason_ = ExplorationCompletionReason::ExplicitlyFinished;
@@ -1020,6 +1517,18 @@ void HighLevelExplorer::finish() noexcept {
   state_ = HleState::FinalizeModel;
 }
 
+/**
+ * @brief Performs the passage grid operation for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - `PassageGridSnapshot` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 PassageGridSnapshot HighLevelExplorer::passageGrid() const {
   PassageGridSnapshot result;
   result.revision = passage_revision_;
@@ -1073,6 +1582,18 @@ PassageGridSnapshot HighLevelExplorer::passageGrid() const {
   return result;
 }
 
+/**
+ * @brief Performs the restore passage grid operation for this subsystem.
+ *
+ * Arguments:
+ * - @p snapshot: Supplies snapshot input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void HighLevelExplorer::restorePassageGrid(
     const PassageGridSnapshot& snapshot) {
   if (!snapshot.geometry.valid())
@@ -1102,6 +1623,18 @@ void HighLevelExplorer::restorePassageGrid(
 }
 
 std::vector<ExplorationCandidate>
+/**
+ * @brief Performs the unfinished candidates operation for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 HighLevelExplorer::unfinishedCandidates() const {
   std::vector<ExplorationCandidate> result;
   for (const auto& [id, candidate] : candidate_registry_) {

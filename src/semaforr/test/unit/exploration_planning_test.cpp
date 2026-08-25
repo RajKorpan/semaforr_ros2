@@ -1,3 +1,19 @@
+/**
+ * @file exploration_planning_test.cpp
+ * @brief Exploration planning test responsibilities.
+ *
+ * @details This file exercises exploration planning test behavior for automated
+ * verification and regression testing. It centers on
+ * `PassageSelectionAndStateTransitionsAreDeterministic`,
+ * `OwnsDeterministicCandidateLifecycleAndSparsePassageGrid`,
+ * `ReportsBudgetCompletionAndFinalizesExactlyOnce`,
+ * `CompatibilityCuesUseAngularBundlesAndExplicitGeometricValidation`,
+ * `AngularFocusAndOpenBundlesAreResolutionIndependentMeanEndpoints`,
+ * `CompatibilityPursuitUsesGlobalHeadingExtendsAndReplaysExactly`,
+ * `CompatibilityTerminationAndPassageAssociationsAreExplicit`,
+ * `CompatibilityDiagnosticsExplainMergeRejectionAndLifecycle`. Its
+ * package-relative location is `test/unit/exploration_planning_test.cpp`.
+ */
 #include <gtest/gtest.h>
 
 #include <array>
@@ -16,6 +32,19 @@
 
 namespace {
 
+/**
+ * @brief Performs the observation operation for this subsystem.
+ *
+ * Arguments:
+ * - @p x: Supplies x input to the operation.
+ * - @p ranges: Supplies ranges input to the operation.
+ *
+ * Returns:
+ * - `semaforr::domain::RobotObservation` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 semaforr::domain::RobotObservation observation(double x,
                                                std::vector<double> ranges = {
                                                    2.0, 2.0, 2.0, 2.0, 2.0}) {
@@ -32,6 +61,24 @@ semaforr::domain::RobotObservation observation(double x,
   return result;
 }
 
+/**
+ * @brief Performs the compatibility observation operation for this
+ * subsystem.
+ *
+ * Arguments:
+ * - @p x: Supplies x input to the operation.
+ * - @p y: Supplies y input to the operation.
+ * - @p heading: Supplies heading input to the operation.
+ * - @p right_range: Supplies right range input to the operation.
+ * - @p left_range: Supplies left range input to the operation.
+ * - @p beam_count: Supplies beam count input to the operation.
+ *
+ * Returns:
+ * - `semaforr::domain::RobotObservation` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 semaforr::domain::RobotObservation compatibilityObservation(
     double x = 0.0, double y = 0.0, double heading = 0.0,
     double right_range = 4.0, double left_range = 4.0,
@@ -54,6 +101,21 @@ semaforr::domain::RobotObservation compatibilityObservation(
   return result;
 }
 
+/**
+ * @brief Sets angular sector range for this subsystem.
+ *
+ * Arguments:
+ * - @p observation: Supplies observation input to the operation.
+ * - @p minimum: Supplies minimum input to the operation.
+ * - @p maximum: Supplies maximum input to the operation.
+ * - @p range: Supplies range input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void setAngularSectorRange(semaforr::domain::RobotObservation& observation,
                            double minimum, double maximum, double range) {
   for (std::size_t beam = 0U; beam < observation.laser.ranges_m.size(); ++beam) {
@@ -65,6 +127,18 @@ void setAngularSectorRange(semaforr::domain::RobotObservation& observation,
   }
 }
 
+/**
+ * @brief Constructs ning map for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - `semaforr::domain::StaticMap` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 semaforr::domain::StaticMap planningMap() {
   semaforr::domain::StaticMap map;
   map.source = "planning-test";

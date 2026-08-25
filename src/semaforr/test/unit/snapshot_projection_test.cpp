@@ -1,3 +1,15 @@
+/**
+ * @file snapshot_projection_test.cpp
+ * @brief Snapshot projection test responsibilities.
+ *
+ * @details This file exercises snapshot projection test behavior for automated
+ * verification and regression testing. It centers on `BenchmarkResult`,
+ * `SharedPublicationHasStableLifetimeAndIdentity`,
+ * `LazyDenseAndRegionOfInterestAreExplicitAndCached`,
+ * `GridPublicationNamesOnlyChangedCellRanges`,
+ * `SmallAndLargeMapsAvoidUnchangedProjectionCopies`. Its package-relative
+ * location is `test/unit/snapshot_projection_test.cpp`.
+ */
 #include <gtest/gtest.h>
 
 #include <chrono>
@@ -9,6 +21,19 @@
 
 namespace {
 
+/**
+ * @brief Performs the episode operation for this subsystem.
+ *
+ * Arguments:
+ * - @p sequence: Supplies sequence input to the operation.
+ * - @p x: Supplies x input to the operation.
+ *
+ * Returns:
+ * - `semaforr::spatial::NavigationEpisode` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 semaforr::spatial::NavigationEpisode episode(std::size_t sequence,
                                               double x = 0.0) {
   semaforr::spatial::NavigationEpisode result;
@@ -22,6 +47,19 @@ semaforr::spatial::NavigationEpisode episode(std::size_t sequence,
   return result;
 }
 
+/**
+ * @brief Performs the coordinator operation for this subsystem.
+ *
+ * Arguments:
+ * - @p extent_m: Supplies extent m input to the operation.
+ *
+ * Returns:
+ * - `semaforr::spatial::SpatialLearningCoordinator` containing the
+ * operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 semaforr::spatial::SpatialLearningCoordinator coordinator(double extent_m) {
   semaforr::spatial::LearnedGridConfiguration grid;
   grid.initial_width_m = extent_m;
@@ -33,6 +71,19 @@ semaforr::spatial::SpatialLearningCoordinator coordinator(double extent_m) {
       100U, {}, {}, grid);
 }
 
+/**
+ * @brief Encapsulates benchmark result state and behavior for this
+ * subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - Not applicable to this declaration.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 struct BenchmarkResult {
   semaforr::spatial::SnapshotProjectionMetrics first;
   semaforr::spatial::SnapshotProjectionMetrics unchanged;
@@ -40,6 +91,18 @@ struct BenchmarkResult {
   semaforr::validation::AllocationSnapshot unchanged_allocations;
 };
 
+/**
+ * @brief Performs the benchmark operation for this subsystem.
+ *
+ * Arguments:
+ * - @p extent_m: Supplies extent m input to the operation.
+ *
+ * Returns:
+ * - `BenchmarkResult` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 BenchmarkResult benchmark(double extent_m) {
   auto learning = coordinator(extent_m);
   learning.observeSensor(episode(1U));

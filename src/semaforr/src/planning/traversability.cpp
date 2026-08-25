@@ -1,3 +1,12 @@
+/**
+ * @file traversability.cpp
+ * @brief Traversability responsibilities.
+ *
+ * @details This file implements traversability behavior for path planning and
+ * hierarchical plan construction. It records the declarations, settings,
+ * fixtures, or guidance needed by that responsibility. Its
+ * package-relative location is `src/planning/traversability.cpp`.
+ */
 #include <algorithm>
 #include <cmath>
 #include <semaforr/planning/traversability.hpp>
@@ -8,6 +17,20 @@
 namespace semaforr::planning {
 namespace {
 
+/**
+ * @brief Performs the sensed at operation for this subsystem.
+ *
+ * Arguments:
+ * - @p sensed: Supplies sensed input to the operation.
+ * - @p point: Supplies point input to the operation.
+ *
+ * Returns:
+ * - `std::optional<domain::SensedOccupancyCell>` containing the operation
+ * result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::optional<domain::SensedOccupancyCell> sensedAt(
     const domain::SensedOccupancyGrid* sensed, domain::Point2D point) {
   if (!sensed || !sensed->valid()) return std::nullopt;
@@ -16,6 +39,20 @@ std::optional<domain::SensedOccupancyCell> sensedAt(
   return sensed->valueAt(*index);
 }
 
+/**
+ * @brief Performs the permit unknown operation for this subsystem.
+ *
+ * Arguments:
+ * - @p policy: Supplies policy input to the operation.
+ * - @p point: Supplies point input to the operation.
+ * - @p configuration: Supplies configuration input to the operation.
+ *
+ * Returns:
+ * - `bool` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 bool permitUnknown(domain::UnknownSpacePolicy policy, domain::Point2D point,
                    const TraversabilityConfiguration& configuration) {
   if (policy == domain::UnknownSpacePolicy::HighCost ||
@@ -30,6 +67,21 @@ bool permitUnknown(domain::UnknownSpacePolicy policy, domain::Point2D point,
 
 }  // namespace
 
+/**
+ * @brief Performs the derive traversability operation for this subsystem.
+ *
+ * Arguments:
+ * - @p mode: Supplies mode input to the operation.
+ * - @p static_map: Supplies static map input to the operation.
+ * - @p sensed: Supplies sensed input to the operation.
+ * - @p configuration: Supplies configuration input to the operation.
+ *
+ * Returns:
+ * - `TraversabilityBuildResult` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 TraversabilityBuildResult deriveTraversability(
     OccupancySourceMode mode, const domain::StaticMap* static_map,
     const domain::SensedOccupancyGrid* sensed,
@@ -165,6 +217,18 @@ TraversabilityBuildResult deriveTraversability(
   return result;
 }
 
+/**
+ * @brief Converts string for this subsystem.
+ *
+ * Arguments:
+ * - @p policy: Supplies policy input to the operation.
+ *
+ * Returns:
+ * - `const char*` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 const char* toString(domain::UnknownSpacePolicy policy) noexcept {
   switch (policy) {
     case domain::UnknownSpacePolicy::Prohibited:

@@ -1,3 +1,14 @@
+/**
+ * @file command_executor.hpp
+ * @brief Command executor responsibilities.
+ *
+ * @details This file defines command executor behavior for the ROS 2 composition
+ * and message-adaptation boundary. It centers on
+ * `CommandExecutorConfiguration`, `ActionExecutionRequest`,
+ * `ActionExecutionStatus`, `ActionExecutionUpdate`, `CommandExecutor`. Its
+ * package-relative location is
+ * `include/semaforr/ros/command_executor.hpp`.
+ */
 #ifndef SEMAFORR_ROS_COMMAND_EXECUTOR_HPP
 #define SEMAFORR_ROS_COMMAND_EXECUTOR_HPP
 
@@ -12,6 +23,19 @@
 
 namespace semaforr::ros {
 
+/**
+ * @brief Encapsulates command executor configuration state and behavior for
+ * this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - Not applicable to this declaration.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 struct CommandExecutorConfiguration {
   double linear_velocity_mps{0.5};
   double angular_velocity_radps{0.5};
@@ -32,14 +56,74 @@ struct CommandExecutorConfiguration {
   double odometry_reset_angle_rad{2.8};
 };
 
+/**
+ * @brief Encapsulates action execution request state and behavior for this
+ * subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - Not applicable to this declaration.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 struct ActionExecutionRequest {
+  /**
+   * @brief Performs the pause operation for this subsystem.
+   *
+   * Arguments:
+   * - None.
+   *
+   * Returns:
+   * - `domain::Action action{` containing the operation result.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   domain::Action action{domain::Action::pause()};
   double target_distance_m{0.0};
   double target_angle_rad{0.0};
   domain::DecisionId decision_id{0U};
   domain::ActionId action_id{0U};
 
+  /**
+   * @brief Performs the action execution request operation for this
+   * subsystem.
+   *
+   * Arguments:
+   * - None.
+   *
+   * Returns:
+   * - No value; effects are applied to owned state or outputs.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   ActionExecutionRequest() = default;
+  /**
+   * @brief Performs the action execution request operation for this
+   * subsystem.
+   *
+   * Arguments:
+   * - @p requested_action: Supplies requested action input to the
+   * operation.
+   * - @p requested_distance_m: Supplies requested distance m input to the
+   * operation.
+   * - @p requested_angle_rad: Supplies requested angle rad input to the
+   * operation.
+   * - @p requested_decision_id: Supplies requested decision id input to the
+   * operation.
+   * - @p requested_action_id: Supplies requested action id input to the
+   * operation.
+   *
+   * Returns:
+   * - No value; effects are applied to owned state or outputs.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   ActionExecutionRequest(domain::Action requested_action,
                          double requested_distance_m,
                          double requested_angle_rad,
@@ -52,6 +136,19 @@ struct ActionExecutionRequest {
         action_id(requested_action_id) {}
 };
 
+/**
+ * @brief Enumerates the supported action execution status values used by
+ * this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - Not applicable to this declaration.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 enum class ActionExecutionStatus {
   Idle,
   Executing,
@@ -69,6 +166,19 @@ enum class ActionExecutionStatus {
   Shutdown
 };
 
+/**
+ * @brief Encapsulates action execution update state and behavior for this
+ * subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - Not applicable to this declaration.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 struct ActionExecutionUpdate {
   ActionExecutionStatus status{ActionExecutionStatus::Idle};
   domain::VelocityCommand command;
@@ -82,27 +192,163 @@ struct ActionExecutionUpdate {
   double rotation_achieved_rad{0.0};
 };
 
+/**
+ * @brief Encapsulates command executor state and behavior for this
+ * subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - Not applicable to this declaration.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 class CommandExecutor {
  public:
+  /**
+   * @brief Performs the command executor operation for this subsystem.
+   *
+   * Arguments:
+   * - @p configuration: Supplies configuration input to the operation.
+   *
+   * Returns:
+   * - No value; effects are applied to owned state or outputs.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   explicit CommandExecutor(CommandExecutorConfiguration configuration);
 
+  /**
+   * @brief Performs the start operation for this subsystem.
+   *
+   * Arguments:
+   * - @p request: Supplies request input to the operation.
+   * - @p pose: Supplies pose input to the operation.
+   * - @p now: Supplies now input to the operation.
+   *
+   * Returns:
+   * - `ActionExecutionUpdate` containing the operation result.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   ActionExecutionUpdate start(const ActionExecutionRequest& request,
                               const domain::Pose2D& pose,
                               const rclcpp::Time& now);
+  /**
+   * @brief Updates package content for this subsystem.
+   *
+   * Arguments:
+   * - @p pose: Supplies pose input to the operation.
+   * - @p now: Supplies now input to the operation.
+   *
+   * Returns:
+   * - `ActionExecutionUpdate` containing the operation result.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   ActionExecutionUpdate update(const domain::Pose2D& pose,
                                const rclcpp::Time& now);
+  /**
+   * @brief Performs the cancel operation for this subsystem.
+   *
+   * Arguments:
+   * - @p status: Supplies status input to the operation.
+   *
+   * Returns:
+   * - `ActionExecutionUpdate` containing the operation result.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   ActionExecutionUpdate cancel(
       ActionExecutionStatus status = ActionExecutionStatus::Cancelled) noexcept;
 
+  /**
+   * @brief Performs the status operation for this subsystem.
+   *
+   * Arguments:
+   * - None.
+   *
+   * Returns:
+   * - `ActionExecutionStatus` containing the operation result.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   ActionExecutionStatus status() const noexcept { return status_; }
+  /**
+   * @brief Performs the executing operation for this subsystem.
+   *
+   * Arguments:
+   * - None.
+   *
+   * Returns:
+   * - `bool` containing the operation result.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   bool executing() const noexcept {
     return status_ == ActionExecutionStatus::Executing;
   }
+  /**
+   * @brief Performs the command operation for this subsystem.
+   *
+   * Arguments:
+   * - None.
+   *
+   * Returns:
+   * - `const domain::VelocityCommand&` containing the operation result.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   const domain::VelocityCommand& command() const noexcept { return command_; }
 
  private:
+  /**
+   * @brief Performs the terminal operation for this subsystem.
+   *
+   * Arguments:
+   * - @p status: Supplies status input to the operation.
+   *
+   * Returns:
+   * - `ActionExecutionUpdate` containing the operation result.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   ActionExecutionUpdate terminal(ActionExecutionStatus status) noexcept;
+  /**
+   * @brief Performs the timeout seconds operation for this subsystem.
+   *
+   * Arguments:
+   * - None.
+   *
+   * Returns:
+   * - `double` containing the operation result.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   double timeoutSeconds() const noexcept;
+  /**
+   * @brief Performs the target operation for this subsystem.
+   *
+   * Arguments:
+   * - None.
+   *
+   * Returns:
+   * - `double` containing the operation result.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   double target() const noexcept;
 
   CommandExecutorConfiguration configuration_;
@@ -118,6 +364,18 @@ class CommandExecutor {
   double rotation_achieved_rad_{0.0};
 };
 
+/**
+ * @brief Converts string for this subsystem.
+ *
+ * Arguments:
+ * - @p status: Supplies status input to the operation.
+ *
+ * Returns:
+ * - `std::string_view` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::string_view toString(ActionExecutionStatus status) noexcept;
 
 }  // namespace semaforr::ros

@@ -1,5 +1,27 @@
 #!/usr/bin/env python3
-"""Enforce line-coverage thresholds for new and modified SemaFORR code."""
+"""SemaFORR module overview.
+
+Summary:
+    This file implements check coverage behavior for developer tooling and experiment automation. It centers on `parse_lcov`, `evaluate`, `main`. Its package-relative location is `scripts/check_coverage.py`.
+
+Arguments:
+    Not applicable at module scope.
+
+Returns:
+    Not applicable at module scope.
+
+Raises:
+    Import-time dependency errors may propagate.
+"""
+
+
+
+
+
+
+
+
+
 
 import argparse
 import json
@@ -7,6 +29,18 @@ from pathlib import Path
 
 
 def parse_lcov(path: Path) -> dict[str, tuple[int, int]]:
+    """Summary:
+        Parses lcov for this subsystem.
+
+    Args:
+        path (Path): Supplies path input to the operation.
+
+    Returns:
+        dict[str, tuple[int, int]]
+
+    Raises:
+        None documented; dependency failures may propagate.
+    """
     coverage: dict[str, tuple[int, int]] = {}
     source = None
     found: set[int] = set()
@@ -31,6 +65,19 @@ def evaluate(
     coverage: dict[str, tuple[int, int]],
     configuration: dict,
 ) -> tuple[list[str], dict[str, float]]:
+    """Summary:
+        Evaluates package content for this subsystem.
+
+    Args:
+        coverage (dict[str, tuple[int, int]]): Supplies coverage input to the operation.
+        configuration (dict): Supplies configuration input to the operation.
+
+    Returns:
+        tuple[list[str], dict[str, float]]
+
+    Raises:
+        None documented; dependency failures may propagate.
+    """
     errors = []
     percentages = {}
     minimum = float(configuration["minimum_line_percent"])
@@ -53,6 +100,18 @@ def evaluate(
 
 
 def main() -> int:
+    """Summary:
+        Performs the main operation for this subsystem.
+
+    Args:
+        None.
+
+    Returns:
+        int
+
+    Raises:
+        None documented; dependency failures may propagate.
+    """
     parser = argparse.ArgumentParser()
     parser.add_argument("lcov_info", type=Path)
     parser.add_argument(

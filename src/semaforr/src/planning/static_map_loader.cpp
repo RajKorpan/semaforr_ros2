@@ -1,3 +1,12 @@
+/**
+ * @file static_map_loader.cpp
+ * @brief Static map loader responsibilities.
+ *
+ * @details This file implements static map loader behavior for path planning and
+ * hierarchical plan construction. It records the declarations, settings,
+ * fixtures, or guidance needed by that responsibility. Its
+ * package-relative location is `src/planning/static_map_loader.cpp`.
+ */
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
@@ -14,17 +23,53 @@
 namespace semaforr::planning {
 namespace {
 
+/**
+ * @brief Performs the regular file operation for this subsystem.
+ *
+ * Arguments:
+ * - @p path: Supplies path input to the operation.
+ *
+ * Returns:
+ * - `bool` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 bool regularFile(const std::filesystem::path& path) {
   std::error_code error;
   return std::filesystem::is_regular_file(path, error);
 }
 
+/**
+ * @brief Performs the canonical file operation for this subsystem.
+ *
+ * Arguments:
+ * - @p path: Supplies path input to the operation.
+ *
+ * Returns:
+ * - `std::filesystem::path` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::filesystem::path canonicalFile(const std::filesystem::path& path) {
   std::error_code error;
   const auto canonical = std::filesystem::weakly_canonical(path, error);
   return error ? path.lexically_normal() : canonical;
 }
 
+/**
+ * @brief Performs the file checksum operation for this subsystem.
+ *
+ * Arguments:
+ * - @p path: Supplies path input to the operation.
+ *
+ * Returns:
+ * - `std::string` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::string fileChecksum(const std::filesystem::path& path) {
   std::ifstream input(path, std::ios::binary);
   if (!input) throw std::runtime_error("cannot checksum map file");
@@ -39,6 +84,19 @@ std::string fileChecksum(const std::filesystem::path& path) {
   return output.str();
 }
 
+/**
+ * @brief Performs the mark wall operation for this subsystem.
+ *
+ * Arguments:
+ * - @p grid: Supplies grid input to the operation.
+ * - @p wall: Supplies wall input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void markWall(domain::StaticOccupancyGrid& grid,
               const domain::Segment2D& wall) {
   const double length = wall.length().meters();
@@ -74,6 +132,19 @@ void markWall(domain::StaticOccupancyGrid& grid,
 
 }  // namespace
 
+/**
+ * @brief Performs the resolve map path operation for this subsystem.
+ *
+ * Arguments:
+ * - @p requested: Supplies requested input to the operation.
+ * - @p search_paths: Supplies search paths input to the operation.
+ *
+ * Returns:
+ * - `std::filesystem::path` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::filesystem::path resolveMapPath(const std::string& requested,
                                      const MapSearchPaths& search_paths) {
   if (requested.empty())
@@ -127,6 +198,20 @@ std::filesystem::path resolveMapPath(const std::string& requested,
       "an example name installed under semaforr_examples/core");
 }
 
+/**
+ * @brief Loads static map for this subsystem.
+ *
+ * Arguments:
+ * - @p resolved_path: Supplies resolved path input to the operation.
+ * - @p dimensions: Supplies dimensions input to the operation.
+ * - @p configuration: Supplies configuration input to the operation.
+ *
+ * Returns:
+ * - `domain::StaticMap` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 domain::StaticMap loadStaticMap(
     const std::filesystem::path& resolved_path,
     const config::MapDimensions& dimensions,

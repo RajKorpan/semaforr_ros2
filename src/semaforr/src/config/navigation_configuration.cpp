@@ -1,3 +1,13 @@
+/**
+ * @file navigation_configuration.cpp
+ * @brief Navigation configuration responsibilities.
+ *
+ * @details This file implements navigation configuration behavior for runtime
+ * configuration and reproducible experiment setup. It records the
+ * declarations, settings, fixtures, or guidance needed by that
+ * responsibility. Its package-relative location is
+ * `src/config/navigation_configuration.cpp`.
+ */
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -16,6 +26,18 @@
 namespace semaforr::config {
 namespace {
 
+/**
+ * @brief Performs the fnv1a operation for this subsystem.
+ *
+ * Arguments:
+ * - @p value: Supplies value input to the operation.
+ *
+ * Returns:
+ * - `std::uint64_t` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::uint64_t fnv1a(std::string_view value) {
   std::uint64_t hash = 14695981039346656037ULL;
   for (const unsigned char byte : value) {
@@ -25,6 +47,20 @@ std::uint64_t fnv1a(std::string_view value) {
   return hash;
 }
 
+/**
+ * @brief Performs the error at operation for this subsystem.
+ *
+ * Arguments:
+ * - @p source: Supplies source input to the operation.
+ * - @p line: Supplies line input to the operation.
+ * - @p message: Supplies message input to the operation.
+ *
+ * Returns:
+ * - `std::runtime_error` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::runtime_error errorAt(const std::string& source, std::size_t line,
                            const std::string& message) {
   return std::runtime_error(
@@ -32,6 +68,20 @@ std::runtime_error errorAt(const std::string& source, std::size_t line,
       message);
 }
 
+/**
+ * @brief Parses finite double for this subsystem.
+ *
+ * Arguments:
+ * - @p token: Supplies token input to the operation.
+ * - @p source: Supplies source input to the operation.
+ * - @p line: Supplies line input to the operation.
+ *
+ * Returns:
+ * - `double` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 double parseFiniteDouble(const std::string& token, const std::string& source,
                          std::size_t line) {
   std::size_t consumed = 0U;
@@ -47,6 +97,18 @@ double parseFiniteDouble(const std::string& token, const std::string& source,
   return value;
 }
 
+/**
+ * @brief Parses tasks for this subsystem.
+ *
+ * Arguments:
+ * - @p filename: Supplies filename input to the operation.
+ *
+ * Returns:
+ * - `std::vector<TaskConfiguration>` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::vector<TaskConfiguration> parseTasks(const std::string& filename) {
   std::ifstream input(filename);
   if (!input.is_open()) {
@@ -78,6 +140,19 @@ std::vector<TaskConfiguration> parseTasks(const std::string& filename) {
   return tasks;
 }
 
+/**
+ * @brief Validates actions for this subsystem.
+ *
+ * Arguments:
+ * - @p actions: Supplies actions input to the operation.
+ * - @p name: Supplies name input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void validateActions(const std::vector<double>& actions,
                      const std::string& name) {
   if (actions.empty()) {
@@ -102,6 +177,18 @@ void validateActions(const std::vector<double>& actions,
   }
 }
 
+/**
+ * @brief Validates navigation for this subsystem.
+ *
+ * Arguments:
+ * - @p configuration: Supplies configuration input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void validateNavigation(const NavigationConfiguration& configuration) {
   if (configuration.task_decision_limit <= 0) {
     throw std::runtime_error(
@@ -272,6 +359,18 @@ void validateNavigation(const NavigationConfiguration& configuration) {
 
 }  // namespace
 
+/**
+ * @brief Converts string for this subsystem.
+ *
+ * Arguments:
+ * - @p mode: Supplies mode input to the operation.
+ *
+ * Returns:
+ * - `std::string_view` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::string_view toString(BehaviorMode mode) noexcept {
   switch (mode) {
     case BehaviorMode::Compatibility:
@@ -282,6 +381,19 @@ std::string_view toString(BehaviorMode mode) noexcept {
   return "modernized";
 }
 
+/**
+ * @brief Performs the behavior mode from string operation for this
+ * subsystem.
+ *
+ * Arguments:
+ * - @p value: Supplies value input to the operation.
+ *
+ * Returns:
+ * - `BehaviorMode` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 BehaviorMode behaviorModeFromString(const std::string& value) {
   if (value == "compatibility") return BehaviorMode::Compatibility;
   if (value == "modernized") return BehaviorMode::Modernized;
@@ -289,12 +401,37 @@ BehaviorMode behaviorModeFromString(const std::string& value) {
       "experiment.behavior_mode must be 'compatibility' or 'modernized'");
 }
 
+/**
+ * @brief Converts string for this subsystem.
+ *
+ * Arguments:
+ * - @p profile: Supplies profile input to the operation.
+ *
+ * Returns:
+ * - `std::string_view` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::string_view toString(SpatialLearningProfile profile) noexcept {
   return profile == SpatialLearningProfile::Chapter3Compatibility
              ? "chapter3_compatibility"
              : "modernized";
 }
 
+/**
+ * @brief Performs the spatial learning profile from string operation for
+ * this subsystem.
+ *
+ * Arguments:
+ * - @p value: Supplies value input to the operation.
+ *
+ * Returns:
+ * - `SpatialLearningProfile` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 SpatialLearningProfile spatialLearningProfileFromString(
     const std::string& value) {
   if (value == "modernized") return SpatialLearningProfile::Modernized;
@@ -305,10 +442,35 @@ SpatialLearningProfile spatialLearningProfileFromString(
       "'chapter3_compatibility'");
 }
 
+/**
+ * @brief Converts string for this subsystem.
+ *
+ * Arguments:
+ * - @p mode: Supplies mode input to the operation.
+ *
+ * Returns:
+ * - `std::string_view` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::string_view toString(MapOperatingMode mode) noexcept {
   return mode == MapOperatingMode::MapEnabled ? "map_enabled" : "mapless";
 }
 
+/**
+ * @brief Performs the map operating mode from string operation for this
+ * subsystem.
+ *
+ * Arguments:
+ * - @p value: Supplies value input to the operation.
+ *
+ * Returns:
+ * - `MapOperatingMode` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 MapOperatingMode mapOperatingModeFromString(const std::string& value) {
   if (value == "mapless") return MapOperatingMode::Mapless;
   if (value == "map_enabled") return MapOperatingMode::MapEnabled;
@@ -316,11 +478,36 @@ MapOperatingMode mapOperatingModeFromString(const std::string& value) {
       "map.mode must be 'mapless' or 'map_enabled'");
 }
 
+/**
+ * @brief Converts string for this subsystem.
+ *
+ * Arguments:
+ * - @p policy: Supplies policy input to the operation.
+ *
+ * Returns:
+ * - `std::string_view` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::string_view toString(MapLoadFailurePolicy policy) noexcept {
   return policy == MapLoadFailurePolicy::DisableMap ? "disable_map"
                                                      : "fail_startup";
 }
 
+/**
+ * @brief Performs the map load failure policy from string operation for
+ * this subsystem.
+ *
+ * Arguments:
+ * - @p value: Supplies value input to the operation.
+ *
+ * Returns:
+ * - `MapLoadFailurePolicy` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 MapLoadFailurePolicy mapLoadFailurePolicyFromString(const std::string& value) {
   if (value == "fail_startup") return MapLoadFailurePolicy::FailStartup;
   if (value == "disable_map") return MapLoadFailurePolicy::DisableMap;
@@ -328,6 +515,18 @@ MapLoadFailurePolicy mapLoadFailurePolicyFromString(const std::string& value) {
       "map.on_load_failure must be 'fail_startup' or 'disable_map'");
 }
 
+/**
+ * @brief Converts string for this subsystem.
+ *
+ * Arguments:
+ * - @p profile: Supplies profile input to the operation.
+ *
+ * Returns:
+ * - `std::string_view` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::string_view toString(AblationProfile profile) noexcept {
   switch (profile) {
     case AblationProfile::Full:
@@ -388,6 +587,19 @@ std::string_view toString(AblationProfile profile) noexcept {
   return "custom";
 }
 
+/**
+ * @brief Performs the ablation profile from string operation for this
+ * subsystem.
+ *
+ * Arguments:
+ * - @p value: Supplies value input to the operation.
+ *
+ * Returns:
+ * - `AblationProfile` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 AblationProfile ablationProfileFromString(const std::string& value) {
   for (const AblationProfile profile :
        {AblationProfile::Full, AblationProfile::TierOneOnly,
@@ -411,6 +623,18 @@ AblationProfile ablationProfileFromString(const std::string& value) {
   throw std::runtime_error("unknown experiment profile '" + value + "'");
 }
 
+/**
+ * @brief Applies ablation profile for this subsystem.
+ *
+ * Arguments:
+ * - @p configuration: Supplies configuration input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void applyAblationProfile(Configuration& configuration) {
   auto& experiment = configuration.experiment;
   const auto set_advisors = [&](std::initializer_list<std::string_view> names) {
@@ -723,6 +947,19 @@ void applyAblationProfile(Configuration& configuration) {
   }
 }
 
+/**
+ * @brief Performs the configuration fingerprint operation for this
+ * subsystem.
+ *
+ * Arguments:
+ * - @p configuration: Supplies configuration input to the operation.
+ *
+ * Returns:
+ * - `std::string` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::string configurationFingerprint(const Configuration& configuration) {
   std::ostringstream canonical;
   canonical
@@ -930,6 +1167,18 @@ std::string configurationFingerprint(const Configuration& configuration) {
   return encoded.str();
 }
 
+/**
+ * @brief Performs the configuration snapshot operation for this subsystem.
+ *
+ * Arguments:
+ * - @p configuration: Supplies configuration input to the operation.
+ *
+ * Returns:
+ * - `std::string` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::string configurationSnapshot(const Configuration& configuration) {
   std::ostringstream output;
   output << std::setprecision(17)
@@ -958,6 +1207,18 @@ std::string configurationSnapshot(const Configuration& configuration) {
   return output.str();
 }
 
+/**
+ * @brief Performs the component manifest operation for this subsystem.
+ *
+ * Arguments:
+ * - @p configuration: Supplies configuration input to the operation.
+ *
+ * Returns:
+ * - `std::vector<std::string>` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::vector<std::string> componentManifest(const Configuration& configuration) {
   std::vector<std::string> result{
       "behavior_mode:" +
@@ -1042,6 +1303,22 @@ std::vector<std::string> componentManifest(const Configuration& configuration) {
   return result;
 }
 
+/**
+ * @brief Loads structured configuration for this subsystem.
+ *
+ * Arguments:
+ * - @p navigation: Supplies navigation input to the operation.
+ * - @p map_dimensions: Supplies map dimensions input to the operation.
+ * - @p advisors: Supplies advisors input to the operation.
+ * - @p tasks_file: Supplies tasks file input to the operation.
+ * - @p map_file: Supplies map file input to the operation.
+ *
+ * Returns:
+ * - `Configuration` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 Configuration loadStructuredConfiguration(
     NavigationConfiguration navigation, MapDimensions map_dimensions,
     std::vector<AdvisorConfiguration> advisors, const std::string& tasks_file,
@@ -1060,6 +1337,18 @@ Configuration loadStructuredConfiguration(
   return configuration;
 }
 
+/**
+ * @brief Validates configuration for this subsystem.
+ *
+ * Arguments:
+ * - @p configuration: Supplies configuration input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void validateConfiguration(const Configuration& configuration) {
   validateNavigation(configuration.navigation);
   const auto& experiment = configuration.experiment;

@@ -1,3 +1,12 @@
+/**
+ * @file decision_record_test.cpp
+ * @brief Decision record test responsibilities.
+ *
+ * @details This file exercises decision record test behavior for automated
+ * verification and regression testing. It centers on
+ * `UsesNamedTierAndOutcomeValues`, `DefaultsToAnExplainableSafeStop`. Its
+ * package-relative location is `test/unit/decision_record_test.cpp`.
+ */
 #include <gtest/gtest.h>
 
 #include <semaforr/decision/decision_result.hpp>

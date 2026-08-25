@@ -1,3 +1,13 @@
+/**
+ * @file parameter_configuration.cpp
+ * @brief Parameter configuration responsibilities.
+ *
+ * @details This file implements parameter configuration behavior for the ROS 2
+ * composition and message-adaptation boundary. It records the
+ * declarations, settings, fixtures, or guidance needed by that
+ * responsibility. Its package-relative location is
+ * `src/ros/parameter_configuration.cpp`.
+ */
 #include <array>
 #include <rclcpp/rclcpp.hpp>
 #include <semaforr/ros/parameter_configuration.hpp>
@@ -10,6 +20,18 @@
 namespace semaforr::ros {
 namespace {
 
+/**
+ * @brief Performs the default advisor names operation for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - `const std::vector<std::string>&` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 const std::vector<std::string>& defaultAdvisorNames() {
   static const std::vector<std::string> names = {
       "goal_progress",      "goal_progress_linear", "clearance",
@@ -18,12 +40,38 @@ const std::vector<std::string>& defaultAdvisorNames() {
   return names;
 }
 
+/**
+ * @brief Performs the default advisor parameters operation for this
+ * subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - `const std::vector<double>&` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 const std::vector<double>& defaultAdvisorParameters() {
   static const std::vector<double> parameters(defaultAdvisorNames().size() * 4U,
                                               0.0);
   return parameters;
 }
 
+/**
+ * @brief Applies planner for this subsystem.
+ *
+ * Arguments:
+ * - @p planners: Supplies planners input to the operation.
+ * - @p name: Supplies name input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void applyPlanner(config::PlannerConfiguration& planners,
                   const std::string& name) {
   if (name == "distance")
@@ -54,6 +102,19 @@ void applyPlanner(config::PlannerConfiguration& planners,
 
 }  // namespace
 
+/**
+ * @brief Performs the declare configuration parameters operation for this
+ * subsystem.
+ *
+ * Arguments:
+ * - @p node: Supplies node input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void declareConfigurationParameters(rclcpp::Node& node) {
   node.declare_parameter("experiment.behavior_mode",
                          std::string{"modernized"});
@@ -264,6 +325,19 @@ void declareConfigurationParameters(rclcpp::Node& node) {
   node.declare_parameter("advisors.parameters", defaultAdvisorParameters());
 }
 
+/**
+ * @brief Performs the configuration from parameters operation for this
+ * subsystem.
+ *
+ * Arguments:
+ * - @p node: Supplies node input to the operation.
+ *
+ * Returns:
+ * - `config::Configuration` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 config::Configuration configurationFromParameters(rclcpp::Node& node) {
   std::string map_file = node.get_parameter("map.path").as_string();
   std::string tasks_file = node.get_parameter("mission.tasks_path").as_string();

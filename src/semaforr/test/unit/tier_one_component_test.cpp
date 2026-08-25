@@ -1,3 +1,19 @@
+/**
+ * @file tier_one_component_test.cpp
+ * @brief Tier one component test responsibilities.
+ *
+ * @details This file exercises tier one component test behavior for automated
+ * verification and regression testing. It centers on
+ * `InstallRecoveryPlan`,
+ * `VerifiesVisibilityTurnMovePauseAndHighestPriority`,
+ * `HardSafetyCanRejectItsCognitiveMandate`,
+ * `RemainsCognitiveAndUsesItsOwnReasonCode`,
+ * `UsesOnlyExecutionConfirmedOrientations`,
+ * `IncludesRegionRadiusAndPrefersAvailableRightThenLeft`,
+ * `SuppressesOnlyAnExecutionConfirmedQuarterTurn`,
+ * `TestsPreviousVisibilityAtTheScanObservationPose`. Its package-relative
+ * location is `test/unit/tier_one_component_test.cpp`.
+ */
 #include <gtest/gtest.h>
 
 #include <chrono>
@@ -16,6 +32,19 @@ namespace {
 using semaforr::domain::Action;
 using semaforr::domain::ActionType;
 
+/**
+ * @brief Performs the scan operation for this subsystem.
+ *
+ * Arguments:
+ * - @p beams: Supplies beams input to the operation.
+ * - @p range_m: Supplies range m input to the operation.
+ *
+ * Returns:
+ * - `semaforr::domain::LaserObservation` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 semaforr::domain::LaserObservation scan(std::size_t beams = 9U,
                                         double range_m = 5.0) {
   semaforr::domain::LaserObservation result;
@@ -27,6 +56,18 @@ semaforr::domain::LaserObservation scan(std::size_t beams = 9U,
   return result;
 }
 
+/**
+ * @brief Performs the world with target operation for this subsystem.
+ *
+ * Arguments:
+ * - @p target: Supplies target input to the operation.
+ *
+ * Returns:
+ * - `semaforr::domain::WorldModel` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 semaforr::domain::WorldModel worldWithTarget(
     semaforr::domain::Point2D target) {
   semaforr::domain::WorldModel world;
@@ -38,6 +79,22 @@ semaforr::domain::WorldModel worldWithTarget(
   return world;
 }
 
+/**
+ * @brief Performs the executed operation for this subsystem.
+ *
+ * Arguments:
+ * - @p pose: Supplies pose input to the operation.
+ * - @p action: Supplies action input to the operation.
+ * - @p distance_m: Supplies distance m input to the operation.
+ * - @p rotation_rad: Supplies rotation rad input to the operation.
+ *
+ * Returns:
+ * - `semaforr::domain::NavigationHistoryEntry` containing the operation
+ * result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 semaforr::domain::NavigationHistoryEntry executed(
     semaforr::domain::Pose2D pose, Action action,
     double distance_m = 0.0, double rotation_rad = 0.0) {
@@ -51,6 +108,20 @@ semaforr::domain::NavigationHistoryEntry executed(
   return entry;
 }
 
+/**
+ * @brief Records selection for this subsystem.
+ *
+ * Arguments:
+ * - @p world: Supplies world input to the operation.
+ * - @p position: Supplies position input to the operation.
+ * - @p provenance: Supplies provenance input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void recordSelection(semaforr::domain::WorldModel& world,
                      semaforr::domain::Point2D position,
                      std::string provenance = "mandatory_rule:Enforcer") {
@@ -64,6 +135,20 @@ void recordSelection(semaforr::domain::WorldModel& world,
   world.decision_history.record(std::move(selected));
 }
 
+/**
+ * @brief Performs the add successful path operation for this subsystem.
+ *
+ * Arguments:
+ * - @p world: Supplies world input to the operation.
+ * - @p steps: Supplies steps input to the operation.
+ * - @p first_x: Supplies first x input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void addSuccessfulPath(semaforr::domain::WorldModel& world,
                        std::size_t steps, double first_x) {
   const auto task = world.mission.active()->id;
@@ -103,14 +188,77 @@ void addSuccessfulPath(semaforr::domain::WorldModel& world,
   world.robot.laser = scan();
 }
 
+/**
+ * @brief Encapsulates install recovery plan state and behavior for this
+ * subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - Not applicable to this declaration.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 class InstallRecoveryPlan final : public semaforr::planning::ReactivePlanner {
  public:
+  /**
+   * @brief Performs the name operation for this subsystem.
+   *
+   * Arguments:
+   * - None.
+   *
+   * Returns:
+   * - `std::string_view` containing the operation result.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   std::string_view name() const noexcept override { return "Out"; }
+  /**
+   * @brief Performs the dependencies operation for this subsystem.
+   *
+   * Arguments:
+   * - None.
+   *
+   * Returns:
+   * - `std::vector<std::string_view>` containing the operation result.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   std::vector<std::string_view> dependencies() const override { return {}; }
+  /**
+   * @brief Evaluates trigger for this subsystem.
+   *
+   * Arguments:
+   * - @p DecisionContext: Supplies decision context input to the operation.
+   *
+   * Returns:
+   * - `semaforr::planning::TriggerEvaluation` containing the operation
+   * result.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   semaforr::planning::TriggerEvaluation evaluateTrigger(
       const semaforr::decision::DecisionContext&) const override {
     return {true, "out:test_recovery_ready"};
   }
+  /**
+   * @brief Updates package content for this subsystem.
+   *
+   * Arguments:
+   * - @p DecisionContext: Supplies decision context input to the operation.
+   *
+   * Returns:
+   * - `semaforr::planning::ReactivePlanUpdate` containing the operation
+   * result.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   semaforr::planning::ReactivePlanUpdate update(
       const semaforr::decision::DecisionContext&) override {
     return {semaforr::planning::ReactiveStatus::InstallPlan, std::nullopt, {},
@@ -118,6 +266,19 @@ class InstallRecoveryPlan final : public semaforr::planning::ReactivePlanner {
             "out:prepend_reverse_subtrail_for_enforcer",
             {{2.0, 0.0}, {1.0, 0.0}}};
   }
+  /**
+   * @brief Performs the cancel operation for this subsystem.
+   *
+   * Arguments:
+   * - @p InterruptionReason: Supplies interruption reason input to the
+   * operation.
+   *
+   * Returns:
+   * - No value; effects are applied to owned state or outputs.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   void cancel(semaforr::planning::InterruptionReason) override {}
 };
 

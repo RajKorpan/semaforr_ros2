@@ -1,3 +1,18 @@
+/**
+ * @file revision_dependency_test.cpp
+ * @brief Revision dependency test responsibilities.
+ *
+ * @details This file exercises revision dependency test behavior for automated
+ * verification and regression testing. It centers on `CountingPlanner`,
+ * `LowerRevisionChangeIsNotHiddenByHigherLayer`,
+ * `UnrelatedCrowdChangeKeepsDistancePlanCached`,
+ * `SameCrowdContentDoesNotAdvanceRevision`,
+ * `HighwayChangeStalesHighwayExecutionExactly`,
+ * `OccupancyChangeStalesRemainingGridRoute`,
+ * `OperationalizationRecordsItsOwnInputs`,
+ * `ValidationNamesTaskPosePolicyAndExecution`. Its package-relative
+ * location is `test/unit/revision_dependency_test.cpp`.
+ */
 #include <gtest/gtest.h>
 
 #include <semaforr/decision/enforcer.hpp>
@@ -5,12 +20,50 @@
 
 namespace {
 
+/**
+ * @brief Encapsulates counting planner state and behavior for this
+ * subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - Not applicable to this declaration.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 class CountingPlanner final : public semaforr::planning::Planner {
  public:
+  /**
+   * @brief Performs the counting planner operation for this subsystem.
+   *
+   * Arguments:
+   * - @p calls: Supplies calls input to the operation.
+   * - @p dependencies: Supplies dependencies input to the operation.
+   *
+   * Returns:
+   * - No value; effects are applied to owned state or outputs.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   CountingPlanner(int& calls,
                   std::vector<semaforr::domain::ModelDependency> dependencies)
       : calls_(calls), dependencies_(std::move(dependencies)) {}
 
+  /**
+   * @brief Constructs package content for this subsystem.
+   *
+   * Arguments:
+   * - @p request: Supplies request input to the operation.
+   *
+   * Returns:
+   * - `semaforr::planning::PlanResult` containing the operation result.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   semaforr::planning::PlanResult plan(
       const semaforr::planning::PlanningRequest& request) override {
     ++calls_;
@@ -25,7 +78,32 @@ class CountingPlanner final : public semaforr::planning::Planner {
             "counting test plan",
             std::move(hierarchy)};
   }
+  /**
+   * @brief Performs the name operation for this subsystem.
+   *
+   * Arguments:
+   * - None.
+   *
+   * Returns:
+   * - `std::string_view` containing the operation result.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   std::string_view name() const noexcept override { return "counting"; }
+  /**
+   * @brief Performs the dependencies operation for this subsystem.
+   *
+   * Arguments:
+   * - @p PlanningRequest: Supplies planning request input to the operation.
+   *
+   * Returns:
+   * - `std::vector<semaforr::domain::ModelDependency>` containing the
+   * operation result.
+   *
+   * Exceptions:
+   * - None documented; validation or dependency failures may propagate.
+   */
   std::vector<semaforr::domain::ModelDependency> dependencies(
       const semaforr::planning::PlanningRequest&) const override {
     return dependencies_;
@@ -36,6 +114,19 @@ class CountingPlanner final : public semaforr::planning::Planner {
   std::vector<semaforr::domain::ModelDependency> dependencies_;
 };
 
+/**
+ * @brief Performs the request operation for this subsystem.
+ *
+ * Arguments:
+ * - @p spatial: Supplies spatial input to the operation.
+ * - @p crowd: Supplies crowd input to the operation.
+ *
+ * Returns:
+ * - `semaforr::planning::PlanningRequest` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 semaforr::planning::PlanningRequest request(
     semaforr::domain::SpatialModel& spatial,
     semaforr::domain::CrowdModel* crowd = nullptr) {
@@ -43,6 +134,18 @@ semaforr::planning::PlanningRequest request(
           {2.0, 0.0}, &spatial, crowd, nullptr, {}, 7U};
 }
 
+/**
+ * @brief Performs the crowd field operation for this subsystem.
+ *
+ * Arguments:
+ * - @p density: Supplies density input to the operation.
+ *
+ * Returns:
+ * - `semaforr::domain::CrowdFieldSnapshot` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 semaforr::domain::CrowdFieldSnapshot crowdField(double density) {
   semaforr::domain::CrowdFieldSnapshot field;
   field.geometry = {1U, 1U, 1.0, {0.0, 0.0},

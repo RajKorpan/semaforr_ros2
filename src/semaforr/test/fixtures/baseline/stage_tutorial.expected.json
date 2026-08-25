@@ -1,11 +1,16 @@
 {
+  "$comment": "This file exercises stage tutorial expected behavior for automated verification and regression testing. It records the declarations, settings, fixtures, or guidance needed by that responsibility. Its package-relative location is `test/fixtures/baseline/stage_tutorial.expected.json`.",
   "schema_version": 2,
   "description": "Approved semantic baseline captured with ROS 2 Humble on 2026-07-27.",
   "scenario": {
     "name": "stage_tutorial_open_space",
     "duration_s": 20.0,
     "tick_hz": 20.0,
-    "initial_pose": [100.0, 100.0, 0.0],
+    "initial_pose": [
+      100.0,
+      100.0,
+      0.0
+    ],
     "laser_range_m": 5.0,
     "laser_sample_count": 1081,
     "sensor_fixture": {
@@ -16,121 +21,216 @@
       "laser_angle_max_rad": 3.141592653589793,
       "laser_angle_increment_rad": 0.005817764173314432,
       "laser_range_min_m": 0.05,
-      "laser_ranges": {"repeat": 5.0, "count": 1081}
+      "laser_ranges": {
+        "repeat": 5.0,
+        "count": 1081
+      }
     }
   },
   "expected": {
     "commands": [
-      {"linear_x": 0.01, "linear_y": 0.0, "angular_z": -0.5},
-      {"linear_x": 0.01, "linear_y": 0.0, "angular_z": 0.5},
-      {"linear_x": 0.5, "linear_y": 0.0, "angular_z": 0.0},
-      {"linear_x": 0.01, "linear_y": 0.0, "angular_z": -0.5},
-      {"linear_x": 0.5, "linear_y": 0.0, "angular_z": 0.0}
+      {
+        "linear_x": 0.01,
+        "linear_y": 0.0,
+        "angular_z": -0.5
+      },
+      {
+        "linear_x": 0.01,
+        "linear_y": 0.0,
+        "angular_z": 0.5
+      },
+      {
+        "linear_x": 0.5,
+        "linear_y": 0.0,
+        "angular_z": 0.0
+      },
+      {
+        "linear_x": 0.01,
+        "linear_y": 0.0,
+        "angular_z": -0.5
+      },
+      {
+        "linear_x": 0.5,
+        "linear_y": 0.0,
+        "angular_z": 0.0
+      }
     ],
     "decisions": [
       {
         "task": 0,
         "decision": 1,
-        "target": [1.0, 1.0],
+        "target": [
+          1.0,
+          1.0
+        ],
         "max_forward_parameter": 6,
         "decision_tier": 3.0,
-        "chosen_action": [1, 6],
+        "chosen_action": [
+          1,
+          6
+        ],
         "chosen_planner": " "
       },
       {
         "task": 1,
         "decision": 1,
-        "target": [105.0, 105.0],
+        "target": [
+          105.0,
+          105.0
+        ],
         "max_forward_parameter": 6,
         "decision_tier": 3.0,
-        "chosen_action": [2, 6],
+        "chosen_action": [
+          2,
+          6
+        ],
         "chosen_planner": " "
       },
       {
         "task": 1,
         "decision": 2,
-        "target": [105.0, 105.0],
+        "target": [
+          105.0,
+          105.0
+        ],
         "max_forward_parameter": 6,
         "decision_tier": 3.0,
-        "chosen_action": [2, 5],
+        "chosen_action": [
+          2,
+          5
+        ],
         "chosen_planner": " "
       },
       {
         "task": 1,
         "decision": 3,
-        "target": [105.0, 105.0],
+        "target": [
+          105.0,
+          105.0
+        ],
         "max_forward_parameter": 6,
         "decision_tier": 3.0,
-        "chosen_action": [2, 2],
+        "chosen_action": [
+          2,
+          2
+        ],
         "chosen_planner": " "
       },
       {
         "task": 1,
         "decision": 4,
-        "target": [105.0, 105.0],
+        "target": [
+          105.0,
+          105.0
+        ],
         "max_forward_parameter": 6,
         "decision_tier": 3.0,
-        "chosen_action": [0, 6],
+        "chosen_action": [
+          0,
+          6
+        ],
         "chosen_planner": " "
       },
       {
         "task": 1,
         "decision": 5,
-        "target": [105.0, 105.0],
+        "target": [
+          105.0,
+          105.0
+        ],
         "max_forward_parameter": 6,
         "decision_tier": 1.1,
-        "chosen_action": [1, 3],
+        "chosen_action": [
+          1,
+          3
+        ],
         "chosen_planner": " "
       },
       {
         "task": 1,
         "decision": 6,
-        "target": [105.0, 105.0],
+        "target": [
+          105.0,
+          105.0
+        ],
         "max_forward_parameter": 6,
         "decision_tier": 1.1,
-        "chosen_action": [1, 1],
+        "chosen_action": [
+          1,
+          1
+        ],
         "chosen_planner": " "
       },
       {
         "task": 1,
         "decision": 7,
-        "target": [105.0, 105.0],
+        "target": [
+          105.0,
+          105.0
+        ],
         "max_forward_parameter": 6,
         "decision_tier": 1.1,
-        "chosen_action": [1, 1],
+        "chosen_action": [
+          1,
+          1
+        ],
         "chosen_planner": " "
       },
       {
         "task": 1,
         "decision": 8,
-        "target": [105.0, 105.0],
+        "target": [
+          105.0,
+          105.0
+        ],
         "max_forward_parameter": 6,
         "decision_tier": 1.1,
-        "chosen_action": [1, 1],
+        "chosen_action": [
+          1,
+          1
+        ],
         "chosen_planner": " "
       },
       {
         "task": 1,
         "decision": 9,
-        "target": [105.0, 105.0],
+        "target": [
+          105.0,
+          105.0
+        ],
         "max_forward_parameter": 6,
         "decision_tier": 1.1,
-        "chosen_action": [1, 1],
+        "chosen_action": [
+          1,
+          1
+        ],
         "chosen_planner": " "
       },
       {
         "task": 1,
         "decision": 10,
-        "target": [105.0, 105.0],
+        "target": [
+          105.0,
+          105.0
+        ],
         "max_forward_parameter": 6,
         "decision_tier": 1.1,
-        "chosen_action": [1, 1],
+        "chosen_action": [
+          1,
+          1
+        ],
         "chosen_planner": " "
       }
     ],
     "task_transitions": [
-      {"task": 0, "first_decision": 1},
-      {"task": 1, "first_decision": 1}
+      {
+        "task": 0,
+        "first_decision": 1
+      },
+      {
+        "task": 1,
+        "first_decision": 1
+      }
     ]
   },
   "performance_reference": {

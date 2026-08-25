@@ -1,3 +1,12 @@
+/**
+ * @file barrier_learner.cpp
+ * @brief Barrier learner responsibilities.
+ *
+ * @details This file implements barrier learner behavior for learned spatial
+ * representations and their lifecycle. It records the declarations,
+ * settings, fixtures, or guidance needed by that responsibility. Its
+ * package-relative location is `src/spatial/barrier_learner.cpp`.
+ */
 #include <cmath>
 #include <semaforr/spatial/learners/barrier_learner.hpp>
 #include <stdexcept>
@@ -6,6 +15,19 @@
 
 namespace semaforr::spatial {
 
+/**
+ * @brief Performs the barrier learner operation for this subsystem.
+ *
+ * Arguments:
+ * - @p maximum_segment_length_m: Supplies maximum segment length m input to
+ * the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 BarrierLearner::BarrierLearner(double maximum_segment_length_m)
     : SpatialLearnerBase(
           SpatialRepresentation::Barriers, "barrier", UpdateMode::Incremental,
@@ -24,6 +46,18 @@ BarrierLearner::BarrierLearner(double maximum_segment_length_m)
   }
 }
 
+/**
+ * @brief Performs the on observe operation for this subsystem.
+ *
+ * Arguments:
+ * - @p episode: Supplies episode input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void BarrierLearner::onObserve(const NavigationEpisode& episode) {
   const auto endpoints = detail::laserEndpoints(episode.observation);
   const auto& ranges = episode.observation.laser.ranges_m;
@@ -45,6 +79,18 @@ void BarrierLearner::onObserve(const NavigationEpisode& episode) {
                               : "barrier segments updated incrementally");
 }
 
+/**
+ * @brief Performs the on rebuild operation for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void BarrierLearner::onRebuild() {
   publish(
       model_,

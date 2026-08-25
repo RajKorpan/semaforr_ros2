@@ -1,3 +1,11 @@
+/**
+ * @file planning_coordinator.cpp
+ * @brief Planning coordinator responsibilities.
+ *
+ * @details This file implements planning coordinator behavior for path planning and
+ * hierarchical plan construction. It centers on `Candidate`. Its
+ * package-relative location is `src/planning/planning_coordinator.cpp`.
+ */
 #include <algorithm>
 #include <cmath>
 #include <limits>
@@ -7,9 +15,36 @@
 
 namespace semaforr::planning {
 namespace {
+/**
+ * @brief Performs the surrogate operation for this subsystem.
+ *
+ * Arguments:
+ * - @p value: Supplies value input to the operation.
+ * - @p resolution: Supplies resolution input to the operation.
+ *
+ * Returns:
+ * - `long long` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 long long surrogate(double value, double resolution) {
   return std::llround(value / std::max(.05, resolution));
 }
+/**
+ * @brief Performs the dominates operation for this subsystem.
+ *
+ * Arguments:
+ * - @p a: Supplies a input to the operation.
+ * - @p b: Supplies b input to the operation.
+ * - @p objectives: Supplies objectives input to the operation.
+ *
+ * Returns:
+ * - `bool` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 bool dominates(const PlanResult& a, const PlanResult& b,
                const std::vector<PlanObjective>& objectives) {
   bool strict = false;
@@ -23,6 +58,18 @@ bool dominates(const PlanResult& a, const PlanResult& b,
 }
 }  // namespace
 
+/**
+ * @brief Constructs selection policy from string for this subsystem.
+ *
+ * Arguments:
+ * - @p value: Supplies value input to the operation.
+ *
+ * Returns:
+ * - `PlanSelectionPolicy` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 PlanSelectionPolicy planSelectionPolicyFromString(std::string_view value) {
   if (value == "single") return PlanSelectionPolicy::Single;
   if (value == "minimum_normalized_cost")
@@ -33,6 +80,18 @@ PlanSelectionPolicy planSelectionPolicyFromString(std::string_view value) {
   throw std::invalid_argument("unknown Tier-2 selection policy '" +
                               std::string(value) + "'");
 }
+/**
+ * @brief Converts string for this subsystem.
+ *
+ * Arguments:
+ * - @p value: Supplies value input to the operation.
+ *
+ * Returns:
+ * - `std::string_view` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::string_view toString(PlanSelectionPolicy value) noexcept {
   switch (value) {
     case PlanSelectionPolicy::Single:
@@ -49,6 +108,18 @@ std::string_view toString(PlanSelectionPolicy value) noexcept {
   return "range_vote";
 }
 
+/**
+ * @brief Registers planner for this subsystem.
+ *
+ * Arguments:
+ * - @p planner: Supplies planner input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void PlanningCoordinator::registerPlanner(std::unique_ptr<Planner> planner) {
   if (!planner) throw std::invalid_argument("planner must not be null");
   const std::string name(planner->name());
@@ -64,12 +135,38 @@ void PlanningCoordinator::registerPlanner(std::unique_ptr<Planner> planner) {
   ++configuration_revision_;
 }
 
+/**
+ * @brief Sets selection policy for this subsystem.
+ *
+ * Arguments:
+ * - @p value: Supplies value input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void PlanningCoordinator::setSelectionPolicy(PlanSelectionPolicy value) noexcept {
   if (policy_ == value) return;
   policy_ = value;
   ++configuration_revision_;
 }
 
+/**
+ * @brief Sets tie policy for this subsystem.
+ *
+ * Arguments:
+ * - @p seeded_exact_ties: Supplies seeded exact ties input to the
+ * operation.
+ * - @p random_seed: Supplies random seed input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void PlanningCoordinator::setTiePolicy(bool seeded_exact_ties,
                                        std::uint64_t random_seed) noexcept {
   if (seeded_exact_ties_ == seeded_exact_ties && random_seed_ == random_seed)
@@ -80,6 +177,18 @@ void PlanningCoordinator::setTiePolicy(bool seeded_exact_ties,
   ++configuration_revision_;
 }
 
+/**
+ * @brief Performs the select plan operation for this subsystem.
+ *
+ * Arguments:
+ * - @p request: Supplies request input to the operation.
+ *
+ * Returns:
+ * - `std::optional<SelectedPlan>` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::optional<SelectedPlan> PlanningCoordinator::selectPlan(
     const PlanningRequest& request) {
   PlanningRequest effective = request;

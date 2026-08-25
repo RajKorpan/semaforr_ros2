@@ -1,6 +1,28 @@
 #!/usr/bin/env python3
 
-"""Run a repeatable profile matrix and retain one metrics trace per run."""
+"""SemaFORR module overview.
+
+Summary:
+    This file implements run experiment matrix behavior for developer tooling and experiment automation. It centers on `parse_arguments`, `main`. Its package-relative location is `scripts/run_experiment_matrix.py`.
+
+Arguments:
+    Not applicable at module scope.
+
+Returns:
+    Not applicable at module scope.
+
+Raises:
+    Import-time dependency errors may propagate.
+"""
+
+
+
+
+
+
+
+
+
 
 import argparse
 import json
@@ -30,6 +52,18 @@ DEFAULT_PROFILES = [
 
 
 def parse_arguments():
+    """Summary:
+        Parses arguments for this subsystem.
+
+    Args:
+        None.
+
+    Returns:
+        Any
+
+    Raises:
+        None documented; dependency failures may propagate.
+    """
     parser = argparse.ArgumentParser()
     parser.add_argument("--output-directory", type=Path, required=True)
     parser.add_argument("--profiles", nargs="+", default=DEFAULT_PROFILES)
@@ -43,6 +77,18 @@ def parse_arguments():
 
 
 def main():
+    """Summary:
+        Performs the main operation for this subsystem.
+
+    Args:
+        None.
+
+    Returns:
+        Any
+
+    Raises:
+        SystemExit: If required input or state is invalid.
+    """
     arguments = parse_arguments()
     arguments.output_directory.mkdir(parents=True, exist_ok=True)
     runs = []

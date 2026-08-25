@@ -1,3 +1,12 @@
+/**
+ * @file region_learner.cpp
+ * @brief Region learner responsibilities.
+ *
+ * @details This file implements region learner behavior for learned spatial
+ * representations and their lifecycle. It records the declarations,
+ * settings, fixtures, or guidance needed by that responsibility. Its
+ * package-relative location is `src/spatial/region_learner.cpp`.
+ */
 #include <algorithm>
 #include <cmath>
 #include <limits>
@@ -6,12 +15,41 @@
 
 namespace semaforr::spatial {
 namespace {
+/**
+ * @brief Performs the region key operation for this subsystem.
+ *
+ * Arguments:
+ * - @p argument_1: Supplies argument 1 input to the operation.
+ * - @p argument_2: Supplies argument 2 input to the operation.
+ *
+ * Returns:
+ * - `std::uint64_t` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::uint64_t regionKey(long long x, long long y) {
   return (static_cast<std::uint64_t>(static_cast<std::uint32_t>(x)) << 32U) |
          static_cast<std::uint32_t>(y);
 }
 }  // namespace
 
+/**
+ * @brief Performs the region learner operation for this subsystem.
+ *
+ * Arguments:
+ * - @p cluster_radius_m: Supplies cluster radius m input to the operation.
+ * - @p minimum_observations: Supplies minimum observations input to the
+ * operation.
+ * - @p mode: Supplies mode input to the operation.
+ * - @p compatibility: Supplies compatibility input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 RegionLearner::RegionLearner(double cluster_radius_m,
                              std::size_t minimum_observations,
                              SpatialLearningMode mode,
@@ -45,6 +83,18 @@ RegionLearner::RegionLearner(double cluster_radius_m,
   }
 }
 
+/**
+ * @brief Performs the on observe operation for this subsystem.
+ *
+ * Arguments:
+ * - @p episode: Supplies episode input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void RegionLearner::onObserve(const NavigationEpisode& episode) {
   if (mode_ == SpatialLearningMode::Compatibility) return;
   const auto point = episode.observation.pose.position;
@@ -121,6 +171,18 @@ void RegionLearner::onObserve(const NavigationEpisode& episode) {
                  : "region observations below publication threshold");
 }
 
+/**
+ * @brief Performs the on rebuild operation for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void RegionLearner::onRebuild() {
   if (mode_ == SpatialLearningMode::Compatibility) {
     model_ = learnDecisionRegions(episodes(), compatibility_);

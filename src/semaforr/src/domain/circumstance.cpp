@@ -1,3 +1,12 @@
+/**
+ * @file circumstance.cpp
+ * @brief Circumstance responsibilities.
+ *
+ * @details This file implements circumstance behavior for ROS-independent domain
+ * state and value types. It records the declarations, settings, fixtures,
+ * or guidance needed by that responsibility. Its package-relative location
+ * is `src/domain/circumstance.cpp`.
+ */
 #include <algorithm>
 #include <cmath>
 #include <limits>
@@ -11,11 +20,36 @@
 namespace semaforr::domain {
 namespace {
 
+/**
+ * @brief Performs the assignment confidence operation for this subsystem.
+ *
+ * Arguments:
+ * - @p distance: Supplies distance input to the operation.
+ * - @p cells: Supplies cells input to the operation.
+ *
+ * Returns:
+ * - `double` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 double assignmentConfidence(double distance, std::size_t cells) {
   if (cells == 0U) return 0.0;
   return std::clamp(1.0 - distance / static_cast<double>(cells), 0.0, 1.0);
 }
 
+/**
+ * @brief Validates package content for this subsystem.
+ *
+ * Arguments:
+ * - @p configuration: Supplies configuration input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void validate(const SettingNormalizationConfiguration& configuration) {
   if (!std::isfinite(configuration.resolution_m) ||
       !std::isfinite(configuration.radius_m) ||
@@ -33,6 +67,18 @@ void validate(const SettingNormalizationConfiguration& configuration) {
 
 }  // namespace
 
+/**
+ * @brief Converts string for this subsystem.
+ *
+ * Arguments:
+ * - @p mode: Supplies mode input to the operation.
+ *
+ * Returns:
+ * - `std::string_view` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::string_view toString(CircumstanceLearningMode mode) noexcept {
   switch (mode) {
     case CircumstanceLearningMode::DissertationCompatible:
@@ -43,6 +89,18 @@ std::string_view toString(CircumstanceLearningMode mode) noexcept {
   return "unknown";
 }
 
+/**
+ * @brief Converts string for this subsystem.
+ *
+ * Arguments:
+ * - @p method: Supplies method input to the operation.
+ *
+ * Returns:
+ * - `std::string_view` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::string_view toString(CircumstanceCreationMethod method) noexcept {
   switch (method) {
     case CircumstanceCreationMethod::OfflineSimilarityGraph:
@@ -55,6 +113,18 @@ std::string_view toString(CircumstanceCreationMethod method) noexcept {
   return "unknown";
 }
 
+/**
+ * @brief Converts string for this subsystem.
+ *
+ * Arguments:
+ * - @p outcome: Supplies outcome input to the operation.
+ *
+ * Returns:
+ * - `std::string_view` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::string_view toString(CaseOutcome outcome) noexcept {
   switch (outcome) {
     case CaseOutcome::Successful: return "successful";
@@ -69,6 +139,19 @@ std::string_view toString(CaseOutcome outcome) noexcept {
   return "unknown";
 }
 
+/**
+ * @brief Performs the normalize setting operation for this subsystem.
+ *
+ * Arguments:
+ * - @p laser: Supplies laser input to the operation.
+ * - @p configuration: Supplies configuration input to the operation.
+ *
+ * Returns:
+ * - `NormalizedSetting` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 NormalizedSetting normalizeSetting(
     const LaserObservation& laser,
     const SettingNormalizationConfiguration& configuration) {
@@ -107,6 +190,19 @@ NormalizedSetting normalizeSetting(
   return result;
 }
 
+/**
+ * @brief Sets ting l1 distance for this subsystem.
+ *
+ * Arguments:
+ * - @p first: Supplies first input to the operation.
+ * - @p second: Supplies second input to the operation.
+ *
+ * Returns:
+ * - `double` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 double settingL1Distance(const NormalizedSetting& first,
                          const NormalizedSetting& second) {
   if (!first.compatibleWith(second))
@@ -117,6 +213,19 @@ double settingL1Distance(const NormalizedSetting& first,
   return result;
 }
 
+/**
+ * @brief Performs the match circumstance operation for this subsystem.
+ *
+ * Arguments:
+ * - @p model: Supplies model input to the operation.
+ * - @p setting: Supplies setting input to the operation.
+ *
+ * Returns:
+ * - `std::optional<CircumstanceMatch>` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::optional<CircumstanceMatch> matchCircumstance(
     const CircumstanceModel& model, const NormalizedSetting& setting) {
   const CircumstanceCluster* best = nullptr;
@@ -154,6 +263,21 @@ std::optional<CircumstanceMatch> matchCircumstance(
   return CircumstanceMatch{best->id, best_distance, confidence, semantics};
 }
 
+/**
+ * @brief Performs the circumstance case key operation for this subsystem.
+ *
+ * Arguments:
+ * - @p circumstance_id: Supplies circumstance id input to the operation.
+ * - @p pose: Supplies pose input to the operation.
+ * - @p target: Supplies target input to the operation.
+ * - @p model: Supplies model input to the operation.
+ *
+ * Returns:
+ * - `CircumstanceCaseKey` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 CircumstanceCaseKey circumstanceCaseKey(CircumstanceId circumstance_id,
                                         const Pose2D& pose, Point2D target,
                                         const CircumstanceModel& model) {
@@ -177,6 +301,19 @@ CircumstanceCaseKey circumstanceCaseKey(CircumstanceId circumstance_id,
   return {circumstance_id, distance_bin, angle_bin};
 }
 
+/**
+ * @brief Performs the find action evidence operation for this subsystem.
+ *
+ * Arguments:
+ * - @p evidence: Supplies evidence input to the operation.
+ * - @p action: Supplies action input to the operation.
+ *
+ * Returns:
+ * - `const ActionCaseEvidence*` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 const ActionCaseEvidence* findActionEvidence(
     const CircumstanceCaseEvidence& evidence, Action action) noexcept {
   const auto found = std::find_if(
@@ -185,6 +322,19 @@ const ActionCaseEvidence* findActionEvidence(
   return found == evidence.actions.end() ? nullptr : &*found;
 }
 
+/**
+ * @brief Serializes circumstance model for this subsystem.
+ *
+ * Arguments:
+ * - @p model: Supplies model input to the operation.
+ * - @p output: Supplies output input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void saveCircumstanceModel(const CircumstanceModel& model,
                            std::ostream& output) {
   output << "SEMAFORR_CIRCUMSTANCE_CASE 2\n"
@@ -251,6 +401,24 @@ void saveCircumstanceModel(const CircumstanceModel& model,
   if (!output) throw std::runtime_error("failed to save circumstance model");
 }
 
+/**
+ * @brief Loads circumstance model for this subsystem.
+ *
+ * Arguments:
+ * - @p input: Supplies input input to the operation.
+ * - @p expected_model_version: Supplies expected model version input to the
+ * operation.
+ * - @p expected_feature_version: Supplies expected feature version input to
+ * the operation.
+ * - @p expected_classifier_version: Supplies expected classifier version
+ * input to the operation.
+ *
+ * Returns:
+ * - `CircumstanceModel` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 CircumstanceModel loadCircumstanceModel(
     std::istream& input, std::string_view expected_model_version,
     std::string_view expected_feature_version,

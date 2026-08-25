@@ -1,22 +1,68 @@
 {
+  "$comment": "This file exercises navigation scenarios behavior for automated verification and regression testing. It records the declarations, settings, fixtures, or guidance needed by that responsibility. Its package-relative location is `test/fixtures/scenarios/navigation_scenarios.json`.",
   "schema_version": 1,
   "fixture_type": "deterministic_equivalent_to_ros_bag",
   "frame_id": "map",
   "scenarios": [
-    {"name": "empty_corridor", "expected": "forward"},
-    {"name": "doorway", "expected": "forward"},
-    {"name": "obstacle_ahead", "expected": "turn_left"},
-    {"name": "dead_end", "expected": "safe_stop"},
-    {"name": "multiple_targets", "expected": "activate_in_order"},
-    {"name": "stuck_robot", "expected": "skip_at_decision_limit"},
-    {"name": "pedestrian_crossing", "expected": "pause"},
-    {"name": "dense_crowd", "expected": "pause"},
-    {"name": "sensor_timeout", "expected": "zero_velocity"},
-    {"name": "hallway_network", "expected": "learn_both_orientations"},
-    {"name": "highway_crossing", "expected": "route_through_intersection"},
-    {"name": "large_room", "expected": "large_room_cue"},
-    {"name": "dynamic_obstacle", "expected": "temporary_block"},
-    {"name": "failed_movement", "expected": "non_traversal_evidence"},
-    {"name": "negative_coordinate_map", "expected": "bounded_route"}
+    {
+      "name": "empty_corridor",
+      "expected": "forward"
+    },
+    {
+      "name": "doorway",
+      "expected": "forward"
+    },
+    {
+      "name": "obstacle_ahead",
+      "expected": "turn_left"
+    },
+    {
+      "name": "dead_end",
+      "expected": "safe_stop"
+    },
+    {
+      "name": "multiple_targets",
+      "expected": "activate_in_order"
+    },
+    {
+      "name": "stuck_robot",
+      "expected": "skip_at_decision_limit"
+    },
+    {
+      "name": "pedestrian_crossing",
+      "expected": "pause"
+    },
+    {
+      "name": "dense_crowd",
+      "expected": "pause"
+    },
+    {
+      "name": "sensor_timeout",
+      "expected": "zero_velocity"
+    },
+    {
+      "name": "hallway_network",
+      "expected": "learn_both_orientations"
+    },
+    {
+      "name": "highway_crossing",
+      "expected": "route_through_intersection"
+    },
+    {
+      "name": "large_room",
+      "expected": "large_room_cue"
+    },
+    {
+      "name": "dynamic_obstacle",
+      "expected": "temporary_block"
+    },
+    {
+      "name": "failed_movement",
+      "expected": "non_traversal_evidence"
+    },
+    {
+      "name": "negative_coordinate_map",
+      "expected": "bounded_route"
+    }
   ]
 }

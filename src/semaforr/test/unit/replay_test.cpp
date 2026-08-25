@@ -1,3 +1,15 @@
+/**
+ * @file replay_test.cpp
+ * @brief Replay test responsibilities.
+ *
+ * @details This file exercises replay test behavior for automated verification and
+ * regression testing. It centers on
+ * `RoundTripCapturesInputsSeedsRevisionsAndControllerOutcome`,
+ * `ReproducesAndAttributesConfigurationOrDecisionDifferences`,
+ * `RejectsLifecycleRecordsWithoutMatchingInputs`,
+ * `FeedsEachControllerOutcomeToTheFollowingDecisionCycle`. Its
+ * package-relative location is `test/unit/replay_test.cpp`.
+ */
 #include <cmath>
 #include <filesystem>
 #include <gtest/gtest.h>
@@ -6,6 +18,18 @@
 
 namespace {
 
+/**
+ * @brief Performs the metadata operation for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - `semaforr::validation::RunMetadata` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 semaforr::validation::RunMetadata metadata() {
   semaforr::validation::RunMetadata value;
   value.configuration_snapshot = "mode=modernized;profile=custom";
@@ -23,6 +47,18 @@ semaforr::validation::RunMetadata metadata() {
   return value;
 }
 
+/**
+ * @brief Performs the observation operation for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - `semaforr::domain::RobotObservation` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 semaforr::domain::RobotObservation observation() {
   semaforr::domain::RobotObservation value;
   value.pose = {{-2.5, 4.0}, semaforr::domain::Angle(0.25)};
@@ -57,6 +93,18 @@ semaforr::domain::RobotObservation observation() {
   return value;
 }
 
+/**
+ * @brief Performs the decision operation for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - `semaforr::decision::DecisionResult` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 semaforr::decision::DecisionResult decision() {
   semaforr::decision::DecisionResult value;
   value.decision_id = 41U;

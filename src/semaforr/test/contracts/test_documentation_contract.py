@@ -1,3 +1,27 @@
+"""SemaFORR module overview.
+
+Summary:
+    This file exercises test documentation contract behavior for automated verification and regression testing. It centers on `read`, `test_every_document_is_indexed_and_every_local_link_resolves`, `test_registered_advisors_planners_tier_one_and_learners_are_cataloged`, `test_documented_topics_match_constructed_publishers_and_subscriptions`, `test_documented_launch_examples_use_real_arguments_and_installed_config`, `test_architecture_and_compatibility_claims_are_qualified`. Its package-relative location is `test/contracts/test_documentation_contract.py`.
+
+Arguments:
+    Not applicable at module scope.
+
+Returns:
+    Not applicable at module scope.
+
+Raises:
+    Import-time dependency errors may propagate.
+"""
+
+
+
+
+
+
+
+
+
+import importlib.util
 import os
 from pathlib import Path
 import re
@@ -9,11 +33,64 @@ SOURCE_DIR = Path(
 DOCS_DIR = SOURCE_DIR / "docs"
 
 
+def test_every_package_file_and_source_api_has_structured_documentation():
+    """Summary:
+        Verifies file overviews and structured API documentation across the
+        complete SemaFORR package source tree.
+
+    Args:
+        None.
+
+    Returns:
+        None; assertions report documentation coverage failures.
+
+    Raises:
+        ImportError: If the documentation audit module cannot be loaded.
+        AssertionError: If a package file or detected API is undocumented.
+    """
+    script = SOURCE_DIR / "scripts" / "document_source_tree.py"
+    specification = importlib.util.spec_from_file_location(
+        "semaforr_document_source_tree", script
+    )
+    assert specification is not None and specification.loader is not None
+    module = importlib.util.module_from_spec(specification)
+    specification.loader.exec_module(module)
+
+    missing = module.process(SOURCE_DIR, audit=True)
+    assert not missing, "missing structured documentation: " + ", ".join(
+        str(path.relative_to(SOURCE_DIR)) for path in missing
+    )
+
+
 def read(relative):
+    """Summary:
+        Reads package content for this subsystem.
+
+    Args:
+        relative (Any): Supplies relative input to the operation.
+
+    Returns:
+        Any
+
+    Raises:
+        None documented; dependency failures may propagate.
+    """
     return (SOURCE_DIR / relative).read_text(encoding="utf-8")
 
 
 def test_every_document_is_indexed_and_every_local_link_resolves():
+    """Summary:
+        Performs the test every document is indexed and every local link resolves operation for this subsystem.
+
+    Args:
+        None.
+
+    Returns:
+        Any
+
+    Raises:
+        None documented; dependency failures may propagate.
+    """
     index = read("docs/README.md")
     for document in DOCS_DIR.glob("*.md"):
         if document.name != "README.md":
@@ -30,6 +107,18 @@ def test_every_document_is_indexed_and_every_local_link_resolves():
 
 
 def test_registered_advisors_planners_tier_one_and_learners_are_cataloged():
+    """Summary:
+        Performs the test registered advisors planners tier one and learners are cataloged operation for this subsystem.
+
+    Args:
+        None.
+
+    Returns:
+        Any
+
+    Raises:
+        None documented; dependency failures may propagate.
+    """
     configuration = read("src/config/navigation_configuration.cpp")
     advisor_block = re.search(
         r"registered_advisors\{(.*?)\};", configuration, re.DOTALL
@@ -78,6 +167,18 @@ def test_registered_advisors_planners_tier_one_and_learners_are_cataloged():
 
 
 def test_documented_topics_match_constructed_publishers_and_subscriptions():
+    """Summary:
+        Performs the test documented topics match constructed publishers and subscriptions operation for this subsystem.
+
+    Args:
+        None.
+
+    Returns:
+        Any
+
+    Raises:
+        None documented; dependency failures may propagate.
+    """
     node = read("src/ros/semaforr_node_component.cpp")
     visualization = read("src/ros/visualization_publisher.cpp")
     topics = read("docs/topics-and-frames.md")
@@ -119,6 +220,18 @@ def test_documented_topics_match_constructed_publishers_and_subscriptions():
 
 
 def test_documented_launch_examples_use_real_arguments_and_installed_config():
+    """Summary:
+        Performs the test documented launch examples use real arguments and installed config operation for this subsystem.
+
+    Args:
+        None.
+
+    Returns:
+        Any
+
+    Raises:
+        None documented; dependency failures may propagate.
+    """
     launch = read("launch/example_simulation.launch.py")
     declared = set(re.findall(r'DeclareLaunchArgument\(\s*"([a-z0-9_]+)"', launch))
     examples = "\n".join(
@@ -146,6 +259,18 @@ def test_documented_launch_examples_use_real_arguments_and_installed_config():
 
 
 def test_architecture_and_compatibility_claims_are_qualified():
+    """Summary:
+        Performs the test architecture and compatibility claims are qualified operation for this subsystem.
+
+    Args:
+        None.
+
+    Returns:
+        Any
+
+    Raises:
+        None documented; dependency failures may propagate.
+    """
     architecture = " ".join(read("docs/architecture.md").split())
     for claim in (
         "SemaFORRNode::Impl` owns",

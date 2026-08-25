@@ -1,3 +1,12 @@
+/**
+ * @file replay.cpp
+ * @brief Replay responsibilities.
+ *
+ * @details This file implements replay behavior for replay, experimental
+ * validation, and performance measurement. It records the declarations,
+ * settings, fixtures, or guidance needed by that responsibility. Its
+ * package-relative location is `src/validation/replay.cpp`.
+ */
 #include <algorithm>
 #include <cmath>
 #include <fstream>
@@ -10,16 +19,52 @@
 namespace semaforr::validation {
 namespace {
 
+/**
+ * @brief Performs the timestamp operation for this subsystem.
+ *
+ * Arguments:
+ * - @p value: Supplies value input to the operation.
+ *
+ * Returns:
+ * - `std::uint64_t` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::uint64_t timestamp(const domain::ExecutionTimestamp value) {
   return static_cast<std::uint64_t>(
       std::chrono::duration_cast<std::chrono::nanoseconds>(
           value.time_since_epoch()).count());
 }
 
+/**
+ * @brief Performs the timepoint operation for this subsystem.
+ *
+ * Arguments:
+ * - @p value: Supplies value input to the operation.
+ *
+ * Returns:
+ * - `domain::ExecutionTimestamp` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 domain::ExecutionTimestamp timepoint(std::uint64_t value) {
   return domain::ExecutionTimestamp(std::chrono::nanoseconds(value));
 }
 
+/**
+ * @brief Performs the digest operation for this subsystem.
+ *
+ * Arguments:
+ * - @p value: Supplies value input to the operation.
+ *
+ * Returns:
+ * - `std::string` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::string digest(std::string_view value) {
   std::uint64_t hash = 14695981039346656037ULL;
   for (const unsigned char byte : value) {
@@ -31,6 +76,18 @@ std::string digest(std::string_view value) {
   return output.str();
 }
 
+/**
+ * @brief Performs the encode range operation for this subsystem.
+ *
+ * Arguments:
+ * - @p value: Supplies value input to the operation.
+ *
+ * Returns:
+ * - `std::string` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::string encodeRange(double value) {
   if (std::isnan(value)) return "nan";
   if (value == std::numeric_limits<double>::infinity()) return "+inf";
@@ -40,6 +97,18 @@ std::string encodeRange(double value) {
   return output.str();
 }
 
+/**
+ * @brief Performs the decode range operation for this subsystem.
+ *
+ * Arguments:
+ * - @p value: Supplies value input to the operation.
+ *
+ * Returns:
+ * - `double` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 double decodeRange(const std::string& value) {
   if (value == "nan") return std::numeric_limits<double>::quiet_NaN();
   if (value == "+inf") return std::numeric_limits<double>::infinity();
@@ -51,6 +120,18 @@ double decodeRange(const std::string& value) {
   return decoded;
 }
 
+/**
+ * @brief Performs the advisor digest operation for this subsystem.
+ *
+ * Arguments:
+ * - @p result: Supplies result input to the operation.
+ *
+ * Returns:
+ * - `std::string` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::string advisorDigest(const decision::DecisionResult& result) {
   std::ostringstream value;
   value << std::setprecision(17);
@@ -66,6 +147,18 @@ std::string advisorDigest(const decision::DecisionResult& result) {
   return digest(value.str());
 }
 
+/**
+ * @brief Constructs digest for this subsystem.
+ *
+ * Arguments:
+ * - @p result: Supplies result input to the operation.
+ *
+ * Returns:
+ * - `std::string` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::string planDigest(const decision::DecisionResult& result) {
   std::ostringstream value;
   value << std::setprecision(17);
@@ -81,6 +174,18 @@ std::string planDigest(const decision::DecisionResult& result) {
   return digest(value.str());
 }
 
+/**
+ * @brief Performs the explanation digest operation for this subsystem.
+ *
+ * Arguments:
+ * - @p result: Supplies result input to the operation.
+ *
+ * Returns:
+ * - `std::string` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 std::string explanationDigest(const decision::DecisionResult& result) {
   std::ostringstream value;
   for (const auto& event : result.decision_cycle)
@@ -92,16 +197,59 @@ std::string explanationDigest(const decision::DecisionResult& result) {
   return digest(value.str());
 }
 
+/**
+ * @brief Writes strings for this subsystem.
+ *
+ * Arguments:
+ * - @p output: Supplies output input to the operation.
+ * - @p tag: Supplies tag input to the operation.
+ * - @p values: Supplies values input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void writeStrings(std::ostream& output, std::string_view tag,
                   const std::vector<std::string>& values) {
   for (const auto& value : values)
     output << tag << ' ' << std::quoted(value) << '\n';
 }
 
+/**
+ * @brief Performs the require operation for this subsystem.
+ *
+ * Arguments:
+ * - @p condition: Supplies condition input to the operation.
+ * - @p message: Supplies message input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void require(bool condition, std::string_view message) {
   if (!condition) throw std::runtime_error("replay trace: " + std::string(message));
 }
 
+/**
+ * @brief Performs the compare operation for this subsystem.
+ *
+ * Arguments:
+ * - @p differences: Supplies differences input to the operation.
+ * - @p cycle: Supplies cycle input to the operation.
+ * - @p field: Supplies field input to the operation.
+ * - @p expected: Supplies expected input to the operation.
+ * - @p actual: Supplies actual input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void compare(std::vector<ReplayDifference>& differences, std::size_t cycle,
              std::string field, const std::string& expected,
              const std::string& actual) {
@@ -111,6 +259,19 @@ void compare(std::vector<ReplayDifference>& differences, std::size_t cycle,
 
 }  // namespace
 
+/**
+ * @brief Performs the replay decision operation for this subsystem.
+ *
+ * Arguments:
+ * - @p result: Supplies result input to the operation.
+ * - @p revisions: Supplies revisions input to the operation.
+ *
+ * Returns:
+ * - `ReplayDecision` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 ReplayDecision replayDecision(const decision::DecisionResult& result,
                               const domain::DependencyRevisions& revisions) {
   return {result.decision_id,
@@ -132,6 +293,19 @@ ReplayDecision replayDecision(const decision::DecisionResult& result,
           result.formation_evidence_participated};
 }
 
+/**
+ * @brief Performs the run recorder operation for this subsystem.
+ *
+ * Arguments:
+ * - @p metadata: Supplies metadata input to the operation.
+ * - @p trace_path: Supplies trace path input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 RunRecorder::RunRecorder(RunMetadata metadata,
                          std::filesystem::path trace_path)
     : trace_{std::move(metadata), {}}, trace_path_(std::move(trace_path)) {
@@ -144,6 +318,20 @@ RunRecorder::RunRecorder(RunMetadata metadata,
           "configuration fingerprint is required");
 }
 
+/**
+ * @brief Records observation for this subsystem.
+ *
+ * Arguments:
+ * - @p observation: Supplies observation input to the operation.
+ * - @p sensor_timestamp_ns: Supplies sensor timestamp ns input to the
+ * operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void RunRecorder::recordObservation(
     const domain::RobotObservation& observation,
     std::optional<std::uint64_t> sensor_timestamp_ns) {
@@ -153,6 +341,19 @@ void RunRecorder::recordObservation(
       sensor_timestamp_ns.value_or(timestamp(observation.observed_at));
 }
 
+/**
+ * @brief Records decision for this subsystem.
+ *
+ * Arguments:
+ * - @p decision: Supplies decision input to the operation.
+ * - @p revisions: Supplies revisions input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void RunRecorder::recordDecision(
     const decision::DecisionResult& decision,
     const domain::DependencyRevisions& revisions) {
@@ -168,6 +369,18 @@ void RunRecorder::recordDecision(
   if (!trace_path_.empty()) flush();
 }
 
+/**
+ * @brief Records controller outcome for this subsystem.
+ *
+ * Arguments:
+ * - @p outcome: Supplies outcome input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void RunRecorder::recordControllerOutcome(
     const domain::ActionExecutionResult& outcome) {
   const auto found = std::find_if(
@@ -183,11 +396,36 @@ void RunRecorder::recordControllerOutcome(
   if (!trace_path_.empty()) flush();
 }
 
+/**
+ * @brief Performs the flush operation for this subsystem.
+ *
+ * Arguments:
+ * - None.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void RunRecorder::flush() const {
   require(!trace_path_.empty(), "trace path is empty");
   save(trace_, trace_path_);
 }
 
+/**
+ * @brief Serializes package content for this subsystem.
+ *
+ * Arguments:
+ * - @p trace: Supplies trace input to the operation.
+ * - @p path: Supplies path input to the operation.
+ *
+ * Returns:
+ * - No value; effects are applied to owned state or outputs.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 void RunRecorder::save(const RunTrace& trace,
                        const std::filesystem::path& path) {
   const auto parent = path.parent_path();
@@ -315,6 +553,18 @@ void RunRecorder::save(const RunTrace& trace,
   }
 }
 
+/**
+ * @brief Loads package content for this subsystem.
+ *
+ * Arguments:
+ * - @p path: Supplies path input to the operation.
+ *
+ * Returns:
+ * - `RunTrace` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 RunTrace RunRecorder::load(const std::filesystem::path& path) {
   std::ifstream input(path);
   if (!input) throw std::runtime_error("cannot open replay trace '" + path.string() + "'");
@@ -498,6 +748,20 @@ RunTrace RunRecorder::load(const std::filesystem::path& path) {
   return trace;
 }
 
+/**
+ * @brief Performs the run operation for this subsystem.
+ *
+ * Arguments:
+ * - @p trace: Supplies trace input to the operation.
+ * - @p active_metadata: Supplies active metadata input to the operation.
+ * - @p decide: Supplies decide input to the operation.
+ *
+ * Returns:
+ * - `ReplayReport` containing the operation result.
+ *
+ * Exceptions:
+ * - None documented; validation or dependency failures may propagate.
+ */
 ReplayReport OfflineReplay::run(const RunTrace& trace,
                                 const RunMetadata& active_metadata,
                                 const DecisionFunction& decide) {
