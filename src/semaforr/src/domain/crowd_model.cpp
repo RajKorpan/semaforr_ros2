@@ -142,6 +142,83 @@ CrowdFieldSnapshot CrowdFieldSnapshot::load(std::istream& input) {
   return result;
 }
 
+void CrowdModel::recordMutation(ModelDependency dependency,
+                                std::string summary) {
+  const Revision revision = ++revisions_[dependency];
+  mutation_history_.push_back({++mutation_sequence_, dependency, revision,
+                               std::chrono::steady_clock::now(),
+                               std::move(summary)});
+}
+
+void CrowdModel::updateInputDiagnostics(
+    const CrowdObservation& observation) {
+  input_source_ = observation.provenance.empty() ? "unknown"
+                                                  : observation.provenance;
+  formation_evidence_available_ = !observation.formations.empty();
+  formation_evidence_participated_ = false;
+  bool gst = false;
+  bool fallback = false;
+  bool missing = false;
+  for (const auto& pedestrian : observation.pedestrians) {
+    gst = gst || pedestrian.prediction_source == "gst";
+    fallback = fallback ||
+               pedestrian.prediction_source == "constant_velocity";
+    missing = missing || pedestrian.prediction_source.empty() ||
+              pedestrian.prediction_source == "none";
+  }
+  if (observation.pedestrians.empty()) {
+    prediction_source_ = "not_applicable";
+    input_status_ = "ready_empty";
+  } else if (gst && !fallback && !missing) {
+    prediction_source_ = "gst";
+    input_status_ = "ready";
+  } else if (fallback && !gst && !missing) {
+    prediction_source_ = "constant_velocity";
+    input_status_ = "degraded_fallback_prediction";
+  } else if (gst || fallback) {
+    prediction_source_ = "mixed";
+    input_status_ = "degraded_mixed_prediction";
+  } else {
+    prediction_source_ = "none";
+    input_status_ = "degraded_missing_prediction";
+  }
+}
+
+void CrowdModel::update(CrowdObservation observation,
+                        std::size_t history_limit) {
+  observation.validate();
+  const bool changed = !observations_.current() ||
+                       *observations_.current() != observation;
+  observations_.update(std::move(observation), history_limit);
+  updateInputDiagnostics(*observations_.current());
+  if (changed)
+    recordMutation(ModelDependency::LiveCrowdObservation,
+                   "validated live social observation updated");
+}
+
+void CrowdModel::replaceCurrent(CrowdObservation observation) {
+  observation.validate();
+  const bool changed = !observations_.current() ||
+                       *observations_.current() != observation;
+  observations_.replaceCurrent(std::move(observation));
+  updateInputDiagnostics(*observations_.current());
+  if (changed)
+    recordMutation(ModelDependency::LiveCrowdObservation,
+                   "live social observation replaced");
+}
+
+void CrowdModel::clearCurrent(std::string status) {
+  const bool changed = observations_.current().has_value();
+  observations_.clearCurrent();
+  prediction_source_ = "none";
+  input_status_ = status.empty() ? "unavailable" : std::move(status);
+  formation_evidence_available_ = false;
+  formation_evidence_participated_ = false;
+  if (changed)
+    recordMutation(ModelDependency::LiveCrowdObservation,
+                   "live social observation cleared: " + input_status_);
+}
+
 void CrowdModel::setLearned(CrowdFieldSnapshot snapshot) {
   snapshot.validate();
   const bool geometry_changed = learned_.geometry != snapshot.geometry ||
@@ -155,18 +232,22 @@ void CrowdModel::setLearned(CrowdFieldSnapshot snapshot) {
   };
   const auto record = [&](ModelDependency dependency, bool changed) {
     if (!changed) return;
-    const Revision revision = ++revisions_[dependency];
-    mutation_history_.push_back(
-        {++mutation_sequence_, dependency, revision,
-         std::chrono::steady_clock::now(), "crowd field layer changed"});
+    recordMutation(dependency, "crowd field layer changed");
   };
   record(ModelDependency::CrowdDensity,
-         layerChanged([](const auto& cell) { return cell.density; }));
+         layerChanged([](const auto& cell) {
+           return std::array{cell.density, cell.visibility_exposures,
+                             cell.pedestrian_hits, cell.confidence};
+         }));
   record(ModelDependency::CrowdRisk,
-         layerChanged(
-             [](const auto& cell) { return cell.learned_encounter_risk; }));
+         layerChanged([](const auto& cell) {
+           return std::array{cell.learned_encounter_risk,
+                             cell.risk_encounters, cell.risk_experiences};
+         }));
   record(ModelDependency::CrowdFlow,
-         layerChanged([](const auto& cell) { return cell.directional_flow; }));
+         layerChanged([](const auto& cell) {
+           return std::pair{cell.directional_flow, cell.confidence};
+         }));
   learned_ = std::move(snapshot);
 }
 

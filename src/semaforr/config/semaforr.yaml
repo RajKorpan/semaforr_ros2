@@ -90,27 +90,33 @@ semaforr:
 
     social:
       enabled: true
-      observations:
-        enabled: true
       advisors:
         enabled: true
       planners:
         enabled: true
       input:
         mode: tracked
-      current_maximum_age_s: 0.75
-      prediction_maximum_age_s: 6.0
-      formation_maximum_age_s: 1.0
-      minimum_confidence: 0.25
-      minimum_formation_confidence: 0.5
-      prediction_step_s: 1.0
-      prediction_steps: 5
-      constant_velocity_fallback: true
-      history_step_s: 0.1
-      default_position_variance: 0.09
-      minimum_covariance_confidence: 0.05
-      hunav_confidence: 1.0
+        tracked_people_topic: /human_poses_3d_tracked_global
+        tracked_predictions_topic: /pedestrian_predictions_tracked
+        hunav_agents_topic: /human_states
+        hunav_predictions_topic: /pedestrian_predictions
+        formations_topic: /formation_groups
+        coordinate_frame: map
+        prediction_step_s: 1.0
+        prediction_steps: 5
+        current_maximum_age_s: 0.75
+        prediction_maximum_age_s: 6.0
+        minimum_confidence: 0.25
+        fallback_prediction: constant_velocity
+        history_step_s: 0.1
+        default_position_variance: 0.09
+        minimum_covariance_confidence: 0.05
+        hunav_confidence: 1.0
       formations:
+        enabled: true
+        maximum_age_s: 1.0
+        minimum_confidence: 0.5
+      visualizations:
         enabled: true
       learning:
         enabled: true
@@ -134,11 +140,12 @@ semaforr:
       command: cmd_vel
       navigation_state: navigation_state
       decision_records: decision_records
-      tracked_people: /human_poses_3d_tracked_global
-      tracked_predictions: /pedestrian_predictions_tracked
-      hunav_agents: /human_states
-      hunav_predictions: /pedestrian_predictions
-      formations: /formation_groups
+      crowd_density: crowd_density
+      crowd_risk: crowd_risk
+      crowd_flow: crowd_flow
+      crowd_people: crowd_people
+      crowd_predictions: crowd_predictions
+      crowd_formations: crowd_formations
 
     qos:
       sensors:

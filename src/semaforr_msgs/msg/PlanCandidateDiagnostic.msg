@@ -13,3 +13,11 @@ semaforr_msgs/ModelRevision[] dependency_revisions
 uint64 planner_configuration_revision
 string operating_mode
 bool static_map_contributed
+uint64 live_social_revision
+uint64 crowd_density_revision
+uint64 crowd_risk_revision
+uint64 crowd_flow_revision
+string social_input_source
+string social_prediction_source
+string social_input_status
+bool formation_evidence_participated

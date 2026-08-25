@@ -25,11 +25,11 @@ positions, velocities, predicted positions, and covariance.
 
 The ROS adapter validates each message before it enters the domain. It computes
 `CrowdObservation.data_age` from ROS time and filters pedestrians below
-`social.minimum_confidence`. `SocialObservationBuffer` rejects invalid frames,
+`social.input.minimum_confidence`. `SocialObservationBuffer` rejects invalid frames,
 future timestamps, invalid values, clock resets, and malformed trajectories.
 
-An observation older than `social.current_maximum_age_s` is stale. Predictions
-expire independently under `social.prediction_maximum_age_s`; missing or
+An observation older than `social.input.current_maximum_age_s` is stale. Predictions
+expire independently under `social.input.prediction_maximum_age_s`; missing or
 incomplete GST cycles use configured constant-velocity fallback. Stale, invalid, or
 missing data clears only the current crowd snapshot; bounded history remains
 available for diagnostics. Social advisors opt out and social planner costs
@@ -47,7 +47,7 @@ parts with intentionally different lifetimes:
 
 - `CrowdState observations`: the current validated observation and bounded
   history. Current positions and predictions expire with
-  `social.current_maximum_age_s`.
+`social.input.current_maximum_age_s`.
 - `CrowdFieldSnapshot learned`: persistent, map-aligned density, encounter
   risk, and eight-bin directional-flow evidence. It does not expire merely
   because the latest detector message is stale.
@@ -66,7 +66,10 @@ The configured estimator controls how evidence evolves:
 - `cusum` resets changed cells using two-sided CUSUM detection; and
 - `thompson` draws a deterministic, seed-controlled Gamma sample.
 
-Snapshots retain their raw denominators, confidence, update time, estimator,
+No callback or absent message is synthesized into an empty observation. A
+valid, timestamped empty observation is the only event that supplies negative
+crowd evidence. A snapshot revision is published only after represented cells
+meaningfully change. Snapshots retain their raw denominators, confidence, update time, estimator,
 and monotonically increasing version. `CrowdFieldSnapshot::save/load`
 provides a validated, ROS-independent persistence format.
 
@@ -93,10 +96,23 @@ grid. ROS conversion occurs once in the adapter layer.
 ## Ownership and diagnostics
 
 `CrowdFieldSnapshot` is an internal immutable SemaFORR representation. It is
-never transported through `social_context_msgs`, and the standalone crowd
-package contains no learner or duplicate field model. Social-context producers
+never transported through `social_context_msgs`; the former standalone crowd
+package has been retired. Social-context producers
 own perception; SemaFORR owns adaptation, learning, revisions, planning,
-advising, persistence, replay, and diagnostics.
+advising, persistence, replay, diagnostics, and crowd visualization.
+
+SemaFORR directly publishes learned density and risk as occupancy grids and
+flow, people, predictions, and formations as marker arrays. These are derived
+from immutable `WorldModel::crowd` snapshots; there is no intermediate crowd
+ROS transport message. Publication is controlled by
+`social.visualizations.enabled` and the `topics.crowd_*` parameters.
+
+Every decision and candidate plan records the exact live-observation, density,
+risk, and flow revisions, the tracked or HuNav provenance, GST/fallback
+prediction provenance, formation participation, and degraded/stale status.
+Replay schema 2 persists this metadata and the formation/prediction evidence.
+The Why node sees it through `semaforr_msgs/DecisionRecord` and has no direct
+dependency on either upstream social message package.
 
 The learner frame, geometry, estimator, update rate, thresholds, confidence
 scale, and random seed are configured under `social.learning.*`. The grid uses

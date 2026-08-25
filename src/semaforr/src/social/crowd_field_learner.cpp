@@ -147,6 +147,24 @@ std::optional<std::size_t> CrowdFieldLearner::directionBin(
 bool CrowdFieldLearner::observe(const domain::Pose2D& robot_pose,
                                 const domain::LaserObservation& laser,
                                 const domain::CrowdObservation& crowd) {
+  last_update_ = {};
+  last_update_.input_source = crowd.provenance;
+  last_update_.formation_count = crowd.formations.size();
+  bool gst = false;
+  bool fallback = false;
+  for (const auto& pedestrian : crowd.pedestrians) {
+    gst = gst || pedestrian.prediction_source == "gst";
+    fallback = fallback ||
+               pedestrian.prediction_source == "constant_velocity";
+  }
+  if (gst && fallback)
+    last_update_.prediction_source = "mixed";
+  else if (gst)
+    last_update_.prediction_source = "gst";
+  else if (fallback)
+    last_update_.prediction_source = "constant_velocity";
+  else
+    last_update_.prediction_source = "none";
   crowd.validate();
   if (crowd.frame_id != configuration_.geometry.frame_id) {
     throw std::invalid_argument(
@@ -154,15 +172,19 @@ bool CrowdFieldLearner::observe(const domain::Pose2D& robot_pose,
   }
   if (last_observation_) {
     if (crowd.observed_at <= *last_observation_) {
+      last_update_.status = "rejected_non_monotonic_timestamp";
       return false;
     }
     if (seconds(crowd.observed_at - *last_observation_) <
         configuration_.minimum_update_period_s) {
+      last_update_.status = "rejected_update_period";
       return false;
     }
   }
 
   const std::vector<bool> visible = visibleCells(robot_pose, laser);
+  last_update_.visible_cells = static_cast<std::size_t>(
+      std::count(visible.begin(), visible.end(), true));
   const double discount =
       configuration_.strategy == CrowdEstimatorStrategy::DiscountedCount
           ? configuration_.discount_factor
@@ -186,9 +208,11 @@ bool CrowdFieldLearner::observe(const domain::Pose2D& robot_pose,
     if (!index || !visible[*index]) continue;
     auto& cell = evidence_[*index];
     cell.pedestrian_hits += pedestrian.confidence;
+    ++last_update_.pedestrian_hits;
     sample[*index] += pedestrian.confidence;
     if (const auto direction = directionBin(pedestrian.velocity_mps)) {
       cell.directional_flow[*direction] += pedestrian.confidence;
+      ++last_update_.directional_flow_updates;
     }
   }
 
@@ -205,6 +229,7 @@ bool CrowdFieldLearner::observe(const domain::Pose2D& robot_pose,
       const double dy = pedestrian.position.y_m - robot_pose.position.y_m;
       if (std::hypot(dx, dy) < configuration_.encounter_radius_m) {
         cell.risk_encounters += pedestrian.confidence;
+        ++last_update_.encounter_hits;
       }
     }
     cell.last_updated = crowd.observed_at;
@@ -226,7 +251,17 @@ bool CrowdFieldLearner::observe(const domain::Pose2D& robot_pose,
   }
 
   last_observation_ = crowd.observed_at;
+  last_update_.accepted = true;
+  if (last_update_.visible_cells == 0U &&
+      last_update_.pedestrian_hits == 0U &&
+      last_update_.encounter_hits == 0U) {
+    last_update_.status = "accepted_no_represented_evidence";
+    return false;
+  }
   rebuild(crowd.observed_at);
+  last_update_.published = true;
+  last_update_.snapshot_version = snapshot_.version;
+  last_update_.status = "published";
   return true;
 }
 
@@ -299,6 +334,7 @@ void CrowdFieldLearner::reset() {
   snapshot_.geometry = configuration_.geometry;
   snapshot_.cells.resize(configuration_.geometry.cellCount());
   snapshot_.estimator = std::string(toString(configuration_.strategy));
+  last_update_ = {};
 }
 
 }  // namespace semaforr::social

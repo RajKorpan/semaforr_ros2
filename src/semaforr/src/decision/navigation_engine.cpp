@@ -222,11 +222,11 @@ void NavigationEngine::observe(const domain::RobotObservation& observation) {
         crowd_learning_->observe(observation.pose, observation.laser,
                                  *observation.crowd)) {
       world_.crowd.setLearned(crowd_learning_->snapshot());
-      world_.synchronizeMutationJournal();
     }
   } else {
-    world_.crowd.clearCurrent();
+    world_.crowd.clearCurrent("missing_or_stale");
   }
+  world_.synchronizeMutationJournal();
 
   const bool had_active_task = world_.mission.active().has_value();
   if (world_.mission.active() &&
@@ -342,6 +342,40 @@ void NavigationEngine::finishInitialExploration() {
 DecisionResult NavigationEngine::decide() {
   const auto decision_started = std::chrono::steady_clock::now();
   const auto finalize_measurements = [&](DecisionResult& result) {
+    result.live_social_revision = world_.crowd.revisionOf(
+        domain::ModelDependency::LiveCrowdObservation);
+    result.crowd_density_revision =
+        world_.crowd.revisionOf(domain::ModelDependency::CrowdDensity);
+    result.crowd_risk_revision =
+        world_.crowd.revisionOf(domain::ModelDependency::CrowdRisk);
+    result.crowd_flow_revision =
+        world_.crowd.revisionOf(domain::ModelDependency::CrowdFlow);
+    result.social_input_source = world_.crowd.inputSource();
+    result.social_prediction_source = world_.crowd.predictionSource();
+    result.social_input_status = world_.crowd.inputStatus();
+    result.formation_evidence_available =
+        world_.crowd.formationEvidenceAvailable();
+    result.formation_evidence_participated =
+        world_.crowd.formationEvidenceParticipated();
+    for (auto& candidate : result.planning_candidates) {
+      candidate.live_social_revision = result.live_social_revision;
+      candidate.crowd_density_revision = result.crowd_density_revision;
+      candidate.crowd_risk_revision = result.crowd_risk_revision;
+      candidate.crowd_flow_revision = result.crowd_flow_revision;
+      candidate.social_input_source = result.social_input_source;
+      candidate.social_prediction_source = result.social_prediction_source;
+      candidate.social_input_status = result.social_input_status;
+      candidate.formation_evidence_participated =
+          result.formation_evidence_participated;
+    }
+    result.source_provenance.push_back(
+        "social_input:" + result.social_input_source);
+    result.source_provenance.push_back(
+        "social_prediction:" + result.social_prediction_source);
+    result.source_provenance.push_back(
+        "social_status:" + result.social_input_status);
+    if (result.formation_evidence_participated)
+      result.source_provenance.push_back("formation_evidence_participated");
     result.decision_latency_s = std::chrono::duration<double>(
                                     std::chrono::steady_clock::now() -
                                     decision_started)

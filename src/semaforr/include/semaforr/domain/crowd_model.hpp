@@ -83,15 +83,9 @@ enum class CrowdModelStatus {
 
 class CrowdModel {
  public:
-  void update(CrowdObservation observation, std::size_t history_limit = 100U) {
-    observations_.update(std::move(observation), history_limit);
-  }
-
-  void replaceCurrent(CrowdObservation observation) {
-    observations_.replaceCurrent(std::move(observation));
-  }
-
-  void clearCurrent() noexcept { observations_.clearCurrent(); }
+  void update(CrowdObservation observation, std::size_t history_limit = 100U);
+  void replaceCurrent(CrowdObservation observation);
+  void clearCurrent(std::string status = "unavailable");
 
   const std::optional<CrowdObservation>& current() const noexcept {
     return observations_.current();
@@ -103,6 +97,20 @@ class CrowdModel {
 
   const CrowdState& observations() const noexcept { return observations_; }
   CrowdState& observations() noexcept { return observations_; }
+  const std::string& inputSource() const noexcept { return input_source_; }
+  const std::string& predictionSource() const noexcept {
+    return prediction_source_;
+  }
+  const std::string& inputStatus() const noexcept { return input_status_; }
+  bool formationEvidenceAvailable() const noexcept {
+    return formation_evidence_available_;
+  }
+  bool formationEvidenceParticipated() const noexcept {
+    return formation_evidence_participated_;
+  }
+  void setFormationEvidenceParticipated(bool value) noexcept {
+    formation_evidence_participated_ = value;
+  }
 
   bool hasValidData(std::chrono::nanoseconds maximum_age,
                     double minimum_confidence = 0.0) const noexcept {
@@ -139,11 +147,19 @@ class CrowdModel {
                           double gaussian_variance_m2 = 0.25) const noexcept;
 
  private:
+  void recordMutation(ModelDependency dependency, std::string summary);
+  void updateInputDiagnostics(const CrowdObservation& observation);
+
   CrowdState observations_;
   CrowdFieldSnapshot learned_;
   DependencyRevisions revisions_;
   Revision mutation_sequence_{0U};
   std::vector<ModelMutation> mutation_history_;
+  std::string input_source_{"none"};
+  std::string prediction_source_{"none"};
+  std::string input_status_{"unavailable"};
+  bool formation_evidence_available_{false};
+  bool formation_evidence_participated_{false};
 };
 
 }  // namespace semaforr::domain

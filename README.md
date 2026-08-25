@@ -39,7 +39,6 @@ trace is written to `baseline-results/example-simulation.json`.
 - `social_context_msgs`: canonical social observation and crowd-field messages
 - `social_context`: social observation and trajectory-prediction producers
 - `semaforr_bridge`: odometry and tracked-person adapters
-- `semaforr_crowd`: optional crowd-field diagnostics
 - `semaforr_examples`: installed retained maps and scenarios
 - `why`: unified request-driven decision and plan explanations
 

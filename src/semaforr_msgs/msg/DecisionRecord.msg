@@ -118,4 +118,13 @@ bool safety_interruption
 bool controller_failure
 bool collision
 bool near_collision
+uint64 live_social_revision
+uint64 crowd_density_revision
+uint64 crowd_risk_revision
+uint64 crowd_flow_revision
+string social_input_source
+string social_prediction_source
+string social_input_status
+bool formation_evidence_available
+bool formation_evidence_participated
 string[] source_provenance

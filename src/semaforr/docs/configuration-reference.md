@@ -102,9 +102,18 @@ exploration](high-level-exploration.md).
 
 `social.enabled: false` disables social observation subscription, learning,
 advisors, and crowd planners. The subordinate
-`social.observations.enabled`, `social.learning.enabled`,
+`social.enabled`, `social.input.mode`, `social.learning.enabled`,
 `social.advisors.enabled`, and `social.planners.enabled` switches support
 narrower ablations when the master switch is enabled.
+
+`social.input.mode` accepts `none`, `tracked`, or `hunav`. Tracked mode requires
+the tracked people and prediction topics; HuNav mode requires the agents and
+HuNav prediction topics. Formation input is an optional tracked-mode
+dependency. Current and prediction freshness are independent, and
+`fallback_prediction` accepts `constant_velocity` or `none`. Social-disabled
+and `none` configurations do not require social topics. Crowd learning requires
+an active input mode. Direct crowd visualization is controlled by
+`social.visualizations.enabled` and `topics.crowd_*`.
 
 Spatial representations are individually controlled by `features.trails`,
 `conveyors`, `regions`, `doors`, `hallways`, `barriers`, `known_grid`,

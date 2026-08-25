@@ -1,8 +1,8 @@
 # Topic and frame contract
 
-Default topic names are relative, so a namespace applies consistently. They
-are parameterized under `topics.*`; remapping is optional, not required by the
-installed example.
+Default navigation topic names are relative, so a namespace applies
+consistently. Social inputs are configured under `social.input.*`; published
+navigation and visualization products are configured under `topics.*`.
 
 ## Inputs
 
@@ -10,15 +10,16 @@ installed example.
 |---|---|---|
 | `topics.pose`: `pose` | `geometry_msgs/msg/PoseStamped` | Stamped robot pose. TF converts non-global frames to `frames.global`. |
 | `topics.scan`: `scan_raw` | `sensor_msgs/msg/LaserScan` | Range scan in `frames.scan`; NaN, infinity, and out-of-range beams are classified and ignored or integrated according to the laser contract rather than rejecting the whole scan. Its timestamp must synchronize with pose. |
-| `topics.tracked_people`: `/human_poses_3d_tracked_global` | `social_context_msgs/msg/TrackedPersonArray` | Primary current-state input when `social.input.mode=tracked`. |
-| `topics.tracked_predictions`: `/pedestrian_predictions_tracked` | `geometry_msgs/msg/PoseStamped` | GST predictions encoded by the collaborator's `<id>_pred_<step>` convention. |
-| `topics.hunav_agents`: `/human_states` | `hunav_msgs/msg/Agents` | Optional simulation current-state input when `social.input.mode=hunav`. |
-| `topics.hunav_predictions`: `/pedestrian_predictions` | `geometry_msgs/msg/PoseStamped` | HuNav-mode GST prediction stream. |
-| `topics.formations`: `/formation_groups` | `social_context_msgs/msg/FormationGroupArray` | Optional group context associated by tracked ID. |
+| `social.input.tracked_people_topic`: `/human_poses_3d_tracked_global` | `social_context_msgs/msg/TrackedPersonArray` | Primary current-state input when `social.input.mode=tracked`. |
+| `social.input.tracked_predictions_topic`: `/pedestrian_predictions_tracked` | `geometry_msgs/msg/PoseStamped` | GST predictions encoded by the collaborator's `<id>_pred_<step>` convention. |
+| `social.input.hunav_agents_topic`: `/human_states` | `hunav_msgs/msg/Agents` | Simulation current-state input when `social.input.mode=hunav`. |
+| `social.input.hunav_predictions_topic`: `/pedestrian_predictions` | `geometry_msgs/msg/PoseStamped` | HuNav-mode prediction stream. |
+| `social.input.formations_topic`: `/formation_groups` | `social_context_msgs/msg/FormationGroupArray` | Optional tracked-mode group context associated by tracked ID. |
 
-Pose and scan subscriptions always exist and use `qos.sensors.*`. The social
-subscription is constructed only when `social.enabled` and
-`social.observations.enabled` are both true. A pose/scan pair is coherent only when both are fresh
+Pose and scan subscriptions always exist and use `qos.sensors.*`. Social
+subscriptions exist only when `social.enabled=true` and `social.input.mode` is
+`tracked` or `hunav`. Mode `none` is a valid social-disabled runtime and does
+not require social topics. A pose/scan pair is coherent only when both are fresh
 and their timestamps differ by no more than
 `timing.sensor_sync_tolerance_s`. Stale or missing data changes the state to
 `WaitingForSensors` and publishes a zero command.
@@ -30,6 +31,12 @@ and their timestamps differ by no more than
 | `topics.command`: `cmd_vel` | `geometry_msgs/msg/Twist` | Current velocity command; zero on timeout, completion, shutdown, or invariant failure. |
 | `topics.navigation_state`: `navigation_state` | `semaforr_msgs/msg/NavigationState` | Node state machine and action execution status. |
 | `topics.decision_records`: `decision_records` | `semaforr_msgs/msg/DecisionRecord` | Replayable reasoning and execution trace for one stable decision ID; lifecycle updates reuse that ID. |
+| `topics.crowd_density`: `crowd_density` | `nav_msgs/msg/OccupancyGrid` | Learned density published directly from `WorldModel::crowd`. |
+| `topics.crowd_risk`: `crowd_risk` | `nav_msgs/msg/OccupancyGrid` | Learned encounter risk published directly from `WorldModel::crowd`. |
+| `topics.crowd_flow`: `crowd_flow` | `visualization_msgs/msg/MarkerArray` | Learned directional flow arrows. |
+| `topics.crowd_people`: `crowd_people` | `visualization_msgs/msg/MarkerArray` | Current validated people. |
+| `topics.crowd_predictions`: `crowd_predictions` | `visualization_msgs/msg/MarkerArray` | Current GST or fallback trajectories. |
+| `topics.crowd_formations`: `crowd_formations` | `visualization_msgs/msg/MarkerArray` | Optional accepted formation evidence. |
 
 The separately installed `why` node consumes `decision_records`, accepts
 `semaforr_msgs/msg/ExplanationQuestion` on `why_questions`, and publishes
@@ -54,6 +61,7 @@ relative topic names and may still be remapped by ROS.
 | `familiarity_grid` | `visualization_msgs/msg/Marker` | `grids.visualizations.enabled` and familiarity cells exist. |
 | `sensed_occupancy_free` | `visualization_msgs/msg/Marker` | Grid visualization is enabled and sensed-free cells exist. |
 | `sensed_occupancy_occupied` | `visualization_msgs/msg/Marker` | Grid visualization is enabled and sensed-occupied cells exist. |
+| configured crowd topics above | `OccupancyGrid` / `MarkerArray` | `social.enabled` and `social.visualizations.enabled`; publications are revision-gated. |
 
 Other learned-representation marker publishers are not part of the current
 runtime topic contract.

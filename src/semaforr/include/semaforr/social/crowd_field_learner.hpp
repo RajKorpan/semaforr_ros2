@@ -6,6 +6,7 @@
 #include <random>
 #include <semaforr/domain/crowd_model.hpp>
 #include <semaforr/domain/observation.hpp>
+#include <string>
 #include <string_view>
 #include <vector>
 
@@ -37,6 +38,20 @@ struct CrowdFieldLearnerConfiguration {
   void validate() const;
 };
 
+struct CrowdLearningUpdate {
+  bool accepted{false};
+  bool published{false};
+  std::size_t visible_cells{0U};
+  std::size_t pedestrian_hits{0U};
+  std::size_t encounter_hits{0U};
+  std::size_t directional_flow_updates{0U};
+  std::size_t formation_count{0U};
+  std::uint64_t snapshot_version{0U};
+  std::string input_source;
+  std::string prediction_source;
+  std::string status{"not_observed"};
+};
+
 class CrowdFieldLearner {
  public:
   explicit CrowdFieldLearner(CrowdFieldLearnerConfiguration configuration);
@@ -47,6 +62,9 @@ class CrowdFieldLearner {
 
   const domain::CrowdFieldSnapshot& snapshot() const noexcept {
     return snapshot_;
+  }
+  const CrowdLearningUpdate& lastUpdate() const noexcept {
+    return last_update_;
   }
 
   void restore(domain::CrowdFieldSnapshot snapshot);
@@ -78,6 +96,7 @@ class CrowdFieldLearner {
   std::mt19937 random_;
   domain::CrowdFieldSnapshot snapshot_;
   std::uint64_t version_{0U};
+  CrowdLearningUpdate last_update_;
 };
 
 }  // namespace semaforr::social

@@ -195,6 +195,14 @@ struct PlanCandidateDiagnostic {
   planning::PlanningOperatingMode operating_mode{
       planning::PlanningOperatingMode::Mapless};
   bool static_map_contributed{false};
+  domain::Revision live_social_revision{0U};
+  domain::Revision crowd_density_revision{0U};
+  domain::Revision crowd_risk_revision{0U};
+  domain::Revision crowd_flow_revision{0U};
+  std::string social_input_source{"none"};
+  std::string social_prediction_source{"none"};
+  std::string social_input_status{"unavailable"};
+  bool formation_evidence_participated{false};
 };
 
 struct DecisionResult {
@@ -266,6 +274,15 @@ struct DecisionResult {
   double action_target{0.0};
   std::string outcome_detail;
   std::vector<std::string> source_provenance;
+  domain::Revision live_social_revision{0U};
+  domain::Revision crowd_density_revision{0U};
+  domain::Revision crowd_risk_revision{0U};
+  domain::Revision crowd_flow_revision{0U};
+  std::string social_input_source{"none"};
+  std::string social_prediction_source{"none"};
+  std::string social_input_status{"unavailable"};
+  bool formation_evidence_available{false};
+  bool formation_evidence_participated{false};
 };
 
 std::string_view toString(DecisionSource source) noexcept;

@@ -124,13 +124,20 @@ ReplayDecision replayDecision(const decision::DecisionResult& result,
           revisions,
           advisorDigest(result),
           planDigest(result),
-          explanationDigest(result)};
+          explanationDigest(result),
+          result.social_input_source,
+          result.social_prediction_source,
+          result.social_input_status,
+          result.formation_evidence_available,
+          result.formation_evidence_participated};
 }
 
 RunRecorder::RunRecorder(RunMetadata metadata,
                          std::filesystem::path trace_path)
     : trace_{std::move(metadata), {}}, trace_path_(std::move(trace_path)) {
-  require(trace_.metadata.schema_version == 1U, "unsupported schema version");
+  require(trace_.metadata.schema_version == 1U ||
+              trace_.metadata.schema_version == 2U,
+          "unsupported schema version");
   require(!trace_.metadata.configuration_snapshot.empty(),
           "configuration snapshot is required");
   require(!trace_.metadata.configuration_fingerprint.empty(),
@@ -223,8 +230,13 @@ void RunRecorder::save(const RunTrace& trace,
     if (observation.crowd) {
       output << "CROWD " << std::quoted(observation.crowd->frame_id) << ' '
              << observation.crowd->observed_at.count() << ' '
-             << observation.crowd->data_age.count() << ' '
-             << observation.crowd->pedestrians.size() << '\n';
+             << observation.crowd->data_age.count();
+      if (metadata.schema_version >= 2U)
+        output << ' ' << std::quoted(observation.crowd->provenance) << ' '
+               << observation.crowd->pedestrians.size() << ' '
+               << observation.crowd->formations.size() << '\n';
+      else
+        output << ' ' << observation.crowd->pedestrians.size() << '\n';
       for (const auto& pedestrian : observation.crowd->pedestrians) {
         output << "PEDESTRIAN " << std::quoted(pedestrian.id) << ' '
                << pedestrian.position.x_m << ' ' << pedestrian.position.y_m
@@ -237,7 +249,22 @@ void RunRecorder::save(const RunTrace& trace,
           output << ' ' << prediction.position.x_m << ' '
                  << prediction.position.y_m << ' '
                  << prediction.predicted_at.count();
+        if (metadata.schema_version >= 2U)
+          output << ' ' << std::quoted(pedestrian.prediction_source) << ' '
+                 << pedestrian.formation_index.has_value() << ' '
+                 << pedestrian.formation_index.value_or(0U);
         output << '\n';
+      }
+      if (metadata.schema_version >= 2U) {
+        for (const auto& formation : observation.crowd->formations) {
+          output << "FORMATION " << std::quoted(formation.formation_type)
+                 << ' ' << formation.center.x_m << ' ' << formation.center.y_m
+                 << ' ' << formation.confidence << ' '
+                 << formation.member_ids.size();
+          for (const auto& member : formation.member_ids)
+            output << ' ' << std::quoted(member);
+          output << '\n';
+        }
       }
     } else {
       output << "NO_CROWD\n";
@@ -258,6 +285,13 @@ void RunRecorder::save(const RunTrace& trace,
     for (const auto& [dependency, revision] : expected.spatial_revisions)
       output << ' ' << static_cast<int>(dependency) << ' ' << revision;
     output << '\n';
+    if (metadata.schema_version >= 2U)
+      output << "SOCIAL_DECISION "
+             << std::quoted(expected.social_input_source) << ' '
+             << std::quoted(expected.social_prediction_source) << ' '
+             << std::quoted(expected.social_input_status) << ' '
+             << expected.formation_evidence_available << ' '
+             << expected.formation_evidence_participated << '\n';
     if (cycle.controller_outcome) {
       const auto& outcome = *cycle.controller_outcome;
       output << "OUTCOME " << outcome.decision_id << ' ' << outcome.action_id
@@ -287,7 +321,9 @@ RunTrace RunRecorder::load(const std::filesystem::path& path) {
   RunTrace trace;
   std::string tag;
   input >> tag >> trace.metadata.schema_version;
-  require(tag == "SEMAFORR_REPLAY" && trace.metadata.schema_version == 1U,
+  require(tag == "SEMAFORR_REPLAY" &&
+              (trace.metadata.schema_version == 1U ||
+               trace.metadata.schema_version == 2U),
           "unsupported or malformed header");
   input >> tag;
   require(tag == "META", "missing metadata");
@@ -340,8 +376,12 @@ RunTrace RunRecorder::load(const std::filesystem::path& path) {
       if (tag == "CROWD") {
         domain::CrowdObservation crowd;
         std::int64_t observed{}, age{};
-        std::size_t pedestrians{};
-        input >> std::quoted(crowd.frame_id) >> observed >> age >> pedestrians;
+        std::size_t pedestrians{}, formations{};
+        input >> std::quoted(crowd.frame_id) >> observed >> age;
+        if (trace.metadata.schema_version >= 2U)
+          input >> std::quoted(crowd.provenance) >> pedestrians >> formations;
+        else
+          input >> pedestrians;
         crowd.observed_at = std::chrono::nanoseconds(observed);
         crowd.data_age = std::chrono::nanoseconds(age);
         for (std::size_t i = 0; i < pedestrians; ++i) {
@@ -361,8 +401,32 @@ RunTrace RunRecorder::load(const std::filesystem::path& path) {
             prediction.predicted_at = std::chrono::nanoseconds(when);
             pedestrian.predicted_trajectory.push_back(prediction);
           }
+          if (trace.metadata.schema_version >= 2U) {
+            bool has_formation{};
+            std::size_t formation_index{};
+            input >> std::quoted(pedestrian.prediction_source) >> has_formation
+                  >> formation_index;
+            if (has_formation)
+              pedestrian.formation_index = formation_index;
+          }
           crowd.pedestrians.push_back(std::move(pedestrian));
         }
+        for (std::size_t i = 0U; i < formations; ++i) {
+          input >> tag;
+          require(tag == "FORMATION", "missing formation record");
+          domain::FormationObservation formation;
+          std::size_t members{};
+          input >> std::quoted(formation.formation_type)
+                >> formation.center.x_m >> formation.center.y_m
+                >> formation.confidence >> members;
+          for (std::size_t member = 0U; member < members; ++member) {
+            std::string id;
+            input >> std::quoted(id);
+            formation.member_ids.push_back(std::move(id));
+          }
+          crowd.formations.push_back(std::move(formation));
+        }
+        crowd.validate();
         cycle.observation.crowd = std::move(crowd);
       } else {
         require(tag == "NO_CROWD", "malformed crowd record");
@@ -392,6 +456,15 @@ RunTrace RunRecorder::load(const std::filesystem::path& path) {
             static_cast<domain::ModelDependency>(dependency)] = revision;
       }
       input >> tag;
+      if (trace.metadata.schema_version >= 2U) {
+        require(tag == "SOCIAL_DECISION", "missing social decision record");
+        input >> std::quoted(cycle.expected.social_input_source)
+              >> std::quoted(cycle.expected.social_prediction_source)
+              >> std::quoted(cycle.expected.social_input_status)
+              >> cycle.expected.formation_evidence_available
+              >> cycle.expected.formation_evidence_participated;
+        input >> tag;
+      }
       if (tag == "OUTCOME") {
         domain::ActionExecutionResult outcome;
         int status{};
@@ -523,6 +596,19 @@ ReplayReport OfflineReplay::run(const RunTrace& trace,
             actual.plan_digest);
     compare(report.differences, index, "explanations",
             expected.explanation_digest, actual.explanation_digest);
+    compare(report.differences, index, "social_input_source",
+            expected.social_input_source, actual.social_input_source);
+    compare(report.differences, index, "social_prediction_source",
+            expected.social_prediction_source,
+            actual.social_prediction_source);
+    compare(report.differences, index, "social_input_status",
+            expected.social_input_status, actual.social_input_status);
+    compare(report.differences, index, "formation_evidence_available",
+            std::to_string(expected.formation_evidence_available),
+            std::to_string(actual.formation_evidence_available));
+    compare(report.differences, index, "formation_evidence_participated",
+            std::to_string(expected.formation_evidence_participated),
+            std::to_string(actual.formation_evidence_participated));
     preceding_outcome = trace.cycles[index].controller_outcome;
   }
   report.reproduced = report.differences.empty();

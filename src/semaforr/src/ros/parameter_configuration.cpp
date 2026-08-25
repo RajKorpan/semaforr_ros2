@@ -145,7 +145,6 @@ void declareConfigurationParameters(rclcpp::Node& node) {
   node.declare_parameter("tiers.tier2.maximum_planning_attempts_per_task", 3);
   node.declare_parameter("tiers.tier2.tie_policy", std::string{"profile"});
   node.declare_parameter("social.enabled", true);
-  node.declare_parameter("social.observations.enabled", true);
   node.declare_parameter("social.advisors.enabled", true);
   node.declare_parameter("social.planners.enabled", true);
   node.declare_parameter("safety.command_envelope.enabled", true);
@@ -687,13 +686,23 @@ config::Configuration configurationFromParameters(rclcpp::Node& node) {
   configuration.experiment.social.enabled =
       configuration.experiment.social_enabled;
   configuration.experiment.social.observations =
-      node.get_parameter("social.observations.enabled").as_bool();
+      configuration.experiment.social.enabled &&
+      node.get_parameter("social.input.mode").as_string() != "none";
   configuration.experiment.social.learning =
       node.get_parameter("social.learning.enabled").as_bool();
   configuration.experiment.social.advisors =
       node.get_parameter("social.advisors.enabled").as_bool();
   configuration.experiment.social.planners =
       node.get_parameter("social.planners.enabled").as_bool();
+  if (!configuration.experiment.social.observations) {
+    // `none` is an operational mode, not a startup error. Learning cannot
+    // consume absent observations, so make the effective manifest truthful
+    // and let the ordinary master-switch expansion disable its consumers.
+    configuration.experiment.social.enabled = false;
+    configuration.experiment.social_enabled = false;
+    configuration.experiment.social.learning = false;
+    configuration.navigation.crowd_learning.enabled = false;
+  }
   configuration.experiment.safety_envelope.enabled =
       node.get_parameter("safety.command_envelope.enabled").as_bool();
   configuration.experiment.safety_envelope.sensor_freshness_timeout_s =
@@ -703,7 +712,6 @@ config::Configuration configurationFromParameters(rclcpp::Node& node) {
     configuration.experiment.social.learning = false;
     configuration.experiment.social.advisors = false;
     configuration.experiment.social.planners = false;
-    configuration.navigation.crowd_learning.enabled = false;
   }
   config::applyAblationProfile(configuration);
   config::validateConfiguration(configuration);

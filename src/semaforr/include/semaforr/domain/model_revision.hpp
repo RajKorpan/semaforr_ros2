@@ -28,6 +28,7 @@ enum class ModelDependency {
   Highways,
   HighwayGraph,
   Circumstances,
+  LiveCrowdObservation,
   CrowdDensity,
   CrowdRisk,
   CrowdFlow,

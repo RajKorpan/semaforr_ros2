@@ -726,7 +726,8 @@ decision::DecisionResult NavigationEngineAdapter::decide() {
   if (impl_->recorder_) {
     auto revisions = impl_->world_.spatial.revisions;
     for (const auto dependency :
-         {domain::ModelDependency::CrowdDensity,
+         {domain::ModelDependency::LiveCrowdObservation,
+          domain::ModelDependency::CrowdDensity,
           domain::ModelDependency::CrowdRisk,
           domain::ModelDependency::CrowdFlow})
       revisions[dependency] = impl_->world_.crowd.revisionOf(dependency);

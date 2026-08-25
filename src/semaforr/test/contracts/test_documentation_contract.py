@@ -82,15 +82,22 @@ def test_documented_topics_match_constructed_publishers_and_subscriptions():
     visualization = read("src/ros/visualization_publisher.cpp")
     topics = read("docs/topics-and-frames.md")
 
-    topic_parameters = set(
-        re.findall(r'declare_parameter\("(topics\.[a-z_]+)"', node)
-    )
+    topic_parameters = set(re.findall(
+        r'declare_parameter(?:<[^>]+>)?\("('
+        r'(?:topics\.[a-z_]+|social\.input\.[a-z_]+_topic))"',
+        node,
+    ))
     assert topic_parameters == {
         "topics.pose", "topics.scan", "topics.command",
         "topics.navigation_state", "topics.decision_records",
-        "topics.tracked_people", "topics.tracked_predictions",
-        "topics.hunav_agents", "topics.hunav_predictions",
-        "topics.formations",
+        "social.input.tracked_people_topic",
+        "social.input.tracked_predictions_topic",
+        "social.input.hunav_agents_topic",
+        "social.input.hunav_predictions_topic",
+        "social.input.formations_topic",
+        "topics.crowd_density", "topics.crowd_risk", "topics.crowd_flow",
+        "topics.crowd_people", "topics.crowd_predictions",
+        "topics.crowd_formations",
     }
     for parameter in topic_parameters:
         assert f"`{parameter}`" in topics

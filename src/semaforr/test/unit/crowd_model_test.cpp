@@ -133,6 +133,58 @@ TEST(CrowdModel, SerializesAndRemainsUsefulWithoutLivePeople) {
             0.0);
 }
 
+TEST(CrowdModel, TracksMeaningfulLiveMutationsAndInputDiagnostics) {
+  auto observation = crowd(1s, true);
+  observation.provenance = "social_context_tracked";
+  observation.pedestrians.front().prediction_source = "gst";
+  observation.pedestrians.front().predicted_trajectory = {{{3.0, 1.5}, 2s}};
+  semaforr::domain::FormationObservation formation;
+  formation.member_ids = {"person-1"};
+  formation.formation_type = "walking_side_by_side";
+  formation.center = {2.2, 1.5};
+  formation.confidence = 0.9;
+  observation.formations.push_back(formation);
+  observation.pedestrians.front().formation_index = 0U;
+  observation.validate();
+
+  semaforr::domain::CrowdModel model;
+  model.update(observation);
+  EXPECT_EQ(model.revisionOf(
+                semaforr::domain::ModelDependency::LiveCrowdObservation),
+            1U);
+  EXPECT_EQ(model.inputSource(), "social_context_tracked");
+  EXPECT_EQ(model.predictionSource(), "gst");
+  EXPECT_EQ(model.inputStatus(), "ready");
+  EXPECT_TRUE(model.formationEvidenceAvailable());
+
+  model.update(observation);
+  EXPECT_EQ(model.revisionOf(
+                semaforr::domain::ModelDependency::LiveCrowdObservation),
+            1U);
+  model.clearCurrent("missing_or_stale");
+  EXPECT_EQ(model.revisionOf(
+                semaforr::domain::ModelDependency::LiveCrowdObservation),
+            2U);
+  EXPECT_EQ(model.inputStatus(), "missing_or_stale");
+  model.clearCurrent("missing_or_stale");
+  EXPECT_EQ(model.revisionOf(
+                semaforr::domain::ModelDependency::LiveCrowdObservation),
+            2U);
+}
+
+TEST(CrowdFieldLearner, DoesNotPublishWithoutRepresentedEvidence) {
+  semaforr::social::CrowdFieldLearner learner(configuration());
+  const auto outside = crowd(1s, true);
+  auto no_view = laser();
+  no_view.ranges_m = {0.0};
+  EXPECT_FALSE(learner.observe(
+      {{20.0, 20.0}, semaforr::domain::Angle::zero()}, no_view, outside));
+  EXPECT_TRUE(learner.lastUpdate().accepted);
+  EXPECT_FALSE(learner.lastUpdate().published);
+  EXPECT_EQ(learner.lastUpdate().snapshot_version, 0U);
+  EXPECT_FALSE(learner.snapshot().available());
+}
+
 TEST(CrowdModel, CanonicalPredictionsProduceDeterministicCollisionRisk) {
   auto observation = crowd(1s, true);
   observation.pedestrians.front().predicted_trajectory = {{{4.0, 4.0}, 2s},

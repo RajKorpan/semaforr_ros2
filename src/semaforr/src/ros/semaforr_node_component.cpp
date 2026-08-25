@@ -87,14 +87,24 @@ void declareRuntimeParameters(rclcpp::Node& node) {
                          std::string{"navigation_state"});
   node.declare_parameter("topics.decision_records",
                          std::string{"decision_records"});
-  node.declare_parameter("topics.tracked_people",
+  node.declare_parameter("topics.crowd_density", std::string{"crowd_density"});
+  node.declare_parameter("topics.crowd_risk", std::string{"crowd_risk"});
+  node.declare_parameter("topics.crowd_flow", std::string{"crowd_flow"});
+  node.declare_parameter("topics.crowd_people", std::string{"crowd_people"});
+  node.declare_parameter("topics.crowd_predictions",
+                         std::string{"crowd_predictions"});
+  node.declare_parameter("topics.crowd_formations",
+                         std::string{"crowd_formations"});
+  node.declare_parameter("social.input.tracked_people_topic",
                          std::string{"/human_poses_3d_tracked_global"});
-  node.declare_parameter("topics.tracked_predictions",
+  node.declare_parameter("social.input.tracked_predictions_topic",
                          std::string{"/pedestrian_predictions_tracked"});
-  node.declare_parameter("topics.hunav_agents", std::string{"/human_states"});
-  node.declare_parameter("topics.hunav_predictions",
+  node.declare_parameter("social.input.hunav_agents_topic",
+                         std::string{"/human_states"});
+  node.declare_parameter("social.input.hunav_predictions_topic",
                          std::string{"/pedestrian_predictions"});
-  node.declare_parameter("topics.formations", std::string{"/formation_groups"});
+  node.declare_parameter("social.input.formations_topic",
+                         std::string{"/formation_groups"});
 
   node.declare_parameter("qos.sensors.depth", 10);
   node.declare_parameter("qos.sensors.reliability", std::string{"reliable"});
@@ -111,19 +121,22 @@ void declareRuntimeParameters(rclcpp::Node& node) {
   node.declare_parameter("timing.sensor_timeout_s", 0.5);
   node.declare_parameter("timing.sensor_sync_tolerance_s", 0.1);
   node.declare_parameter("social.input.mode", std::string{"tracked"});
-  node.declare_parameter("social.current_maximum_age_s", 0.75);
-  node.declare_parameter("social.prediction_maximum_age_s", 6.0);
-  node.declare_parameter("social.formation_maximum_age_s", 1.0);
-  node.declare_parameter("social.minimum_confidence", 0.25);
-  node.declare_parameter("social.minimum_formation_confidence", 0.5);
-  node.declare_parameter("social.prediction_step_s", 1.0);
-  node.declare_parameter("social.prediction_steps", 5);
-  node.declare_parameter("social.constant_velocity_fallback", true);
-  node.declare_parameter("social.history_step_s", 0.1);
-  node.declare_parameter("social.default_position_variance", 0.09);
-  node.declare_parameter("social.minimum_covariance_confidence", 0.05);
-  node.declare_parameter("social.hunav_confidence", 1.0);
+  node.declare_parameter("social.input.coordinate_frame", std::string{"map"});
+  node.declare_parameter("social.input.current_maximum_age_s", 0.75);
+  node.declare_parameter("social.input.prediction_maximum_age_s", 6.0);
+  node.declare_parameter("social.input.minimum_confidence", 0.25);
+  node.declare_parameter("social.input.prediction_step_s", 1.0);
+  node.declare_parameter("social.input.prediction_steps", 5);
+  node.declare_parameter("social.input.fallback_prediction",
+                         std::string{"constant_velocity"});
+  node.declare_parameter("social.input.history_step_s", 0.1);
+  node.declare_parameter("social.input.default_position_variance", 0.09);
+  node.declare_parameter("social.input.minimum_covariance_confidence", 0.05);
+  node.declare_parameter("social.input.hunav_confidence", 1.0);
   node.declare_parameter("social.formations.enabled", true);
+  node.declare_parameter("social.formations.maximum_age_s", 1.0);
+  node.declare_parameter("social.formations.minimum_confidence", 0.5);
+  node.declare_parameter("social.visualizations.enabled", true);
   node.declare_parameter("social.learning.enabled", true);
   node.declare_parameter("social.learning.estimator",
                          std::string{"count_exposure"});
@@ -200,67 +213,102 @@ RuntimeConfiguration readRuntimeConfiguration(rclcpp::Node& node) {
   configuration.decision_topic =
       requireNonEmpty(node.get_parameter("topics.decision_records").as_string(),
                       "topics.decision_records");
-  configuration.tracked_people_topic = requireNonEmpty(
-      node.get_parameter("topics.tracked_people").as_string(),
-      "topics.tracked_people");
-  configuration.tracked_predictions_topic = requireNonEmpty(
-      node.get_parameter("topics.tracked_predictions").as_string(),
-      "topics.tracked_predictions");
-  configuration.hunav_agents_topic = requireNonEmpty(
-      node.get_parameter("topics.hunav_agents").as_string(),
-      "topics.hunav_agents");
-  configuration.hunav_predictions_topic = requireNonEmpty(
-      node.get_parameter("topics.hunav_predictions").as_string(),
-      "topics.hunav_predictions");
-  configuration.formations_topic = requireNonEmpty(
-      node.get_parameter("topics.formations").as_string(),
-      "topics.formations");
+  configuration.tracked_people_topic =
+      node.get_parameter("social.input.tracked_people_topic").as_string();
+  configuration.tracked_predictions_topic =
+      node.get_parameter("social.input.tracked_predictions_topic").as_string();
+  configuration.hunav_agents_topic =
+      node.get_parameter("social.input.hunav_agents_topic").as_string();
+  configuration.hunav_predictions_topic =
+      node.get_parameter("social.input.hunav_predictions_topic").as_string();
+  configuration.formations_topic =
+      node.get_parameter("social.input.formations_topic").as_string();
   configuration.sensor_qos = readQos(node, "qos.sensors");
   configuration.command_qos = readQos(node, "qos.command");
   configuration.sensors.pose_frame = requireNonEmpty(
       node.get_parameter("frames.global").as_string(), "frames.global");
   configuration.sensors.scan_frame = requireNonEmpty(
       node.get_parameter("frames.scan").as_string(), "frames.scan");
-  configuration.social.frame = configuration.sensors.pose_frame;
+  configuration.social.frame =
+      node.get_parameter("social.input.coordinate_frame").as_string();
   configuration.social.input_mode = socialInputModeFromString(
       node.get_parameter("social.input.mode").as_string());
   configuration.social_observations_enabled =
       node.get_parameter("social.enabled").as_bool() &&
-      node.get_parameter("social.observations.enabled").as_bool() &&
       configuration.social.input_mode != SocialInputMode::None;
   configuration.formations_enabled =
       configuration.social_observations_enabled &&
       configuration.social.input_mode == SocialInputMode::Tracked &&
       node.get_parameter("social.formations.enabled").as_bool();
-  configuration.social.current_maximum_age_s =
-      node.get_parameter("social.current_maximum_age_s").as_double();
-  configuration.social.prediction_maximum_age_s =
-      node.get_parameter("social.prediction_maximum_age_s").as_double();
+  if (configuration.social.frame.empty()) {
+    if (configuration.social_observations_enabled)
+      throw std::runtime_error(
+          "social.input.coordinate_frame must not be empty for an active "
+          "social input mode");
+    configuration.social.frame = configuration.sensors.pose_frame;
+  }
+  if (configuration.social_observations_enabled) {
+    if (configuration.social.input_mode == SocialInputMode::Tracked) {
+      configuration.tracked_people_topic = requireNonEmpty(
+          configuration.tracked_people_topic,
+          "social.input.tracked_people_topic");
+      configuration.tracked_predictions_topic = requireNonEmpty(
+          configuration.tracked_predictions_topic,
+          "social.input.tracked_predictions_topic");
+      if (configuration.formations_enabled)
+        configuration.formations_topic = requireNonEmpty(
+            configuration.formations_topic,
+            "social.input.formations_topic");
+    } else {
+      configuration.hunav_agents_topic = requireNonEmpty(
+          configuration.hunav_agents_topic,
+          "social.input.hunav_agents_topic");
+      configuration.hunav_predictions_topic = requireNonEmpty(
+          configuration.hunav_predictions_topic,
+          "social.input.hunav_predictions_topic");
+    }
+  }
+  configuration.social.current_maximum_age_s = node
+      .get_parameter("social.input.current_maximum_age_s")
+      .as_double();
+  configuration.social.prediction_maximum_age_s = node
+      .get_parameter("social.input.prediction_maximum_age_s")
+      .as_double();
   configuration.social.formation_maximum_age_s =
-      node.get_parameter("social.formation_maximum_age_s").as_double();
+      node.get_parameter("social.formations.maximum_age_s").as_double();
   configuration.social.minimum_confidence =
-      node.get_parameter("social.minimum_confidence").as_double();
+      node.get_parameter("social.input.minimum_confidence").as_double();
   configuration.social.minimum_formation_confidence =
-      node.get_parameter("social.minimum_formation_confidence").as_double();
+      node.get_parameter("social.formations.minimum_confidence").as_double();
   configuration.social.prediction_step_s =
-      node.get_parameter("social.prediction_step_s").as_double();
+      node.get_parameter("social.input.prediction_step_s").as_double();
   const auto prediction_steps =
-      node.get_parameter("social.prediction_steps").as_int();
+      node.get_parameter("social.input.prediction_steps").as_int();
   if (prediction_steps <= 0) {
-    throw std::runtime_error("social.prediction_steps must be positive");
+    throw std::runtime_error("social.input.prediction_steps must be positive");
   }
   configuration.social.prediction_steps =
       static_cast<std::size_t>(prediction_steps);
-  configuration.social.constant_velocity_fallback =
-      node.get_parameter("social.constant_velocity_fallback").as_bool();
+  const auto fallback =
+      node.get_parameter("social.input.fallback_prediction").as_string();
+  if (fallback == "constant_velocity") {
+    configuration.social.constant_velocity_fallback = true;
+  } else if (fallback == "none") {
+    configuration.social.constant_velocity_fallback = false;
+  } else {
+    throw std::runtime_error(
+        "social.input.fallback_prediction must be 'constant_velocity' or "
+        "'none'");
+  }
   configuration.social.adapter.history_step_s =
-      node.get_parameter("social.history_step_s").as_double();
+      node.get_parameter("social.input.history_step_s").as_double();
   configuration.social.adapter.default_position_variance =
-      node.get_parameter("social.default_position_variance").as_double();
+      node.get_parameter("social.input.default_position_variance").as_double();
   configuration.social.adapter.minimum_covariance_confidence =
-      node.get_parameter("social.minimum_covariance_confidence").as_double();
+      node.get_parameter("social.input.minimum_covariance_confidence")
+          .as_double();
   configuration.social.adapter.hunav_confidence =
-      node.get_parameter("social.hunav_confidence").as_double();
+      node.get_parameter("social.input.hunav_confidence").as_double();
   configuration.transform_timeout_s =
       node.get_parameter("frames.transform_timeout_s").as_double();
   configuration.control_rate_hz =
@@ -502,6 +550,19 @@ class SemaFORRNode::Impl {
 
     config::Configuration navigation_configuration =
         configurationFromParameters(node_);
+    if (navigation_configuration.navigation.crowd_learning.enabled &&
+        !runtime_.social_observations_enabled) {
+      throw std::runtime_error(
+          "social.learning.enabled requires social.enabled=true and "
+          "social.input.mode set to 'tracked' or 'hunav'");
+    }
+    if (navigation_configuration.navigation.crowd_learning.enabled &&
+        runtime_.social.frame != runtime_.sensors.pose_frame) {
+      throw std::runtime_error(
+          "social.input.coordinate_frame must equal frames.global while "
+          "social learning is enabled so robot, laser, and people evidence "
+          "share one frame");
+    }
     navigation_engine_ = std::make_unique<NavigationEngineAdapter>(
         std::move(navigation_configuration));
     for (const auto& diagnostic : navigation_engine_->startupDiagnostics())

@@ -2,6 +2,7 @@
 #include <cstdint>
 #include <geometry_msgs/msg/point_stamped.hpp>
 #include <geometry_msgs/msg/pose_stamped.hpp>
+#include <nav_msgs/msg/occupancy_grid.hpp>
 #include <nav_msgs/msg/path.hpp>
 #include <optional>
 #include <rclcpp/rclcpp.hpp>
@@ -11,6 +12,7 @@
 #include <type_traits>
 #include <utility>
 #include <visualization_msgs/msg/marker.hpp>
+#include <visualization_msgs/msg/marker_array.hpp>
 
 namespace semaforr::ros {
 namespace {
@@ -447,6 +449,15 @@ semaforr_msgs::msg::DecisionRecord toMessage(
     diagnostic.operating_mode =
         std::string(planning::toString(candidate.operating_mode));
     diagnostic.static_map_contributed = candidate.static_map_contributed;
+    diagnostic.live_social_revision = candidate.live_social_revision;
+    diagnostic.crowd_density_revision = candidate.crowd_density_revision;
+    diagnostic.crowd_risk_revision = candidate.crowd_risk_revision;
+    diagnostic.crowd_flow_revision = candidate.crowd_flow_revision;
+    diagnostic.social_input_source = candidate.social_input_source;
+    diagnostic.social_prediction_source = candidate.social_prediction_source;
+    diagnostic.social_input_status = candidate.social_input_status;
+    diagnostic.formation_evidence_participated =
+        candidate.formation_evidence_participated;
     result.planning_candidates.push_back(std::move(diagnostic));
   }
   result.planning_tie_candidates = source.planning_tie_candidates;
@@ -480,6 +491,17 @@ semaforr_msgs::msg::DecisionRecord toMessage(
     result.collision = source.execution_result->collision;
     result.near_collision = source.execution_result->near_collision;
   }
+  result.live_social_revision = source.live_social_revision;
+  result.crowd_density_revision = source.crowd_density_revision;
+  result.crowd_risk_revision = source.crowd_risk_revision;
+  result.crowd_flow_revision = source.crowd_flow_revision;
+  result.social_input_source = source.social_input_source;
+  result.social_prediction_source = source.social_prediction_source;
+  result.social_input_status = source.social_input_status;
+  result.formation_evidence_available =
+      source.formation_evidence_available;
+  result.formation_evidence_participated =
+      source.formation_evidence_participated;
   if (!source.source_provenance.empty()) {
     result.source_provenance = source.source_provenance;
   } else if (source.predicted_actions.empty()) {
@@ -532,10 +554,37 @@ class VisualizationPublisher::Impl {
             node.create_publisher<visualization_msgs::msg::Marker>(
                 "static_map_occupancy",
                 rclcpp::QoS(1).transient_local().reliable())),
+        crowd_density_publisher_(
+            node.create_publisher<nav_msgs::msg::OccupancyGrid>(
+                node.get_parameter("topics.crowd_density").as_string(),
+                rclcpp::QoS(1).transient_local().reliable())),
+        crowd_risk_publisher_(
+            node.create_publisher<nav_msgs::msg::OccupancyGrid>(
+                node.get_parameter("topics.crowd_risk").as_string(),
+                rclcpp::QoS(1).transient_local().reliable())),
+        crowd_flow_publisher_(
+            node.create_publisher<visualization_msgs::msg::MarkerArray>(
+                node.get_parameter("topics.crowd_flow").as_string(),
+                rclcpp::QoS(1).transient_local().reliable())),
+        crowd_people_publisher_(
+            node.create_publisher<visualization_msgs::msg::MarkerArray>(
+                node.get_parameter("topics.crowd_people").as_string(),
+                rclcpp::QoS(1).transient_local().reliable())),
+        crowd_predictions_publisher_(
+            node.create_publisher<visualization_msgs::msg::MarkerArray>(
+                node.get_parameter("topics.crowd_predictions").as_string(),
+                rclcpp::QoS(1).transient_local().reliable())),
+        crowd_formations_publisher_(
+            node.create_publisher<visualization_msgs::msg::MarkerArray>(
+                node.get_parameter("topics.crowd_formations").as_string(),
+                rclcpp::QoS(1).transient_local().reliable())),
         map_visualization_enabled_(
             node.get_parameter("map.visualizations.enabled").as_bool()),
         grid_visualization_enabled_(
             node.get_parameter("grids.visualizations.enabled").as_bool()),
+        crowd_visualization_enabled_(
+            node.get_parameter("social.enabled").as_bool() &&
+            node.get_parameter("social.visualizations.enabled").as_bool()),
         pose_publisher_(node.create_publisher<geometry_msgs::msg::PoseStamped>(
             "decision_pose", rclcpp::QoS(10).reliable())) {}
 
@@ -629,6 +678,7 @@ class VisualizationPublisher::Impl {
     }
 
     if (grid_visualization_enabled_) publishGridLayers(pose.header);
+    if (crowd_visualization_enabled_) publishCrowdLayers(pose.header);
 
     if (world_.mission.active()) {
       geometry_msgs::msg::PointStamped target;
@@ -756,6 +806,182 @@ class VisualizationPublisher::Impl {
     }
   }
 
+  nav_msgs::msg::OccupancyGrid crowdGrid(
+      const std_msgs::msg::Header& header,
+      const domain::CrowdFieldSnapshot& snapshot, bool risk) const {
+    nav_msgs::msg::OccupancyGrid result;
+    result.header = header;
+    result.info.map_load_time = header.stamp;
+    result.info.resolution =
+        static_cast<float>(snapshot.geometry.resolution_m);
+    result.info.width = static_cast<std::uint32_t>(snapshot.geometry.columns);
+    result.info.height = static_cast<std::uint32_t>(snapshot.geometry.rows);
+    result.info.origin.position.x = snapshot.geometry.origin.x_m;
+    result.info.origin.position.y = snapshot.geometry.origin.y_m;
+    result.info.origin.orientation.w = 1.0;
+    result.data.assign(snapshot.cells.size(), -1);
+    for (std::size_t index = 0U; index < snapshot.cells.size(); ++index) {
+      const auto& cell = snapshot.cells[index];
+      if (!cell.hasEvidence()) continue;
+      const double value =
+          risk ? cell.learned_encounter_risk : cell.density;
+      result.data[index] = static_cast<std::int8_t>(
+          std::lround(std::clamp(value, 0.0, 1.0) * 100.0));
+    }
+    return result;
+  }
+
+  visualization_msgs::msg::Marker deleteAll(
+      const std_msgs::msg::Header& header, const std::string& name) const {
+    visualization_msgs::msg::Marker marker;
+    marker.header = header;
+    marker.ns = name;
+    marker.action = visualization_msgs::msg::Marker::DELETEALL;
+    return marker;
+  }
+
+  void publishLearnedCrowd(const std_msgs::msg::Header& header) {
+    const auto& field = world_.crowd.learned();
+    const auto density_revision =
+        world_.crowd.revisionOf(domain::ModelDependency::CrowdDensity);
+    const auto risk_revision =
+        world_.crowd.revisionOf(domain::ModelDependency::CrowdRisk);
+    const auto flow_revision =
+        world_.crowd.revisionOf(domain::ModelDependency::CrowdFlow);
+    if (field.geometry.valid() && density_revision != last_density_revision_) {
+      crowd_density_publisher_->publish(crowdGrid(header, field, false));
+      last_density_revision_ = density_revision;
+    }
+    if (field.geometry.valid() && risk_revision != last_risk_revision_) {
+      crowd_risk_publisher_->publish(crowdGrid(header, field, true));
+      last_risk_revision_ = risk_revision;
+    }
+    if (!field.geometry.valid() || flow_revision == last_flow_revision_) return;
+    visualization_msgs::msg::MarkerArray markers;
+    markers.markers.push_back(deleteAll(header, "crowd_flow"));
+    int id = 0;
+    for (std::size_t index = 0U; index < field.cells.size(); ++index) {
+      const auto& cell = field.cells[index];
+      const auto strongest = std::max_element(cell.directional_flow.begin(),
+                                              cell.directional_flow.end());
+      if (strongest == cell.directional_flow.end() || *strongest <= 0.0)
+        continue;
+      const auto center = field.geometry.center(index);
+      const double angle = domain::crowdFlowDirectionAngle(
+          static_cast<domain::CrowdFlowDirection>(
+              std::distance(cell.directional_flow.begin(), strongest)));
+      const double length = field.geometry.resolution_m *
+                            std::clamp(*strongest, 0.2, 1.0);
+      visualization_msgs::msg::Marker marker;
+      marker.header = header;
+      marker.ns = "crowd_flow";
+      marker.id = id++;
+      marker.type = visualization_msgs::msg::Marker::ARROW;
+      marker.action = visualization_msgs::msg::Marker::ADD;
+      marker.pose.orientation.w = 1.0;
+      marker.scale.x = 0.05;
+      marker.scale.y = 0.10;
+      marker.scale.z = 0.10;
+      marker.color.r = 0.1F;
+      marker.color.g = 0.75F;
+      marker.color.b = 1.0F;
+      marker.color.a = 0.9F;
+      geometry_msgs::msg::Point start;
+      start.x = center.x_m;
+      start.y = center.y_m;
+      geometry_msgs::msg::Point end = start;
+      end.x += length * std::cos(angle);
+      end.y += length * std::sin(angle);
+      marker.points = {start, end};
+      markers.markers.push_back(std::move(marker));
+    }
+    crowd_flow_publisher_->publish(markers);
+    last_flow_revision_ = flow_revision;
+  }
+
+  void publishLiveCrowd(const std_msgs::msg::Header& header) {
+    const auto revision = world_.crowd.revisionOf(
+        domain::ModelDependency::LiveCrowdObservation);
+    if (revision == last_live_crowd_revision_) return;
+    visualization_msgs::msg::MarkerArray people;
+    visualization_msgs::msg::MarkerArray predictions;
+    visualization_msgs::msg::MarkerArray formations;
+    people.markers.push_back(deleteAll(header, "crowd_people"));
+    predictions.markers.push_back(deleteAll(header, "crowd_predictions"));
+    formations.markers.push_back(deleteAll(header, "crowd_formations"));
+    if (world_.crowd.current()) {
+      int person_id = 0;
+      int prediction_id = 0;
+      for (const auto& pedestrian : world_.crowd.current()->pedestrians) {
+        visualization_msgs::msg::Marker person;
+        person.header = header;
+        person.ns = "crowd_people";
+        person.id = person_id++;
+        person.type = visualization_msgs::msg::Marker::SPHERE;
+        person.action = visualization_msgs::msg::Marker::ADD;
+        person.pose.position.x = pedestrian.position.x_m;
+        person.pose.position.y = pedestrian.position.y_m;
+        person.pose.orientation.w = 1.0;
+        person.scale.x = person.scale.y = person.scale.z = 0.35;
+        person.color.r = 1.0F;
+        person.color.g = 0.55F;
+        person.color.a = static_cast<float>(pedestrian.confidence);
+        people.markers.push_back(std::move(person));
+
+        visualization_msgs::msg::Marker path;
+        path.header = header;
+        path.ns = "crowd_predictions";
+        path.id = prediction_id++;
+        path.type = visualization_msgs::msg::Marker::LINE_STRIP;
+        path.action = visualization_msgs::msg::Marker::ADD;
+        path.pose.orientation.w = 1.0;
+        path.scale.x = 0.05;
+        path.color.r = pedestrian.prediction_source == "gst" ? 0.2F : 1.0F;
+        path.color.g = pedestrian.prediction_source == "gst" ? 0.9F : 0.75F;
+        path.color.b = 0.2F;
+        path.color.a = 0.9F;
+        geometry_msgs::msg::Point current;
+        current.x = pedestrian.position.x_m;
+        current.y = pedestrian.position.y_m;
+        path.points.push_back(current);
+        for (const auto& prediction : pedestrian.predicted_trajectory) {
+          geometry_msgs::msg::Point point;
+          point.x = prediction.position.x_m;
+          point.y = prediction.position.y_m;
+          path.points.push_back(point);
+        }
+        predictions.markers.push_back(std::move(path));
+      }
+      int formation_id = 0;
+      for (const auto& formation : world_.crowd.current()->formations) {
+        visualization_msgs::msg::Marker marker;
+        marker.header = header;
+        marker.ns = "crowd_formations";
+        marker.id = formation_id++;
+        marker.type = visualization_msgs::msg::Marker::CYLINDER;
+        marker.action = visualization_msgs::msg::Marker::ADD;
+        marker.pose.position.x = formation.center.x_m;
+        marker.pose.position.y = formation.center.y_m;
+        marker.pose.orientation.w = 1.0;
+        marker.scale.x = marker.scale.y = 0.5;
+        marker.scale.z = 0.05;
+        marker.color.r = 0.65F;
+        marker.color.b = 1.0F;
+        marker.color.a = static_cast<float>(formation.confidence);
+        formations.markers.push_back(std::move(marker));
+      }
+    }
+    crowd_people_publisher_->publish(people);
+    crowd_predictions_publisher_->publish(predictions);
+    crowd_formations_publisher_->publish(formations);
+    last_live_crowd_revision_ = revision;
+  }
+
+  void publishCrowdLayers(const std_msgs::msg::Header& header) {
+    publishLearnedCrowd(header);
+    publishLiveCrowd(header);
+  }
+
   rclcpp::Node& node_;
   const domain::WorldModel& world_;
   std::string frame_id_;
@@ -776,12 +1002,29 @@ class VisualizationPublisher::Impl {
       sensed_occupied_publisher_;
   rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr
       static_occupancy_publisher_;
+  rclcpp::Publisher<nav_msgs::msg::OccupancyGrid>::SharedPtr
+      crowd_density_publisher_;
+  rclcpp::Publisher<nav_msgs::msg::OccupancyGrid>::SharedPtr
+      crowd_risk_publisher_;
+  rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr
+      crowd_flow_publisher_;
+  rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr
+      crowd_people_publisher_;
+  rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr
+      crowd_predictions_publisher_;
+  rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr
+      crowd_formations_publisher_;
   bool map_visualization_enabled_ = false;
   bool grid_visualization_enabled_ = false;
+  bool crowd_visualization_enabled_ = false;
   bool static_map_published_ = false;
   bool static_occupancy_published_ = false;
   std::size_t last_familiarity_revision_ = 0U;
   std::size_t last_sensed_revision_ = 0U;
+  domain::Revision last_live_crowd_revision_ = 0U;
+  domain::Revision last_density_revision_ = 0U;
+  domain::Revision last_risk_revision_ = 0U;
+  domain::Revision last_flow_revision_ = 0U;
   rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr pose_publisher_;
   std::optional<std::uint64_t> last_task_index_;
 };

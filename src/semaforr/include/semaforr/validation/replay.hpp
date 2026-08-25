@@ -24,7 +24,7 @@ struct RandomSeeds {
 };
 
 struct RunMetadata {
-  std::uint32_t schema_version{1U};
+  std::uint32_t schema_version{2U};
   std::string configuration_snapshot;
   std::string configuration_fingerprint;
   std::string behavior_mode;
@@ -52,6 +52,11 @@ struct ReplayDecision {
   std::string advisor_scores_digest;
   std::string plan_digest;
   std::string explanation_digest;
+  std::string social_input_source{"none"};
+  std::string social_prediction_source{"none"};
+  std::string social_input_status{"unavailable"};
+  bool formation_evidence_available{false};
+  bool formation_evidence_participated{false};
 
   bool operator==(const ReplayDecision&) const = default;
 };

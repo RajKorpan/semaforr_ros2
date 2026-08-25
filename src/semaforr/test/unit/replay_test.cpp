@@ -39,6 +39,7 @@ semaforr::domain::RobotObservation observation() {
   crowd.frame_id = "map";
   crowd.observed_at = std::chrono::nanoseconds(1200000);
   crowd.data_age = std::chrono::nanoseconds(34567);
+  crowd.provenance = "social_context_tracked";
   semaforr::domain::PedestrianObservation pedestrian;
   pedestrian.id = "person-1";
   pedestrian.position = {1.0, 2.0};
@@ -47,7 +48,11 @@ semaforr::domain::RobotObservation observation() {
   pedestrian.position_covariance = {1.0, 0.0, 0.0, 1.0};
   pedestrian.predicted_trajectory.push_back(
       {{1.2, 1.9}, std::chrono::nanoseconds(1300000)});
+  pedestrian.prediction_source = "gst";
+  pedestrian.formation_index = 0U;
   crowd.pedestrians.push_back(pedestrian);
+  crowd.formations.push_back(
+      {{"person-1"}, "side_by_side", {1.0, 2.0}, 0.8});
   value.crowd = crowd;
   return value;
 }
@@ -68,6 +73,10 @@ semaforr::decision::DecisionResult decision() {
       {1U, "tier3", "greedy", {value.action}, std::nullopt, {},
        "advisor_scored_continue", false, std::nullopt, "greedy:scored"});
   value.source_provenance = {"sensor:sensed_occupancy"};
+  value.social_input_source = "social_context_tracked";
+  value.social_prediction_source = "gst";
+  value.social_input_status = "ready";
+  value.formation_evidence_available = true;
   return value;
 }
 
@@ -111,12 +120,21 @@ TEST(Replay, RoundTripCapturesInputsSeedsRevisionsAndControllerOutcome) {
   EXPECT_TRUE(
       std::isinf(restored.cycles.front().observation.laser.ranges_m[2]));
   EXPECT_EQ(restored.cycles.front().observation.crowd->frame_id, "map");
+  EXPECT_EQ(restored.cycles.front().observation.crowd->provenance,
+            "social_context_tracked");
   ASSERT_EQ(restored.cycles.front().observation.crowd->pedestrians.size(), 1U);
   EXPECT_EQ(restored.cycles.front().observation.crowd->pedestrians.front().id,
             "person-1");
   EXPECT_EQ(restored.cycles.front().observation.crowd->pedestrians.front()
                 .predicted_trajectory.size(),
             1U);
+  EXPECT_EQ(restored.cycles.front().observation.crowd->pedestrians.front()
+                .prediction_source,
+            "gst");
+  ASSERT_EQ(restored.cycles.front().observation.crowd->formations.size(), 1U);
+  EXPECT_EQ(restored.cycles.front().expected.social_input_source,
+            "social_context_tracked");
+  EXPECT_EQ(restored.cycles.front().expected.social_prediction_source, "gst");
   EXPECT_EQ(restored.cycles.front().expected.spatial_revisions, revisions);
   ASSERT_TRUE(restored.cycles.front().controller_outcome.has_value());
   EXPECT_TRUE(restored.cycles.front().controller_outcome->successful());

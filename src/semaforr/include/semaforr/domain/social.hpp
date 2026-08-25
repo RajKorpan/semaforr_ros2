@@ -160,6 +160,8 @@ struct CrowdObservation {
     return !frame_id.empty() && data_age >= std::chrono::nanoseconds::zero() &&
            data_age <= maximum_age;
   }
+
+  bool operator==(const CrowdObservation&) const = default;
 };
 
 class CrowdState {

@@ -19,6 +19,8 @@ std::string_view toString(ModelDependency dependency) noexcept {
     case ModelDependency::Highways: return "highways";
     case ModelDependency::HighwayGraph: return "highway_graph";
     case ModelDependency::Circumstances: return "circumstances";
+    case ModelDependency::LiveCrowdObservation:
+      return "live_crowd_observation";
     case ModelDependency::CrowdDensity: return "crowd_density";
     case ModelDependency::CrowdRisk: return "crowd_risk";
     case ModelDependency::CrowdFlow: return "crowd_flow";
