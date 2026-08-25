@@ -13,6 +13,16 @@ from social_context.pose_estimation.src.pose_detectors.abstract import (
     PersonDetection
 )
 
+# BODY_25 keypoint indices
+NOSE = 0
+RSHOULDER = 2
+LSHOULDER = 5
+REYE = 15
+LEYE = 16
+
+FACE_VISIBLE_THRESHOLD = 0.3
+MIN_SHOULDER_CONFIDENCE_FOR_ORIENTATION = 0.1
+
 class OpenPosePoseDetector(AbstractPoseDetector):
     """OpenPose implementation of 2D human pose detection"""
 
@@ -114,10 +124,12 @@ class OpenPosePoseDetector(AbstractPoseDetector):
                         confidence = float(person[8, 2])
 
                         if confidence > self.confidence_threshold:
+                            facing = self._compute_facing_heuristic(person)
                             detections.append(PersonDetection(
                                 pixel_x=float(person[8, 0]),
                                 pixel_y=float(person[8, 1]),
-                                confidence=confidence
+                                confidence=confidence,
+                                orientation_facing=facing
                             ))
 
             return detections
@@ -125,6 +137,56 @@ class OpenPosePoseDetector(AbstractPoseDetector):
         except Exception as e:
             self.log_error(f"Error during detection: {e}")
             return []
+
+    @staticmethod
+    def _keypoint_conf(person, idx: int) -> float:
+        """
+        Confidence of a BODY_25 keypoint, or 0.0 if not present.
+
+        Args:
+            person: Numpy array of shape (25, 3) for BODY_25 keypoints
+            idx: index of the keypoint in BODY_25 model
+        
+        Returns:
+            Confidence value (float) of the keypoint, or 0.0 if not present
+        """
+        if len(person) > idx and len(person[idx]) >= 3:
+            return float(person[idx, 2])
+        return 0.0
+
+    def _compute_facing_heuristic(self, person):
+        """
+        Approximate a facing direction from 2D-only OpenPose BODY_25 keypoints.
+
+        Args:
+            person: Numpy array of shape (25, 3) for BODY_25 keypoints
+
+        Returns:
+            (dx, dy, dz) in camera optical frame -- (0, 0, -1) facing the
+            camera, (0, 0, 1) facing away (same convention/default as
+            MediaPipe's detector).
+        """
+        face_conf = (
+            self._keypoint_conf(person, NOSE)
+            + self._keypoint_conf(person, LEYE)
+            + self._keypoint_conf(person, REYE)
+        ) / 3.0
+        face_toward_camera = face_conf >= FACE_VISIBLE_THRESHOLD
+
+        r_conf = self._keypoint_conf(person, RSHOULDER)
+        l_conf = self._keypoint_conf(person, LSHOULDER)
+        shoulder_toward_camera = None
+        if r_conf > MIN_SHOULDER_CONFIDENCE_FOR_ORIENTATION and l_conf > MIN_SHOULDER_CONFIDENCE_FOR_ORIENTATION:
+            shoulder_toward_camera = person[RSHOULDER, 0] < person[LSHOULDER, 0]
+
+        if shoulder_toward_camera is None:
+            toward_camera = face_toward_camera
+        elif shoulder_toward_camera == face_toward_camera:
+            toward_camera = face_toward_camera
+        else:
+            return (0.0, 0.0, 1.0)
+
+        return (0.0, 0.0, -1.0) if toward_camera else (0.0, 0.0, 1.0)
 
     def cleanup(self):
         """Clean up OpenPose resources."""

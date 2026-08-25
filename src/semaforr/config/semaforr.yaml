@@ -96,8 +96,22 @@ semaforr:
         enabled: true
       planners:
         enabled: true
-      maximum_age_s: 0.75
+      input:
+        mode: tracked
+      current_maximum_age_s: 0.75
+      prediction_maximum_age_s: 6.0
+      formation_maximum_age_s: 1.0
       minimum_confidence: 0.25
+      minimum_formation_confidence: 0.5
+      prediction_step_s: 1.0
+      prediction_steps: 5
+      constant_velocity_fallback: true
+      history_step_s: 0.1
+      default_position_variance: 0.09
+      minimum_covariance_confidence: 0.05
+      hunav_confidence: 1.0
+      formations:
+        enabled: true
       learning:
         enabled: true
         estimator: count_exposure
@@ -120,8 +134,11 @@ semaforr:
       command: cmd_vel
       navigation_state: navigation_state
       decision_records: decision_records
-      social_observations: social_observations
-      crowd_field: crowd_field
+      tracked_people: /human_poses_3d_tracked_global
+      tracked_predictions: /pedestrian_predictions_tracked
+      hunav_agents: /human_states
+      hunav_predictions: /pedestrian_predictions
+      formations: /formation_groups
 
     qos:
       sensors:

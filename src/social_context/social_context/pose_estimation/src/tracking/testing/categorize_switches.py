@@ -13,7 +13,7 @@ Categorizes ID switches from tracking_eval_results.csv into two types:
 import csv
 import sys
 
-RAPID_THRESHOLD_SECONDS = 2.0  # tune if needed - see reasoning in the printout
+RAPID_THRESHOLD_SECONDS = 2.0
 
 
 def categorize(csv_path):

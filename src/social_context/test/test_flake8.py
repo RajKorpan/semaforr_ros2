@@ -19,14 +19,7 @@ import pytest
 @pytest.mark.flake8
 @pytest.mark.linter
 def test_flake8():
-    # Legacy vision and experimental prediction modules retain their own
-    # dependency/style constraints. Phase 12 maintains the package entry point,
-    # canonical HuNav producer, and tests as the supported navigation API.
-    rc, errors = main_with_errors(argv=[
-        'setup.py',
-        'social_context/social_context_hunav.py',
-        'test',
-    ])
+    rc, errors = main_with_errors(argv=[])
     assert rc == 0, \
         'Found %d code style errors / warnings:\n' % len(errors) + \
         '\n'.join(errors)

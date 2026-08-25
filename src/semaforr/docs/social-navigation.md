@@ -1,22 +1,19 @@
 # Social navigation API
 
-SemaFORR accepts exactly one navigation-facing social input:
-`social_context_msgs/msg/SocialObservation` on the configurable
-`topics.social_observations` topic.
-
-The message header defines the observation time and coordinate frame for every
-pedestrian. Each pedestrian has a stable string ID, current position and
-velocity, an absolute-time predicted trajectory, confidence, and a row-major
-2-by-2 XY position covariance. Prediction position and timestamp arrays must
-have the same length. IDs must be unique within an observation, timestamps
-must be strictly increasing and later than the observation time, and
-covariance must be finite, symmetric, and positive semidefinite.
+SemaFORR adapts the collaborator-owned social interfaces at its ROS boundary
+and exposes only `domain::CrowdObservation` to navigation. Select `tracked`,
+`hunav`, or `none` with `social.input.mode`.
 
 ## Producers
 
-- `social_context/social_context_hunav` converts HuNav simulator agents.
-- `semaforr_bridge/tracked_people_to_social_observation` converts the legacy
-  tracked-person stream.
+- Tracked mode consumes `TrackedPersonArray`, `/pedestrian_predictions_tracked`,
+  and optional `FormationGroupArray`.
+- HuNav mode consumes `hunav_msgs/Agents` and `/pedestrian_predictions`.
+
+Formation groups are optional in tracked mode. A group is retained only when
+all member IDs match fresh current tracks. Its type, center, confidence, and
+membership remain available in the internal observation for future advisors.
+HuNav mode does not subscribe to tracked-camera formation output.
 
 Upstream detector, tracker, or simulator messages remain implementation
 details of their producer. They are not additional SemaFORR inputs. Producers
@@ -31,7 +28,9 @@ The ROS adapter validates each message before it enters the domain. It computes
 `social.minimum_confidence`. `SocialObservationBuffer` rejects invalid frames,
 future timestamps, invalid values, clock resets, and malformed trajectories.
 
-An observation older than `social.maximum_age_s` is stale. Stale, invalid, or
+An observation older than `social.current_maximum_age_s` is stale. Predictions
+expire independently under `social.prediction_maximum_age_s`; missing or
+incomplete GST cycles use configured constant-velocity fallback. Stale, invalid, or
 missing data clears only the current crowd snapshot; bounded history remains
 available for diagnostics. Social advisors opt out and social planner costs
 return their neutral fallback when no valid current snapshot exists. Ordinary
@@ -48,7 +47,7 @@ parts with intentionally different lifetimes:
 
 - `CrowdState observations`: the current validated observation and bounded
   history. Current positions and predictions expire with
-  `social.maximum_age_s`.
+  `social.current_maximum_age_s`.
 - `CrowdFieldSnapshot learned`: persistent, map-aligned density, encounter
   risk, and eight-bin directional-flow evidence. It does not expire merely
   because the latest detector message is stale.
@@ -91,15 +90,13 @@ data disables only live advisors and the transient part of composite risk.
 No advisor or planner contains a ROS message type or maintains a parallel crowd
 grid. ROS conversion occurs once in the adapter layer.
 
-## Derived output and diagnostics
+## Ownership and diagnostics
 
-SemaFORR publishes its learned snapshot as
-`social_context_msgs/msg/CrowdField` on `topics.crowd_field`. This is a derived,
-transient-local diagnostic output, not another social observation input. The
-`semaforr_crowd` package subscribes only to this message and projects it into
-density/risk occupancy grids and directional-flow markers. Consequently the
-bridge/social-context producers own perception, SemaFORR owns learning, and the
-crowd package owns visualization; no node learns the same evidence twice.
+`CrowdFieldSnapshot` is an internal immutable SemaFORR representation. It is
+never transported through `social_context_msgs`, and the standalone crowd
+package contains no learner or duplicate field model. Social-context producers
+own perception; SemaFORR owns adaptation, learning, revisions, planning,
+advising, persistence, replay, and diagnostics.
 
 The learner frame, geometry, estimator, update rate, thresholds, confidence
 scale, and random seed are configured under `social.learning.*`. The grid uses

@@ -102,11 +102,7 @@ class GlobalHumanLocalizer(Node):
             global_poses.header.frame_id = self.map_frame
 
             for local_person in msg.people:
-                confidence_level = local_person.confidence  
-                ori_x = local_person.orientation_x
-                ori_y = local_person.orientation_y
-                ori_z = local_person.orientation_z
-                ori_w = local_person.orientation_w
+                confidence_level = local_person.confidence
                 pixel_x = local_person.pixel_x
                 pixel_y = local_person.pixel_y
 
@@ -116,10 +112,10 @@ class GlobalHumanLocalizer(Node):
                 pose_stamped.pose.position.x = local_person.x
                 pose_stamped.pose.position.y = local_person.y
                 pose_stamped.pose.position.z = local_person.z
-                pose_stamped.pose.orientation.x = ori_x
-                pose_stamped.pose.orientation.y = ori_y
-                pose_stamped.pose.orientation.z = ori_z
-                pose_stamped.pose.orientation.w = ori_w
+                pose_stamped.pose.orientation.x = local_person.orientation_x
+                pose_stamped.pose.orientation.y = local_person.orientation_y
+                pose_stamped.pose.orientation.z = local_person.orientation_z
+                pose_stamped.pose.orientation.w = local_person.orientation_w
 
                 global_pose_stamped = tf2_geometry_msgs.do_transform_pose_stamped(
                     pose_stamped,
@@ -131,10 +127,10 @@ class GlobalHumanLocalizer(Node):
                 global_person.y = global_pose_stamped.pose.position.y
                 global_person.z = global_pose_stamped.pose.position.z
                 global_person.confidence = confidence_level
-                global_person.orientation_x = ori_x
-                global_person.orientation_y = ori_y
-                global_person.orientation_z = ori_z
-                global_person.orientation_w = ori_w
+                global_person.orientation_x = global_pose_stamped.pose.orientation.x
+                global_person.orientation_y = global_pose_stamped.pose.orientation.y
+                global_person.orientation_z = global_pose_stamped.pose.orientation.z
+                global_person.orientation_w = global_pose_stamped.pose.orientation.w
                 global_person.pixel_x = pixel_x
                 global_person.pixel_y = pixel_y
 

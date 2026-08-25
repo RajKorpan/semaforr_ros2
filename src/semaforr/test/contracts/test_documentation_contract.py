@@ -88,7 +88,9 @@ def test_documented_topics_match_constructed_publishers_and_subscriptions():
     assert topic_parameters == {
         "topics.pose", "topics.scan", "topics.command",
         "topics.navigation_state", "topics.decision_records",
-        "topics.social_observations", "topics.crowd_field",
+        "topics.tracked_people", "topics.tracked_predictions",
+        "topics.hunav_agents", "topics.hunav_predictions",
+        "topics.formations",
     }
     for parameter in topic_parameters:
         assert f"`{parameter}`" in topics

@@ -4,13 +4,15 @@
 #include <algorithm>
 #include <chrono>
 #include <memory>
+#include <hunav_msgs/msg/agents.hpp>
 #include <rclcpp/time.hpp>
 #include <semaforr/decision/decision_coordinator.hpp>
 #include <semaforr/decision/advisors/social/social_navigation_advisor.hpp>
 #include <semaforr/domain/crowd_model.hpp>
 #include <semaforr/domain/social.hpp>
 #include <semaforr/ros/social_observation_buffer.hpp>
-#include <social_context_msgs/msg/social_observation.hpp>
+#include <social_context_msgs/msg/formation_group_array.hpp>
+#include <social_context_msgs/msg/tracked_person_array.hpp>
 #include <span>
 #include <string_view>
 #include <vector>
@@ -30,7 +32,8 @@ PedestrianObservation pedestrian(
     std::string id, double x, double y, double velocity_x, double velocity_y,
     std::vector<PredictedPosition> predictions = {}) {
   return {std::move(id),          {x, y}, {velocity_x, velocity_y},
-          std::move(predictions), 1.0,    {0.04, 0.0, 0.0, 0.04}};
+          std::move(predictions), 1.0,    {0.04, 0.0, 0.0, 0.04},
+          "none",                std::nullopt};
 }
 
 CrowdObservation crowd(PedestrianObservation person) {
@@ -243,30 +246,202 @@ TEST(SocialDomain, RejectsDuplicateIdentityAndInvalidCovariance) {
   EXPECT_THROW(invalid.validate(observed_at), std::invalid_argument);
 }
 
-TEST(SocialObservationBuffer, ValidatesAgeFrameAndConfidence) {
-  semaforr::ros::SocialObservationBuffer buffer({"map", 0.75, 0.5});
-  social_context_msgs::msg::SocialObservation message;
+semaforr::ros::SocialObservationConfiguration trackedConfiguration() {
+  semaforr::ros::SocialObservationConfiguration configuration;
+  configuration.frame = "map";
+  configuration.input_mode = semaforr::ros::SocialInputMode::Tracked;
+  configuration.minimum_confidence = 0.5;
+  configuration.prediction_steps = 2U;
+  configuration.prediction_step_s = 0.5;
+  return configuration;
+}
+
+social_context_msgs::msg::TrackedPersonArray trackedMessage(int id = 7) {
+  social_context_msgs::msg::TrackedPersonArray message;
   message.header.frame_id = "map";
   message.header.stamp.sec = 10;
-  message.pedestrians.resize(1);
-  message.pedestrians[0].id = "person";
-  message.pedestrians[0].confidence = 0.9;
-  message.pedestrians[0].position_covariance = {0.04, 0.0, 0.0, 0.04};
+  message.people.resize(1);
+  message.people[0].id = id;
+  message.people[0].x = 2.0F;
+  message.people[0].y = 1.0F;
+  message.people[0].confidence = 0.9F;
+  message.people[0].history_x = {1.8F, 2.0F};
+  message.people[0].history_y = {1.0F, 1.0F};
+  return message;
+}
 
+TEST(SocialObservationBuffer, ConvertsTrackedStateAndSeparatesFreshness) {
+  semaforr::ros::SocialObservationBuffer buffer(trackedConfiguration());
+  auto message = trackedMessage();
   const rclcpp::Time received(10'100'000'000LL, RCL_ROS_TIME);
-  ASSERT_TRUE(buffer.accept(message, received));
-  EXPECT_TRUE(buffer.snapshot(received));
+  ASSERT_TRUE(buffer.acceptTracked(message, received));
+  const auto snapshot = buffer.snapshot(received);
+  ASSERT_TRUE(snapshot);
+  ASSERT_EQ(snapshot->pedestrians.size(), 1U);
+  EXPECT_EQ(snapshot->pedestrians[0].id, "7");
+  EXPECT_NEAR(snapshot->pedestrians[0].velocity_mps.x_m, 2.0, 1.0e-5);
+  EXPECT_EQ(snapshot->pedestrians[0].prediction_source,
+            "constant_velocity");
   EXPECT_EQ(buffer.status(rclcpp::Time(11'000'000'000LL, RCL_ROS_TIME)),
             semaforr::ros::SocialObservationStatus::Stale);
 
   message.header.frame_id = "odom";
-  EXPECT_FALSE(buffer.accept(message, received));
+  EXPECT_FALSE(buffer.acceptTracked(message, received));
   EXPECT_EQ(buffer.status(received),
             semaforr::ros::SocialObservationStatus::FrameMismatch);
+}
 
+TEST(SocialObservationBuffer, AccumulatesCompleteGstPredictionCycle) {
+  auto configuration = trackedConfiguration();
+  semaforr::ros::SocialObservationBuffer buffer(configuration);
+  const rclcpp::Time received(10'100'000'000LL, RCL_ROS_TIME);
+  ASSERT_TRUE(buffer.acceptTracked(trackedMessage(), received));
+
+  geometry_msgs::msg::PoseStamped prediction;
+  prediction.header.frame_id = "7_pred_0";
+  prediction.header.stamp.sec = 10;
+  prediction.pose.position.x = 2.5;
+  prediction.pose.position.y = 1.0;
+  ASSERT_TRUE(buffer.acceptPrediction(prediction, received));
+  prediction.header.frame_id = "7_pred_1";
+  prediction.pose.position.x = 3.0;
+  ASSERT_TRUE(buffer.acceptPrediction(prediction, received));
+  EXPECT_FALSE(buffer.acceptPrediction(prediction, received));
+
+  const auto snapshot = buffer.snapshot(received);
+  ASSERT_TRUE(snapshot);
+  ASSERT_EQ(snapshot->pedestrians[0].predicted_trajectory.size(), 2U);
+  EXPECT_EQ(snapshot->pedestrians[0].prediction_source, "gst");
+  EXPECT_DOUBLE_EQ(
+      snapshot->pedestrians[0].predicted_trajectory[1].position.x_m, 3.0);
+}
+
+TEST(SocialObservationBuffer, RejectsInvalidAndUnassociatedPredictions) {
+  auto configuration = trackedConfiguration();
+  semaforr::ros::SocialObservationBuffer buffer(configuration);
+  const rclcpp::Time received(10'100'000'000LL, RCL_ROS_TIME);
+  ASSERT_TRUE(buffer.acceptTracked(trackedMessage(), received));
+
+  geometry_msgs::msg::PoseStamped prediction;
+  prediction.header.stamp.sec = 10;
+  prediction.pose.position.x = 2.5;
+  prediction.pose.position.y = 1.0;
+  prediction.header.frame_id = "malformed";
+  EXPECT_FALSE(buffer.acceptPrediction(prediction, received));
+  prediction.header.frame_id = "99_pred_0";
+  EXPECT_FALSE(buffer.acceptPrediction(prediction, received));
+  prediction.header.frame_id = "7_pred_2";
+  EXPECT_FALSE(buffer.acceptPrediction(prediction, received));
+  prediction.header.frame_id = "7_pred_0";
+  prediction.header.stamp.sec = 1;
+  EXPECT_FALSE(buffer.acceptPrediction(prediction, received));
+}
+
+TEST(SocialObservationBuffer, IncompleteGstUsesFallbackAndLaterCycleRecovers) {
+  auto configuration = trackedConfiguration();
+  semaforr::ros::SocialObservationBuffer buffer(configuration);
+  const rclcpp::Time received(10'100'000'000LL, RCL_ROS_TIME);
+  ASSERT_TRUE(buffer.acceptTracked(trackedMessage(), received));
+
+  geometry_msgs::msg::PoseStamped prediction;
+  prediction.header.frame_id = "7_pred_0";
+  prediction.header.stamp.sec = 10;
+  prediction.pose.position.x = 99.0;
+  prediction.pose.position.y = 1.0;
+  ASSERT_TRUE(buffer.acceptPrediction(prediction, received));
+  auto snapshot = buffer.snapshot(received);
+  ASSERT_TRUE(snapshot);
+  EXPECT_EQ(snapshot->pedestrians[0].prediction_source,
+            "constant_velocity");
+  EXPECT_NE(snapshot->pedestrians[0].predicted_trajectory[0].position.x_m,
+            99.0);
+
+  const rclcpp::Time next_cycle(11'100'000'000LL, RCL_ROS_TIME);
+  prediction.header.stamp.sec = 11;
+  prediction.pose.position.x = 2.5;
+  ASSERT_TRUE(buffer.acceptPrediction(prediction, next_cycle));
+  prediction.header.frame_id = "7_pred_1";
+  prediction.pose.position.x = 3.0;
+  ASSERT_TRUE(buffer.acceptPrediction(prediction, next_cycle));
+  auto current = trackedMessage();
+  current.header.stamp.sec = 11;
+  ASSERT_TRUE(buffer.acceptTracked(current, next_cycle));
+  snapshot = buffer.snapshot(next_cycle);
+  ASSERT_TRUE(snapshot);
+  EXPECT_EQ(snapshot->pedestrians[0].prediction_source, "gst");
+}
+
+TEST(SocialObservationBuffer, AttachesOnlyKnownFreshFormationMembers) {
+  semaforr::ros::SocialObservationBuffer buffer(trackedConfiguration());
+  const rclcpp::Time received(10'100'000'000LL, RCL_ROS_TIME);
+  ASSERT_TRUE(buffer.acceptTracked(trackedMessage(), received));
+  social_context_msgs::msg::FormationGroupArray formations;
+  formations.header.frame_id = "map";
+  formations.header.stamp.sec = 10;
+  formations.groups.resize(1);
+  formations.groups[0].member_ids = {7};
+  formations.groups[0].formation_type = "face_to_face";
+  formations.groups[0].confidence = 0.9F;
+  formations.groups[0].center_x = 2.0F;
+  formations.groups[0].center_y = 1.0F;
+  ASSERT_TRUE(buffer.acceptFormations(formations, received));
+  const auto snapshot = buffer.snapshot(received);
+  ASSERT_TRUE(snapshot);
+  ASSERT_EQ(snapshot->formations.size(), 1U);
+  ASSERT_TRUE(snapshot->pedestrians[0].formation_index);
+  EXPECT_EQ(*snapshot->pedestrians[0].formation_index, 0U);
+
+  formations.groups[0].member_ids = {99};
+  ASSERT_TRUE(buffer.acceptFormations(formations, received));
+  const auto unknown = buffer.snapshot(received);
+  ASSERT_TRUE(unknown);
+  EXPECT_TRUE(unknown->formations.empty());
+}
+
+TEST(SocialObservationBuffer, HuNavModeUsesVelocityAndSharedDomainType) {
+  auto configuration = trackedConfiguration();
+  configuration.input_mode = semaforr::ros::SocialInputMode::Hunav;
+  semaforr::ros::SocialObservationBuffer buffer(configuration);
+  hunav_msgs::msg::Agents message;
   message.header.frame_id = "map";
-  message.pedestrians[0].predicted_positions.resize(1);
-  EXPECT_FALSE(buffer.accept(message, received));
-  EXPECT_EQ(buffer.status(received),
-            semaforr::ros::SocialObservationStatus::Invalid);
+  message.header.stamp.sec = 10;
+  message.agents.resize(2);
+  message.agents[0].id = 3;
+  message.agents[0].type = hunav_msgs::msg::Agent::PERSON;
+  message.agents[0].position.position.x = 1.0;
+  message.agents[0].velocity.linear.y = 0.4;
+  message.agents[1].id = 4;
+  message.agents[1].type = hunav_msgs::msg::Agent::ROBOT;
+  const rclcpp::Time received(10'100'000'000LL, RCL_ROS_TIME);
+  ASSERT_TRUE(buffer.acceptHunav(message, received));
+  const auto snapshot = buffer.snapshot(received);
+  ASSERT_TRUE(snapshot);
+  ASSERT_EQ(snapshot->pedestrians.size(), 1U);
+  EXPECT_EQ(snapshot->pedestrians[0].id, "3");
+  EXPECT_NEAR(snapshot->pedestrians[0].velocity_mps.y_m, 0.4, 1.0e-6);
+  EXPECT_EQ(snapshot->provenance, "hunav_agents");
+}
+
+TEST(SocialObservationBuffer, DetectsDisappearanceAndReappearance) {
+  semaforr::ros::SocialObservationBuffer buffer(trackedConfiguration());
+  const rclcpp::Time received(10'100'000'000LL, RCL_ROS_TIME);
+  ASSERT_TRUE(buffer.acceptTracked(trackedMessage(), received));
+  auto events = buffer.takeLifecycleEvents();
+  ASSERT_EQ(events.size(), 1U);
+  EXPECT_EQ(events[0].type,
+            semaforr::ros::TrackLifecycleEvent::Type::Appeared);
+
+  auto empty = trackedMessage();
+  empty.people.clear();
+  ASSERT_TRUE(buffer.acceptTracked(empty, received));
+  events = buffer.takeLifecycleEvents();
+  ASSERT_EQ(events.size(), 1U);
+  EXPECT_EQ(events[0].type,
+            semaforr::ros::TrackLifecycleEvent::Type::Disappeared);
+
+  ASSERT_TRUE(buffer.acceptTracked(trackedMessage(), received));
+  events = buffer.takeLifecycleEvents();
+  ASSERT_EQ(events.size(), 1U);
+  EXPECT_EQ(events[0].type,
+            semaforr::ros::TrackLifecycleEvent::Type::Reappeared);
 }

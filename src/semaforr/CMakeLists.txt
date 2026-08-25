@@ -61,6 +61,7 @@ endfunction()
 find_package(ament_cmake REQUIRED)
 find_package(ament_index_cpp REQUIRED)
 find_package(geometry_msgs REQUIRED)
+find_package(hunav_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(sensor_msgs REQUIRED)
@@ -256,6 +257,7 @@ target_link_libraries(
 ament_target_dependencies(semaforr_ros_adapters
   ament_index_cpp
   geometry_msgs
+  hunav_msgs
   nav_msgs
   rclcpp
   sensor_msgs
@@ -626,6 +628,10 @@ if(BUILD_TESTING)
     test/contracts/test_social_navigation_contract.py
     ENV "SEMAFORR_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
   )
+  ament_add_pytest_test(semaforr_upstream_social_contract_test
+    test/contracts/test_upstream_social_contract.py
+    ENV "SEMAFORR_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
+  )
   ament_add_pytest_test(semaforr_observability_contract_test
     test/contracts/test_observability_contract.py
     ENV "SEMAFORR_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
@@ -676,6 +682,7 @@ ament_export_targets(export_${PROJECT_NAME} HAS_LIBRARY_TARGET)
 ament_export_dependencies(
   ament_index_cpp
   geometry_msgs
+  hunav_msgs
   nav_msgs
   rclcpp
   sensor_msgs

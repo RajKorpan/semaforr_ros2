@@ -8,5 +8,5 @@ PERSON_RELATIVE_LOCALIZER_OUTPUT_TOPIC = 'human_poses_3d'
 SORT_TRACKER_OUTPUT_TOPIC = 'human_poses_3d_tracked_global'
 
 # Timing parameters
-# MAX_SYNC_DELAY = 0.1
-MAX_SYNC_DELAY = 10.0
+MAX_SYNC_DELAY = 0.1
+#MAX_SYNC_DELAY = 10.0

@@ -8,7 +8,7 @@ Provides a common interface for different pose detection models
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import List
+from typing import List, Tuple
 import numpy as np
 
 
@@ -18,6 +18,7 @@ class PersonDetection:
     pixel_x: float
     pixel_y: float
     confidence: float
+    orientation_facing: Tuple[float, float, float] = (0.0, 0.0, 1.0)
 
 class AbstractPoseDetector(ABC):
     """

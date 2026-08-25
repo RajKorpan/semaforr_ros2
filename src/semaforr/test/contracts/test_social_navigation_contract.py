@@ -11,10 +11,14 @@ def read(relative):
     return (SOURCE_DIR / relative).read_text(encoding="utf-8")
 
 
-def test_one_social_message_crosses_the_ros_boundary():
+def test_upstream_social_messages_are_adapted_at_the_ros_boundary():
     adapters = read("src/ros/message_adapters.cpp")
     node = read("src/ros/semaforr_node_component.cpp")
-    assert "social_context_msgs::msg::SocialObservation" in adapters
+    assert "TrackedPersonArray" in adapters + node
+    assert "hunav_msgs::msg::Agents" in adapters + node
+    assert "FormationGroupArray" in adapters + node
+    assert "trackedPeopleToDomain" in adapters
+    assert "hunavAgentsToDomain" in adapters
     assert "CrowdModel.msg" not in adapters + node
     assert "crowd_pose_all" not in adapters + node
 

@@ -27,7 +27,7 @@ class SortNode(Node):
         self.declare_parameter('distance_threshold', 2.0)
         self.declare_parameter('missed_threshold', 15)
         self.declare_parameter('tentative_missed_threshold', 7)
-        self.declare_parameter('hits_threshold', 2)
+        self.declare_parameter('hits_threshold', 3)
         self.declare_parameter('combined_cost_threshold', 0.8)
 
         distance_threshold = self.get_parameter('distance_threshold').value

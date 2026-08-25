@@ -40,9 +40,9 @@ files.
 ## ROS 1 interfaces
 
 Do not recreate `CrowdModel`, `crowd_pose`, and `crowd_pose_all` as parallel
-inputs. Convert the upstream producer to the one
-`social_context_msgs/msg/SocialObservation` contract. The learned
-`CrowdField` is a SemaFORR output and diagnostic projection.
+inputs. SemaFORR adapts `TrackedPersonArray` or `hunav_msgs/Agents` plus the
+selected prediction stream into one internal `CrowdObservation`. The learned
+`CrowdFieldSnapshot` remains internal to SemaFORR.
 
 ROS 1 crowd estimator source was removed after its count/exposure, discount,
 and CUSUM semantics were reimplemented behind

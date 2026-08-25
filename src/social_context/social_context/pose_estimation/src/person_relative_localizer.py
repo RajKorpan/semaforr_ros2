@@ -6,7 +6,7 @@ import math
 import numpy as np
 from rclpy.node import Node
 from rclpy.time import Time
-from geometry_msgs.msg import PoseArray, PointStamped, TransformStamped
+from geometry_msgs.msg import PoseArray, PointStamped, TransformStamped, Vector3Stamped
 from sensor_msgs.msg import LaserScan, CameraInfo
 from message_filters import ApproximateTimeSynchronizer, Subscriber
 import tf2_ros
@@ -179,6 +179,35 @@ class PersonRelativeLocalizer(Node):
             self.get_logger().error(f'Error transforming point: {e}')
             return None, False
 
+    def transform_camera_facing_to_lidar(self, facing_camera_xyz, timestamp):
+        """
+        Transform a facing vector from camera frame to LiDAR frame.
+        Args: 
+            facing_camera_xyz: (dx, dy, dz) in camera frame
+            timestamp: ROS time for the transform
+
+        Returns: yaw angle in LiDAR frame (radians) or None if transform fails.
+        """
+        if self.camera_to_lidar_transform is None:
+            transform = self.get_camera_to_lidar_transform(timestamp)
+        else:
+            transform = self.camera_to_lidar_transform
+
+        if transform is None:
+            return None
+
+        facing_camera = Vector3Stamped()
+        facing_camera.header.frame_id = self.camera_frame
+        facing_camera.vector.x, facing_camera.vector.y, facing_camera.vector.z = facing_camera_xyz
+
+        try:
+            facing_lidar = tf2_geometry_msgs.do_transform_vector3(facing_camera, transform)
+            return math.atan2(facing_lidar.vector.y, facing_lidar.vector.x)
+
+        except Exception as e:
+            self.get_logger().error(f'Error transforming orientation: {e}')
+            return None
+
     def synchronized_callback(self, pose_msg: PoseArray, lidar_msg: LaserScan):
         """Main callback that fuses 2D poses with LiDAR data."""
 
@@ -235,7 +264,10 @@ class PersonRelativeLocalizer(Node):
                     self.get_logger().debug(f'Person {i} failed validation checks')
                     continue
 
-                person_3d = self.create_3d_pose_in_lidar_frame(lidar_angle, lidar_range, pixel_x, pixel_y)
+                facing_camera_xyz = (pose_2d.orientation.x, pose_2d.orientation.y, pose_2d.orientation.z)
+                yaw_lidar = self.transform_camera_facing_to_lidar(facing_camera_xyz, timestamp)
+
+                person_3d = self.create_3d_pose_in_lidar_frame(lidar_angle, lidar_range, pixel_x, pixel_y, yaw_lidar)
 
                 if person_3d is not None:
                     person_3d.confidence = confidence  # Store confidence in z for tracking
@@ -285,7 +317,8 @@ class PersonRelativeLocalizer(Node):
 
     def validate_person_detection(self, angle: float, range_val: float, lidar_msg: LaserScan) -> bool:
         """
-        Validate that the detection corresponds to a person-like object.
+        Validate that the detection corresponds to a person-like object,
+        not a wall or other large flat surface at the same bearing.
         Returns True if detection appears valid
         """
 
@@ -302,25 +335,42 @@ class PersonRelativeLocalizer(Node):
         if center_idx < 0 or center_idx >= len(lidar_msg.ranges):
             return False
 
-        # Estimate angular width
-        expected_angular_width = math.atan2(min_width / 2, range_val) * 2
-        rays_to_check = max(3, int(expected_angular_width / lidar_msg.angle_increment))
-
-        # Check for consistent ranges
-        consistent_count = 0
-        for offset in range(-rays_to_check, rays_to_check + 1):
-            idx = center_idx + offset
+        def is_consistent(idx):
             if 0 <= idx < len(lidar_msg.ranges):
                 r = lidar_msg.ranges[idx]
                 if (lidar_msg.range_min <= r <= lidar_msg.range_max and
                         not math.isinf(r) and not math.isnan(r)):
-                    if abs(r - range_val) < 1.0:  # More lenient
-                        consistent_count += 1
+                    return abs(r - range_val) < 1.0  # More lenient
+            return False
 
-        # Require at least 2 consistent rays
-        return consistent_count >= 2
+        # Minimum-width check: require at least 2 rays near the detection
+        # consistent with this range (rules out single-ray noise/gaps)
+        min_half_width_rays = max(3, int(math.atan2(min_width / 2, range_val) * 2 / lidar_msg.angle_increment))
+        consistent_count = sum(
+            1 for offset in range(-min_half_width_rays, min_half_width_rays + 1)
+            if is_consistent(center_idx + offset)
+        )
+        if consistent_count < 2:
+            return False
 
-    def create_3d_pose_in_lidar_frame(self, angle: float, distance: float, pixel_x: float, pixel_y: float) -> LocalizedPerson:
+        # Maximum-width check: a real person's silhouette should end by the
+        # time we're this far out. If the same surface is STILL giving a
+        # consistent range beyond a person's plausible max width, it's a
+        # wall or other large flat object -- the min-width check alone
+        # can't catch this, since a flat wall is locally MORE consistent
+        # than a real, narrow person, not less.
+        max_half_width_rays = max(min_half_width_rays,
+                                   int(math.atan2(max_width / 2, range_val) * 2 / lidar_msg.angle_increment))
+        beyond_offsets = (list(range(-max_half_width_rays - 3, -max_half_width_rays)) +
+                          list(range(max_half_width_rays + 1, max_half_width_rays + 4)))
+        still_consistent_beyond = sum(1 for offset in beyond_offsets if is_consistent(center_idx + offset))
+        if still_consistent_beyond >= 3:
+            return False
+
+        return True
+
+    def create_3d_pose_in_lidar_frame(self, angle: float, distance: float, pixel_x: float, pixel_y: float,
+                                       orientation_yaw_lidar) -> LocalizedPerson:
         """
         Create 3D pose from angles and distance.
 
@@ -329,7 +379,8 @@ class PersonRelativeLocalizer(Node):
             distance: Range measurement
             pixel_x: Pixel x-coordinate in camera image
             pixel_y: Pixel y-coordinate in camera image
-
+            orientation_yaw_lidar: Body yaw (radians) in the output frame, or None if it couldn't be computed
+        
         Returns:
             3D pose in robot frame
         """
@@ -346,14 +397,14 @@ class PersonRelativeLocalizer(Node):
             person.pixel_x = float(pixel_x)
             person.pixel_y = float(pixel_y)
 
-            # Orientation: face towards robot
-            yaw = math.atan2(-y, -x)  # Opposite direction = facing robot
-
-            # Convert yaw to quaternion (only rotating around z-axis)
             person.orientation_x = 0.0
             person.orientation_y = 0.0
-            person.orientation_z = float(math.sin(yaw / 2.0))
-            person.orientation_w = float(math.cos(yaw / 2.0))
+            if orientation_yaw_lidar is not None:
+                person.orientation_z = float(math.sin(orientation_yaw_lidar / 2.0))
+                person.orientation_w = float(math.cos(orientation_yaw_lidar / 2.0))
+            else:
+                person.orientation_z = 0.0
+                person.orientation_w = 1.0
 
             return person
 

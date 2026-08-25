@@ -7,7 +7,6 @@
 #include <rclcpp/rclcpp.hpp>
 #include <semaforr/ros/visualization_publisher.hpp>
 #include <semaforr_msgs/msg/decision_record.hpp>
-#include <social_context_msgs/msg/crowd_field.hpp>
 #include <string>
 #include <type_traits>
 #include <utility>
@@ -15,13 +14,6 @@
 
 namespace semaforr::ros {
 namespace {
-
-builtin_interfaces::msg::Time toRosTime(std::int64_t nanoseconds) {
-  builtin_interfaces::msg::Time result;
-  result.sec = static_cast<std::int32_t>(nanoseconds / 1'000'000'000LL);
-  result.nanosec = static_cast<std::uint32_t>(nanoseconds % 1'000'000'000LL);
-  return result;
-}
 
 semaforr_msgs::msg::DecisionAction toMessage(const domain::Action& source) {
   semaforr_msgs::msg::DecisionAction result;
@@ -508,10 +500,6 @@ class VisualizationPublisher::Impl {
       : node_(node),
         world_(world),
         frame_id_(node.get_parameter("frames.global").as_string()),
-        crowd_field_publisher_(
-            node.create_publisher<social_context_msgs::msg::CrowdField>(
-                node.get_parameter("topics.crowd_field").as_string(),
-                rclcpp::QoS(1).transient_local().reliable())),
         decision_publisher_(
             node.create_publisher<semaforr_msgs::msg::DecisionRecord>(
                 node.get_parameter("topics.decision_records").as_string(),
@@ -599,41 +587,6 @@ class VisualizationPublisher::Impl {
     }
   }
 
-  void publishCrowdField() {
-    const auto& snapshot = world_.crowd.learned();
-    if (!snapshot.available() || snapshot.version == last_crowd_version_) {
-      return;
-    }
-    social_context_msgs::msg::CrowdField message;
-    message.header.frame_id = snapshot.geometry.frame_id;
-    message.header.stamp = toRosTime(snapshot.generated_at.count());
-    message.width_m = snapshot.geometry.widthMeters();
-    message.height_m = snapshot.geometry.heightMeters();
-    message.resolution_m = snapshot.geometry.resolution_m;
-    message.origin_x_m = snapshot.geometry.origin.x_m;
-    message.origin_y_m = snapshot.geometry.origin.y_m;
-    message.columns = static_cast<std::uint32_t>(snapshot.geometry.columns);
-    message.rows = static_cast<std::uint32_t>(snapshot.geometry.rows);
-    message.estimator = snapshot.estimator;
-    message.version = snapshot.version;
-    message.cells.reserve(snapshot.cells.size());
-    for (const auto& source : snapshot.cells) {
-      social_context_msgs::msg::CrowdFieldCell cell;
-      cell.density = source.density;
-      cell.learned_encounter_risk = source.learned_encounter_risk;
-      cell.directional_flow = source.directional_flow;
-      cell.visibility_exposures = source.visibility_exposures;
-      cell.pedestrian_hits = source.pedestrian_hits;
-      cell.risk_encounters = source.risk_encounters;
-      cell.risk_experiences = source.risk_experiences;
-      cell.last_updated = toRosTime(source.last_updated.count());
-      cell.confidence = source.confidence;
-      message.cells.push_back(std::move(cell));
-    }
-    crowd_field_publisher_->publish(message);
-    last_crowd_version_ = snapshot.version;
-  }
-
   void publishSnapshot() {
     const rclcpp::Time stamp = node_.now();
     geometry_msgs::msg::PoseStamped pose;
@@ -707,7 +660,6 @@ class VisualizationPublisher::Impl {
       }
       plan_publisher_->publish(path);
     }
-    publishCrowdField();
   }
 
   visualization_msgs::msg::Marker gridMarker(
@@ -807,8 +759,6 @@ class VisualizationPublisher::Impl {
   rclcpp::Node& node_;
   const domain::WorldModel& world_;
   std::string frame_id_;
-  rclcpp::Publisher<social_context_msgs::msg::CrowdField>::SharedPtr
-      crowd_field_publisher_;
   rclcpp::Publisher<semaforr_msgs::msg::DecisionRecord>::SharedPtr
       decision_publisher_;
   rclcpp::Publisher<geometry_msgs::msg::PointStamped>::SharedPtr
@@ -833,7 +783,6 @@ class VisualizationPublisher::Impl {
   std::size_t last_familiarity_revision_ = 0U;
   std::size_t last_sensed_revision_ = 0U;
   rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr pose_publisher_;
-  std::uint64_t last_crowd_version_{0U};
   std::optional<std::uint64_t> last_task_index_;
 };
 

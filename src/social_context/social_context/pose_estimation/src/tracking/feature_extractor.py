@@ -49,6 +49,12 @@ class FeatureExtractor():
         if x2 <= x1 or y2 <= y1:
             return None 
 
+        min_height_fraction = 0.6
+        if (y2 - y1) < self.bbox_height * min_height_fraction:
+            return None  # Skip if the bounding box height is too small
+
+        
+
         crop = image[y1:y2, x1:x2]
 
         crop_rgb = cv2.cvtColor(crop, cv2.COLOR_BGR2RGB)

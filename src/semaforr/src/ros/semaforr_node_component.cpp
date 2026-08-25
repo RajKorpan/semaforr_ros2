@@ -3,12 +3,14 @@
 #include <tf2_ros/transform_listener.h>
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <functional>
 #include <geometry_msgs/msg/point_stamped.hpp>
 #include <geometry_msgs/msg/pose_stamped.hpp>
 #include <geometry_msgs/msg/twist.hpp>
 #include <geometry_msgs/msg/vector3_stamped.hpp>
+#include <hunav_msgs/msg/agents.hpp>
 #include <memory>
 #include <mutex>
 #include <optional>
@@ -24,7 +26,9 @@
 #include <semaforr/ros/visualization_publisher.hpp>
 #include <semaforr_msgs/msg/navigation_state.hpp>
 #include <sensor_msgs/msg/laser_scan.hpp>
-#include <social_context_msgs/msg/social_observation.hpp>
+#include <social_context_msgs/msg/formation_group_array.hpp>
+#include <social_context_msgs/msg/tracked_person_array.hpp>
+#include <std_msgs/msg/header.hpp>
 #include <stdexcept>
 #include <string>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
@@ -45,12 +49,17 @@ struct RuntimeConfiguration {
   std::string command_topic{"cmd_vel"};
   std::string state_topic{"navigation_state"};
   std::string decision_topic{"decision_records"};
-  std::string social_topic{"social_observations"};
+  std::string tracked_people_topic{"/human_poses_3d_tracked_global"};
+  std::string tracked_predictions_topic{"/pedestrian_predictions_tracked"};
+  std::string hunav_agents_topic{"/human_states"};
+  std::string hunav_predictions_topic{"/pedestrian_predictions"};
+  std::string formations_topic{"/formation_groups"};
   QosConfiguration sensor_qos;
   QosConfiguration command_qos{1U, "reliable", "volatile"};
   SensorSynchronizerConfiguration sensors;
   SocialObservationConfiguration social;
   bool social_observations_enabled{true};
+  bool formations_enabled{true};
   CommandExecutorConfiguration commands;
   double control_rate_hz{30.0};
   double transform_timeout_s{0.05};
@@ -78,9 +87,14 @@ void declareRuntimeParameters(rclcpp::Node& node) {
                          std::string{"navigation_state"});
   node.declare_parameter("topics.decision_records",
                          std::string{"decision_records"});
-  node.declare_parameter("topics.social_observations",
-                         std::string{"social_observations"});
-  node.declare_parameter("topics.crowd_field", std::string{"crowd_field"});
+  node.declare_parameter("topics.tracked_people",
+                         std::string{"/human_poses_3d_tracked_global"});
+  node.declare_parameter("topics.tracked_predictions",
+                         std::string{"/pedestrian_predictions_tracked"});
+  node.declare_parameter("topics.hunav_agents", std::string{"/human_states"});
+  node.declare_parameter("topics.hunav_predictions",
+                         std::string{"/pedestrian_predictions"});
+  node.declare_parameter("topics.formations", std::string{"/formation_groups"});
 
   node.declare_parameter("qos.sensors.depth", 10);
   node.declare_parameter("qos.sensors.reliability", std::string{"reliable"});
@@ -96,8 +110,20 @@ void declareRuntimeParameters(rclcpp::Node& node) {
   node.declare_parameter("timing.control_rate_hz", 30.0);
   node.declare_parameter("timing.sensor_timeout_s", 0.5);
   node.declare_parameter("timing.sensor_sync_tolerance_s", 0.1);
-  node.declare_parameter("social.maximum_age_s", 0.75);
+  node.declare_parameter("social.input.mode", std::string{"tracked"});
+  node.declare_parameter("social.current_maximum_age_s", 0.75);
+  node.declare_parameter("social.prediction_maximum_age_s", 6.0);
+  node.declare_parameter("social.formation_maximum_age_s", 1.0);
   node.declare_parameter("social.minimum_confidence", 0.25);
+  node.declare_parameter("social.minimum_formation_confidence", 0.5);
+  node.declare_parameter("social.prediction_step_s", 1.0);
+  node.declare_parameter("social.prediction_steps", 5);
+  node.declare_parameter("social.constant_velocity_fallback", true);
+  node.declare_parameter("social.history_step_s", 0.1);
+  node.declare_parameter("social.default_position_variance", 0.09);
+  node.declare_parameter("social.minimum_covariance_confidence", 0.05);
+  node.declare_parameter("social.hunav_confidence", 1.0);
+  node.declare_parameter("social.formations.enabled", true);
   node.declare_parameter("social.learning.enabled", true);
   node.declare_parameter("social.learning.estimator",
                          std::string{"count_exposure"});
@@ -174,9 +200,21 @@ RuntimeConfiguration readRuntimeConfiguration(rclcpp::Node& node) {
   configuration.decision_topic =
       requireNonEmpty(node.get_parameter("topics.decision_records").as_string(),
                       "topics.decision_records");
-  configuration.social_topic = requireNonEmpty(
-      node.get_parameter("topics.social_observations").as_string(),
-      "topics.social_observations");
+  configuration.tracked_people_topic = requireNonEmpty(
+      node.get_parameter("topics.tracked_people").as_string(),
+      "topics.tracked_people");
+  configuration.tracked_predictions_topic = requireNonEmpty(
+      node.get_parameter("topics.tracked_predictions").as_string(),
+      "topics.tracked_predictions");
+  configuration.hunav_agents_topic = requireNonEmpty(
+      node.get_parameter("topics.hunav_agents").as_string(),
+      "topics.hunav_agents");
+  configuration.hunav_predictions_topic = requireNonEmpty(
+      node.get_parameter("topics.hunav_predictions").as_string(),
+      "topics.hunav_predictions");
+  configuration.formations_topic = requireNonEmpty(
+      node.get_parameter("topics.formations").as_string(),
+      "topics.formations");
   configuration.sensor_qos = readQos(node, "qos.sensors");
   configuration.command_qos = readQos(node, "qos.command");
   configuration.sensors.pose_frame = requireNonEmpty(
@@ -184,13 +222,45 @@ RuntimeConfiguration readRuntimeConfiguration(rclcpp::Node& node) {
   configuration.sensors.scan_frame = requireNonEmpty(
       node.get_parameter("frames.scan").as_string(), "frames.scan");
   configuration.social.frame = configuration.sensors.pose_frame;
+  configuration.social.input_mode = socialInputModeFromString(
+      node.get_parameter("social.input.mode").as_string());
   configuration.social_observations_enabled =
       node.get_parameter("social.enabled").as_bool() &&
-      node.get_parameter("social.observations.enabled").as_bool();
-  configuration.social.maximum_age_s =
-      node.get_parameter("social.maximum_age_s").as_double();
+      node.get_parameter("social.observations.enabled").as_bool() &&
+      configuration.social.input_mode != SocialInputMode::None;
+  configuration.formations_enabled =
+      configuration.social_observations_enabled &&
+      configuration.social.input_mode == SocialInputMode::Tracked &&
+      node.get_parameter("social.formations.enabled").as_bool();
+  configuration.social.current_maximum_age_s =
+      node.get_parameter("social.current_maximum_age_s").as_double();
+  configuration.social.prediction_maximum_age_s =
+      node.get_parameter("social.prediction_maximum_age_s").as_double();
+  configuration.social.formation_maximum_age_s =
+      node.get_parameter("social.formation_maximum_age_s").as_double();
   configuration.social.minimum_confidence =
       node.get_parameter("social.minimum_confidence").as_double();
+  configuration.social.minimum_formation_confidence =
+      node.get_parameter("social.minimum_formation_confidence").as_double();
+  configuration.social.prediction_step_s =
+      node.get_parameter("social.prediction_step_s").as_double();
+  const auto prediction_steps =
+      node.get_parameter("social.prediction_steps").as_int();
+  if (prediction_steps <= 0) {
+    throw std::runtime_error("social.prediction_steps must be positive");
+  }
+  configuration.social.prediction_steps =
+      static_cast<std::size_t>(prediction_steps);
+  configuration.social.constant_velocity_fallback =
+      node.get_parameter("social.constant_velocity_fallback").as_bool();
+  configuration.social.adapter.history_step_s =
+      node.get_parameter("social.history_step_s").as_double();
+  configuration.social.adapter.default_position_variance =
+      node.get_parameter("social.default_position_variance").as_double();
+  configuration.social.adapter.minimum_covariance_confidence =
+      node.get_parameter("social.minimum_covariance_confidence").as_double();
+  configuration.social.adapter.hunav_confidence =
+      node.get_parameter("social.hunav_confidence").as_double();
   configuration.transform_timeout_s =
       node.get_parameter("frames.transform_timeout_s").as_double();
   configuration.control_rate_hz =
@@ -369,7 +439,7 @@ std::uint8_t toMessage(navigation::NavigationPhase phase) noexcept {
 }
 
 void rotatePositionCovariance(
-    social_context_msgs::msg::PedestrianObservation& pedestrian,
+    std::array<double, 4>& covariance,
     const geometry_msgs::msg::TransformStamped& transform) {
   const auto& quaternion = transform.transform.rotation;
   const double sin_yaw =
@@ -379,21 +449,45 @@ void rotatePositionCovariance(
   const double yaw = std::atan2(sin_yaw, cos_yaw);
   const double cosine = std::cos(yaw);
   const double sine = std::sin(yaw);
-  const auto covariance = pedestrian.position_covariance;
-  pedestrian.position_covariance[0] =
-      cosine * cosine * covariance[0] -
-      cosine * sine * (covariance[1] + covariance[2]) +
-      sine * sine * covariance[3];
-  pedestrian.position_covariance[1] =
-      cosine * sine * covariance[0] - sine * sine * covariance[2] +
-      cosine * cosine * covariance[1] - cosine * sine * covariance[3];
-  pedestrian.position_covariance[2] =
-      cosine * sine * covariance[0] + cosine * cosine * covariance[2] -
-      sine * sine * covariance[1] - cosine * sine * covariance[3];
-  pedestrian.position_covariance[3] =
-      sine * sine * covariance[0] +
-      cosine * sine * (covariance[1] + covariance[2]) +
-      cosine * cosine * covariance[3];
+  const auto source = covariance;
+  covariance[0] = cosine * cosine * source[0] -
+                  cosine * sine * (source[1] + source[2]) +
+                  sine * sine * source[3];
+  covariance[1] = cosine * sine * source[0] - sine * sine * source[2] +
+                  cosine * cosine * source[1] - cosine * sine * source[3];
+  covariance[2] = cosine * sine * source[0] + cosine * cosine * source[2] -
+                  sine * sine * source[1] - cosine * sine * source[3];
+  covariance[3] = sine * sine * source[0] +
+                  cosine * sine * (source[1] + source[2]) +
+                  cosine * cosine * source[3];
+}
+
+void transformCrowdObservation(
+    domain::CrowdObservation& observation,
+    const std_msgs::msg::Header& source_header,
+    const geometry_msgs::msg::TransformStamped& transform,
+    const std::string& target_frame) {
+  for (auto& pedestrian : observation.pedestrians) {
+    geometry_msgs::msg::PointStamped point;
+    point.header = source_header;
+    point.point.x = pedestrian.position.x_m;
+    point.point.y = pedestrian.position.y_m;
+    geometry_msgs::msg::PointStamped transformed_point;
+    tf2::doTransform(point, transformed_point, transform);
+    pedestrian.position = {transformed_point.point.x,
+                           transformed_point.point.y};
+
+    geometry_msgs::msg::Vector3Stamped velocity;
+    velocity.header = source_header;
+    velocity.vector.x = pedestrian.velocity_mps.x_m;
+    velocity.vector.y = pedestrian.velocity_mps.y_m;
+    geometry_msgs::msg::Vector3Stamped transformed_velocity;
+    tf2::doTransform(velocity, transformed_velocity, transform);
+    pedestrian.velocity_mps = {transformed_velocity.vector.x,
+                               transformed_velocity.vector.y};
+    rotatePositionCovariance(pedestrian.position_covariance, transform);
+  }
+  observation.frame_id = target_frame;
 }
 
 }  // namespace
@@ -424,6 +518,27 @@ class SemaFORRNode::Impl {
     state_publisher_ =
         node_.create_publisher<semaforr_msgs::msg::NavigationState>(
             runtime_.state_topic, makeQos(runtime_.command_qos));
+    const bool tracked =
+        runtime_.social.input_mode == SocialInputMode::Tracked;
+    const char* current_topic =
+        !runtime_.social_observations_enabled
+            ? "disabled"
+            : (tracked ? runtime_.tracked_people_topic.c_str()
+                       : runtime_.hunav_agents_topic.c_str());
+    const char* prediction_topic =
+        !runtime_.social_observations_enabled
+            ? "disabled"
+            : (tracked ? runtime_.tracked_predictions_topic.c_str()
+                       : runtime_.hunav_predictions_topic.c_str());
+    RCLCPP_INFO(
+        node_.get_logger(),
+        "Social boundary: enabled=%s mode=%s current=%s predictions=%s "
+        "formations=%s",
+        runtime_.social_observations_enabled ? "true" : "false",
+        std::string(toString(runtime_.social.input_mode)).c_str(),
+        current_topic, prediction_topic,
+        runtime_.formations_enabled ? runtime_.formations_topic.c_str()
+                                    : "disabled");
   }
 
   void start() {
@@ -447,13 +562,37 @@ class SemaFORRNode::Impl {
           onScan(*message);
         });
     if (runtime_.social_observations_enabled) {
-      social_subscription_ =
-          node_.create_subscription<
-              social_context_msgs::msg::SocialObservation>(
-              runtime_.social_topic, sensor_qos,
-              [this](
-                  social_context_msgs::msg::SocialObservation::ConstSharedPtr
-                      message) { onSocialObservation(*message); });
+      const bool tracked =
+          runtime_.social.input_mode == SocialInputMode::Tracked;
+      if (tracked) {
+        tracked_people_subscription_ = node_.create_subscription<
+            social_context_msgs::msg::TrackedPersonArray>(
+            runtime_.tracked_people_topic, sensor_qos,
+            [this](social_context_msgs::msg::TrackedPersonArray::ConstSharedPtr
+                       message) { onTrackedPeople(*message); });
+      } else {
+        hunav_agents_subscription_ =
+            node_.create_subscription<hunav_msgs::msg::Agents>(
+                runtime_.hunav_agents_topic, sensor_qos,
+                [this](hunav_msgs::msg::Agents::ConstSharedPtr message) {
+                  onHunavAgents(*message);
+                });
+      }
+      prediction_subscription_ =
+          node_.create_subscription<geometry_msgs::msg::PoseStamped>(
+              tracked ? runtime_.tracked_predictions_topic
+                      : runtime_.hunav_predictions_topic,
+              sensor_qos,
+              [this](geometry_msgs::msg::PoseStamped::ConstSharedPtr message) {
+                onSocialPrediction(*message);
+              });
+      if (runtime_.formations_enabled) {
+        formation_subscription_ = node_.create_subscription<
+            social_context_msgs::msg::FormationGroupArray>(
+            runtime_.formations_topic, sensor_qos,
+            [this](social_context_msgs::msg::FormationGroupArray::ConstSharedPtr
+                       message) { onFormations(*message); });
+      }
     }
     timer_ = rclcpp::create_timer(
         node_shared, node_.get_clock(),
@@ -547,61 +686,121 @@ class SemaFORRNode::Impl {
     }
   }
 
-  void onSocialObservation(
-      const social_context_msgs::msg::SocialObservation& message) {
-    std::scoped_lock lock(mutex_);
-    if (state_ == NavigationNodeState::Stopped) {
-      return;
+  bool normalizeSocialObservation(domain::CrowdObservation& observation,
+                                  const std_msgs::msg::Header& header) {
+    if (observation.frame_id == runtime_.social.frame) return true;
+    try {
+      const auto transform = transform_buffer_.lookupTransform(
+          runtime_.social.frame, observation.frame_id,
+          rclcpp::Time(header.stamp, node_.get_clock()->get_clock_type()),
+          tf2::durationFromSec(runtime_.transform_timeout_s));
+      transformCrowdObservation(observation, header, transform,
+                                runtime_.social.frame);
+      return true;
+    } catch (const tf2::TransformException& error) {
+      last_social_failure_ = "social transform unavailable from '" +
+                             observation.frame_id + "' to '" +
+                             runtime_.social.frame + "': " + error.what();
+      RCLCPP_WARN(node_.get_logger(), "%s", last_social_failure_.c_str());
+      return false;
     }
-    const rclcpp::Time received_at = node_.now();
-    social_context_msgs::msg::SocialObservation normalized = message;
-    if (message.header.frame_id != runtime_.social.frame) {
-      try {
-        const auto transform = transform_buffer_.lookupTransform(
-            runtime_.social.frame, message.header.frame_id,
-            rclcpp::Time(message.header.stamp, received_at.get_clock_type()),
-            tf2::durationFromSec(runtime_.transform_timeout_s));
-        normalized.header.frame_id = runtime_.social.frame;
-        for (auto& pedestrian : normalized.pedestrians) {
-          rotatePositionCovariance(pedestrian, transform);
-          geometry_msgs::msg::PointStamped point;
-          point.header = message.header;
-          point.point = pedestrian.position;
-          geometry_msgs::msg::PointStamped transformed_point;
-          tf2::doTransform(point, transformed_point, transform);
-          pedestrian.position = transformed_point.point;
+  }
 
-          geometry_msgs::msg::Vector3Stamped velocity;
-          velocity.header = message.header;
-          velocity.vector = pedestrian.velocity;
-          geometry_msgs::msg::Vector3Stamped transformed_velocity;
-          tf2::doTransform(velocity, transformed_velocity, transform);
-          pedestrian.velocity = transformed_velocity.vector;
-
-          for (auto& prediction : pedestrian.predicted_positions) {
-            point.point = prediction;
-            tf2::doTransform(point, transformed_point, transform);
-            prediction = transformed_point.point;
-          }
-        }
-      } catch (const tf2::TransformException& error) {
-        last_social_failure_ = "social transform unavailable from '" +
-                               message.header.frame_id + "' to '" +
-                               runtime_.social.frame + "': " + error.what();
-        RCLCPP_WARN(node_.get_logger(), "%s", last_social_failure_.c_str());
-        return;
-      }
-    }
-    if (social_buffer_->accept(normalized, received_at)) {
-      if (const auto observation = social_buffer_->snapshot(received_at)) {
-        crowd_state_.update(*observation);
-      }
-      last_social_failure_.clear();
-    } else {
+  void finishCurrentSocialObservation(domain::CrowdObservation observation,
+                                      const std_msgs::msg::Header& header,
+                                      const rclcpp::Time& received_at) {
+    if (!normalizeSocialObservation(observation, header)) return;
+    if (!social_buffer_->accept(std::move(observation), received_at)) {
       last_social_failure_ =
           "social_" +
           std::string(toString(social_buffer_->status(received_at)));
       RCLCPP_WARN(node_.get_logger(), "%s", last_social_failure_.c_str());
+      return;
+    }
+    if (const auto current = social_buffer_->snapshot(received_at)) {
+      crowd_state_.update(*current);
+    }
+    for (const auto& event : social_buffer_->takeLifecycleEvents()) {
+      RCLCPP_INFO(node_.get_logger(), "social track %s: %s",
+                  event.pedestrian_id.c_str(),
+                  std::string(toString(event.type)).c_str());
+    }
+    last_social_failure_.clear();
+  }
+
+  void onTrackedPeople(
+      const social_context_msgs::msg::TrackedPersonArray& message) {
+    std::scoped_lock lock(mutex_);
+    if (state_ == NavigationNodeState::Stopped) return;
+    const rclcpp::Time received_at = node_.now();
+    try {
+      finishCurrentSocialObservation(
+          trackedPeopleToDomain(message, received_at, runtime_.social.adapter),
+          message.header, received_at);
+    } catch (const std::exception& error) {
+      last_social_failure_ = "social_tracked_invalid: " +
+                             std::string(error.what());
+      RCLCPP_WARN(node_.get_logger(), "%s", last_social_failure_.c_str());
+    }
+  }
+
+  void onHunavAgents(const hunav_msgs::msg::Agents& message) {
+    std::scoped_lock lock(mutex_);
+    if (state_ == NavigationNodeState::Stopped) return;
+    const rclcpp::Time received_at = node_.now();
+    try {
+      finishCurrentSocialObservation(
+          hunavAgentsToDomain(message, received_at, runtime_.social.adapter),
+          message.header, received_at);
+    } catch (const std::exception& error) {
+      last_social_failure_ = "social_hunav_invalid: " +
+                             std::string(error.what());
+      RCLCPP_WARN(node_.get_logger(), "%s", last_social_failure_.c_str());
+    }
+  }
+
+  void onSocialPrediction(const geometry_msgs::msg::PoseStamped& message) {
+    std::scoped_lock lock(mutex_);
+    if (state_ != NavigationNodeState::Stopped &&
+        !social_buffer_->acceptPrediction(message, node_.now())) {
+      RCLCPP_DEBUG(node_.get_logger(),
+                   "rejected malformed, duplicate, or out-of-range social "
+                   "prediction '%s'",
+                   message.header.frame_id.c_str());
+    }
+  }
+
+  void onFormations(
+      const social_context_msgs::msg::FormationGroupArray& message) {
+    std::scoped_lock lock(mutex_);
+    if (state_ == NavigationNodeState::Stopped) return;
+    auto normalized = message;
+    if (message.header.frame_id != runtime_.social.frame) {
+      try {
+        const auto transform = transform_buffer_.lookupTransform(
+            runtime_.social.frame, message.header.frame_id,
+            rclcpp::Time(message.header.stamp,
+                         node_.get_clock()->get_clock_type()),
+            tf2::durationFromSec(runtime_.transform_timeout_s));
+        for (auto& group : normalized.groups) {
+          geometry_msgs::msg::PointStamped source;
+          source.header = message.header;
+          source.point.x = group.center_x;
+          source.point.y = group.center_y;
+          geometry_msgs::msg::PointStamped target;
+          tf2::doTransform(source, target, transform);
+          group.center_x = static_cast<float>(target.point.x);
+          group.center_y = static_cast<float>(target.point.y);
+        }
+        normalized.header.frame_id = runtime_.social.frame;
+      } catch (const tf2::TransformException& error) {
+        RCLCPP_WARN(node_.get_logger(), "formation transform unavailable: %s",
+                    error.what());
+        return;
+      }
+    }
+    if (!social_buffer_->acceptFormations(normalized, node_.now())) {
+      RCLCPP_DEBUG(node_.get_logger(), "rejected invalid social formations");
     }
   }
 
@@ -903,8 +1102,15 @@ class SemaFORRNode::Impl {
       pose_subscription_;
   rclcpp::Subscription<sensor_msgs::msg::LaserScan>::SharedPtr
       scan_subscription_;
-  rclcpp::Subscription<social_context_msgs::msg::SocialObservation>::SharedPtr
-      social_subscription_;
+  rclcpp::Subscription<social_context_msgs::msg::TrackedPersonArray>::SharedPtr
+      tracked_people_subscription_;
+  rclcpp::Subscription<hunav_msgs::msg::Agents>::SharedPtr
+      hunav_agents_subscription_;
+  rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr
+      prediction_subscription_;
+  rclcpp::Subscription<
+      social_context_msgs::msg::FormationGroupArray>::SharedPtr
+      formation_subscription_;
   rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr command_publisher_;
   rclcpp::Publisher<semaforr_msgs::msg::NavigationState>::SharedPtr
       state_publisher_;

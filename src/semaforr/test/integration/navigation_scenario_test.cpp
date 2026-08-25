@@ -81,7 +81,9 @@ semaforr::domain::CrowdObservation crossingCrowd(std::size_t count) {
          {0.0, 1.0},
          {{{0.5 + offset, 0.0}, std::chrono::seconds(11)}},
          1.0,
-         {0.04, 0.0, 0.0, 0.04}});
+         {0.04, 0.0, 0.0, 0.04},
+         "none",
+         std::nullopt});
   }
   crowd.validate();
   return crowd;

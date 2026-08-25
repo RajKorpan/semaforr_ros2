@@ -40,9 +40,9 @@ increasing the timeout blindly.
 
 ## Social advisors do not participate
 
-Echo `social_observations` and verify stable IDs, confidence, timestamps,
-prediction timestamps, and frame. Data older than `social.maximum_age_s`,
-below `social.minimum_confidence`, or lacking TF is ignored. `crowd_field` is an
+Echo the selected tracked or HuNav current-state topic and verify stable IDs,
+confidence, timestamps, and frame. Data older than
+`social.current_maximum_age_s`, below `social.minimum_confidence`, or lacking TF is ignored. The crowd field is an
 output; publishing it does not feed navigation.
 
 ## RViz is empty or reports frame errors

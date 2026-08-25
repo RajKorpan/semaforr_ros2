@@ -1,8 +1,0 @@
-semaforr_crowd:
-  ros__parameters:
-    field_topic: crowd_field
-    density_topic: crowd_density
-    risk_topic: crowd_risk
-    flow_topic: crowd_flow
-    occupancy_scale: 100.0
-    minimum_flow: 0.000001

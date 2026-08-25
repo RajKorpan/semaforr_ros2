@@ -32,6 +32,8 @@ struct PedestrianObservation {
   std::vector<PredictedPosition> predicted_trajectory;
   double confidence{0.0};
   std::array<double, 4> position_covariance{};
+  std::string prediction_source{"none"};
+  std::optional<std::size_t> formation_index;
 
   void validate(SocialTimestamp observed_at) const {
     if (id.empty()) {
@@ -74,11 +76,36 @@ struct PedestrianObservation {
   bool operator==(const PedestrianObservation&) const = default;
 };
 
+struct FormationObservation {
+  std::vector<std::string> member_ids;
+  std::string formation_type;
+  Point2D center;
+  double confidence{0.0};
+
+  void validate() const {
+    if (member_ids.empty() || formation_type.empty() || !center.finite() ||
+        !std::isfinite(confidence) || confidence < 0.0 || confidence > 1.0) {
+      throw std::invalid_argument("invalid social formation observation");
+    }
+    std::unordered_set<std::string> identifiers;
+    for (const auto& id : member_ids) {
+      if (id.empty() || !identifiers.insert(id).second) {
+        throw std::invalid_argument(
+            "formation members must have unique nonempty IDs");
+      }
+    }
+  }
+
+  bool operator==(const FormationObservation&) const = default;
+};
+
 struct CrowdObservation {
   std::string frame_id;
   SocialTimestamp observed_at{};
   std::chrono::nanoseconds data_age{};
+  std::string provenance;
   std::vector<PedestrianObservation> pedestrians;
+  std::vector<FormationObservation> formations;
 
   void validate() const {
     if (frame_id.empty()) {
@@ -95,6 +122,22 @@ struct CrowdObservation {
         throw std::invalid_argument(
             "social observation contains duplicate pedestrian ID '" +
             pedestrian.id + "'");
+      }
+    }
+    for (const auto& formation : formations) {
+      formation.validate();
+      for (const auto& id : formation.member_ids) {
+        if (!identifiers.contains(id)) {
+          throw std::invalid_argument(
+              "formation references unknown pedestrian ID '" + id + "'");
+        }
+      }
+    }
+    for (const auto& pedestrian : pedestrians) {
+      if (pedestrian.formation_index &&
+          *pedestrian.formation_index >= formations.size()) {
+        throw std::invalid_argument(
+            "pedestrian formation index is outside the formation array");
       }
     }
   }

@@ -10,7 +10,11 @@ installed example.
 |---|---|---|
 | `topics.pose`: `pose` | `geometry_msgs/msg/PoseStamped` | Stamped robot pose. TF converts non-global frames to `frames.global`. |
 | `topics.scan`: `scan_raw` | `sensor_msgs/msg/LaserScan` | Range scan in `frames.scan`; NaN, infinity, and out-of-range beams are classified and ignored or integrated according to the laser contract rather than rejecting the whole scan. Its timestamp must synchronize with pose. |
-| `topics.social_observations`: `social_observations` | `social_context_msgs/msg/SocialObservation` | Canonical pedestrian IDs, positions, velocities, stamped predictions, confidence/covariance, and source age. |
+| `topics.tracked_people`: `/human_poses_3d_tracked_global` | `social_context_msgs/msg/TrackedPersonArray` | Primary current-state input when `social.input.mode=tracked`. |
+| `topics.tracked_predictions`: `/pedestrian_predictions_tracked` | `geometry_msgs/msg/PoseStamped` | GST predictions encoded by the collaborator's `<id>_pred_<step>` convention. |
+| `topics.hunav_agents`: `/human_states` | `hunav_msgs/msg/Agents` | Optional simulation current-state input when `social.input.mode=hunav`. |
+| `topics.hunav_predictions`: `/pedestrian_predictions` | `geometry_msgs/msg/PoseStamped` | HuNav-mode GST prediction stream. |
+| `topics.formations`: `/formation_groups` | `social_context_msgs/msg/FormationGroupArray` | Optional group context associated by tracked ID. |
 
 Pose and scan subscriptions always exist and use `qos.sensors.*`. The social
 subscription is constructed only when `social.enabled` and
@@ -26,7 +30,6 @@ and their timestamps differ by no more than
 | `topics.command`: `cmd_vel` | `geometry_msgs/msg/Twist` | Current velocity command; zero on timeout, completion, shutdown, or invariant failure. |
 | `topics.navigation_state`: `navigation_state` | `semaforr_msgs/msg/NavigationState` | Node state machine and action execution status. |
 | `topics.decision_records`: `decision_records` | `semaforr_msgs/msg/DecisionRecord` | Replayable reasoning and execution trace for one stable decision ID; lifecycle updates reuse that ID. |
-| `topics.crowd_field`: `crowd_field` | `social_context_msgs/msg/CrowdField` | Derived learned crowd diagnostic, never a second navigation input. |
 
 The separately installed `why` node consumes `decision_records`, accepts
 `semaforr_msgs/msg/ExplanationQuestion` on `why_questions`, and publishes
@@ -61,7 +64,7 @@ runtime topic contract.
   spatial models use this frame.
 - `frames.scan` defaults to `base_laser_link`. Laser messages must declare this
   frame; static sensor mounting belongs in TF.
-- Pose and social messages in another frame are transformed to the global frame
+- Pose, current-person, and formation messages in another frame are transformed to the global frame
   with the message timestamp and `frames.transform_timeout_s`.
 - If a transform is unavailable, that message is rejected and a warning is
   emitted. Coordinate offsets are not applied as a fallback.

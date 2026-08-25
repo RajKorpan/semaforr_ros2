@@ -13,21 +13,13 @@ setup(
             ['resource/' + package_name],
         ),
         ('share/' + package_name, ['package.xml', 'README.md']),
-        (
-            'share/' + package_name + '/config',
-            ['config/crowd.yaml'],
-        ),
-        (
-            'share/' + package_name + '/launch',
-            ['launch/social_diagnostics.launch.py'],
-        ),
     ],
     install_requires=['setuptools'],
     zip_safe=True,
     maintainer='Eric Guan',
     maintainer_email='ericguan04@gmail.com',
     description=(
-        'ROS 2 diagnostics for SemaFORR domain-owned learned crowd fields.'
+        'Compatibility notice for crowd functionality migrated into SemaFORR.'
     ),
     license='Apache-2.0',
     tests_require=['pytest'],

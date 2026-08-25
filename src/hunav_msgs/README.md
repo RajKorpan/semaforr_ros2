@@ -2,7 +2,7 @@
 
 A ROS2 package to use Agent messages.
 
-**Tested in ROS2 foxy**
+**Tested in ROS2 Humble**
 
 ## Description
 
@@ -17,8 +17,12 @@ The types of message are used:
 
 Services:
 
-Three types of services are used:
+Seven types of services are used:
 
 * ```ComputeAgent.srv``` 
 * ```ComputeAgents.srv```
 * ```MoveAgent.srv```
+* ```GetAgents.srv```
+* ```GetParameters.srv```
+* ```ResetAgents.srv```
+* ```StartEvaluation.srv```
