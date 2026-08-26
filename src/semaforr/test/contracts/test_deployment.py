@@ -48,6 +48,7 @@ def test_maintained_documentation_set_is_complete():
     required = {
         "README.md",
         "architecture.md",
+        "getting-started-with-semaforr.md",
         "decision-tiers.md",
         "advisor-catalog.md",
         "planner-catalog.md",

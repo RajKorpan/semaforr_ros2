@@ -2,6 +2,7 @@
 
 # SemaFORR documentation
 
+- [Start here: introduction and learning path](getting-started-with-semaforr.md)
 - [Build and deployment](deployment.md)
 - [Build targets and package layout](build-and-package.md)
 - [Architecture overview](architecture.md)

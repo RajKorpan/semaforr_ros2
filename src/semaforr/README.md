@@ -101,7 +101,9 @@ projection are documented in `docs/social-navigation.md`.
 
 ## Documentation
 
-The maintained documentation starts at `docs/README.md` and includes the
+New users should begin with
+[`docs/getting-started-with-semaforr.md`](docs/getting-started-with-semaforr.md),
+then use `docs/README.md` as the complete index. The maintained set includes the
 architecture, decision tiers, advisor and planner catalogs, full configuration
 reference, topic/frame contract, spatial learning, troubleshooting,
 contributor, deployment, and legacy migration guides.
