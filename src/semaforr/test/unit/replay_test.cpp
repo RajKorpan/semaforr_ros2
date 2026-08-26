@@ -14,6 +14,7 @@
 #include <filesystem>
 #include <gtest/gtest.h>
 #include <limits>
+#include <semaforr/social/crowd_field_learner.hpp>
 #include <semaforr/validation/replay.hpp>
 
 namespace {
@@ -196,6 +197,23 @@ TEST(Replay, RoundTripCapturesInputsSeedsRevisionsAndControllerOutcome) {
   EXPECT_TRUE(restored.cycles.front().controller_outcome->near_collision);
   EXPECT_EQ(restored.cycles.front().controller_outcome->cancellation_reason,
             "actual controller outcome");
+
+  semaforr::social::CrowdFieldLearnerConfiguration crowd_configuration;
+  crowd_configuration.geometry = {"map", 12.0, 10.0, 1.0, -5.0, -2.0};
+  crowd_configuration.minimum_update_period_s = 0.0;
+  semaforr::social::CrowdFieldLearner recorded_learner(crowd_configuration);
+  semaforr::social::CrowdFieldLearner replayed_learner(crowd_configuration);
+  const auto recorded_observation = observation();
+  ASSERT_TRUE(recorded_observation.crowd);
+  ASSERT_TRUE(recorded_learner.observe(recorded_observation.pose,
+                                       recorded_observation.laser,
+                                       *recorded_observation.crowd));
+  const auto& replayed_observation = restored.cycles.front().observation;
+  ASSERT_TRUE(replayed_observation.crowd);
+  ASSERT_TRUE(replayed_learner.observe(replayed_observation.pose,
+                                       replayed_observation.laser,
+                                       *replayed_observation.crowd));
+  EXPECT_EQ(replayed_learner.snapshot(), recorded_learner.snapshot());
   std::filesystem::remove(path);
 }
 

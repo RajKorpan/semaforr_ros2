@@ -9,8 +9,10 @@
  */
 #include <algorithm>
 #include <cmath>
+#include <iterator>
 #include <limits>
 #include <queue>
+#include <semaforr/planning/astar.hpp>
 #include <semaforr/planning/domain_planner.hpp>
 #include <stdexcept>
 
@@ -509,6 +511,9 @@ PlanResult DomainPlanner::plan(const PlanningRequest& request) {
   };
   attach(start);
   attach(goal);
+  Graph distance_graph;
+  if (objective_ == PlanObjective::Distance)
+    for (const auto& node : nodes) distance_graph.addVertex(node);
   std::vector<std::vector<std::pair<std::size_t, double>>> adjacency(
       nodes.size());
   for (const auto& [a, b] : edges) {
@@ -521,44 +526,61 @@ PlanResult DomainPlanner::plan(const PlanningRequest& request) {
                      (static_cast<double>(node_costs[a]) +
                       static_cast<double>(node_costs[b])) /
                      2.0;
+    if (objective_ == PlanObjective::Distance)
+      distance_graph.addUndirectedEdge(a, b, {c, 0.0, 0.0});
     adjacency[a].push_back({b, c});
     adjacency[b].push_back({a, c});
   }
-  using Entry = std::pair<double, std::size_t>;
-  std::priority_queue<Entry, std::vector<Entry>, std::greater<>> queue;
-  std::vector<double> distance(nodes.size(),
-                               std::numeric_limits<double>::infinity());
-  std::vector<std::size_t> parent(nodes.size(), nodes.size());
-  distance[start] = 0;
-  queue.push({0, start});
-  while (!queue.empty()) {
-    auto [cost, u] = queue.top();
-    queue.pop();
-    if (cost != distance[u]) continue;
-    if (u == goal) break;
-    for (auto [v, w] : adjacency[u])
-      if (cost + w < distance[v]) {
-        distance[v] = cost + w;
-        parent[v] = u;
-        queue.push({distance[v], v});
-      }
-  }
-  if (!std::isfinite(distance[goal]))
-    return {PlanStatus::NoPath, {}, 0.0, "no path in shared planning graph"};
   std::vector<std::size_t> ids;
-  for (std::size_t u = goal; u != start; u = parent[u]) {
-    if (u >= nodes.size() || parent[u] >= nodes.size())
-      return {PlanStatus::NoPath, {}, 0.0, "broken predecessor chain"};
-    ids.push_back(u);
+  double selected_cost = 0.0;
+  std::string search_algorithm;
+  if (objective_ == PlanObjective::Distance) {
+    const auto path = AStar{}.search(distance_graph, start, goal);
+    if (!path.succeeded())
+      return {PlanStatus::NoPath, {}, 0.0,
+              "no path in shared planning graph"};
+    ids.assign(std::next(path.vertices.begin()), path.vertices.end());
+    selected_cost = path.cost;
+    search_algorithm = "A*";
+  } else {
+    using Entry = std::pair<double, std::size_t>;
+    std::priority_queue<Entry, std::vector<Entry>, std::greater<>> queue;
+    std::vector<double> distance(nodes.size(),
+                                 std::numeric_limits<double>::infinity());
+    std::vector<std::size_t> parent(nodes.size(), nodes.size());
+    distance[start] = 0;
+    queue.push({0, start});
+    while (!queue.empty()) {
+      auto [cost, u] = queue.top();
+      queue.pop();
+      if (cost != distance[u]) continue;
+      if (u == goal) break;
+      for (auto [v, w] : adjacency[u])
+        if (cost + w < distance[v]) {
+          distance[v] = cost + w;
+          parent[v] = u;
+          queue.push({distance[v], v});
+        }
+    }
+    if (!std::isfinite(distance[goal]))
+      return {PlanStatus::NoPath, {}, 0.0,
+              "no path in shared planning graph"};
+    for (std::size_t u = goal; u != start; u = parent[u]) {
+      if (u >= nodes.size() || parent[u] >= nodes.size())
+        return {PlanStatus::NoPath, {}, 0.0, "broken predecessor chain"};
+      ids.push_back(u);
+    }
+    std::reverse(ids.begin(), ids.end());
+    selected_cost = distance[goal];
+    search_algorithm = "Dijkstra";
   }
-  std::reverse(ids.begin(), ids.end());
   PlanResult result;
   result.status = PlanStatus::Success;
   for (auto id : ids) result.path.push_back(nodes[id]);
-  result.cost_m = distance[goal];
+  result.cost_m = selected_cost;
   result.primary_objective = objective_;
   result.objective_costs = evaluatePathObjectives(request, result.path);
-  result.explanation = "Dijkstra over " +
+  result.explanation = search_algorithm + " over " +
                        traversability->diagnostic +
                        " using the " + std::string(toString(objective_)) +
                        " objective";

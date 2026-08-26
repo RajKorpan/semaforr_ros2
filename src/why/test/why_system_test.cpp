@@ -206,6 +206,49 @@ TEST(WhyDecision, PreservesTierThreeEvidenceAndConfidence) {
             std::string::npos);
 }
 
+TEST(WhyDecision, ReportsReadyAndDegradedSocialEvidence) {
+  UnifiedWhySystem why;
+  auto ready = tierThreeRecord();
+  ready.social_input_source = "social_context_tracked";
+  ready.social_prediction_source = "gst";
+  ready.social_input_status = "ready";
+  ready.live_social_revision = 3U;
+  ready.crowd_density_revision = 5U;
+  ready.crowd_risk_revision = 6U;
+  ready.crowd_flow_revision = 7U;
+  ready.formation_evidence_participated = true;
+  why.record(ready);
+  ExplanationQuestion question;
+  question.question_type = ExplanationQuestion::WHY_DECISION;
+  auto answer = why.answer(question);
+  EXPECT_NE(answer.natural_language_response.find(
+                "Social evidence came from social_context_tracked with gst"),
+            std::string::npos);
+  EXPECT_NE(answer.natural_language_response.find(
+                "Formation evidence participated"),
+            std::string::npos);
+  EXPECT_TRUE(std::any_of(answer.structured_facts.begin(),
+                          answer.structured_facts.end(), [](const auto& fact) {
+                            return fact ==
+                                   "crowd_revisions=live:3,density:5,risk:6,flow:7";
+                          }));
+
+  auto degraded = ready;
+  degraded.decision_id = 42U;
+  degraded.social_input_status = "missing_or_stale";
+  degraded.formation_evidence_participated = false;
+  why.record(degraded);
+  question.has_decision_id = true;
+  question.decision_id = 42U;
+  answer = why.answer(question);
+  EXPECT_NE(answer.natural_language_response.find(
+                "Social input was degraded (missing_or_stale)"),
+            std::string::npos);
+  EXPECT_NE(answer.natural_language_response.find(
+                "was not treated as current"),
+            std::string::npos);
+}
+
 TEST(WhyDecision, ExplainsCircumstanceEvidenceWithoutCallingItSafety) {
   UnifiedWhySystem why;
   auto record = tierThreeRecord();
@@ -604,6 +647,70 @@ TEST(WhyRoute, UsesChapterFiveTurnsDistancesAndAlternativeTemplate) {
             "We could go straight about 2 meters to reach our target.");
 }
 
+TEST(WhyRoute, CoversEveryTableFiveElevenDirectionAndWraparound) {
+  UnifiedWhySystem why;
+  auto record = tierThreeRecord();
+  record.robot_pose.x = 0.0;
+  record.robot_pose.y = 0.0;
+  record.has_plan = true;
+  record.active_plan_id = 20U;
+  auto selected = plan(20U, "DistancePlan", 0.0);
+  selected.geometry.clear();
+  double x = 0.0;
+  double y = 0.0;
+  constexpr double pi = 3.14159265358979323846;
+  for (const double angle :
+       {0.0, pi / 4.0, pi / 2.0, 3.0 * pi / 4.0, pi,
+        -3.0 * pi / 4.0, -pi / 2.0, -pi / 4.0, 0.0}) {
+    geometry_msgs::msg::Point point;
+    x += 0.5 * std::cos(angle);
+    y += 0.5 * std::sin(angle);
+    point.x = x;
+    point.y = y;
+    selected.geometry.push_back(point);
+  }
+  record.planning_candidates = {selected};
+  why.record(record);
+  ExplanationQuestion question;
+  question.question_type = ExplanationQuestion::ROUTE_DESCRIPTION;
+  const auto answer = why.answer(question);
+  ASSERT_EQ(answer.direction_categories.size(), 17U);
+  for (std::size_t index = 1U; index < answer.direction_categories.size();
+       index += 2U)
+    EXPECT_EQ(answer.direction_categories[index], "turn left a little");
+}
+
+TEST(WhyRoute, CoversTableFiveThirteenDistanceBoundaries) {
+  const std::vector<std::pair<double, std::string>> cases{
+      {1.0, "1 meter"},       {1.01, "2 meters"},
+      {2.0, "2 meters"},      {2.01, "4 meters"},
+      {10.0, "10 meters"},    {10.01, "15 meters"},
+      {15.0, "15 meters"},    {50.0, "50 meters"},
+      {50.01, "60 meters"},   {110.0, "110 meters"},
+      {110.01, "more than 110 meters"}};
+  std::uint64_t decision_id = 100U;
+  for (const auto& [distance, expected] : cases) {
+    UnifiedWhySystem why;
+    auto record = tierThreeRecord();
+    record.decision_id = decision_id++;
+    record.robot_pose.x = 0.0;
+    record.robot_pose.y = 0.0;
+    record.has_plan = true;
+    record.active_plan_id = record.decision_id;
+    auto selected = plan(record.active_plan_id, "DistancePlan", 0.0);
+    geometry_msgs::msg::Point endpoint;
+    endpoint.x = distance;
+    selected.geometry = {endpoint};
+    record.planning_candidates = {selected};
+    why.record(record);
+    ExplanationQuestion question;
+    question.question_type = ExplanationQuestion::ROUTE_DESCRIPTION;
+    const auto answer = why.answer(question);
+    ASSERT_EQ(answer.distance_categories.size(), 1U);
+    EXPECT_EQ(answer.distance_categories.front(), expected);
+  }
+}
+
 TEST(WhyPlanConfidence, RequiresRecordedComparablePlanAndUsesTableFiveTen) {
   UnifiedWhySystem why;
   auto record = tierThreeRecord();
@@ -633,6 +740,24 @@ TEST(WhyPlanConfidence, RequiresRecordedComparablePlanAndUsesTableFiveTen) {
             std::string::npos);
   EXPECT_NE(answer.natural_language_response.find("longer"),
             std::string::npos);
+
+  record.decision_id = 44U;
+  record.planning_candidates = {plan(12U, "HighwayPlan", 0.4),
+                                plan(13U, "DistancePlan", 1.2)};
+  record.planning_candidates[0].raw_costs = {12.0, -10.0};
+  record.planning_candidates[1].raw_costs = {10.0, 0.0};
+  why.record(record);
+  question.decision_id = 44U;
+  answer = why.answer(question);
+  EXPECT_EQ(answer.confidence_category, "only somewhat");
+
+  record.decision_id = 45U;
+  record.planning_candidates[0].raw_costs = {20.0, -2.0};
+  record.planning_candidates[1].raw_costs = {10.0, 0.0};
+  why.record(record);
+  question.decision_id = 45U;
+  answer = why.answer(question);
+  EXPECT_EQ(answer.confidence_category, "not");
 }
 
 TEST(WhyGoldenFixtures, PreserveEveryPublicExplanationCategory) {

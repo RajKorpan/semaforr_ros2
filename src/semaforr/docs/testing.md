@@ -49,6 +49,51 @@ resolved before interpreting results from a later row.
 | 8 | End-to-end deterministic environments | `semaforr_navigation_scenario_test`, `semaforr_environment_regression_test` |
 | 9 | Documentation/catalog/topic/configuration consistency | `semaforr_documentation_contract_test` |
 
+## Corrected-behavior regression matrix
+
+The following matrix is the maintained Group 11 audit. A row names executable
+evidence rather than inferring coverage from a source filename.
+
+| Behavior | Executable evidence |
+|---|---|
+| Familiarity increments once per observed cell and scan | `GridLayers.FamiliarityCountsEachCoveredCellOncePerDecisionObservation`, `FamiliarityCountsMaximumRangeButIgnoresInvalidRays`, `FamiliarityIsInvariantToDifferentRayCountsAcrossAdjacentCells` |
+| Out recent-window confinement, survey abort, and recovery trail | the five focused `Out.*` cases in `tier_one_component_test.cpp` |
+| Forward target-local 1 m grid, Enforcer-only updates, 3x3 marking, and reset | `Forward.UsesOnlyEnforcerSelectionsAndMarksTheThreeByThreeNeighborhood`, `Forward.AllRotationVetoClearsGridAndTargetChangeStartsEmpty` |
+| Angular HLE bundles and Cartesian mean endpoints at 180/360/660/720 beams | `HighLevelExplore.AngularFocusAndOpenBundlesAreResolutionIndependentMeanEndpoints` |
+| LLE cue-start planning, invalidation, and included-cell relocation | `LowLevelExplorer.PlansToCueStartBeforeInstallingTwentyWaypoints`, `InvalidatedCueStartPlanDiscardsTheCue`, and the four covered-ray relocation cases |
+| Exact cognitive order, reactive termination, Tier-2 cycle termination, and Tier-3 eligibility | `NavigationEngine.CognitiveTraceFollowsSemanticOrderBeforeTierThree`, `ReactiveMandateStopsLleLateVetoesAndLowerTiers`, `TierTwoPlanCreationEndsCycleBeforeEnforcer`, plus the focused `DecisionCoordinator` stage cases |
+| Thru geometric sensing and left/right average-ray choice | the five focused `Thru.*` cases in `tier_advisor_test.cpp` |
+| Visibility-compressed skeleton edge trails and all surrogate branches | `SkeletonCompatibility.NodesAreRegionsAndEdgesCarryShortestSubtrails` and the three `SkeletonSurrogates.*` cases |
+| Highway attachment hierarchy and preserved hybrid route | the `HierarchicalPlans.HighwayAttachment*` cases, multi-edge skeleton access, disconnection, and best-network selection |
+| Every registered Tier-3 advisor and whole-score-set normalization | `TierThreeCatalog.*`, `TierThreeNormalization.*`, all `CommonsenseAdvisors.*`, `SpatialAdvisors.*`, and social/crowd suites |
+| Chapter 5 Equations 5.2-5.4 and weak-comment omission | `DecisionCoordinator.ChapterFiveConfidenceMatchesWorkedCommentExample`, `WhyDecisionConfidence.*`, `WhyDecisionExplanation.OmitsWeakAdvisorCommentsAndUsesRelativeBands` |
+| Tables 5.11-5.13 and Table 5.10 | `WhyRoute.CoversEveryTableFiveElevenDirectionAndWraparound`, `CoversTableFiveThirteenDistanceBoundaries`, and `WhyPlanConfidence.RequiresRecordedComparablePlanAndUsesTableFiveTen` |
+| Failed and partial action handling by every path consumer | `CompletedPath.*`, `TrailCompatibility.*`, failed conveyor/exit/skeleton cases, `Out.PartialOrFailedSuffixDoesNotCreateRecoveryMarkers`, replay, and Why lifecycle cases |
+
+Accepted engineering adaptations are also protected: footprint-aware
+AvoidObstacles has an off-axis obstacle regression; hallway compatibility uses
+bucketed local pair comparison; the large-room classifier remains
+threshold-based; sensor openings do not satisfy learned-door consumers;
+learned region visibility supplies LLE candidates; crowd advisors and planners
+remain registered; conveyor planning consumes traversal frequency while decay
+and direction remain explicit configuration; distance planning reports A*, and
+non-distance cost planning reports Dijkstra.
+
+## Social adapter, learning, and ownership matrix
+
+| Boundary | Executable evidence |
+|---|---|
+| Empty/multiple tracked arrays, stable IDs, velocity history, malformed/non-finite history, loss/reacquisition | focused `SocialObservationBuffer.*` cases in `social_navigation_test.cpp` |
+| GST aggregation, duplicate/incomplete/stale predictions, fallback, and recovery | prediction-cycle `SocialObservationBuffer.*` cases |
+| Formation association and stale/unknown rejection | `AttachesOnlyKnownFreshFormationMembers`, `RejectsStaleFormationEvidence` |
+| HuNav conversion and parity with tracked input | `HuNavModeUsesVelocityAndSharedDomainType`, `TrackedAndHuNavPopulateTheSameCrowdDomainModel` |
+| Empty exposure, density, risk, flow, formation neutrality, and meaningful revisions | focused `CrowdFieldLearner.*` and `CrowdModel.*` cases |
+| Learned-field serialization and reconstruction from a replayed sensor/social record | `Replay.RoundTripCapturesInputsSeedsRevisionsAndControllerOutcome` |
+| Live advisors and learned planners consume `WorldModel::crowd` | `SocialNavigation.*`, `SocialPlanning.*`, and `CrowdConsumers.*` |
+| Direct visualization, no crowd-field ROS transport, no standalone package, and upstream interface hashes | `test_social_navigation_contract.py` and `test_upstream_social_contract.py` |
+| Social-disabled startup diagnostics | `semaforr_configuration_test` validates a social-disabled configuration and its component manifest |
+| Why ready/degraded crowd provenance | `WhyDecision.ReportsReadyAndDegradedSocialEvidence` |
+
 ### Representation evidence matrix
 
 The shared learner suite checks that all twelve learners start empty, declare

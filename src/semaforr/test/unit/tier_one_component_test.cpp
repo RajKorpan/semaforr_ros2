@@ -383,6 +383,21 @@ TEST(AvoidObstacles, RemainsCognitiveAndUsesItsOwnReasonCode) {
                           }));
 }
 
+TEST(AvoidObstacles, FootprintWidthIncludesOffAxisObstacleReturns) {
+  auto world = worldWithTarget({2.0, 0.0});
+  world.robot.laser->angle_min = semaforr::domain::Angle(0.4115);
+  world.robot.laser->angle_increment = semaforr::domain::Angle(0.1);
+  world.robot.laser->ranges_m = {0.6};
+  semaforr::decision::ObstacleVetoRule footprint_aware({0.4}, 0.2, 0.05);
+  const auto blocked = footprint_aware.evaluate({world});
+  ASSERT_EQ(blocked.size(), 1U);
+  EXPECT_EQ(blocked.front().action,
+            Action(ActionType::Forward, 1U));
+
+  semaforr::decision::ObstacleVetoRule centerline_only({0.4}, 0.0, 0.05);
+  EXPECT_TRUE(centerline_only.evaluate({world}).empty());
+}
+
 TEST(NotOpposite, UsesOnlyExecutionConfirmedOrientations) {
   const semaforr::domain::ActionSpace actions({0.25}, {0.5});
   auto world = worldWithTarget({3.0, 0.0});

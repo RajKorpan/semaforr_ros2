@@ -149,6 +149,29 @@ TEST(DomainPlanner, SearchesValidatedStaticOccupancy) {
             semaforr::planning::PlanStatus::PlannerUnavailable);
 }
 
+TEST(DomainPlanner, UsesAStarForDistanceAndDijkstraForNonDistanceCosts) {
+  const auto map = openMap();
+  semaforr::domain::SpatialModel spatial;
+  const semaforr::planning::PlanningRequest request{
+      {{0.5, 0.5}, semaforr::domain::Angle::zero()},
+      {2.5, 1.5},
+      &spatial,
+      nullptr,
+      &map};
+
+  semaforr::planning::DomainPlanner distance(
+      "distance", semaforr::planning::PlannerObjective::Distance);
+  const auto shortest = distance.plan(request);
+  ASSERT_TRUE(shortest.succeeded());
+  EXPECT_EQ(shortest.explanation.find("A* over"), 0U);
+
+  semaforr::planning::DomainPlanner region(
+      "region", semaforr::planning::PlannerObjective::RegionPreference);
+  const auto affordance = region.plan(request);
+  ASSERT_TRUE(affordance.succeeded());
+  EXPECT_EQ(affordance.explanation.find("Dijkstra over"), 0U);
+}
+
 TEST(DomainPlanner, AffordancePlannerNeverSubstitutesTheLearnedSkeleton) {
   semaforr::domain::SpatialModel spatial;
   spatial.skeleton_nodes = {{0.5, 0.5}, {1.5, 0.5}, {2.5, 0.5}};

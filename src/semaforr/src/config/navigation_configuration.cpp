@@ -1261,6 +1261,12 @@ std::vector<std::string> componentManifest(const Configuration& configuration) {
   if (experiment.tiers.tier_one) result.push_back("tier:tier_one");
   if (experiment.tiers.tier_two) result.push_back("tier:tier_two");
   if (experiment.tiers.tier_three) result.push_back("tier:tier_three");
+  result.push_back(std::string("social:") +
+                   (experiment.social.enabled ? "enabled" : "disabled"));
+  result.push_back(std::string("crowd_learning:") +
+                   (configuration.navigation.crowd_learning.enabled
+                        ? "enabled"
+                        : "disabled"));
   for (const auto& rule : experiment.tiers.tier_one_rules)
     if (experiment.tiers.tier_one) result.push_back("tier1:" + rule);
   for (const auto& planner : experiment.tiers.reactive_planners)

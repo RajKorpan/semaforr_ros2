@@ -155,3 +155,36 @@ def test_spatial_component_is_an_exported_library():
         "set_target_properties(semaforr_spatial PROPERTIES EXPORT_NAME spatial)"
         in cmake
     )
+
+
+def test_accepted_hallway_and_conveyor_adaptations_remain_explicit():
+    """Summary:
+        Protects the accepted indexed hallway comparison and frequency-first
+        conveyor behavior while leaving directional and decay evidence
+        available as optional model extensions.
+
+    Args:
+        None.
+
+    Returns:
+        None.
+
+    Raises:
+        AssertionError: If an accepted scalability or conveyor policy is
+            silently removed.
+    """
+    chapter3 = (SOURCE_DIR / "src" / "spatial" / "chapter3_learning.cpp").read_text(
+        encoding="utf-8"
+    )
+    configuration = (
+        SOURCE_DIR / "include" / "semaforr" / "spatial" / "chapter3_learning.hpp"
+    ).read_text(encoding="utf-8")
+    planner = (SOURCE_DIR / "src" / "planning" / "domain_planner.cpp").read_text(
+        encoding="utf-8"
+    )
+    assert "comparison_radius_m" in chapter3
+    assert "buckets" in chapter3
+    assert "bucket.first + dx" in chapter3
+    assert "double decay_factor{1.0}" in configuration
+    assert "bool directional{true}" in configuration
+    assert "traversal_frequency" in planner

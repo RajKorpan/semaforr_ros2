@@ -111,6 +111,19 @@ int main() {
   assert(semaforr::config::mapOperatingModeFromString("map_enabled") ==
          semaforr::config::MapOperatingMode::MapEnabled);
   semaforr::config::validateConfiguration(valid);
+  {
+    auto no_social = valid;
+    no_social.experiment.social = {false, false, false, false, false};
+    no_social.navigation.crowd_learning.enabled = false;
+    semaforr::config::validateConfiguration(no_social);
+    const auto no_social_manifest =
+        semaforr::config::componentManifest(no_social);
+    assert(std::find(no_social_manifest.begin(), no_social_manifest.end(),
+                     "social:disabled") != no_social_manifest.end());
+    assert(std::find(no_social_manifest.begin(), no_social_manifest.end(),
+                     "crowd_learning:disabled") !=
+           no_social_manifest.end());
+  }
   assert(semaforr::config::configurationFingerprint(valid).size() == 16U);
   const auto manifest = semaforr::config::componentManifest(valid);
   assert(std::find(manifest.begin(), manifest.end(),

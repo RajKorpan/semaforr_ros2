@@ -17,6 +17,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <limits>
 #include <memory>
 #include <hunav_msgs/msg/agents.hpp>
 #include <rclcpp/time.hpp>
@@ -416,6 +417,47 @@ social_context_msgs::msg::TrackedPersonArray trackedMessage(int id = 7) {
   return message;
 }
 
+TEST(SocialObservationBuffer, ConvertsEmptyAndMultipleStableTrackedIds) {
+  semaforr::ros::SocialObservationBuffer buffer(trackedConfiguration());
+  const rclcpp::Time received(10'100'000'000LL, RCL_ROS_TIME);
+  auto empty = trackedMessage();
+  empty.people.clear();
+  ASSERT_TRUE(buffer.acceptTracked(empty, received));
+  auto snapshot = buffer.snapshot(received);
+  ASSERT_TRUE(snapshot);
+  EXPECT_TRUE(snapshot->pedestrians.empty());
+  EXPECT_EQ(snapshot->provenance, "social_context_tracked");
+
+  auto multiple = trackedMessage(17);
+  multiple.people.push_back(multiple.people.front());
+  multiple.people.back().id = -4;
+  multiple.people.back().x = -1.0F;
+  ASSERT_TRUE(buffer.acceptTracked(multiple, received));
+  snapshot = buffer.snapshot(received);
+  ASSERT_TRUE(snapshot);
+  ASSERT_EQ(snapshot->pedestrians.size(), 2U);
+  EXPECT_EQ(snapshot->pedestrians[0].id, "17");
+  EXPECT_EQ(snapshot->pedestrians[1].id, "-4");
+}
+
+TEST(SocialObservationBuffer, FiltersMismatchedAndNonFiniteTrackedHistories) {
+  semaforr::ros::SocialObservationBuffer buffer(trackedConfiguration());
+  const rclcpp::Time received(10'100'000'000LL, RCL_ROS_TIME);
+  auto message = trackedMessage(1);
+  message.people.push_back(message.people.front());
+  message.people.back().id = 2;
+  message.people.back().history_y.pop_back();
+  message.people.push_back(message.people.front());
+  message.people.back().id = 3;
+  message.people.back().history_x.back() =
+      std::numeric_limits<float>::quiet_NaN();
+  ASSERT_TRUE(buffer.acceptTracked(message, received));
+  const auto snapshot = buffer.snapshot(received);
+  ASSERT_TRUE(snapshot);
+  ASSERT_EQ(snapshot->pedestrians.size(), 1U);
+  EXPECT_EQ(snapshot->pedestrians.front().id, "1");
+}
+
 TEST(SocialObservationBuffer, ConvertsTrackedStateAndSeparatesFreshness) {
   semaforr::ros::SocialObservationBuffer buffer(trackedConfiguration());
   auto message = trackedMessage();
@@ -544,6 +586,28 @@ TEST(SocialObservationBuffer, AttachesOnlyKnownFreshFormationMembers) {
   EXPECT_TRUE(unknown->formations.empty());
 }
 
+TEST(SocialObservationBuffer, RejectsStaleFormationEvidence) {
+  auto configuration = trackedConfiguration();
+  configuration.formation_maximum_age_s = 1.0;
+  semaforr::ros::SocialObservationBuffer buffer(configuration);
+  const rclcpp::Time received(10'100'000'000LL, RCL_ROS_TIME);
+  ASSERT_TRUE(buffer.acceptTracked(trackedMessage(), received));
+  social_context_msgs::msg::FormationGroupArray formations;
+  formations.header.frame_id = "map";
+  formations.header.stamp.sec = 8;
+  formations.groups.resize(1);
+  formations.groups[0].member_ids = {7};
+  formations.groups[0].formation_type = "face_to_face";
+  formations.groups[0].confidence = 0.9F;
+  formations.groups[0].center_x = 2.0F;
+  formations.groups[0].center_y = 1.0F;
+  EXPECT_FALSE(buffer.acceptFormations(formations, received));
+  const auto snapshot = buffer.snapshot(received);
+  ASSERT_TRUE(snapshot);
+  EXPECT_TRUE(snapshot->formations.empty());
+  EXPECT_FALSE(snapshot->pedestrians.front().formation_index.has_value());
+}
+
 TEST(SocialObservationBuffer, HuNavModeUsesVelocityAndSharedDomainType) {
   auto configuration = trackedConfiguration();
   configuration.input_mode = semaforr::ros::SocialInputMode::Hunav;
@@ -566,6 +630,57 @@ TEST(SocialObservationBuffer, HuNavModeUsesVelocityAndSharedDomainType) {
   EXPECT_EQ(snapshot->pedestrians[0].id, "3");
   EXPECT_NEAR(snapshot->pedestrians[0].velocity_mps.y_m, 0.4, 1.0e-6);
   EXPECT_EQ(snapshot->provenance, "hunav_agents");
+}
+
+TEST(SocialObservationBuffer, TrackedAndHuNavPopulateTheSameCrowdDomainModel) {
+  const rclcpp::Time received(10'100'000'000LL, RCL_ROS_TIME);
+  auto tracked_configuration = trackedConfiguration();
+  tracked_configuration.adapter.hunav_confidence = 0.9;
+  semaforr::ros::SocialObservationBuffer tracked(tracked_configuration);
+  ASSERT_TRUE(tracked.acceptTracked(trackedMessage(7), received));
+  const auto tracked_snapshot = tracked.snapshot(received);
+  ASSERT_TRUE(tracked_snapshot);
+
+  auto hunav_configuration = tracked_configuration;
+  hunav_configuration.input_mode = semaforr::ros::SocialInputMode::Hunav;
+  semaforr::ros::SocialObservationBuffer hunav(hunav_configuration);
+  hunav_msgs::msg::Agents agents;
+  agents.header.frame_id = "map";
+  agents.header.stamp.sec = 10;
+  agents.agents.resize(1);
+  agents.agents[0].id = 7;
+  agents.agents[0].type = hunav_msgs::msg::Agent::PERSON;
+  agents.agents[0].position.position.x = 2.0;
+  agents.agents[0].position.position.y = 1.0;
+  agents.agents[0].velocity.linear.x = 2.0;
+  ASSERT_TRUE(hunav.acceptHunav(agents, received));
+  const auto hunav_snapshot = hunav.snapshot(received);
+  ASSERT_TRUE(hunav_snapshot);
+
+  semaforr::domain::WorldModel tracked_world;
+  semaforr::domain::WorldModel hunav_world;
+  tracked_world.crowd.update(*tracked_snapshot);
+  hunav_world.crowd.update(*hunav_snapshot);
+  ASSERT_TRUE(tracked_world.crowd.current());
+  ASSERT_TRUE(hunav_world.crowd.current());
+  EXPECT_EQ(tracked_world.crowd.current()->pedestrians.front().id,
+            hunav_world.crowd.current()->pedestrians.front().id);
+  EXPECT_EQ(tracked_world.crowd.current()->pedestrians.front().position,
+            hunav_world.crowd.current()->pedestrians.front().position);
+  EXPECT_NEAR(
+      tracked_world.crowd.current()->pedestrians.front().velocity_mps.x_m,
+      hunav_world.crowd.current()->pedestrians.front().velocity_mps.x_m,
+      1.0e-5);
+  EXPECT_NEAR(
+      tracked_world.crowd.current()->pedestrians.front().velocity_mps.y_m,
+      hunav_world.crowd.current()->pedestrians.front().velocity_mps.y_m,
+      1.0e-5);
+  EXPECT_EQ(tracked_world.crowd.revisionOf(
+                semaforr::domain::ModelDependency::LiveCrowdObservation),
+            1U);
+  EXPECT_EQ(hunav_world.crowd.revisionOf(
+                semaforr::domain::ModelDependency::LiveCrowdObservation),
+            1U);
 }
 
 TEST(SocialObservationBuffer, DetectsDisappearanceAndReappearance) {

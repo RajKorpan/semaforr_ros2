@@ -246,3 +246,39 @@ def test_decisions_plans_replay_and_why_share_social_diagnostics():
     why_package = (SOURCE_DIR.parent / "why/package.xml").read_text(encoding="utf-8")
     assert "semaforr_msgs" in why_package
     assert "social_context_msgs" not in why_package
+
+
+def test_semaforr_is_the_only_active_crowd_model_owner():
+    """Summary:
+        Verifies that learned crowd state has one package owner and no legacy
+        crowd-field transport or standalone crowd executable remains active.
+
+    Args:
+        None.
+
+    Returns:
+        None.
+
+    Raises:
+        AssertionError: If a retired crowd package or ROS transport reference
+            is present in active build, package, launch, or source files.
+    """
+    workspace_root = SOURCE_DIR.parents[1]
+    assert not (workspace_root / "src" / "crowd").exists()
+    active_suffixes = {".cpp", ".hpp", ".xml", ".py", ".yaml"}
+    active_files = [
+        path
+        for package in (SOURCE_DIR, SOURCE_DIR.parent / "why")
+        for path in package.rglob("*")
+        if path.is_file()
+        and path.suffix in active_suffixes
+        and "test" not in path.parts
+        and "docs" not in path.parts
+    ]
+    active_source = "\n".join(
+        path.read_text(encoding="utf-8", errors="ignore")
+        for path in active_files
+    )
+    assert "social_context_msgs/msg/crowd_field.hpp" not in active_source
+    assert "social_context_msgs::msg::CrowdField" not in active_source
+    assert "semaforr_crowd" not in active_source

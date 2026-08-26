@@ -756,6 +756,35 @@ ExplanationResponse UnifiedWhySystem::explainDecision(
          << precedent->reason_code.substr(
                 std::string("precedent:abstained:").size())
          << "), so learned experience did not remove an action.";
+  if (!record.social_input_source.empty() ||
+      !record.social_input_status.empty()) {
+    const std::string status = record.social_input_status.empty()
+                                   ? "unknown"
+                                   : record.social_input_status;
+    response.structured_facts.push_back(
+        "social_input_source=" + record.social_input_source);
+    response.structured_facts.push_back(
+        "social_prediction_source=" + record.social_prediction_source);
+    response.structured_facts.push_back("social_input_status=" + status);
+    response.structured_facts.push_back(
+        "crowd_revisions=live:" + std::to_string(record.live_social_revision) +
+        ",density:" + std::to_string(record.crowd_density_revision) +
+        ",risk:" + std::to_string(record.crowd_risk_revision) +
+        ",flow:" + std::to_string(record.crowd_flow_revision));
+    if (status == "ready") {
+      text << " Social evidence came from " << record.social_input_source;
+      if (!record.social_prediction_source.empty())
+        text << " with " << record.social_prediction_source
+             << " predictions";
+      text << ".";
+      if (record.formation_evidence_participated)
+        text << " Formation evidence participated in this decision.";
+    } else {
+      text << " Social input was degraded (" << status
+           << "); stale or missing live crowd evidence was not treated as "
+              "current.";
+    }
+  }
   response.natural_language_response = text.str();
   return response;
 }

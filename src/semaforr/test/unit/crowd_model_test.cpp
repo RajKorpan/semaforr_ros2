@@ -226,6 +226,46 @@ TEST(CrowdModel, TracksMeaningfulLiveMutationsAndInputDiagnostics) {
             2U);
 }
 
+TEST(CrowdFieldLearner, FormationMetadataDoesNotChangeBaseLearning) {
+  auto plain = crowd(1s, true);
+  auto grouped = plain;
+  grouped.formations.push_back(
+      {{"person-1"}, "side_by_side", {2.2, 1.5}, 0.9});
+  grouped.pedestrians.front().formation_index = 0U;
+  grouped.validate();
+  semaforr::social::CrowdFieldLearner without_formations(configuration());
+  semaforr::social::CrowdFieldLearner with_formations(configuration());
+  const semaforr::domain::Pose2D robot{{1.5, 1.5},
+                                       semaforr::domain::Angle::zero()};
+  ASSERT_TRUE(without_formations.observe(robot, laser(), plain));
+  ASSERT_TRUE(with_formations.observe(robot, laser(), grouped));
+  EXPECT_EQ(without_formations.snapshot(), with_formations.snapshot());
+  EXPECT_EQ(with_formations.lastUpdate().formation_count, 1U);
+}
+
+TEST(CrowdFieldLearner, DuplicateEvidenceAndMissingLiveDataDoNotMutateLearning) {
+  semaforr::social::CrowdFieldLearner learner(configuration());
+  const semaforr::domain::Pose2D robot{{1.5, 1.5},
+                                       semaforr::domain::Angle::zero()};
+  const auto evidence = crowd(1s, true);
+  ASSERT_TRUE(learner.observe(robot, laser(), evidence));
+  const auto learned = learner.snapshot();
+  EXPECT_FALSE(learner.observe(robot, laser(), evidence));
+  EXPECT_EQ(learner.snapshot(), learned);
+  EXPECT_EQ(learner.lastUpdate().status,
+            "rejected_non_monotonic_timestamp");
+
+  semaforr::domain::CrowdModel model;
+  model.setLearned(learned);
+  const auto learned_revision = model.revisionOf(
+      semaforr::domain::ModelDependency::CrowdDensity);
+  model.clearCurrent("missing_or_stale");
+  EXPECT_EQ(model.revisionOf(
+                semaforr::domain::ModelDependency::CrowdDensity),
+            learned_revision);
+  EXPECT_EQ(model.learned(), learned);
+}
+
 TEST(CrowdFieldLearner, DoesNotPublishWithoutRepresentedEvidence) {
   semaforr::social::CrowdFieldLearner learner(configuration());
   const auto outside = crowd(1s, true);
