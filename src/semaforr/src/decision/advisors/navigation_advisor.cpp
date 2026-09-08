@@ -111,12 +111,11 @@ double NavigationAdvisor::score(const DecisionContext& context,
       if (!world.mission.active()) {
         return 0.0;
       }
-      const domain::Point2D target = context.active_plan_objective
-                                         ? context.active_plan_objective->target
-                                         : world.mission.active()
-                                               ->waypoint()
-                                               .value_or(world.mission.active()
-                                                             ->target);
+      const domain::Point2D target =
+          context.active_plan_objective
+              ? context.active_plan_objective->target
+              : world.mission.active()->waypoint().value_or(
+                    world.mission.active()->target);
       const double progress =
           domain::distance(world.robot.pose.position, target).meters() -
           domain::distance(expected.position, target).meters();

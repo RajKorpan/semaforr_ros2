@@ -2,8 +2,8 @@
  * @file astar.hpp
  * @brief Astar responsibilities.
  *
- * @details This file defines astar behavior for path planning and hierarchical plan
- * construction. It centers on `PathStatus`, `PathResult`, `AStar`. Its
+ * @details This file defines astar behavior for path planning and hierarchical
+ * plan construction. It centers on `PathStatus`, `PathResult`, `AStar`. Its
  * package-relative location is `include/semaforr/planning/astar.hpp`.
  */
 #ifndef SEMAFORR_PLANNING_ASTAR_HPP

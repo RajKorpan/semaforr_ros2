@@ -2,8 +2,8 @@
  * @file tier_registry.hpp
  * @brief Tier registry responsibilities.
  *
- * @details This file defines tier registry behavior for tiered decision making and
- * action arbitration. It centers on `VictoryRule`, `ForwardRule`,
+ * @details This file defines tier registry behavior for tiered decision making
+ * and action arbitration. It centers on `VictoryRule`, `ForwardRule`,
  * `NotOppositeRule`, `PrecedentConfiguration`, `PrecedentRule`,
  * `SpatialAdvisorObjective`, `SpatialAdvisor`, `TierOneRegistry`. Its
  * package-relative location is
@@ -12,12 +12,12 @@
 #ifndef SEMAFORR_DECISION_TIER_REGISTRY_HPP
 #define SEMAFORR_DECISION_TIER_REGISTRY_HPP
 
+#include <cstdint>
 #include <semaforr/decision/advisor.hpp>
+#include <semaforr/decision/enforcer.hpp>
 #include <semaforr/decision/registry.hpp>
 #include <semaforr/decision/rules.hpp>
 #include <semaforr/planning/reactive_planner.hpp>
-#include <semaforr/decision/enforcer.hpp>
-#include <cstdint>
 #include <set>
 #include <stdexcept>
 
@@ -50,9 +50,9 @@ class VictoryRule final : public MandatoryRule {
    * Exceptions:
    * - None documented; validation or dependency failures may propagate.
    */
-  explicit VictoryRule(domain::Distance tolerance = domain::Distance(0.5),
-                       domain::ActionSpace action_space =
-                           domain::ActionSpace({0.25}, {0.2}))
+  explicit VictoryRule(
+      domain::Distance tolerance = domain::Distance(0.5),
+      domain::ActionSpace action_space = domain::ActionSpace({0.25}, {0.2}))
       : tolerance_(tolerance), action_space_(std::move(action_space)) {}
   /**
    * @brief Performs the name operation for this subsystem.
@@ -170,8 +170,7 @@ class ForwardRule final : public VetoRule {
    * Exceptions:
    * - None documented; validation or dependency failures may propagate.
    */
-  std::vector<Veto> evaluate(
-      const DecisionContext& context) const override;
+  std::vector<Veto> evaluate(const DecisionContext& context) const override;
 
  private:
   /**
@@ -283,8 +282,7 @@ class NotOppositeRule final : public VetoRule {
    * Exceptions:
    * - None documented; validation or dependency failures may propagate.
    */
-  std::vector<Veto> evaluate(
-      const DecisionContext& context) const override;
+  std::vector<Veto> evaluate(const DecisionContext& context) const override;
 
  private:
   domain::ActionSpace action_space_;
@@ -533,10 +531,14 @@ class TierOneRegistry {
    * Exceptions:
    * - None documented; validation or dependency failures may propagate.
    */
-  enum class Kind { Mandatory, Veto, PlanOperationalizer, ReactivePlanner,
-                    ReplanningTrigger };
-  using MandatoryFactory =
-      std::function<std::unique_ptr<MandatoryRule>()>;
+  enum class Kind {
+    Mandatory,
+    Veto,
+    PlanOperationalizer,
+    ReactivePlanner,
+    ReplanningTrigger
+  };
+  using MandatoryFactory = std::function<std::unique_ptr<MandatoryRule>()>;
   using VetoFactory = std::function<std::unique_ptr<VetoRule>()>;
   using OperationalizerFactory =
       std::function<std::unique_ptr<PlanOperationalizer>()>;
@@ -627,8 +629,7 @@ class TierOneRegistry {
    * Exceptions:
    * - None documented; validation or dependency failures may propagate.
    */
-  std::unique_ptr<MandatoryRule> createMandatory(
-      std::string_view name) const;
+  std::unique_ptr<MandatoryRule> createMandatory(std::string_view name) const;
   /**
    * @brief Creates veto for this subsystem.
    *

@@ -2,8 +2,8 @@
  * @file message_adapters.hpp
  * @brief Message adapters responsibilities.
  *
- * @details This file defines message adapters behavior for the ROS 2 composition
- * and message-adaptation boundary. It centers on
+ * @details This file defines message adapters behavior for the ROS 2
+ * composition and message-adaptation boundary. It centers on
  * `SocialAdapterConfiguration`, `PredictionIdentity`. Its package-relative
  * location is `include/semaforr/ros/message_adapters.hpp`.
  */

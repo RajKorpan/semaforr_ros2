@@ -2,8 +2,8 @@
  * @file graph.hpp
  * @brief Graph responsibilities.
  *
- * @details This file defines graph behavior for path planning and hierarchical plan
- * construction. It centers on `CostComponents`, `GraphEdge`, `Graph`. Its
+ * @details This file defines graph behavior for path planning and hierarchical
+ * plan construction. It centers on `CostComponents`, `GraphEdge`, `Graph`. Its
  * package-relative location is `include/semaforr/planning/graph.hpp`.
  */
 #ifndef SEMAFORR_PLANNING_GRAPH_HPP

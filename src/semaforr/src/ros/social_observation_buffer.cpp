@@ -2,11 +2,10 @@
  * @file social_observation_buffer.cpp
  * @brief Social observation buffer responsibilities.
  *
- * @details This file implements social observation buffer behavior for the ROS 2
- * composition and message-adaptation boundary. It records the
- * declarations, settings, fixtures, or guidance needed by that
- * responsibility. Its package-relative location is
- * `src/ros/social_observation_buffer.cpp`.
+ * @details This file implements social observation buffer behavior for the ROS
+ * 2 composition and message-adaptation boundary. It records the declarations,
+ * settings, fixtures, or guidance needed by that responsibility. Its
+ * package-relative location is `src/ros/social_observation_buffer.cpp`.
  */
 #include <algorithm>
 #include <chrono>
@@ -216,9 +215,9 @@ bool SocialObservationBuffer::acceptTracked(
     return false;
   }
   try {
-    return accept(trackedPeopleToDomain(message, received_at,
-                                        configuration_.adapter),
-                  received_at);
+    return accept(
+        trackedPeopleToDomain(message, received_at, configuration_.adapter),
+        received_at);
   } catch (const std::exception&) {
     observation_.reset();
     received_at_.reset();
@@ -288,12 +287,12 @@ bool SocialObservationBuffer::acceptPrediction(
       !std::isfinite(message.pose.position.y)) {
     return false;
   }
-  if (!observation_ ||
-      std::none_of(observation_->pedestrians.begin(),
-                   observation_->pedestrians.end(),
-                   [&identity](const auto& pedestrian) {
-                     return pedestrian.id == identity->pedestrian_id;
-                   })) {
+  if (!observation_ || std::none_of(observation_->pedestrians.begin(),
+                                    observation_->pedestrians.end(),
+                                    [&identity](const auto& pedestrian) {
+                                      return pedestrian.id ==
+                                             identity->pedestrian_id;
+                                    })) {
     return false;
   }
   auto& cycle = predictions_[identity->pedestrian_id];
@@ -302,9 +301,8 @@ bool SocialObservationBuffer::acceptPrediction(
       const bool previous_complete =
           cycle.steps.size() == configuration_.prediction_steps;
       const bool previous_expired =
-          cycle.received_at &&
-          elapsedExceeds(received_at, *cycle.received_at,
-                         configuration_.prediction_step_s);
+          cycle.received_at && elapsedExceeds(received_at, *cycle.received_at,
+                                              configuration_.prediction_step_s);
       if (!previous_complete && !previous_expired) return false;
     }
     cycle.steps.clear();
@@ -312,7 +310,7 @@ bool SocialObservationBuffer::acceptPrediction(
     return false;
   }
   cycle.steps[identity->step] = {message.pose.position.x,
-                                message.pose.position.y};
+                                 message.pose.position.y};
   cycle.received_at = received_at;
   return true;
 }
@@ -378,8 +376,7 @@ void SocialObservationBuffer::recordLifecycle(
   }
   for (const auto& id : active_ids_) {
     if (!next.contains(id)) {
-      lifecycle_events_.push_back(
-          {id, TrackLifecycleEvent::Type::Disappeared});
+      lifecycle_events_.push_back({id, TrackLifecycleEvent::Type::Disappeared});
     }
   }
   active_ids_ = std::move(next);
@@ -407,8 +404,7 @@ SocialObservationStatus SocialObservationBuffer::status(
   const auto observed_at =
       rclcpp::Time(observation_->observed_at.count(), now.get_clock_type());
   if (now < observed_at) return SocialObservationStatus::ClockReset;
-  if (elapsedExceeds(now, observed_at,
-                     configuration_.current_maximum_age_s) ||
+  if (elapsedExceeds(now, observed_at, configuration_.current_maximum_age_s) ||
       elapsedExceeds(now, *received_at_,
                      configuration_.current_maximum_age_s)) {
     return SocialObservationStatus::Stale;
@@ -455,9 +451,10 @@ std::optional<domain::CrowdObservation> SocialObservationBuffer::snapshot(
            ++step) {
         const auto point = found->second.steps.find(step);
         if (point == found->second.steps.end()) break;
-        const auto horizon = std::chrono::duration_cast<std::chrono::nanoseconds>(
-            std::chrono::duration<double>(configuration_.prediction_step_s *
-                                          static_cast<double>(step + 1U)));
+        const auto horizon =
+            std::chrono::duration_cast<std::chrono::nanoseconds>(
+                std::chrono::duration<double>(configuration_.prediction_step_s *
+                                              static_cast<double>(step + 1U)));
         pedestrian.predicted_trajectory.push_back(
             {point->second, result.observed_at + horizon});
       }
@@ -471,13 +468,13 @@ std::optional<domain::CrowdObservation> SocialObservationBuffer::snapshot(
     if (configuration_.constant_velocity_fallback) {
       for (std::size_t step = 0U; step < configuration_.prediction_steps;
            ++step) {
-        const double horizon_s = configuration_.prediction_step_s *
-                                 static_cast<double>(step + 1U);
-        const auto horizon = std::chrono::duration_cast<std::chrono::nanoseconds>(
-            std::chrono::duration<double>(horizon_s));
+        const double horizon_s =
+            configuration_.prediction_step_s * static_cast<double>(step + 1U);
+        const auto horizon =
+            std::chrono::duration_cast<std::chrono::nanoseconds>(
+                std::chrono::duration<double>(horizon_s));
         pedestrian.predicted_trajectory.push_back(
-            {{pedestrian.position.x_m +
-                  pedestrian.velocity_mps.x_m * horizon_s,
+            {{pedestrian.position.x_m + pedestrian.velocity_mps.x_m * horizon_s,
               pedestrian.position.y_m +
                   pedestrian.velocity_mps.y_m * horizon_s},
              result.observed_at + horizon});
@@ -511,20 +508,21 @@ std::optional<domain::CrowdObservation> SocialObservationBuffer::snapshot(
   return result;
 }
 
-std::vector<TrackLifecycleEvent>
-/**
- * @brief Performs the take lifecycle events operation for this subsystem.
- *
- * Arguments:
- * - None.
- *
- * Returns:
- * - No value; effects are applied to owned state or outputs.
- *
- * Exceptions:
- * - None documented; validation or dependency failures may propagate.
- */
-SocialObservationBuffer::takeLifecycleEvents() {
+std::
+    vector<TrackLifecycleEvent>
+    /**
+     * @brief Performs the take lifecycle events operation for this subsystem.
+     *
+     * Arguments:
+     * - None.
+     *
+     * Returns:
+     * - No value; effects are applied to owned state or outputs.
+     *
+     * Exceptions:
+     * - None documented; validation or dependency failures may propagate.
+     */
+    SocialObservationBuffer::takeLifecycleEvents() {
   auto result = std::move(lifecycle_events_);
   lifecycle_events_.clear();
   return result;

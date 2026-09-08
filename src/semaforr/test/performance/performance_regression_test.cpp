@@ -2,9 +2,9 @@
  * @file performance_regression_test.cpp
  * @brief Performance regression test responsibilities.
  *
- * @details This file exercises performance regression test behavior for automated
- * verification and regression testing. It centers on `ForwardAdvisor`,
- * `MeasuresDecisionLatencyAndAllocations`,
+ * @details This file exercises performance regression test behavior for
+ * automated verification and regression testing. It centers on
+ * `ForwardAdvisor`, `MeasuresDecisionLatencyAndAllocations`,
  * `MeasuresLargeSparseGridBehavior`, `MeasuresHighLevelCueProcessing`,
  * `MeasuresHallwayPairProcessing`, `MeasuresSerializationTimeAndSize`,
  * `MeasuresPlanCacheHitRate`. Its package-relative location is
@@ -22,8 +22,8 @@
 #include <semaforr/spatial/chapter3_learning.hpp>
 #include <semaforr/spatial/spatial_learning_coordinator.hpp>
 #include <semaforr/validation/allocation_probe.hpp>
-#include <sstream>
 #include <span>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -101,9 +101,8 @@ class ForwardAdvisor final : public semaforr::decision::Advisor {
     result.explanation = "performance fixture";
     for (const auto& action : candidates) {
       result.scores.push_back(
-          {action, action.type() == semaforr::domain::ActionType::Forward
-                       ? 8.0
-                       : 2.0});
+          {action,
+           action.type() == semaforr::domain::ActionType::Forward ? 8.0 : 2.0});
     }
     return result;
   }
@@ -122,8 +121,7 @@ class ForwardAdvisor final : public semaforr::decision::Advisor {
  * Exceptions:
  * - None documented; validation or dependency failures may propagate.
  */
-semaforr::domain::RobotObservation observation(double x = 0.0,
-                                                double y = 0.0) {
+semaforr::domain::RobotObservation observation(double x = 0.0, double y = 0.0) {
   semaforr::domain::RobotObservation result;
   result.pose = {{x, y}, semaforr::domain::Angle::zero()};
   result.laser.angle_min = semaforr::domain::Angle(-0.61);
@@ -148,7 +146,7 @@ semaforr::domain::RobotObservation observation(double x = 0.0,
  * - None documented; validation or dependency failures may propagate.
  */
 semaforr::spatial::NavigationEpisode episode(std::size_t sequence,
-                                              double x = 0.0) {
+                                             double x = 0.0) {
   semaforr::spatial::NavigationEpisode result;
   result.sequence = sequence;
   result.observation = observation(x);
@@ -172,17 +170,15 @@ semaforr::domain::PathDecisionPoint pathPoint(std::uint64_t id, double y) {
   semaforr::domain::PathDecisionPoint point;
   point.selection.decision_id = id;
   point.selection.action_id = id;
-  point.selection.action = semaforr::domain::Action(
-      semaforr::domain::ActionType::Forward, 1U);
-  point.selection.expected_start =
-      {{0.0, y}, semaforr::domain::Angle::zero()};
+  point.selection.action =
+      semaforr::domain::Action(semaforr::domain::ActionType::Forward, 1U);
+  point.selection.expected_start = {{0.0, y}, semaforr::domain::Angle::zero()};
   point.execution.decision_id = id;
   point.execution.action_id = id;
   point.execution.status =
       semaforr::domain::ExecutionCompletionStatus::Succeeded;
   point.execution.start_pose = point.selection.expected_start;
-  point.execution.final_pose =
-      {{8.0, y}, semaforr::domain::Angle::zero()};
+  point.execution.final_pose = {{8.0, y}, semaforr::domain::Angle::zero()};
   point.execution.distance_achieved_m = 8.0;
   point.executed_action = point.selection.action;
   point.decision_observation = observation(0.0, y);
@@ -238,10 +234,13 @@ semaforr::domain::StaticMap planningMap() {
   semaforr::domain::StaticMap map;
   map.source = "performance-fixture";
   map.bounds = {{0.0, 0.0}, {20.0, 20.0}};
-  map.occupancy =
-      {20U, 20U, 1.0, {0.0, 0.0},
-       std::vector<semaforr::domain::StaticOccupancyState>(
-           400U, semaforr::domain::StaticOccupancyState::StaticFree)};
+  map.occupancy = {
+      20U,
+      20U,
+      1.0,
+      {0.0, 0.0},
+      std::vector<semaforr::domain::StaticOccupancyState>(
+          400U, semaforr::domain::StaticOccupancyState::StaticFree)};
   return map;
 }
 
@@ -258,8 +257,7 @@ TEST(PerformanceRegression, MeasuresDecisionLatencyAndAllocations) {
       {semaforr::domain::ActionType::TurnRight, 1U}};
 
   constexpr std::size_t iterations = 500U;
-  const auto allocations_before =
-      semaforr::validation::allocationSnapshot();
+  const auto allocations_before = semaforr::validation::allocationSnapshot();
   const auto started = Clock::now();
   std::size_t forward_decisions = 0U;
   for (std::size_t index = 0U; index < iterations; ++index) {
@@ -273,12 +271,9 @@ TEST(PerformanceRegression, MeasuresDecisionLatencyAndAllocations) {
   EXPECT_EQ(forward_decisions, iterations);
   RecordProperty("iterations", static_cast<int>(iterations));
   RecordProperty("total_seconds", seconds(elapsed));
-  RecordProperty("mean_decision_seconds",
-                 seconds(elapsed / iterations));
-  RecordProperty("allocation_count",
-                 static_cast<int>(allocations.count));
-  RecordProperty("allocation_bytes",
-                 std::to_string(allocations.bytes));
+  RecordProperty("mean_decision_seconds", seconds(elapsed / iterations));
+  RecordProperty("allocation_count", static_cast<int>(allocations.count));
+  RecordProperty("allocation_bytes", std::to_string(allocations.bytes));
 }
 
 TEST(PerformanceRegression, MeasuresLargeSparseGridBehavior) {
@@ -297,15 +292,15 @@ TEST(PerformanceRegression, MeasuresLargeSparseGridBehavior) {
   const auto elapsed = Clock::now() - started;
   EXPECT_TRUE(world.known_grid.cells.empty());
   EXPECT_LT(world.known_grid.sparseCells().size(), 1000U);
-  RecordProperty("represented_dense_cells",
-                 std::to_string(world.known_grid.columns *
-                                world.known_grid.rows));
+  RecordProperty(
+      "represented_dense_cells",
+      std::to_string(world.known_grid.columns * world.known_grid.rows));
   RecordProperty("stored_sparse_cells",
                  static_cast<int>(world.known_grid.sparseCells().size()));
   RecordProperty("observe_and_project_seconds", seconds(elapsed));
-  RecordProperty("estimated_projection_bytes",
-                 std::to_string(
-                     learning.lastProjectionMetrics().estimated_bytes_copied));
+  RecordProperty(
+      "estimated_projection_bytes",
+      std::to_string(learning.lastProjectionMetrics().estimated_bytes_copied));
 }
 
 TEST(PerformanceRegression, MeasuresHighLevelCueProcessing) {
@@ -313,10 +308,9 @@ TEST(PerformanceRegression, MeasuresHighLevelCueProcessing) {
   configuration.behavior_policy =
       semaforr::exploration::HleBehaviorPolicy::Compatibility;
   auto view = observation();
-  view.laser.angle_min =
-      semaforr::domain::Angle(-1.5707963267948966);
-  view.laser.angle_increment = semaforr::domain::Angle(
-      3.1415926535897932 / 659.0);
+  view.laser.angle_min = semaforr::domain::Angle(-1.5707963267948966);
+  view.laser.angle_increment =
+      semaforr::domain::Angle(3.1415926535897932 / 659.0);
   view.laser.ranges_m.assign(660U, 4.0);
   constexpr std::size_t iterations = 250U;
   std::size_t candidates = 0U;
@@ -364,8 +358,7 @@ TEST(PerformanceRegression, MeasuresSerializationTimeAndSize) {
   const auto elapsed = Clock::now() - started;
   EXPECT_GT(bytes, 0U);
   RecordProperty("iterations", static_cast<int>(iterations));
-  RecordProperty("mean_serialized_bytes",
-                 std::to_string(bytes / iterations));
+  RecordProperty("mean_serialized_bytes", std::to_string(bytes / iterations));
   RecordProperty("total_seconds", seconds(elapsed));
 }
 
@@ -378,7 +371,10 @@ TEST(PerformanceRegression, MeasuresPlanCacheHitRate) {
   semaforr::domain::SpatialModel spatial;
   const semaforr::planning::PlanningRequest request{
       {{0.5, 0.5}, semaforr::domain::Angle::zero()},
-      {18.5, 18.5}, &spatial, nullptr, &map};
+      {18.5, 18.5},
+      &spatial,
+      nullptr,
+      &map};
   constexpr std::size_t requests = 50U;
   const auto started = Clock::now();
   for (std::size_t index = 0U; index < requests; ++index)

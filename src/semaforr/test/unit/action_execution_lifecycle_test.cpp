@@ -94,8 +94,8 @@ class LifecycleFixture : public ::testing::Test {
    */
   LifecycleFixture()
       : action_space({0.2}, {0.5}),
-        decisions({1.0e-9,
-                   semaforr::decision::UnscoredActionPolicy::Exclude, 0.0,
+        decisions({1.0e-9, semaforr::decision::UnscoredActionPolicy::Exclude,
+                   0.0,
                    semaforr::domain::Action(
                        semaforr::domain::ActionType::Forward, 1U),
                    0U}),
@@ -156,7 +156,8 @@ class LifecycleFixture : public ::testing::Test {
         status ==
         semaforr::domain::ExecutionCompletionStatus::SafetyInterrupted;
     result.controller_failure =
-        status == semaforr::domain::ExecutionCompletionStatus::ControllerFailure;
+        status ==
+        semaforr::domain::ExecutionCompletionStatus::ControllerFailure;
     return result;
   }
 
@@ -173,9 +174,9 @@ class LifecycleFixture : public ::testing::Test {
    * - None documented; validation or dependency failures may propagate.
    */
   void start(const semaforr::decision::DecisionResult& decision) {
-    ASSERT_EQ(engine.onActionStarted(
-                  {decision.decision_id, decision.action_id,
-                   std::chrono::steady_clock::now(), observation().pose}),
+    ASSERT_EQ(engine.onActionStarted({decision.decision_id, decision.action_id,
+                                      std::chrono::steady_clock::now(),
+                                      observation().pose}),
               semaforr::domain::FeedbackDisposition::Accepted);
   }
 
@@ -245,9 +246,9 @@ TEST_F(LifecycleFixture, DuplicateUnknownAndStaleFeedbackAreRejected) {
 
   const auto next = select();
   EXPECT_GT(next.action_id, decision.action_id);
-  EXPECT_EQ(engine.onActionStarted(
-                {next.decision_id + 1U, next.action_id,
-                 std::chrono::steady_clock::now(), observation().pose}),
+  EXPECT_EQ(engine.onActionStarted({next.decision_id + 1U, next.action_id,
+                                    std::chrono::steady_clock::now(),
+                                    observation().pose}),
             semaforr::domain::FeedbackDisposition::StaleDecision);
 }
 
@@ -264,10 +265,9 @@ TEST_F(LifecycleFixture, DuplicateUnknownAndStaleFeedbackAreRejected) {
  * Exceptions:
  * - None documented; validation or dependency failures may propagate.
  */
-class TerminalStatusTest
-    : public LifecycleFixture,
-      public ::testing::WithParamInterface<
-          semaforr::domain::ExecutionCompletionStatus> {};
+class TerminalStatusTest : public LifecycleFixture,
+                           public ::testing::WithParamInterface<
+                               semaforr::domain::ExecutionCompletionStatus> {};
 
 TEST_P(TerminalStatusTest, FailuresNeverBecomeSuccessfulTraversal) {
   const auto decision = select();
@@ -278,8 +278,8 @@ TEST_P(TerminalStatusTest, FailuresNeverBecomeSuccessfulTraversal) {
   ASSERT_EQ(world.execution_history.entries().size(), 1U);
   EXPECT_EQ(world.execution_history.entries().front().status, GetParam());
   EXPECT_TRUE(world.completed_path_history.entries().empty());
-  const auto trail = learning.snapshot(
-      semaforr::spatial::SpatialRepresentation::Trails);
+  const auto trail =
+      learning.snapshot(semaforr::spatial::SpatialRepresentation::Trails);
   ASSERT_TRUE(trail);
   EXPECT_EQ(trail->status, semaforr::spatial::ModelStatus::Empty);
 }
@@ -357,7 +357,7 @@ TEST_F(LifecycleFixture, ControllerRestartTerminatesThePendingAction) {
   const auto decision = select();
   start(decision);
   EXPECT_EQ(engine.onControllerRestart(std::chrono::steady_clock::now(),
-                                      observation(0.05).pose),
+                                       observation(0.05).pose),
             semaforr::domain::FeedbackDisposition::Accepted);
   ASSERT_EQ(world.execution_history.entries().size(), 1U);
   EXPECT_EQ(world.execution_history.entries().front().status,
@@ -366,13 +366,12 @@ TEST_F(LifecycleFixture, ControllerRestartTerminatesThePendingAction) {
 
 TEST(CompletedActionLearning, RotationDoesNotCreateAConveyor) {
   semaforr::spatial::SpatialLearningCoordinator learning(100U);
-  learning.addLearner(
-      std::make_unique<semaforr::spatial::ConveyorLearner>());
+  learning.addLearner(std::make_unique<semaforr::spatial::ConveyorLearner>());
   semaforr::spatial::NavigationEpisode episode;
   episode.sequence = 1U;
   episode.observation = observation();
-  episode.selected_action = semaforr::domain::Action(
-      semaforr::domain::ActionType::TurnLeft, 1U);
+  episode.selected_action =
+      semaforr::domain::Action(semaforr::domain::ActionType::TurnLeft, 1U);
   episode.action_started = true;
   semaforr::domain::ActionExecutionResult result;
   result.status = semaforr::domain::ExecutionCompletionStatus::Succeeded;
@@ -381,8 +380,8 @@ TEST(CompletedActionLearning, RotationDoesNotCreateAConveyor) {
   result.rotation_achieved_rad = 0.5;
   episode.execution_result = result;
   learning.observeActionTerminal(episode);
-  const auto conveyor = learning.snapshot(
-      semaforr::spatial::SpatialRepresentation::Conveyors);
+  const auto conveyor =
+      learning.snapshot(semaforr::spatial::SpatialRepresentation::Conveyors);
   ASSERT_TRUE(conveyor);
   EXPECT_EQ(conveyor->status, semaforr::spatial::ModelStatus::Incomplete);
 }

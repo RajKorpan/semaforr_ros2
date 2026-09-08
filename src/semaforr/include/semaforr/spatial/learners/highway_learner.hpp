@@ -32,10 +32,7 @@ namespace semaforr::spatial {
  * Exceptions:
  * - None documented; validation or dependency failures may propagate.
  */
-enum class HighwaySmoothingPolicy {
-  VonNeumannThreeOfFour,
-  DirectionalGapFill
-};
+enum class HighwaySmoothingPolicy { VonNeumannThreeOfFour, DirectionalGapFill };
 
 /**
  * @brief Enumerates the supported highway component selection policy values
@@ -99,11 +96,10 @@ using HighwayCellSet = std::set<std::pair<long long, long long>>;
  * Exceptions:
  * - None documented; validation or dependency failures may propagate.
  */
-HighwayCellSet smoothHighwayCells(
-    const HighwayCellSet& free_cells,
-    const HighwayCellSet& obstructed_cells,
-    const HighwayCellSet& labeled_cells,
-    HighwaySmoothingPolicy policy);
+HighwayCellSet smoothHighwayCells(const HighwayCellSet& free_cells,
+                                  const HighwayCellSet& obstructed_cells,
+                                  const HighwayCellSet& labeled_cells,
+                                  HighwaySmoothingPolicy policy);
 
 /**
  * @brief Encapsulates highway component selection state and behavior for
@@ -306,8 +302,8 @@ class HighwayLearner final : public SpatialLearnerBase {
    * Exceptions:
    * - None documented; validation or dependency failures may propagate.
    */
-  std::vector<domain::Point2D> historicalSubtrail(
-      domain::Point2D from, domain::Point2D to) const;
+  std::vector<domain::Point2D> historicalSubtrail(domain::Point2D from,
+                                                  domain::Point2D to) const;
 
   HighwayLearningConfiguration configuration_;
   HighwayCellSet free_cells_;

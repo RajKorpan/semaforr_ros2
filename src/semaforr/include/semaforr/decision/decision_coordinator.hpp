@@ -248,9 +248,8 @@ class DecisionCoordinator {
    * Exceptions:
    * - None documented; validation or dependency failures may propagate.
    */
-  TierOnePass evaluateTierOne(
-      const DecisionContext& context,
-      std::span<const domain::Action> candidates) const;
+  TierOnePass evaluateTierOne(const DecisionContext& context,
+                              std::span<const domain::Action> candidates) const;
   /**
    * @brief Evaluates tier one stage for this subsystem.
    *
@@ -265,10 +264,9 @@ class DecisionCoordinator {
    * Exceptions:
    * - None documented; validation or dependency failures may propagate.
    */
-  TierOnePass evaluateTierOneStage(
-      const DecisionContext& context,
-      std::span<const domain::Action> candidates,
-      TierOneStage stage) const;
+  TierOnePass evaluateTierOneStage(const DecisionContext& context,
+                                   std::span<const domain::Action> candidates,
+                                   TierOneStage stage) const;
   /**
    * @brief Selects tier three for this subsystem.
    *
@@ -282,9 +280,8 @@ class DecisionCoordinator {
    * Exceptions:
    * - None documented; validation or dependency failures may propagate.
    */
-  DecisionResult decideTierThree(
-      const DecisionContext& context,
-      std::span<const domain::Action> candidates);
+  DecisionResult decideTierThree(const DecisionContext& context,
+                                 std::span<const domain::Action> candidates);
 
  private:
   /**

@@ -40,11 +40,14 @@ GridGeometry geometry(std::size_t columns, std::size_t rows,
   if (columns == 0U || rows == 0U || !std::isfinite(resolution_m) ||
       resolution_m <= 0.0 || !origin.finite())
     throw std::invalid_argument("grid geometry must be finite and positive");
-  GridGeometry result{
-      columns, rows, resolution_m, origin,
-      policy == GridExtentPolicy::Expand ? domain::GridExtentMode::Expandable
-                                         : domain::GridExtentMode::Fixed,
-      domain::GridExtentSource::ConfiguredMaplessInitialBounds};
+  GridGeometry result{columns,
+                      rows,
+                      resolution_m,
+                      origin,
+                      policy == GridExtentPolicy::Expand
+                          ? domain::GridExtentMode::Expandable
+                          : domain::GridExtentMode::Fixed,
+                      domain::GridExtentSource::ConfiguredMaplessInitialBounds};
   result.frame_id = std::move(frame_id);
   return result;
 }
@@ -125,9 +128,8 @@ std::vector<SparseGridCell> sparseSnapshot(
  */
 bool validRay(const domain::LaserObservation& laser, double measured) {
   return !std::isnan(measured) && measured >= laser.minimum_range.meters() &&
-         (std::isfinite(measured)
-              ? measured <= laser.maximum_range.meters()
-              : measured > 0.0);
+         (std::isfinite(measured) ? measured <= laser.maximum_range.meters()
+                                  : measured > 0.0);
 }
 
 /**
@@ -162,8 +164,7 @@ double rayExtent(const domain::LaserObservation& laser, double measured) {
  */
 bool obstacleHit(const domain::LaserObservation& laser, double measured) {
   return std::isfinite(measured) &&
-         measured < laser.maximum_range.meters() -
-                        domain::geometry_tolerance_m;
+         measured < laser.maximum_range.meters() - domain::geometry_tolerance_m;
 }
 
 /**
@@ -285,9 +286,9 @@ std::vector<domain::Point2D> observedExtentPoints(
   for (std::size_t ray = 0U; ray < laser.ranges_m.size(); ++ray) {
     const double measured = laser.ranges_m[ray];
     if (!validRay(laser, measured)) continue;
-    const double angle = pose.heading.radians() + laser.angle_min.radians() +
-                         static_cast<double>(ray) *
-                             laser.angle_increment.radians();
+    const double angle =
+        pose.heading.radians() + laser.angle_min.radians() +
+        static_cast<double>(ray) * laser.angle_increment.radians();
     const double range = rayExtent(laser, measured);
     points.push_back({pose.position.x_m + std::cos(angle) * range,
                       pose.position.y_m + std::sin(angle) * range});
@@ -318,18 +319,20 @@ std::vector<domain::Point2D> observedExtentPoints(
  * - None documented; validation or dependency failures may propagate.
  */
 KnownGridLearner::KnownGridLearner(std::size_t columns, std::size_t rows,
-                                   double resolution_m,
-                                   domain::Point2D origin,
+                                   double resolution_m, domain::Point2D origin,
                                    GridExtentPolicy extent_policy,
                                    domain::GridExpansionPolicy expansion_policy,
                                    bool initialize_around_first_pose,
                                    std::string frame_id)
-    : SpatialLearnerBase(
-          SpatialRepresentation::KnownGrid, "known_grid",
-          UpdateMode::Incremental,
-          {true, true, false, false, "integrate every coherent laser view",
-           {"Out", "low-level exploration"},
-           UpdateSchedule::EveryObservation}),
+    : SpatialLearnerBase(SpatialRepresentation::KnownGrid, "known_grid",
+                         UpdateMode::Incremental,
+                         {true,
+                          true,
+                          false,
+                          false,
+                          "integrate every coherent laser view",
+                          {"Out", "low-level exploration"},
+                          UpdateSchedule::EveryObservation}),
       geometry_(geometry(columns, rows, resolution_m, origin, extent_policy,
                          std::move(frame_id))),
       extent_policy_(extent_policy),
@@ -374,21 +377,21 @@ void KnownGridLearner::onObserve(const NavigationEpisode& episode) {
     const double measured = laser.ranges_m[ray];
     if (!validRay(laser, measured)) continue;
     const double range = rayExtent(laser, measured);
-    const double angle = pose.heading.radians() +
-                         laser.angle_min.radians() +
-                         static_cast<double>(ray) *
-                             laser.angle_increment.radians();
+    const double angle =
+        pose.heading.radians() + laser.angle_min.radians() +
+        static_cast<double>(ray) * laser.angle_increment.radians();
     std::unordered_set<std::size_t> ray_cells;
     for (double distance = 0.0; distance < range; distance += step) {
       const domain::Point2D point{
           pose.position.x_m + std::cos(angle) * distance,
           pose.position.y_m + std::sin(angle) * distance};
-      if (const auto index = indexOf(geometry_, point)) ray_cells.insert(*index);
+      if (const auto index = indexOf(geometry_, point))
+        ray_cells.insert(*index);
     }
-    const domain::Point2D endpoint{
-        pose.position.x_m + std::cos(angle) * range,
-        pose.position.y_m + std::sin(angle) * range};
-    if (const auto index = indexOf(geometry_, endpoint)) ray_cells.insert(*index);
+    const domain::Point2D endpoint{pose.position.x_m + std::cos(angle) * range,
+                                   pose.position.y_m + std::sin(angle) * range};
+    if (const auto index = indexOf(geometry_, endpoint))
+      ray_cells.insert(*index);
     observation_cells.insert(ray_cells.begin(), ray_cells.end());
   }
   for (const auto index : observation_cells) {
@@ -399,18 +402,18 @@ void KnownGridLearner::onObserve(const NavigationEpisode& episode) {
   metadata.reserve(last_observed_sequence_.size());
   for (const auto& [index, sequence] : last_observed_sequence_) {
     const auto count = observations_.at(index);
-    metadata.push_back({index, sequence,
-                        static_cast<float>(1.0 - std::exp(-count / 3.0))});
+    metadata.push_back(
+        {index, sequence, static_cast<float>(1.0 - std::exp(-count / 3.0))});
   }
-  std::sort(metadata.begin(), metadata.end(), [](const auto& a, const auto& b) {
-    return a.index < b.index;
-  });
-  publish(KnownGridModel{geometry_, {}, sparseSnapshot(observations_),
-                         std::move(metadata)},
-          ModelStatus::Fresh,
-          "familiarity integrated independently from occupancy; " +
-              std::to_string(out_of_bounds_evidence_) +
-              " fixed-extent observations rejected");
+  std::sort(metadata.begin(), metadata.end(),
+            [](const auto& a, const auto& b) { return a.index < b.index; });
+  publish(
+      KnownGridModel{
+          geometry_, {}, sparseSnapshot(observations_), std::move(metadata)},
+      ModelStatus::Fresh,
+      "familiarity integrated independently from occupancy; " +
+          std::to_string(out_of_bounds_evidence_) +
+          " fixed-extent observations rejected");
 }
 
 /**
@@ -429,16 +432,15 @@ void KnownGridLearner::onRebuild() {
   std::vector<FamiliarityCellMetadata> metadata;
   for (const auto& [index, sequence] : last_observed_sequence_) {
     const auto count = observations_.at(index);
-    metadata.push_back({index, sequence,
-                        static_cast<float>(1.0 - std::exp(-count / 3.0))});
+    metadata.push_back(
+        {index, sequence, static_cast<float>(1.0 - std::exp(-count / 3.0))});
   }
-  std::sort(metadata.begin(), metadata.end(), [](const auto& a, const auto& b) {
-    return a.index < b.index;
-  });
-  publish(KnownGridModel{geometry_, {}, sparseSnapshot(observations_),
-                         std::move(metadata)},
-          ModelStatus::Fresh,
-          "known grid snapshot refreshed");
+  std::sort(metadata.begin(), metadata.end(),
+            [](const auto& a, const auto& b) { return a.index < b.index; });
+  publish(
+      KnownGridModel{
+          geometry_, {}, sparseSnapshot(observations_), std::move(metadata)},
+      ModelStatus::Fresh, "known grid snapshot refreshed");
 }
 
 /**
@@ -472,7 +474,10 @@ SensedOccupancyLearner::SensedOccupancyLearner(
     : SpatialLearnerBase(
           SpatialRepresentation::SensedOccupancy, "sensed_occupancy",
           UpdateMode::Incremental,
-          {true, true, false, false,
+          {true,
+           true,
+           false,
+           false,
            "integrate valid range rays as separate free and occupied evidence",
            {"sensor-grid planning", "occupancy fusion", "diagnostics"},
            UpdateSchedule::EveryObservation}),
@@ -516,8 +521,9 @@ void SensedOccupancyLearner::integrateFree(std::size_t index,
   const auto total = static_cast<double>(cell.free_evidence) +
                      static_cast<double>(cell.occupied_evidence);
   cell.confidence = static_cast<float>(
-      total == 0.0 ? 0.0 : std::max(cell.free_evidence, cell.occupied_evidence) /
-                                  total);
+      total == 0.0
+          ? 0.0
+          : std::max(cell.free_evidence, cell.occupied_evidence) / total);
   cell.source = domain::OccupancyEvidenceSource::CurrentSensor |
                 domain::OccupancyEvidenceSource::AccumulatedSensorModel;
 }
@@ -549,7 +555,8 @@ void SensedOccupancyLearner::integrateOccupied(std::size_t index,
   cell.source = domain::OccupancyEvidenceSource::CurrentSensor |
                 domain::OccupancyEvidenceSource::AccumulatedSensorModel;
   if (cell.dynamic)
-    cell.source = cell.source | domain::OccupancyEvidenceSource::DynamicObstacle;
+    cell.source =
+        cell.source | domain::OccupancyEvidenceSource::DynamicObstacle;
 }
 
 /**
@@ -601,7 +608,8 @@ SensedOccupancyModel SensedOccupancyLearner::snapshotModel() const {
   model.geometry = geometry_;
   model.sparse_cells.reserve(cells_.size());
   for (const auto& [index, cell] : cells_)
-    if (index < geometry_.cellCount()) model.sparse_cells.push_back({index, cell});
+    if (index < geometry_.cellCount())
+      model.sparse_cells.push_back({index, cell});
   std::sort(model.sparse_cells.begin(), model.sparse_cells.end(),
             [](const auto& left, const auto& right) {
               return left.index < right.index;
@@ -644,24 +652,25 @@ void SensedOccupancyLearner::onObserve(const NavigationEpisode& episode) {
     if (!validRay(laser, measured)) continue;
     const double range = rayExtent(laser, measured);
     const bool hit = obstacleHit(laser, measured);
-    const double angle = pose.heading.radians() + laser.angle_min.radians() +
-                         static_cast<double>(ray) *
-                             laser.angle_increment.radians();
+    const double angle =
+        pose.heading.radians() + laser.angle_min.radians() +
+        static_cast<double>(ray) * laser.angle_increment.radians();
     std::unordered_set<std::size_t> free_cells;
     for (double distance = 0.0; distance < range; distance += step) {
       const domain::Point2D point{
           pose.position.x_m + std::cos(angle) * distance,
           pose.position.y_m + std::sin(angle) * distance};
-      if (const auto index = indexOf(geometry_, point)) free_cells.insert(*index);
+      if (const auto index = indexOf(geometry_, point))
+        free_cells.insert(*index);
     }
-    const domain::Point2D endpoint{
-        pose.position.x_m + std::cos(angle) * range,
-        pose.position.y_m + std::sin(angle) * range};
+    const domain::Point2D endpoint{pose.position.x_m + std::cos(angle) * range,
+                                   pose.position.y_m + std::sin(angle) * range};
     const auto endpoint_index = indexOf(geometry_, endpoint);
     if (hit && endpoint_index) free_cells.erase(*endpoint_index);
     if (!hit && endpoint_index) free_cells.insert(*endpoint_index);
     for (const auto index : free_cells) integrateFree(index, episode.sequence);
-    if (hit && endpoint_index) integrateOccupied(*endpoint_index, episode.sequence);
+    if (hit && endpoint_index)
+      integrateOccupied(*endpoint_index, episode.sequence);
   }
   publish(snapshotModel(), ModelStatus::Fresh,
           "valid rays integrated; hit endpoints remain occupied; " +
@@ -711,13 +720,16 @@ InclusionGridLearner::InclusionGridLearner(
     domain::Point2D origin, GridExtentPolicy extent_policy,
     domain::GridExpansionPolicy expansion_policy,
     bool initialize_around_first_pose, std::string frame_id)
-    : SpatialLearnerBase(
-          SpatialRepresentation::InclusionGrid, "inclusion_grid",
-          UpdateMode::Incremental,
-          {true, false, true, true,
-           "project learned regions, operational subtrails, and successful LLE traversal",
-           {"low-level exploration", "coverage diagnostics"},
-           UpdateSchedule::DuringLLEOnly}),
+    : SpatialLearnerBase(SpatialRepresentation::InclusionGrid, "inclusion_grid",
+                         UpdateMode::Incremental,
+                         {true,
+                          false,
+                          true,
+                          true,
+                          "project learned regions, operational subtrails, and "
+                          "successful LLE traversal",
+                          {"low-level exploration", "coverage diagnostics"},
+                          UpdateSchedule::DuringLLEOnly}),
       geometry_(geometry(columns, rows, resolution_m, origin, extent_policy,
                          std::move(frame_id))),
       extent_policy_(extent_policy),
@@ -741,8 +753,7 @@ void InclusionGridLearner::onObserve(const NavigationEpisode& episode) {
     initializeAround(geometry_, episode.observation.pose.position);
     initialize_around_first_pose_ = false;
   }
-  if (!episode.execution_result || !episode.actionSucceeded())
-    return;
+  if (!episode.execution_result || !episode.actionSucceeded()) return;
   const auto start = episode.execution_result->start_pose.position;
   const auto finish = episode.execution_result->final_pose.position;
   const double length = domain::distance(start, finish).meters();
@@ -757,8 +768,8 @@ void InclusionGridLearner::onObserve(const NavigationEpisode& episode) {
       1U, static_cast<std::size_t>(std::ceil(length / step)));
   bool changed = false;
   for (std::size_t sample = 0U; sample <= samples; ++sample) {
-    const double fraction = static_cast<double>(sample) /
-                            static_cast<double>(samples);
+    const double fraction =
+        static_cast<double>(sample) / static_cast<double>(samples);
     const domain::Point2D point{
         start.x_m + (finish.x_m - start.x_m) * fraction,
         start.y_m + (finish.y_m - start.y_m) * fraction};
@@ -800,8 +811,8 @@ void InclusionGridLearner::replaceRepresented(
     extent.insert(extent.end(), edge.supporting_subtrail.begin(),
                   edge.supporting_subtrail.end());
   const auto previous_geometry = geometry_;
-  const auto expanded = expandedGeometry(geometry_, extent, extent_policy_,
-                                         expansion_policy_);
+  const auto expanded =
+      expandedGeometry(geometry_, extent, extent_policy_, expansion_policy_);
   remap(lle_included_, geometry_, expanded);
   geometry_ = expanded;
   std::unordered_map<std::size_t, std::uint32_t> represented = lle_included_;
@@ -833,8 +844,8 @@ void InclusionGridLearner::replaceRepresented(
       const std::size_t samples = std::max<std::size_t>(
           1U, static_cast<std::size_t>(std::ceil(length / sample_step)));
       for (std::size_t sample = 0U; sample <= samples; ++sample) {
-        const double fraction = static_cast<double>(sample) /
-                                static_cast<double>(samples);
+        const double fraction =
+            static_cast<double>(sample) / static_cast<double>(samples);
         const domain::Point2D location{
             start.x_m + (finish.x_m - start.x_m) * fraction,
             start.y_m + (finish.y_m - start.y_m) * fraction};
@@ -845,9 +856,10 @@ void InclusionGridLearner::replaceRepresented(
   }
   if (represented == included_ && geometry_ == previous_geometry) return;
   included_ = std::move(represented);
-  publish(InclusionGridModel{geometry_, {}, sparseSnapshot(included_)},
-          ModelStatus::Fresh,
-          "inclusion rebuilt from learned region area and supporting subtrails");
+  publish(
+      InclusionGridModel{geometry_, {}, sparseSnapshot(included_)},
+      ModelStatus::Fresh,
+      "inclusion rebuilt from learned region area and supporting subtrails");
 }
 
 /**
@@ -864,8 +876,7 @@ void InclusionGridLearner::replaceRepresented(
  */
 void InclusionGridLearner::onRebuild() {
   publish(InclusionGridModel{geometry_, {}, sparseSnapshot(included_)},
-          ModelStatus::Fresh,
-          "region/subtrail inclusion snapshot refreshed");
+          ModelStatus::Fresh, "region/subtrail inclusion snapshot refreshed");
 }
 
 }  // namespace semaforr::spatial

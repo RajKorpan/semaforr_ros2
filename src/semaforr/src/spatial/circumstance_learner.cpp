@@ -2,8 +2,8 @@
  * @file circumstance_learner.cpp
  * @brief Circumstance learner responsibilities.
  *
- * @details This file implements circumstance learner behavior for learned spatial
- * representations and their lifecycle. It records the declarations,
+ * @details This file implements circumstance learner behavior for learned
+ * spatial representations and their lifecycle. It records the declarations,
  * settings, fixtures, or guidance needed by that responsibility. Its
  * package-relative location is `src/spatial/circumstance_learner.cpp`.
  */
@@ -76,9 +76,9 @@ std::optional<std::size_t> matchingCluster(
     const CircumstanceModel& model, const domain::NormalizedSetting& setting) {
   const auto match = domain::matchCircumstance(model, setting);
   if (!match) return std::nullopt;
-  const auto cluster = std::find_if(
-      model.clusters.begin(), model.clusters.end(),
-      [&](const auto& item) { return item.id == match->id; });
+  const auto cluster =
+      std::find_if(model.clusters.begin(), model.clusters.end(),
+                   [&](const auto& item) { return item.id == match->id; });
   return cluster == model.clusters.end()
              ? std::nullopt
              : std::optional<std::size_t>(
@@ -101,16 +101,21 @@ domain::CaseOutcome caseOutcome(
     domain::ExecutionCompletionStatus status) noexcept {
   using S = domain::ExecutionCompletionStatus;
   switch (status) {
-    case S::Succeeded: return domain::CaseOutcome::Successful;
-    case S::PartialMovement: return domain::CaseOutcome::Partial;
-    case S::TimedOut: return domain::CaseOutcome::TimedOut;
-    case S::SafetyInterrupted: return domain::CaseOutcome::SafetyInterrupted;
+    case S::Succeeded:
+      return domain::CaseOutcome::Successful;
+    case S::PartialMovement:
+      return domain::CaseOutcome::Partial;
+    case S::TimedOut:
+      return domain::CaseOutcome::TimedOut;
+    case S::SafetyInterrupted:
+      return domain::CaseOutcome::SafetyInterrupted;
     case S::Cancelled:
     case S::NavigationModeTransition:
     case S::SensorLost:
     case S::Shutdown:
       return domain::CaseOutcome::Cancelled;
-    case S::GoalPreempted: return domain::CaseOutcome::Preempted;
+    case S::GoalPreempted:
+      return domain::CaseOutcome::Preempted;
     case S::NoMovement:
     case S::ControllerRejected:
     case S::ControllerFailure:
@@ -144,8 +149,8 @@ void recomputeCase(domain::CircumstanceCaseEvidence& evidence) {
                           : action.success_credit / action.effective_evidence;
     // Laplace-smoothed historical success probability. Evidence sufficiency
     // remains a separate gate and is never hidden inside this value.
-    action.confidence = (1.0 + action.success_credit) /
-                        (2.0 + action.effective_evidence);
+    action.confidence =
+        (1.0 + action.success_credit) / (2.0 + action.effective_evidence);
     evidence.confidence[action.action] = action.confidence;
   }
   // Case accuracy expresses whether this case contains a reliably successful
@@ -182,17 +187,15 @@ void CircumstanceLearningConfiguration::validate() const {
   if (!finite || setting_resolution_m <= 0.0 || setting_radius_m <= 0.0 ||
       minimum_cluster_size == 0U || reclustering_threshold == 0U ||
       minimum_case_evidence == 0U || minimum_action_evidence == 0U ||
-      similarity_l1_threshold <= 0.0 ||
-      distance_bin_base_m <= 0.0 || angle_bin_count == 0U ||
-      assignment_confidence_threshold < 0.0 ||
+      similarity_l1_threshold <= 0.0 || distance_bin_base_m <= 0.0 ||
+      angle_bin_count == 0U || assignment_confidence_threshold < 0.0 ||
       assignment_confidence_threshold > 1.0 || accuracy_threshold < 0.0 ||
       accuracy_threshold > 1.0 || action_confidence_threshold < 0.0 ||
       action_confidence_threshold > 1.0 || partial_success_credit < 0.0 ||
       partial_success_credit > 1.0 || model_version.empty() ||
       feature_version.empty() ||
       (persistence_policy != "session_only" &&
-       persistence_policy != "load_save" &&
-       persistence_policy != "load_only" &&
+       persistence_policy != "load_save" && persistence_policy != "load_only" &&
        persistence_policy != "save_only") ||
       (persistence_policy != "session_only" && model_path.empty()))
     throw std::invalid_argument(
@@ -216,7 +219,10 @@ CircumstanceLearner::CircumstanceLearner(
     : SpatialLearnerBase(
           SpatialRepresentation::Circumstances, "circumstance",
           UpdateMode::Incremental,
-          {true, true, true, true,
+          {true,
+           true,
+           true,
+           true,
            "normalize every view; retain selection context; learn only from "
            "terminal execution outcomes",
            {"Precedent", "TierThreeCircumstanceWeighting"},
@@ -228,13 +234,15 @@ CircumstanceLearner::CircumstanceLearner(
   model_.learning_mode = configuration_.mode;
   model_.model_version = configuration_.model_version;
   model_.classifier_version =
-      configuration_.mode == domain::CircumstanceLearningMode::DissertationCompatible
+      configuration_.mode ==
+              domain::CircumstanceLearningMode::DissertationCompatible
           ? configuration_.classifier_version
           : "not_applicable";
   model_.feature_version = configuration_.feature_version;
   model_.similarity_metric = "normalized_l1";
   model_.reclustering_policy =
-      configuration_.mode == domain::CircumstanceLearningMode::DissertationCompatible
+      configuration_.mode ==
+              domain::CircumstanceLearningMode::DissertationCompatible
           ? "similarity_graph_components_then_softmax_assignment"
           : "threshold_batch_then_normalized_l1_assignment";
   model_.assignment_confidence_threshold =
@@ -252,9 +260,9 @@ CircumstanceLearner::CircumstanceLearner(
     if (!input)
       throw std::runtime_error("cannot open configured circumstance model '" +
                                configuration_.model_path + "'");
-    model_ = domain::loadCircumstanceModel(
-        input, configuration_.model_version, configuration_.feature_version,
-        configuration_.classifier_version);
+    model_ = domain::loadCircumstanceModel(input, configuration_.model_version,
+                                           configuration_.feature_version,
+                                           configuration_.classifier_version);
     for (auto& cluster : model_.clusters)
       cluster.creation_method = domain::CircumstanceCreationMethod::LoadedModel;
   } else if (configuration_.persistence_policy == "load_only") {
@@ -371,16 +379,15 @@ void CircumstanceLearner::recluster() {
     const domain::CircumstanceId id = model_.next_circumstance_id++;
     const auto method =
         configuration_.mode ==
-                domain::CircumstanceLearningMode::DissertationCompatible &&
-            model_.clusters.empty()
+                    domain::CircumstanceLearningMode::DissertationCompatible &&
+                model_.clusters.empty()
             ? domain::CircumstanceCreationMethod::OfflineSimilarityGraph
             : domain::CircumstanceCreationMethod::OnlineReclustering;
     model_.clusters.push_back({id, std::move(centroid), accepted.size(), 1.0,
                                method, 1U, model_.metrics.observations, 1U,
                                false});
     for (const auto member : group)
-      if (std::find(accepted.begin(), accepted.end(), member) ==
-          accepted.end())
+      if (std::find(accepted.begin(), accepted.end(), member) == accepted.end())
         remainder.push_back(std::move(unclustered_[member]));
   }
   unclustered_ = std::move(remainder);
@@ -488,12 +495,12 @@ void CircumstanceLearner::recordTerminal(const NavigationEpisode& episode) {
                     return resolved.first == result.action_id;
                   }))
     return;
-  auto pending = std::find_if(
-      pending_experiences_.begin(), pending_experiences_.end(),
-      [&](const auto& item) {
-        return item.action_id == result.action_id &&
-               item.decision_id == result.decision_id;
-      });
+  auto pending =
+      std::find_if(pending_experiences_.begin(), pending_experiences_.end(),
+                   [&](const auto& item) {
+                     return item.action_id == result.action_id &&
+                            item.decision_id == result.decision_id;
+                   });
   if (pending == pending_experiences_.end()) {
     // A terminal episode still contains the immutable selection-time
     // observation. Recover context without fabricating a successful result.
@@ -501,10 +508,9 @@ void CircumstanceLearner::recordTerminal(const NavigationEpisode& episode) {
     const auto setting = domain::normalizeSetting(
         episode.observation.laser, settingConfiguration(configuration_));
     recordDecision(episode, setting);
-    pending = std::find_if(pending_experiences_.begin(),
-                           pending_experiences_.end(), [&](const auto& item) {
-                             return item.action_id == result.action_id;
-                           });
+    pending = std::find_if(
+        pending_experiences_.begin(), pending_experiences_.end(),
+        [&](const auto& item) { return item.action_id == result.action_id; });
     if (pending == pending_experiences_.end()) return;
   }
   if (pending->task_id != result.task_id) return;
@@ -533,8 +539,7 @@ void CircumstanceLearner::recordTerminal(const NavigationEpisode& episode) {
  * - None documented; validation or dependency failures may propagate.
  */
 bool CircumstanceLearner::updateCase(
-    PendingExperience& pending,
-    const domain::ActionExecutionResult& result) {
+    PendingExperience& pending, const domain::ActionExecutionResult& result) {
   std::optional<domain::CircumstanceMatch> match;
   if (pending.circumstance_id) {
     domain::CircumstanceId resolved = *pending.circumstance_id;
@@ -544,13 +549,12 @@ bool CircumstanceLearner::updateCase(
         migration != model_.migrations.end())
       resolved = migration->new_id;
     const auto cluster = std::find_if(
-        model_.clusters.begin(), model_.clusters.end(), [&](const auto& item) {
-          return item.id == resolved && !item.retired;
-        });
+        model_.clusters.begin(), model_.clusters.end(),
+        [&](const auto& item) { return item.id == resolved && !item.retired; });
     if (cluster != model_.clusters.end())
       match = domain::CircumstanceMatch{
-          resolved, domain::settingL1Distance(pending.setting,
-                                              cluster->centroid),
+          resolved,
+          domain::settingL1Distance(pending.setting, cluster->centroid),
           pending.assignment_confidence,
           model_.learning_mode ==
                   domain::CircumstanceLearningMode::DissertationCompatible
@@ -561,21 +565,19 @@ bool CircumstanceLearner::updateCase(
   if (!match || !pending.target) return false;
   pending.circumstance_id = match->id;
   pending.assignment_confidence = match->confidence;
-  const auto key = domain::circumstanceCaseKey(
-      match->id, pending.starting_pose, *pending.target, model_);
-  auto evidence = std::find_if(model_.cases.begin(), model_.cases.end(),
-                               [&](const auto& item) {
-                                 return item.key == key;
-                               });
+  const auto key = domain::circumstanceCaseKey(match->id, pending.starting_pose,
+                                               *pending.target, model_);
+  auto evidence =
+      std::find_if(model_.cases.begin(), model_.cases.end(),
+                   [&](const auto& item) { return item.key == key; });
   if (evidence == model_.cases.end()) {
     model_.cases.push_back({});
     evidence = std::prev(model_.cases.end());
     evidence->key = key;
   }
-  auto action = std::find_if(evidence->actions.begin(),
-                             evidence->actions.end(), [&](const auto& item) {
-                               return item.action == pending.action;
-                             });
+  auto action = std::find_if(
+      evidence->actions.begin(), evidence->actions.end(),
+      [&](const auto& item) { return item.action == pending.action; });
   if (action == evidence->actions.end()) {
     evidence->actions.push_back({});
     action = std::prev(evidence->actions.end());
@@ -647,8 +649,8 @@ void CircumstanceLearner::onRebuild() {
     if (!pending.terminal && pending.result &&
         updateCase(pending, *pending.result)) {
       pending.terminal = true;
-      resolved_outcomes_.emplace_back(
-          pending.action_id, caseOutcome(pending.result->status));
+      resolved_outcomes_.emplace_back(pending.action_id,
+                                      caseOutcome(pending.result->status));
     }
   pending_experiences_.erase(
       std::remove_if(pending_experiences_.begin(), pending_experiences_.end(),
@@ -669,8 +671,7 @@ void CircumstanceLearner::onRebuild() {
       std::ofstream output(temporary, std::ios::trunc);
       if (!output)
         throw std::runtime_error(
-            "cannot create configured circumstance model '" + temporary +
-            "'");
+            "cannot create configured circumstance model '" + temporary + "'");
       domain::saveCircumstanceModel(model_, output);
     }
     std::error_code error;
@@ -682,8 +683,7 @@ void CircumstanceLearner::onRebuild() {
     }
     if (error)
       throw std::runtime_error("cannot install circumstance model '" +
-                               destination.string() + "': " +
-                               error.message());
+                               destination.string() + "': " + error.message());
   }
 }
 

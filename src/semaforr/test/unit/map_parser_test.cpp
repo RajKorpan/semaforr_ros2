@@ -2,8 +2,8 @@
  * @file map_parser_test.cpp
  * @brief Map parser test responsibilities.
  *
- * @details This file exercises map parser test behavior for automated verification
- * and regression testing. It centers on
+ * @details This file exercises map parser test behavior for automated
+ * verification and regression testing. It centers on
  * `ParsesValidatedMeterBasedSegments`,
  * `RejectsMalformedVerticesPrecisely`, `RejectsEmptyAndMalformedXmlMaps`,
  * `RejectsMissingRequiredBounds`,
@@ -18,12 +18,12 @@
 #include <algorithm>
 #include <cmath>
 #include <filesystem>
+#include <fstream>
 #include <memory>
-#include <semaforr/planning/map_parser.hpp>
 #include <semaforr/planning/domain_planner.hpp>
+#include <semaforr/planning/map_parser.hpp>
 #include <semaforr/planning/planner_registry.hpp>
 #include <semaforr/planning/static_map_loader.hpp>
-#include <fstream>
 #include <sstream>
 
 #ifndef SEMAFORR_TEST_WORKSPACE_SOURCE_DIR
@@ -72,8 +72,7 @@ TEST(StaticMapLoader, RejectsMissingRequiredBounds) {
   const fs::path workspace(SEMAFORR_TEST_WORKSPACE_SOURCE_DIR);
   semaforr::config::StaticMapConfiguration configuration;
   EXPECT_THROW(semaforr::planning::loadStaticMap(
-                   workspace /
-                       "src/semaforr/test/fixtures/maps/negative.xml",
+                   workspace / "src/semaforr/test/fixtures/maps/negative.xml",
                    {0, 10, 0.5}, configuration),
                std::runtime_error);
 }
@@ -100,8 +99,8 @@ TEST(MapResolution, ResolvesAbsolutePackageRelativeAndNamedExampleMaps) {
   paths.working_directory = workspace;
   paths.package_shares["semaforr_examples"] = examples;
   paths.example_core = examples / "core";
-  const auto expected = fs::weakly_canonical(
-      examples / "core/map-a/map-aS.xml");
+  const auto expected =
+      fs::weakly_canonical(examples / "core/map-a/map-aS.xml");
   EXPECT_EQ(semaforr::planning::resolveMapPath(expected.string(), paths),
             expected);
   EXPECT_EQ(semaforr::planning::resolveMapPath(
@@ -113,8 +112,7 @@ TEST(MapResolution, ResolvesAbsolutePackageRelativeAndNamedExampleMaps) {
 TEST(MapResolution, MissingMapDiagnosticIdentifiesRequest) {
   semaforr::planning::MapSearchPaths paths;
   try {
-    static_cast<void>(
-        semaforr::planning::resolveMapPath("absent-map", paths));
+    static_cast<void>(semaforr::planning::resolveMapPath("absent-map", paths));
     FAIL() << "expected resolution failure";
   } catch (const std::runtime_error& error) {
     EXPECT_NE(std::string(error.what()).find("absent-map"), std::string::npos);
@@ -130,12 +128,11 @@ TEST(StaticMapLoader, BuildsGeometryOccupancyAndSupportsNegativeOrigin) {
   configuration.origin_x_m = -5.0;
   configuration.origin_y_m = -5.0;
   configuration.occupancy_resolution_m = 0.5;
-  const auto map = semaforr::planning::loadStaticMap(
-      path, {10, 10, 0.5}, configuration);
+  const auto map =
+      semaforr::planning::loadStaticMap(path, {10, 10, 0.5}, configuration);
   EXPECT_TRUE(map.geometryAvailable());
   EXPECT_TRUE(map.occupancyAvailable());
-  EXPECT_EQ(map.provenance,
-            semaforr::domain::GeometryProvenance::StaticMap);
+  EXPECT_EQ(map.provenance, semaforr::domain::GeometryProvenance::StaticMap);
   EXPECT_FALSE(map.lineOfSight({{-4.0, 0.0}, {4.0, 0.0}}));
 }
 
@@ -148,8 +145,8 @@ TEST(StaticMapLoader, InfersPaddedBoundsWhenTheFormatHasNoBounds) {
   configuration.inferred_bounds_padding_m = 2.0;
   configuration.occupancy_resolution_m = 0.5;
   const auto map = semaforr::planning::loadStaticMap(
-      workspace / "src/semaforr/test/fixtures/maps/negative.xml",
-      {0, 0, 0.5}, configuration);
+      workspace / "src/semaforr/test/fixtures/maps/negative.xml", {0, 0, 0.5},
+      configuration);
   EXPECT_TRUE(map.occupancyAvailable());
   EXPECT_EQ(map.occupancy.geometry.extent_source,
             semaforr::domain::GridExtentSource::InferredMapBounds);
@@ -167,11 +164,11 @@ TEST(StaticMapLoader, RejectsUnsupportedFormatAndOutOfBoundsGeometry) {
                    workspace / "src/examples/core/maze/mazeRoadmap.txt",
                    {10, 10, 0.5}, configuration),
                std::runtime_error);
-  EXPECT_THROW(semaforr::planning::loadStaticMap(
-                   workspace /
-                       "src/semaforr/test/fixtures/maps/out_of_bounds.xml",
-                   {10, 10, 0.5}, configuration),
-               std::runtime_error);
+  EXPECT_THROW(
+      semaforr::planning::loadStaticMap(
+          workspace / "src/semaforr/test/fixtures/maps/out_of_bounds.xml",
+          {10, 10, 0.5}, configuration),
+      std::runtime_error);
 }
 
 TEST(ComponentGating, RegistryDeclaresKnownMapRequirementsExplicitly) {
@@ -198,26 +195,24 @@ TEST(MapPlanning, RoutesAroundMappedWallAndStaysInsideBounds) {
   configuration.origin_y_m = -5.0;
   configuration.occupancy_resolution_m = 0.5;
   const auto map = semaforr::planning::loadStaticMap(
-      workspace / "src/semaforr/test/fixtures/maps/negative.xml",
-      {10, 10, 0.5}, configuration);
+      workspace / "src/semaforr/test/fixtures/maps/negative.xml", {10, 10, 0.5},
+      configuration);
   semaforr::domain::SpatialModel learned;
   semaforr::planning::DomainPlanner planner(
       "distance", semaforr::planning::PlanObjective::Distance);
-  const auto result = planner.plan(
-      {{{-4.0, 0.0}, semaforr::domain::Angle::zero()},
-       {4.0, 0.0},
-       &learned,
-       nullptr,
-       &map});
+  const auto result =
+      planner.plan({{{-4.0, 0.0}, semaforr::domain::Angle::zero()},
+                    {4.0, 0.0},
+                    &learned,
+                    nullptr,
+                    &map});
   ASSERT_TRUE(result.succeeded()) << result.explanation;
-  EXPECT_TRUE(std::any_of(result.path.begin(), result.path.end(),
-                          [](const auto& point) {
-                            return std::abs(point.y_m) > 4.0;
-                          }));
-  EXPECT_TRUE(std::all_of(result.path.begin(), result.path.end(),
-                          [&](const auto& point) {
-                            return map.bounds.contains(point);
-                          }));
+  EXPECT_TRUE(
+      std::any_of(result.path.begin(), result.path.end(),
+                  [](const auto& point) { return std::abs(point.y_m) > 4.0; }));
+  EXPECT_TRUE(std::all_of(
+      result.path.begin(), result.path.end(),
+      [&](const auto& point) { return map.bounds.contains(point); }));
   EXPECT_NE(result.explanation.find("static map"), std::string::npos);
 }
 
@@ -227,9 +222,7 @@ TEST(MapPlanning, RefusesMaplessGridPlanningAndDoesNotUseLearnedGrid) {
   semaforr::planning::DomainPlanner planner(
       "distance", semaforr::planning::PlanObjective::Distance);
   const auto result = planner.plan(
-      {{{0.0, 0.0}, semaforr::domain::Angle::zero()},
-       {1.0, 0.0},
-       &learned});
+      {{{0.0, 0.0}, semaforr::domain::Angle::zero()}, {1.0, 0.0}, &learned});
   EXPECT_EQ(result.status, semaforr::planning::PlanStatus::PlannerUnavailable);
 }
 
@@ -247,8 +240,8 @@ TEST(StaticMapOwnership, LearnedRepresentationsCannotMutateStaticGeometry) {
   world.static_map = immutable.get();
   const auto walls = world.static_map->walls;
   world.spatial.obstacle_polygons.emplace_back(
-      std::vector<semaforr::domain::Point2D>{{1.0, 1.0}, {2.0, 1.0},
-                                             {1.0, 2.0}});
+      std::vector<semaforr::domain::Point2D>{
+          {1.0, 1.0}, {2.0, 1.0}, {1.0, 2.0}});
   world.spatial.known_grid.cells.push_back(1U);
   EXPECT_EQ(world.static_map->walls, walls);
   EXPECT_EQ(world.static_map->provenance,

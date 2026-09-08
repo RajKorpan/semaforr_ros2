@@ -2,8 +2,8 @@
  * @file planning_coordinator.cpp
  * @brief Planning coordinator responsibilities.
  *
- * @details This file implements planning coordinator behavior for path planning and
- * hierarchical plan construction. It centers on `Candidate`. Its
+ * @details This file implements planning coordinator behavior for path planning
+ * and hierarchical plan construction. It centers on `Candidate`. Its
  * package-relative location is `src/planning/planning_coordinator.cpp`.
  */
 #include <algorithm>
@@ -147,7 +147,8 @@ void PlanningCoordinator::registerPlanner(std::unique_ptr<Planner> planner) {
  * Exceptions:
  * - None documented; validation or dependency failures may propagate.
  */
-void PlanningCoordinator::setSelectionPolicy(PlanSelectionPolicy value) noexcept {
+void PlanningCoordinator::setSelectionPolicy(
+    PlanSelectionPolicy value) noexcept {
   if (policy_ == value) return;
   policy_ = value;
   ++configuration_revision_;
@@ -196,10 +197,9 @@ std::optional<SelectedPlan> PlanningCoordinator::selectPlan(
   const double resolution =
       request.static_map && request.static_map->occupancyAvailable()
           ? request.static_map->occupancy.geometry.resolution_m
-          : request.spatial_model &&
-                    request.spatial_model->sensed_occupancy.valid()
-                ? request.spatial_model->sensed_occupancy.geometry.resolution_m
-                : .25;
+      : request.spatial_model && request.spatial_model->sensed_occupancy.valid()
+          ? request.spatial_model->sensed_occupancy.geometry.resolution_m
+          : .25;
   const long long sx = surrogate(request.start.position.x_m, resolution),
                   sy = surrogate(request.start.position.y_m, resolution),
                   gx = surrogate(request.goal.x_m, resolution),
@@ -233,8 +233,7 @@ std::optional<SelectedPlan> PlanningCoordinator::selectPlan(
               e.task_id != effective.task_id ||
               e.dependency_revisions != dependencies)
             return false;
-          const domain::Distance tolerance(
-              std::max(0.05, resolution * 0.5));
+          const domain::Distance tolerance(std::max(0.05, resolution * 0.5));
           return stalePlanReasons(e.result, effective, tolerance, tolerance)
               .empty();
         });
@@ -247,17 +246,16 @@ std::optional<SelectedPlan> PlanningCoordinator::selectPlan(
       if (result.succeeded() && result.plan_id == 0U)
         result.plan_id = next_plan_id_++;
       attachDependencySnapshot(result, effective, declared);
-      cache_.erase(
-          std::remove_if(cache_.begin(), cache_.end(),
-                         [&](const CacheEntry& e) {
-                           return e.planner == name && e.start_x == sx &&
-                                  e.start_y == sy && e.goal_x == gx &&
-                                  e.goal_y == gy &&
-                                  e.task_id == effective.task_id;
-                         }),
-          cache_.end());
-      cache_.push_back({name, sx, sy, gx, gy, effective.task_id, dependencies,
-                        result});
+      cache_.erase(std::remove_if(cache_.begin(), cache_.end(),
+                                  [&](const CacheEntry& e) {
+                                    return e.planner == name &&
+                                           e.start_x == sx && e.start_y == sy &&
+                                           e.goal_x == gx && e.goal_y == gy &&
+                                           e.task_id == effective.task_id;
+                                  }),
+                   cache_.end());
+      cache_.push_back(
+          {name, sx, sy, gx, gy, effective.task_id, dependencies, result});
     }
     if (!result.succeeded()) continue;
     if (!std::isfinite(result.cost_m) || result.cost_m < 0.0)
@@ -307,13 +305,11 @@ std::optional<SelectedPlan> PlanningCoordinator::selectPlan(
     for (const auto& candidate : candidates) {
       const bool tied = std::abs(candidate.vote - best_score) <= 1e-12;
       evidence.candidates.push_back(
-          {candidate.result.plan_id, candidate.planner,
-           candidate.result.family, candidate.result.objective_costs,
-           candidate.normalized, candidate.vote, tied, candidate.metadata,
-           candidate.result.path,
-           candidate.result.hierarchical
-               ? candidate.result.hierarchical->steps
-               : std::vector<PlanStep>{},
+          {candidate.result.plan_id, candidate.planner, candidate.result.family,
+           candidate.result.objective_costs, candidate.normalized,
+           candidate.vote, tied, candidate.metadata, candidate.result.path,
+           candidate.result.hierarchical ? candidate.result.hierarchical->steps
+                                         : std::vector<PlanStep>{},
            candidate.result.dependency_revisions,
            candidate.result.planner_configuration_revision,
            candidate.result.operating_mode,
@@ -327,8 +323,7 @@ std::optional<SelectedPlan> PlanningCoordinator::selectPlan(
             : "unique_lowest_combined_score";
     evidence.random_seed = random_seed_;
     return SelectedPlan{candidates[winner].result, candidates[winner].planner,
-                        policy_, candidates[winner].vote,
-                        std::move(evidence)};
+                        policy_, candidates[winner].vote, std::move(evidence)};
   };
   if (policy_ == PlanSelectionPolicy::Single) {
     return selected(0U);
@@ -346,14 +341,15 @@ std::optional<SelectedPlan> PlanningCoordinator::selectPlan(
         best->result.objective_costs.at(PlanObjective::Distance);
     std::vector<std::size_t> tied;
     for (std::size_t index = 0U; index < candidates.size(); ++index) {
-      candidates[index].vote = candidates[index].result.objective_costs.at(
-          PlanObjective::Distance);
+      candidates[index].vote =
+          candidates[index].result.objective_costs.at(PlanObjective::Distance);
       if (candidates[index].vote == best_distance) tied.push_back(index);
     }
-    const std::size_t winner = seeded_exact_ties_ && tied.size() > 1U
-                                   ? tied[std::uniform_int_distribution<std::size_t>(
-                                              0U, tied.size() - 1U)(random_)]
-                                   : static_cast<std::size_t>(best - candidates.begin());
+    const std::size_t winner =
+        seeded_exact_ties_ && tied.size() > 1U
+            ? tied[std::uniform_int_distribution<std::size_t>(
+                  0U, tied.size() - 1U)(random_)]
+            : static_cast<std::size_t>(best - candidates.begin());
     return selected(winner);
   }
   for (auto objective : objectives) {
@@ -385,10 +381,11 @@ std::optional<SelectedPlan> PlanningCoordinator::selectPlan(
   std::vector<std::size_t> tied;
   for (std::size_t index = 0U; index < candidates.size(); ++index)
     if (candidates[index].vote == best->vote) tied.push_back(index);
-  const std::size_t winner = seeded_exact_ties_ && tied.size() > 1U
-                                 ? tied[std::uniform_int_distribution<std::size_t>(
-                                            0U, tied.size() - 1U)(random_)]
-                                 : static_cast<std::size_t>(best - candidates.begin());
+  const std::size_t winner =
+      seeded_exact_ties_ && tied.size() > 1U
+          ? tied[std::uniform_int_distribution<std::size_t>(
+                0U, tied.size() - 1U)(random_)]
+          : static_cast<std::size_t>(best - candidates.begin());
   return selected(winner);
 }
 }  // namespace semaforr::planning

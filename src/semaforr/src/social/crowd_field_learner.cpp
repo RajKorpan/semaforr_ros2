@@ -2,9 +2,9 @@
  * @file crowd_field_learner.cpp
  * @brief Crowd field learner responsibilities.
  *
- * @details This file implements crowd field learner behavior for social observation
- * processing and crowd learning. It records the declarations, settings,
- * fixtures, or guidance needed by that responsibility. Its
+ * @details This file implements crowd field learner behavior for social
+ * observation processing and crowd learning. It records the declarations,
+ * settings, fixtures, or guidance needed by that responsibility. Its
  * package-relative location is `src/social/crowd_field_learner.cpp`.
  */
 #include <algorithm>
@@ -289,8 +289,7 @@ bool CrowdFieldLearner::observe(const domain::Pose2D& robot_pose,
   bool fallback = false;
   for (const auto& pedestrian : crowd.pedestrians) {
     gst = gst || pedestrian.prediction_source == "gst";
-    fallback = fallback ||
-               pedestrian.prediction_source == "constant_velocity";
+    fallback = fallback || pedestrian.prediction_source == "constant_velocity";
   }
   if (gst && fallback)
     last_update_.prediction_source = "mixed";
@@ -387,8 +386,7 @@ bool CrowdFieldLearner::observe(const domain::Pose2D& robot_pose,
 
   last_observation_ = crowd.observed_at;
   last_update_.accepted = true;
-  if (last_update_.visible_cells == 0U &&
-      last_update_.pedestrian_hits == 0U &&
+  if (last_update_.visible_cells == 0U && last_update_.pedestrian_hits == 0U &&
       last_update_.encounter_hits == 0U) {
     last_update_.status = "accepted_no_represented_evidence";
     return false;

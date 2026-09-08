@@ -92,9 +92,8 @@ std::size_t scanPassageCount(const domain::LaserObservation& laser,
   std::size_t run = 0U;
   std::size_t passages = 0U;
   for (const double range : laser.ranges_m) {
-    const double clear = std::isfinite(range)
-                             ? range
-                             : laser.maximum_range.meters();
+    const double clear =
+        std::isfinite(range) ? range : laser.maximum_range.meters();
     run = clear >= minimum_clearance_m ? run + 1U : 0U;
     if (run == 3U) ++passages;
   }
@@ -142,11 +141,10 @@ HighwayLearningConfiguration configurationWithThresholds(
  * Exceptions:
  * - None documented; validation or dependency failures may propagate.
  */
-HighwayCellSet smoothHighwayCells(
-    const HighwayCellSet& free_cells,
-    const HighwayCellSet& obstructed_cells,
-    const HighwayCellSet& labeled_cells,
-    HighwaySmoothingPolicy policy) {
+HighwayCellSet smoothHighwayCells(const HighwayCellSet& free_cells,
+                                  const HighwayCellSet& obstructed_cells,
+                                  const HighwayCellSet& labeled_cells,
+                                  HighwaySmoothingPolicy policy) {
   HighwayCellSet result = labeled_cells;
   HighwayCellSet candidates = free_cells;
   if (policy == HighwaySmoothingPolicy::DirectionalGapFill)
@@ -193,15 +191,17 @@ HighwayComponentSelection selectHighwayComponent(
     const domain::Graph<domain::Intersection, domain::HighwayEdge>& graph,
     HighwayComponentSelectionPolicy policy) {
   HighwayComponentSelection result;
-  result.component_by_vertex.assign(
-      graph.vertices.size(), std::numeric_limits<std::size_t>::max());
+  result.component_by_vertex.assign(graph.vertices.size(),
+                                    std::numeric_limits<std::size_t>::max());
   std::vector<std::vector<std::size_t>> adjacency(graph.vertices.size());
   for (const auto& edge : graph.edges) {
     if (edge.from >= adjacency.size() || edge.to >= adjacency.size()) continue;
     adjacency[edge.from].push_back(edge.to);
     adjacency[edge.to].push_back(edge.from);
   }
-  struct Score { std::size_t vertices{0U}, intersections{0U}; };
+  struct Score {
+    std::size_t vertices{0U}, intersections{0U};
+  };
   std::vector<Score> scores;
   for (std::size_t root = 0U; root < adjacency.size(); ++root) {
     if (result.component_by_vertex[root] !=
@@ -274,12 +274,15 @@ HighwayLearner::HighwayLearner(double minimum_node_spacing_m,
  * - None documented; validation or dependency failures may propagate.
  */
 HighwayLearner::HighwayLearner(HighwayLearningConfiguration configuration)
-    : SpatialLearnerBase(
-          SpatialRepresentation::Highways, "highways",
-          UpdateMode::Incremental,
-          {true, true, true, false, "every exploration observation",
-           {"HighwayPlan", "Enforcer"},
-           UpdateSchedule::EndOfInitialExploration}),
+    : SpatialLearnerBase(SpatialRepresentation::Highways, "highways",
+                         UpdateMode::Incremental,
+                         {true,
+                          true,
+                          true,
+                          false,
+                          "every exploration observation",
+                          {"HighwayPlan", "Enforcer"},
+                          UpdateSchedule::EndOfInitialExploration}),
       configuration_(std::move(configuration)) {
   if (!(configuration_.minimum_node_spacing_m > 0.0) ||
       !(configuration_.passage_clearance_m > 0.0) ||
@@ -287,7 +290,8 @@ HighwayLearner::HighwayLearner(HighwayLearningConfiguration configuration)
       configuration_.frame_id.empty() ||
       configuration_.minimum_extent_cells == 0U ||
       !configuration_.grid_origin.finite())
-    throw std::invalid_argument("highway learner geometry and thresholds are invalid");
+    throw std::invalid_argument(
+        "highway learner geometry and thresholds are invalid");
   if (configuration_.fixed_geometry.valid()) {
     configuration_.fixed_geometry.validate();
     configuration_.grid_origin = configuration_.fixed_geometry.origin;
@@ -314,12 +318,12 @@ HighwayLearner::HighwayLearner(HighwayLearningConfiguration configuration)
  */
 std::pair<long long, long long> HighwayLearner::worldCell(
     domain::Point2D point) const {
-  return {static_cast<long long>(std::floor(
-              (point.y_m - configuration_.grid_origin.y_m) /
-              configuration_.grid_resolution_m)),
-          static_cast<long long>(std::floor(
-              (point.x_m - configuration_.grid_origin.x_m) /
-              configuration_.grid_resolution_m))};
+  return {static_cast<long long>(
+              std::floor((point.y_m - configuration_.grid_origin.y_m) /
+                         configuration_.grid_resolution_m)),
+          static_cast<long long>(
+              std::floor((point.x_m - configuration_.grid_origin.x_m) /
+                         configuration_.grid_resolution_m))};
 }
 
 /**
@@ -337,12 +341,11 @@ std::pair<long long, long long> HighwayLearner::worldCell(
  */
 domain::Point2D HighwayLearner::worldCenter(long long row,
                                             long long column) const {
-  return {configuration_.grid_origin.x_m +
-              (static_cast<double>(column) + 0.5) *
-                  configuration_.grid_resolution_m,
-          configuration_.grid_origin.y_m +
-              (static_cast<double>(row) + 0.5) *
-                  configuration_.grid_resolution_m};
+  return {
+      configuration_.grid_origin.x_m + (static_cast<double>(column) + 0.5) *
+                                           configuration_.grid_resolution_m,
+      configuration_.grid_origin.y_m +
+          (static_cast<double>(row) + 0.5) * configuration_.grid_resolution_m};
 }
 
 /**
@@ -365,7 +368,8 @@ std::vector<domain::Point2D> HighwayLearner::historicalSubtrail(
     std::size_t selected = 0U;
     double best = std::numeric_limits<double>::infinity();
     for (std::size_t index = 0U; index < model_.nodes.size(); ++index) {
-      const double candidate = domain::distance(model_.nodes[index], point).meters();
+      const double candidate =
+          domain::distance(model_.nodes[index], point).meters();
       if (candidate < best) {
         best = candidate;
         selected = index;
@@ -377,10 +381,10 @@ std::vector<domain::Point2D> HighwayLearner::historicalSubtrail(
   const auto to_index = nearest(to);
   std::vector<domain::Point2D> result;
   if (from_index <= to_index) {
-    result.insert(result.end(), model_.nodes.begin() +
-                                    static_cast<std::ptrdiff_t>(from_index),
-                  model_.nodes.begin() +
-                      static_cast<std::ptrdiff_t>(to_index + 1U));
+    result.insert(
+        result.end(),
+        model_.nodes.begin() + static_cast<std::ptrdiff_t>(from_index),
+        model_.nodes.begin() + static_cast<std::ptrdiff_t>(to_index + 1U));
   } else {
     for (std::size_t index = from_index;; --index) {
       result.push_back(model_.nodes[index]);
@@ -416,7 +420,8 @@ void HighwayLearner::rebuildIntersections() {
   }
   model_.intersections.clear();
   for (std::size_t node = 0U; node < degree.size(); ++node)
-    if (degree[node] >= 3U) model_.intersections.push_back({node, degree[node]});
+    if (degree[node] >= 3U)
+      model_.intersections.push_back({node, degree[node]});
 }
 
 /**
@@ -432,9 +437,9 @@ void HighwayLearner::rebuildIntersections() {
  * - None documented; validation or dependency failures may propagate.
  */
 void HighwayLearner::smoothTouchedGrid() {
-  const auto smoothed = smoothHighwayCells(
-      free_cells_, obstructed_cells_, highway_cells_,
-      configuration_.smoothing_policy);
+  const auto smoothed =
+      smoothHighwayCells(free_cells_, obstructed_cells_, highway_cells_,
+                         configuration_.smoothing_policy);
   for (const auto& cell : smoothed)
     if (!highway_cells_.contains(cell)) {
       touched_world_rows_.insert(cell.first);
@@ -480,26 +485,23 @@ void HighwayLearner::materializeGrid() {
   } else {
     model_.geometry = domain::GridGeometry::fromBounds(
         configuration_.frame_id,
-        {configuration_.grid_origin.x_m +
-             static_cast<double>(minimum_column) *
-                 configuration_.grid_resolution_m,
-         configuration_.grid_origin.y_m +
-             static_cast<double>(minimum_row) *
-                 configuration_.grid_resolution_m},
+        {configuration_.grid_origin.x_m + static_cast<double>(minimum_column) *
+                                              configuration_.grid_resolution_m,
+         configuration_.grid_origin.y_m + static_cast<double>(minimum_row) *
+                                              configuration_.grid_resolution_m},
         {configuration_.grid_origin.x_m +
              static_cast<double>(maximum_column + 1) *
                  configuration_.grid_resolution_m,
-         configuration_.grid_origin.y_m +
-             static_cast<double>(maximum_row + 1) *
-                 configuration_.grid_resolution_m},
+         configuration_.grid_origin.y_m + static_cast<double>(maximum_row + 1) *
+                                              configuration_.grid_resolution_m},
         configuration_.grid_resolution_m, domain::GridExtentMode::Expandable,
         domain::GridExtentSource::RepresentationLocalBounds,
         domain::GridOutOfBoundsBehavior::ExpandBeforeInsert, 1U);
   }
   for (const auto& [row, column] : highway_cells_)
-    model_.grid_labels.push_back(
-        {static_cast<int>(row - minimum_row),
-         static_cast<int>(column - minimum_column), 1U});
+    model_.grid_labels.push_back({static_cast<int>(row - minimum_row),
+                                  static_cast<int>(column - minimum_column),
+                                  1U});
   for (const auto row : touched_world_rows_)
     model_.touched_rows.push_back(static_cast<int>(row - minimum_row));
   for (const auto column : touched_world_columns_)
@@ -541,9 +543,10 @@ void HighwayLearner::extractHighways() {
           highway.id = model_.highways.size();
           highway.axis = axis;
           for (std::size_t index = begin; index <= end; ++index)
-            highway.cells.push_back(axis == domain::Axis::Horizontal
-                                        ? domain::GridCell{fixed, values[index]}
-                                        : domain::GridCell{values[index], fixed});
+            highway.cells.push_back(
+                axis == domain::Axis::Horizontal
+                    ? domain::GridCell{fixed, values[index]}
+                    : domain::GridCell{values[index], fixed});
           model_.highways.push_back(std::move(highway));
         }
         begin = end + 1U;
@@ -565,7 +568,8 @@ void HighwayLearner::extractHighways() {
         const auto key = std::make_pair(cell.row, cell.column);
         const auto found = intersection_ids.find(key);
         if (found != intersection_ids.end()) {
-          if (!terminal) model_.graph.vertices[found->second].terminal_access = false;
+          if (!terminal)
+            model_.graph.vertices[found->second].terminal_access = false;
           return found->second;
         }
         const auto id = model_.graph.vertices.size();
@@ -578,13 +582,15 @@ void HighwayLearner::extractHighways() {
         return id;
       };
   for (const auto& [cell, highways] : memberships)
-    if (highways.size() >= 2U) ensureIntersection({cell.first, cell.second}, false);
+    if (highways.size() >= 2U)
+      ensureIntersection({cell.first, cell.second}, false);
 
   for (auto& highway : model_.highways) {
     highway.endpoints.clear();
     for (const auto& cell : highway.cells) {
       const auto found = intersection_ids.find({cell.row, cell.column});
-      if (found != intersection_ids.end()) highway.endpoints.push_back(found->second);
+      if (found != intersection_ids.end())
+        highway.endpoints.push_back(found->second);
     }
     const auto addTerminal = [&](const domain::GridCell& cell) {
       const auto id = ensureIntersection(cell, true);
@@ -606,9 +612,12 @@ void HighwayLearner::extractHighways() {
     const auto to = highway.endpoints.back();
     auto subtrail = historicalSubtrail(model_.graph.vertices[from].position,
                                        model_.graph.vertices[to].position);
-    model_.graph.edges.push_back(
-        {from, to, highway.id, polylineLength(subtrail), {highway.id},
-         std::move(subtrail)});
+    model_.graph.edges.push_back({from,
+                                  to,
+                                  highway.id,
+                                  polylineLength(subtrail),
+                                  {highway.id},
+                                  std::move(subtrail)});
   }
 
   const auto selection = selectHighwayComponent(
@@ -617,18 +626,16 @@ void HighwayLearner::extractHighways() {
   const auto& component = selection.component_by_vertex;
   const auto selected = selection.selected_component;
   model_.graph.edges.erase(
-      std::remove_if(model_.graph.edges.begin(), model_.graph.edges.end(),
-                     [&](const auto& edge) {
-                       return component[edge.from] != selected;
-                     }),
+      std::remove_if(
+          model_.graph.edges.begin(), model_.graph.edges.end(),
+          [&](const auto& edge) { return component[edge.from] != selected; }),
       model_.graph.edges.end());
   std::set<domain::HighwayId> retained;
   for (const auto& edge : model_.graph.edges) retained.insert(edge.highway);
   model_.highways.erase(
-      std::remove_if(model_.highways.begin(), model_.highways.end(),
-                     [&](const auto& highway) {
-                       return !retained.contains(highway.id);
-                     }),
+      std::remove_if(
+          model_.highways.begin(), model_.highways.end(),
+          [&](const auto& highway) { return !retained.contains(highway.id); }),
       model_.highways.end());
   const auto missing = std::numeric_limits<std::size_t>::max();
   std::vector<std::size_t> remap(model_.graph.vertices.size(), missing);
@@ -670,12 +677,14 @@ void HighwayLearner::onObserve(const NavigationEpisode& episode) {
   if (!episode.initial_exploration) return;
   const auto& observation = episode.observation;
   const double resolution = configuration_.grid_resolution_m;
-  for (std::size_t beam = 0U; beam < observation.laser.ranges_m.size(); ++beam) {
+  for (std::size_t beam = 0U; beam < observation.laser.ranges_m.size();
+       ++beam) {
     const double range = observation.laser.ranges_m[beam];
     if (!std::isfinite(range) ||
         range < observation.laser.minimum_range.meters())
       continue;
-    const double extent = std::min(range, observation.laser.maximum_range.meters());
+    const double extent =
+        std::min(range, observation.laser.maximum_range.meters());
     const bool hit = range + domain::geometry_tolerance_m <
                      observation.laser.maximum_range.meters();
     const std::size_t samples = std::max<std::size_t>(
@@ -685,8 +694,8 @@ void HighwayLearner::onObserve(const NavigationEpisode& episode) {
                            observation.laser.angle_min.radians() +
                            static_cast<double>(beam) *
                                observation.laser.angle_increment.radians();
-      const double distance = extent * static_cast<double>(sample) /
-                              static_cast<double>(samples);
+      const double distance =
+          extent * static_cast<double>(sample) / static_cast<double>(samples);
       const domain::Point2D point{
           observation.pose.position.x_m + distance * std::cos(angle),
           observation.pose.position.y_m + distance * std::sin(angle)};
@@ -702,8 +711,8 @@ void HighwayLearner::onObserve(const NavigationEpisode& episode) {
       }
     }
   }
-  const std::size_t passages = scanPassageCount(
-      observation.laser, configuration_.passage_clearance_m);
+  const std::size_t passages =
+      scanPassageCount(observation.laser, configuration_.passage_clearance_m);
   if (passages == 0U) return;
   const auto point = observation.pose.position;
   if (configuration_.fixed_geometry.valid() &&
@@ -736,8 +745,8 @@ void HighwayLearner::onObserve(const NavigationEpisode& episode) {
         1U, static_cast<std::size_t>(
                 std::ceil(length / (configuration_.grid_resolution_m / 2.0))));
     for (std::size_t sample = 0U; sample <= samples; ++sample) {
-      const double fraction = static_cast<double>(sample) /
-                              static_cast<double>(samples);
+      const double fraction =
+          static_cast<double>(sample) / static_cast<double>(samples);
       labelPoint({start.x_m + fraction * (point.x_m - start.x_m),
                   start.y_m + fraction * (point.y_m - start.y_m)});
     }
@@ -774,11 +783,12 @@ void HighwayLearner::onRebuild() {
   materializeGrid();
   extractHighways();
   rebuildIntersections();
-  publish(model_, model_.nodes.size() >= 2U ? ModelStatus::Fresh
-                                            : ModelStatus::Incomplete,
-          std::string{"highway graph published; smoothing="} +
-              model_.smoothing_policy + "; component_selection=" +
-              model_.component_selection_policy);
+  publish(
+      model_,
+      model_.nodes.size() >= 2U ? ModelStatus::Fresh : ModelStatus::Incomplete,
+      std::string{"highway graph published; smoothing="} +
+          model_.smoothing_policy +
+          "; component_selection=" + model_.component_selection_policy);
 }
 
 }  // namespace semaforr::spatial

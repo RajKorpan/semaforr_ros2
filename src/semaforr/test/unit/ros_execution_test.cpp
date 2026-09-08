@@ -230,20 +230,16 @@ TEST(CommandExecutor, EnforcesActionVelocityAndAccelerationBounds) {
   configuration.maximum_linear_acceleration_mps2 = 1.0;
   CommandExecutor executor(configuration);
 
-  EXPECT_THROW(
-      executor.start(
-          {domain::Action(domain::ActionType::Forward, 2U), 0.2, 0.0},
-          domainPose(0.0, 0.0, 0.0), at(1.0)),
-      std::invalid_argument);
+  EXPECT_THROW(executor.start(
+                   {domain::Action(domain::ActionType::Forward, 2U), 0.2, 0.0},
+                   domainPose(0.0, 0.0, 0.0), at(1.0)),
+               std::invalid_argument);
 
-  executor.start(
-      {domain::Action(domain::ActionType::Forward, 1U), 1.0, 0.0},
-      domainPose(0.0, 0.0, 0.0), at(1.0));
-  const auto first =
-      executor.update(domainPose(0.0, 0.0, 0.0), at(1.1));
+  executor.start({domain::Action(domain::ActionType::Forward, 1U), 1.0, 0.0},
+                 domainPose(0.0, 0.0, 0.0), at(1.0));
+  const auto first = executor.update(domainPose(0.0, 0.0, 0.0), at(1.1));
   EXPECT_NEAR(first.command.linear_mps, 0.1, 1.0e-9);
-  const auto second =
-      executor.update(domainPose(0.0, 0.0, 0.0), at(1.2));
+  const auto second = executor.update(domainPose(0.0, 0.0, 0.0), at(1.2));
   EXPECT_NEAR(second.command.linear_mps, 0.2, 1.0e-9);
 
   auto invalid = configuration;

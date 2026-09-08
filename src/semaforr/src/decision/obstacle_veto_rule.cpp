@@ -89,11 +89,10 @@ std::vector<Veto> ObstacleVetoRule::evaluate(
   std::vector<Veto> vetoes;
   for (std::size_t index = 0U; index < move_distances_m_.size(); ++index) {
     if (move_distances_m_[index] + clearance_m_ >= nearest_longitudinal_m) {
-      vetoes.push_back({domain::Action(domain::ActionType::Forward, index + 1U),
-                        "AvoidObstacles",
-                        "avoid_obstacles:forward_corridor_obstructed",
-                        RejectionKind::Cognitive,
-                        VetoCategory::ObstacleConflict});
+      vetoes.push_back(
+          {domain::Action(domain::ActionType::Forward, index + 1U),
+           "AvoidObstacles", "avoid_obstacles:forward_corridor_obstructed",
+           RejectionKind::Cognitive, VetoCategory::ObstacleConflict});
     }
   }
   return vetoes;

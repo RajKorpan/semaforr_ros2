@@ -2,8 +2,8 @@
  * @file command_executor.hpp
  * @brief Command executor responsibilities.
  *
- * @details This file defines command executor behavior for the ROS 2 composition
- * and message-adaptation boundary. It centers on
+ * @details This file defines command executor behavior for the ROS 2
+ * composition and message-adaptation boundary. It centers on
  * `CommandExecutorConfiguration`, `ActionExecutionRequest`,
  * `ActionExecutionStatus`, `ActionExecutionUpdate`, `CommandExecutor`. Its
  * package-relative location is

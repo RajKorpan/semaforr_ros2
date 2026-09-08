@@ -268,8 +268,7 @@ void validateNavigation(const NavigationConfiguration& configuration) {
       circumstance.tier_three_maximum_influence < 0.0 ||
       circumstance.tier_three_maximum_influence > 1.0 ||
       circumstance.distance_bin_base_m <= 0.0 ||
-      circumstance.angle_bin_count == 0U ||
-      circumstance.angle_bin_count > 360U)
+      circumstance.angle_bin_count == 0U || circumstance.angle_bin_count > 360U)
     throw std::runtime_error(
         "configuration: circumstance normalization, clustering, confidence, "
         "accuracy, and evidence thresholds are outside valid ranges");
@@ -285,8 +284,8 @@ void validateNavigation(const NavigationConfiguration& configuration) {
     throw std::runtime_error(
         "configuration: circumstance model, feature, and classifier versions "
         "must identify the active learning pipeline");
-  const std::set<std::string> persistence_policies{
-      "session_only", "load_save", "load_only", "save_only"};
+  const std::set<std::string> persistence_policies{"session_only", "load_save",
+                                                   "load_only", "save_only"};
   if (!persistence_policies.contains(circumstance.persistence_policy))
     throw std::runtime_error(
         "configuration: unsupported circumstance persistence policy");
@@ -304,12 +303,11 @@ void validateNavigation(const NavigationConfiguration& configuration) {
         "shortest_valid");
   const std::size_t enabled_planner_count =
       static_cast<std::size_t>(configuration.planners.distance) +
-      configuration.planners.sensor_distance +
-      configuration.planners.density + configuration.planners.risk +
-      configuration.planners.flow + configuration.planners.region +
-      configuration.planners.hallway + configuration.planners.trail +
-      configuration.planners.conveyor + configuration.planners.skeleton +
-      configuration.planners.highway;
+      configuration.planners.sensor_distance + configuration.planners.density +
+      configuration.planners.risk + configuration.planners.flow +
+      configuration.planners.region + configuration.planners.hallway +
+      configuration.planners.trail + configuration.planners.conveyor +
+      configuration.planners.skeleton + configuration.planners.highway;
   if (configuration.planners.selection_policy == "single" &&
       enabled_planner_count != 1U)
     throw std::runtime_error(
@@ -474,8 +472,7 @@ std::string_view toString(MapOperatingMode mode) noexcept {
 MapOperatingMode mapOperatingModeFromString(const std::string& value) {
   if (value == "mapless") return MapOperatingMode::Mapless;
   if (value == "map_enabled") return MapOperatingMode::MapEnabled;
-  throw std::invalid_argument(
-      "map.mode must be 'mapless' or 'map_enabled'");
+  throw std::invalid_argument("map.mode must be 'mapless' or 'map_enabled'");
 }
 
 /**
@@ -492,7 +489,7 @@ MapOperatingMode mapOperatingModeFromString(const std::string& value) {
  */
 std::string_view toString(MapLoadFailurePolicy policy) noexcept {
   return policy == MapLoadFailurePolicy::DisableMap ? "disable_map"
-                                                     : "fail_startup";
+                                                    : "fail_startup";
 }
 
 /**
@@ -602,21 +599,32 @@ std::string_view toString(AblationProfile profile) noexcept {
  */
 AblationProfile ablationProfileFromString(const std::string& value) {
   for (const AblationProfile profile :
-       {AblationProfile::Full, AblationProfile::TierOneOnly,
-        AblationProfile::TierOneTierThree, AblationProfile::TierThreeOnly,
+       {AblationProfile::Full,
+        AblationProfile::TierOneOnly,
+        AblationProfile::TierOneTierThree,
+        AblationProfile::TierThreeOnly,
         AblationProfile::TierOneTierTwoTierThree,
         AblationProfile::NoInitialExploration,
         AblationProfile::NoOpportunisticExploration,
-        AblationProfile::NoSpatialModel, AblationProfile::NoSocial,
-        AblationProfile::PurelyReactive, AblationProfile::Original,
-        AblationProfile::Doors, AblationProfile::LeastAngle,
-        AblationProfile::Access, AblationProfile::Tentative,
-        AblationProfile::Hallways, AblationProfile::ShortestPath,
-        AblationProfile::CostGraph, AblationProfile::Wander,
-        AblationProfile::Deliberator, AblationProfile::ForwardOnly,
+        AblationProfile::NoSpatialModel,
+        AblationProfile::NoSocial,
+        AblationProfile::PurelyReactive,
+        AblationProfile::Original,
+        AblationProfile::Doors,
+        AblationProfile::LeastAngle,
+        AblationProfile::Access,
+        AblationProfile::Tentative,
+        AblationProfile::Hallways,
+        AblationProfile::ShortestPath,
+        AblationProfile::CostGraph,
+        AblationProfile::Wander,
+        AblationProfile::Deliberator,
+        AblationProfile::ForwardOnly,
         AblationProfile::GlobalExploration,
-        AblationProfile::LocalExploration, AblationProfile::Highway,
-        AblationProfile::Circumstances, AblationProfile::Naive,
+        AblationProfile::LocalExploration,
+        AblationProfile::Highway,
+        AblationProfile::Circumstances,
+        AblationProfile::Naive,
         AblationProfile::Custom}) {
     if (value == toString(profile)) return profile;
   }
@@ -670,9 +678,8 @@ void applyAblationProfile(Configuration& configuration) {
     // A named profile must activate every representation its advisors consume.
     configuration.navigation.regions_on = true;
     configuration.navigation.doors_on = true;
-    set_advisors({"big_step", "elbow_room", "novelty", "go_around",
-                  "greedy", "convey", "enter", "exit", "trailer",
-                  "unlikely"});
+    set_advisors({"big_step", "elbow_room", "novelty", "go_around", "greedy",
+                  "convey", "enter", "exit", "trailer", "unlikely"});
   };
   const auto disable_spatial_model = [&] {
     configuration.navigation.trails_on = false;
@@ -812,10 +819,10 @@ void applyAblationProfile(Configuration& configuration) {
     case AblationProfile::Hallways: {
       evaluation_baseline();
       configuration.navigation.doors_on = true;
-      std::vector<std::string_view> names{
-          "big_step", "elbow_room", "novelty", "go_around", "greedy",
-          "convey", "enter", "exit", "trailer", "unlikely",
-          "least_angle"};
+      std::vector<std::string_view> names{"big_step",  "elbow_room", "novelty",
+                                          "go_around", "greedy",     "convey",
+                                          "enter",     "exit",       "trailer",
+                                          "unlikely",  "least_angle"};
       if (experiment.profile == AblationProfile::Access ||
           experiment.profile == AblationProfile::Tentative ||
           experiment.profile == AblationProfile::Hallways)
@@ -855,8 +862,7 @@ void applyAblationProfile(Configuration& configuration) {
                       "greedy", "convey", "enter", "exit", "trailer",
                       "unlikely", "curiosity", "enfilade", "visual_scan"});
       } else {
-        set_planners(
-            {"distance", "conveyor", "hallway", "region", "trail"});
+        set_planners({"distance", "conveyor", "hallway", "region", "trail"});
         set_advisors({"big_step", "elbow_room", "novelty", "go_around",
                       "greedy", "convey", "enter", "exit", "trailer",
                       "unlikely", "curiosity", "enfilade", "visual_scan",
@@ -894,13 +900,12 @@ void applyAblationProfile(Configuration& configuration) {
       if (experiment.profile == AblationProfile::LocalExploration ||
           experiment.profile == AblationProfile::Highway) {
         experiment.reactive_exploration_enabled = true;
-        const auto forward = std::find(
-            experiment.tiers.tier_one_rules.begin(),
-            experiment.tiers.tier_one_rules.end(), "forward");
+        const auto forward =
+            std::find(experiment.tiers.tier_one_rules.begin(),
+                      experiment.tiers.tier_one_rules.end(), "forward");
         experiment.tiers.tier_one_rules.insert(forward,
                                                "low_level_exploration");
-        experiment.tiers.reactive_planners.push_back(
-            "low_level_exploration");
+        experiment.tiers.reactive_planners.push_back("low_level_exploration");
       }
       if (experiment.profile == AblationProfile::Highway) {
         configuration.navigation.highways_on = true;
@@ -915,9 +920,9 @@ void applyAblationProfile(Configuration& configuration) {
       experiment.tiers.tier_one_rules.push_back("enforcer");
       experiment.tiers.tier_one_rules.push_back("precedent");
       set_planners({"skeleton"});
-      set_advisors({"big_step", "elbow_room", "novelty", "go_around",
-                    "greedy", "convey", "enter", "exit", "trailer",
-                    "unlikely", "least_angle"});
+      set_advisors({"big_step", "elbow_room", "novelty", "go_around", "greedy",
+                    "convey", "enter", "exit", "trailer", "unlikely",
+                    "least_angle"});
       break;
     case AblationProfile::Naive:
       evaluation_baseline();
@@ -965,8 +970,8 @@ std::string configurationFingerprint(const Configuration& configuration) {
   canonical
       << std::setprecision(17)
       << toString(configuration.experiment.behavior_mode) << '|'
-      << toString(configuration.experiment.profile)
-      << '|' << configuration.experiment.random_seed << '|'
+      << toString(configuration.experiment.profile) << '|'
+      << configuration.experiment.random_seed << '|'
       << configuration.experiment.seeds.tier_three_ties << '|'
       << configuration.experiment.seeds.lle_fallback << '|'
       << configuration.experiment.seeds.planner_ties << '|'
@@ -997,45 +1002,38 @@ std::string configurationFingerprint(const Configuration& configuration) {
       << configuration.experiment.initial_exploration.passage_grid_resolution_m
       << '|'
       << configuration.experiment.initial_exploration.minimum_bundle_beams
-      << '|'
-      << configuration.experiment.initial_exploration.left_focus_min_rad << '|'
-      << configuration.experiment.initial_exploration.left_focus_max_rad << '|'
-      << configuration.experiment.initial_exploration.right_focus_min_rad << '|'
-      << configuration.experiment.initial_exploration.right_focus_max_rad << '|'
-      << configuration.experiment.initial_exploration.left_open_min_rad << '|'
-      << configuration.experiment.initial_exploration.left_open_max_rad << '|'
-      << configuration.experiment.initial_exploration.right_open_min_rad << '|'
-      << configuration.experiment.initial_exploration.right_open_max_rad
+      << '|' << configuration.experiment.initial_exploration.left_focus_min_rad
+      << '|' << configuration.experiment.initial_exploration.left_focus_max_rad
+      << '|' << configuration.experiment.initial_exploration.right_focus_min_rad
+      << '|' << configuration.experiment.initial_exploration.right_focus_max_rad
+      << '|' << configuration.experiment.initial_exploration.left_open_min_rad
+      << '|' << configuration.experiment.initial_exploration.left_open_max_rad
+      << '|' << configuration.experiment.initial_exploration.right_open_min_rad
+      << '|' << configuration.experiment.initial_exploration.right_open_max_rad
       << '|'
       << configuration.experiment.initial_exploration
              .minimum_length_to_width_ratio
       << '|'
       << configuration.experiment.initial_exploration.minimum_passage_length_m
-      << '|'
-      << configuration.experiment.initial_exploration.large_room_width_m << '|'
-      << configuration.experiment.initial_exploration.large_room_length_m
+      << '|' << configuration.experiment.initial_exploration.large_room_width_m
+      << '|' << configuration.experiment.initial_exploration.large_room_length_m
       << '|'
       << configuration.experiment.initial_exploration.cue_clearance_margin_m
       << '|'
-      << configuration.experiment.initial_exploration
-             .maximum_width_change_ratio
+      << configuration.experiment.initial_exploration.maximum_width_change_ratio
       << '|'
       << configuration.experiment.initial_exploration.hard_turn_threshold_rad
       << '|'
-      << configuration.experiment.initial_exploration
-             .end_of_passage_clearance_m
-      << '|'
-      << configuration.experiment.initial_exploration.minimum_extension_m
+      << configuration.experiment.initial_exploration.end_of_passage_clearance_m
+      << '|' << configuration.experiment.initial_exploration.minimum_extension_m
       << '|' << configuration.experiment.reactive_exploration_enabled << '|'
       << configuration.experiment.reactive_exploration_behavior_policy << '|'
-      << configuration.experiment
-             .reactive_exploration_stalled_history_extension
+      << configuration.experiment.reactive_exploration_stalled_history_extension
       << '|'
       << configuration.experiment.reactive_exploration_closest_target_bin_m
       << '|'
       << configuration.experiment.tiers.maximum_planning_attempts_per_task
-      << '|'
-      << configuration.experiment.opportunistic_exploration << '|'
+      << '|' << configuration.experiment.opportunistic_exploration << '|'
       << configuration.experiment.social.enabled << '|'
       << configuration.experiment.social.observations << '|'
       << configuration.experiment.social.learning << '|'
@@ -1062,100 +1060,78 @@ std::string configurationFingerprint(const Configuration& configuration) {
     canonical << "|t1:" << rule;
   for (const auto& planner : configuration.experiment.tiers.reactive_planners)
     canonical << "|rx:" << planner;
-  canonical << '|' << toString(configuration.navigation.spatial_learning_profile)
-            << '|' << configuration.navigation.trails_on << '|'
-            << configuration.navigation.conveyors_on << '|'
-            << configuration.navigation.regions_on << '|'
-            << configuration.navigation.doors_on << '|'
-            << configuration.navigation.hallways_on << '|'
-            << configuration.navigation.barriers_on << '|'
-            << configuration.navigation.a_star_on << '|'
-            << configuration.navigation.known_grid_on << '|'
-            << configuration.navigation.sensed_occupancy_on << '|'
-            << configuration.navigation.inclusion_grid_on << '|'
-            << configuration.navigation.highways_on << '|'
-            << configuration.navigation.circumstances_on << '|'
-            << configuration.navigation.circumstances.learning_mode << '|'
-            << configuration.navigation.circumstances.setting_resolution_m
-            << '|'
-            << configuration.navigation.circumstances.setting_radius_m << '|'
-            << configuration.navigation.circumstances.minimum_cluster_size
-            << '|'
-            << configuration.navigation.circumstances
-                   .assignment_confidence_threshold
-            << '|'
-            << configuration.navigation.circumstances
-                   .similarity_l1_threshold
-            << '|'
-            << configuration.navigation.circumstances
-                   .reclustering_threshold
-            << '|'
-            << configuration.navigation.circumstances.minimum_case_evidence
-            << '|'
-            << configuration.navigation.circumstances.minimum_action_evidence
-            << '|'
-            << configuration.navigation.circumstances.accuracy_threshold
-            << '|'
-            << configuration.navigation.circumstances
-                   .action_confidence_threshold
-            << '|'
-            << configuration.navigation.circumstances.partial_success_credit
-            << '|'
-            << configuration.navigation.circumstances
-                   .safety_interruption_is_negative_evidence
-            << '|'
-            << configuration.navigation.circumstances.precedent_veto_enabled
-            << '|'
-            << configuration.navigation.circumstances
-                   .tier_three_weighting_enabled
-            << '|'
-            << configuration.navigation.circumstances
-                   .tier_three_maximum_influence
-            << '|'
-            << configuration.navigation.circumstances.persistence_policy
-            << '|'
-            << configuration.navigation.circumstances.model_version << '|'
-            << configuration.navigation.circumstances.classifier_version
-            << '|'
-            << configuration.navigation.circumstances.feature_version << '|'
-            << configuration.navigation.circumstances.distance_bin_base_m
-            << '|'
-            << configuration.navigation.circumstances.angle_bin_count << '|'
-            << configuration.navigation.grids.extent_policy << '|'
-            << configuration.navigation.grids.frame_id << '|'
-            << configuration.navigation.grids.mapless_initial_width_m << '|'
-            << configuration.navigation.grids.mapless_initial_height_m << '|'
-            << configuration.navigation.grids.resolution_m << '|'
-            << configuration.navigation.grids.highway_origin_x_m << '|'
-            << configuration.navigation.grids.highway_origin_y_m << '|'
-            << configuration.navigation.grids.highway_smoothing_policy << '|'
-            << configuration.navigation.grids
-                   .highway_component_selection_policy
-            << '|'
-            << configuration.navigation.grids.expansion_margin_m << '|'
-            << configuration.navigation.grids.expansion_increment_cells << '|'
-            << configuration.navigation.grids.maximum_width_m << '|'
-            << configuration.navigation.grids.maximum_height_m << '|'
-            << configuration.navigation.grids.memory_limit_cells << '|'
-            << configuration.navigation.grids.free_observations_to_clear
-            << '|'
-            << configuration.navigation.grids.dynamic_expiry_observations
-            << '|' << configuration.navigation.grids.map_unknown_policy << '|'
-            << configuration.navigation.grids.sensor_unknown_policy << '|'
-            << configuration.navigation.planners.distance << '|'
-            << configuration.navigation.planners.sensor_distance << '|'
-            << configuration.navigation.planners.skeleton << '|'
-            << configuration.navigation.planners.highway << '|'
-            << configuration.navigation.planners.density << '|'
-            << configuration.navigation.planners.risk << '|'
-            << configuration.navigation.planners.flow << '|'
-            << configuration.navigation.planners.region << '|'
-            << configuration.navigation.planners.hallway << '|'
-            << configuration.navigation.planners.trail << '|'
-            << configuration.navigation.planners.conveyor << '|'
-            << configuration.navigation.planners.selection_policy << '|'
-            << configuration.navigation.planners.tie_policy << '|'
-            << configuration.navigation.crowd_learning.enabled;
+  canonical
+      << '|' << toString(configuration.navigation.spatial_learning_profile)
+      << '|' << configuration.navigation.trails_on << '|'
+      << configuration.navigation.conveyors_on << '|'
+      << configuration.navigation.regions_on << '|'
+      << configuration.navigation.doors_on << '|'
+      << configuration.navigation.hallways_on << '|'
+      << configuration.navigation.barriers_on << '|'
+      << configuration.navigation.a_star_on << '|'
+      << configuration.navigation.known_grid_on << '|'
+      << configuration.navigation.sensed_occupancy_on << '|'
+      << configuration.navigation.inclusion_grid_on << '|'
+      << configuration.navigation.highways_on << '|'
+      << configuration.navigation.circumstances_on << '|'
+      << configuration.navigation.circumstances.learning_mode << '|'
+      << configuration.navigation.circumstances.setting_resolution_m << '|'
+      << configuration.navigation.circumstances.setting_radius_m << '|'
+      << configuration.navigation.circumstances.minimum_cluster_size << '|'
+      << configuration.navigation.circumstances.assignment_confidence_threshold
+      << '|' << configuration.navigation.circumstances.similarity_l1_threshold
+      << '|' << configuration.navigation.circumstances.reclustering_threshold
+      << '|' << configuration.navigation.circumstances.minimum_case_evidence
+      << '|' << configuration.navigation.circumstances.minimum_action_evidence
+      << '|' << configuration.navigation.circumstances.accuracy_threshold << '|'
+      << configuration.navigation.circumstances.action_confidence_threshold
+      << '|' << configuration.navigation.circumstances.partial_success_credit
+      << '|'
+      << configuration.navigation.circumstances
+             .safety_interruption_is_negative_evidence
+      << '|' << configuration.navigation.circumstances.precedent_veto_enabled
+      << '|'
+      << configuration.navigation.circumstances.tier_three_weighting_enabled
+      << '|'
+      << configuration.navigation.circumstances.tier_three_maximum_influence
+      << '|' << configuration.navigation.circumstances.persistence_policy << '|'
+      << configuration.navigation.circumstances.model_version << '|'
+      << configuration.navigation.circumstances.classifier_version << '|'
+      << configuration.navigation.circumstances.feature_version << '|'
+      << configuration.navigation.circumstances.distance_bin_base_m << '|'
+      << configuration.navigation.circumstances.angle_bin_count << '|'
+      << configuration.navigation.grids.extent_policy << '|'
+      << configuration.navigation.grids.frame_id << '|'
+      << configuration.navigation.grids.mapless_initial_width_m << '|'
+      << configuration.navigation.grids.mapless_initial_height_m << '|'
+      << configuration.navigation.grids.resolution_m << '|'
+      << configuration.navigation.grids.highway_origin_x_m << '|'
+      << configuration.navigation.grids.highway_origin_y_m << '|'
+      << configuration.navigation.grids.highway_smoothing_policy << '|'
+      << configuration.navigation.grids.highway_component_selection_policy
+      << '|' << configuration.navigation.grids.expansion_margin_m << '|'
+      << configuration.navigation.grids.expansion_increment_cells << '|'
+      << configuration.navigation.grids.maximum_width_m << '|'
+      << configuration.navigation.grids.maximum_height_m << '|'
+      << configuration.navigation.grids.memory_limit_cells << '|'
+      << configuration.navigation.grids.free_observations_to_clear << '|'
+      << configuration.navigation.grids.dynamic_expiry_observations << '|'
+      << configuration.navigation.grids.map_unknown_policy << '|'
+      << configuration.navigation.grids.sensor_unknown_policy << '|'
+      << configuration.navigation.planners.distance << '|'
+      << configuration.navigation.planners.sensor_distance << '|'
+      << configuration.navigation.planners.skeleton << '|'
+      << configuration.navigation.planners.highway << '|'
+      << configuration.navigation.planners.density << '|'
+      << configuration.navigation.planners.risk << '|'
+      << configuration.navigation.planners.flow << '|'
+      << configuration.navigation.planners.region << '|'
+      << configuration.navigation.planners.hallway << '|'
+      << configuration.navigation.planners.trail << '|'
+      << configuration.navigation.planners.conveyor << '|'
+      << configuration.navigation.planners.selection_policy << '|'
+      << configuration.navigation.planners.tie_policy << '|'
+      << configuration.navigation.crowd_learning.enabled;
   for (const auto& advisor : configuration.advisors)
     canonical << "|a:" << advisor.name << ':' << advisor.active << ':'
               << advisor.weight;
@@ -1189,8 +1165,7 @@ std::string configurationSnapshot(const Configuration& configuration) {
          << ";tier2=" << configuration.experiment.tiers.tier_two
          << ";tier3=" << configuration.experiment.tiers.tier_three
          << ";map_mode=" << toString(configuration.static_map.mode)
-         << ";map_path=" << configuration.static_map.path
-         << ";planners=";
+         << ";map_path=" << configuration.static_map.path << ";planners=";
   for (const auto& component : componentManifest(configuration))
     output << component << ',';
   output << ";tasks=";
@@ -1237,24 +1212,26 @@ std::vector<std::string> componentManifest(const Configuration& configuration) {
   if (configuration.static_map.mode == MapOperatingMode::MapEnabled)
     result.push_back("map:requested");
   const auto& experiment = configuration.experiment;
-  const std::set<std::string> planner_tie_policies{
-      "profile", "deterministic", "seeded_exact"};
-  if (!planner_tie_policies.contains(configuration.navigation.planners.tie_policy))
+  const std::set<std::string> planner_tie_policies{"profile", "deterministic",
+                                                   "seeded_exact"};
+  if (!planner_tie_policies.contains(
+          configuration.navigation.planners.tie_policy))
     throw std::runtime_error(
         "configuration: tiers.tier2.tie_policy has invalid value '" +
         configuration.navigation.planners.tie_policy +
         "'; required dependency: implemented policy profile, deterministic, "
-        "or seeded_exact; suggested correction: use profile; startup will stop");
+        "or seeded_exact; suggested correction: use profile; startup will "
+        "stop");
   if (experiment.initial_exploration.enabled)
     result.push_back("phase:initial_exploration");
   result.push_back("hle_behavior_policy:" +
                    experiment.initial_exploration.behavior_policy);
   result.push_back("lle_behavior_policy:" +
                    experiment.reactive_exploration_behavior_policy);
-  result.push_back(
-      std::string("lle_stalled_history_extension:") +
-      (experiment.reactive_exploration_stalled_history_extension ? "true"
-                                                                  : "false"));
+  result.push_back(std::string("lle_stalled_history_extension:") +
+                   (experiment.reactive_exploration_stalled_history_extension
+                        ? "true"
+                        : "false"));
   result.push_back(
       "tier2_maximum_planning_attempts_per_task:" +
       std::to_string(experiment.tiers.maximum_planning_attempts_per_task));
@@ -1283,8 +1260,7 @@ std::vector<std::string> componentManifest(const Configuration& configuration) {
   add_feature(configuration.navigation.hallways_on, "hallways");
   add_feature(configuration.navigation.barriers_on, "barriers");
   add_feature(configuration.navigation.known_grid_on, "known_grid");
-  add_feature(configuration.navigation.sensed_occupancy_on,
-              "sensed_occupancy");
+  add_feature(configuration.navigation.sensed_occupancy_on, "sensed_occupancy");
   add_feature(configuration.navigation.inclusion_grid_on, "inclusion_grid");
   add_feature(configuration.navigation.highways_on, "highways");
   add_feature(configuration.navigation.circumstances_on, "circumstances");
@@ -1336,8 +1312,9 @@ Configuration loadStructuredConfiguration(
   configuration.tasks = parseTasks(tasks_file);
   configuration.map_file = map_file;
   configuration.static_map.path = map_file;
-  configuration.static_map.mode = map_file.empty() ? MapOperatingMode::Mapless
-                                                    : MapOperatingMode::MapEnabled;
+  configuration.static_map.mode = map_file.empty()
+                                      ? MapOperatingMode::Mapless
+                                      : MapOperatingMode::MapEnabled;
   applyAblationProfile(configuration);
   validateConfiguration(configuration);
   return configuration;
@@ -1359,7 +1336,7 @@ void validateConfiguration(const Configuration& configuration) {
   validateNavigation(configuration.navigation);
   const auto& experiment = configuration.experiment;
   const std::set<std::string> explanation_modes{"disabled", "why",
-                                                 "comparison"};
+                                                "comparison"};
   if (!explanation_modes.contains(experiment.explanations.mode))
     throw std::runtime_error(
         "configuration: explanations.mode has invalid value '" +
@@ -1381,8 +1358,8 @@ void validateConfiguration(const Configuration& configuration) {
         "writable trace file or disable recording; startup will stop");
   const std::set<std::string> tier_three_scoring_policies{
       "profile", "compatibility_comments", "weighted_normalized"};
-  const std::set<std::string> tier_three_tie_policies{
-      "profile", "exact", "tolerance"};
+  const std::set<std::string> tier_three_tie_policies{"profile", "exact",
+                                                      "tolerance"};
   if (!tier_three_scoring_policies.contains(
           experiment.tier_three_scoring_policy))
     throw std::runtime_error(
@@ -1405,12 +1382,11 @@ void validateConfiguration(const Configuration& configuration) {
         "tier ordering and Enforcer action selection. Use "
         "'modernized' until the compatibility acceptance suite is enabled");
   }
-  const std::set<std::string> hle_policies{
-      "profile", "modernized", "compatibility"};
+  const std::set<std::string> hle_policies{"profile", "modernized",
+                                           "compatibility"};
   if (experiment.initial_exploration.enabled &&
       (experiment.initial_exploration.strategy != "hle" ||
-       !hle_policies.contains(
-           experiment.initial_exploration.behavior_policy) ||
+       !hle_policies.contains(experiment.initial_exploration.behavior_policy) ||
        !std::isfinite(experiment.initial_exploration.time_limit_s) ||
        experiment.initial_exploration.time_limit_s <= 0.0 ||
        experiment.initial_exploration.decision_budget == 0U ||
@@ -1481,8 +1457,8 @@ void validateConfiguration(const Configuration& configuration) {
     first_rule = false;
     previous = position;
   }
-  const std::vector<std::string> reactive_order{
-      "thru", "behind", "out", "low_level_exploration"};
+  const std::vector<std::string> reactive_order{"thru", "behind", "out",
+                                                "low_level_exploration"};
   const std::set<std::string> registered_reactive(reactive_order.begin(),
                                                   reactive_order.end());
   std::set<std::string> configured_reactive;
@@ -1550,15 +1526,13 @@ void validateConfiguration(const Configuration& configuration) {
       experiment.reactive_exploration_strategy != "lle")
     throw std::runtime_error(
         "configuration: reactive exploration strategy must be 'lle'");
-  const std::set<std::string> lle_policies{
-      "profile", "modernized", "compatibility"};
-  if (!lle_policies.contains(
-          experiment.reactive_exploration_behavior_policy))
+  const std::set<std::string> lle_policies{"profile", "modernized",
+                                           "compatibility"};
+  if (!lle_policies.contains(experiment.reactive_exploration_behavior_policy))
     throw std::runtime_error(
         "configuration: exploration.reactive.behavior_policy must be "
         "'profile', 'modernized', or 'compatibility'");
-  if (!std::isfinite(
-          experiment.reactive_exploration_closest_target_bin_m) ||
+  if (!std::isfinite(experiment.reactive_exploration_closest_target_bin_m) ||
       experiment.reactive_exploration_closest_target_bin_m <= 0.0)
     throw std::runtime_error(
         "configuration: exploration.reactive.closest_target_bin_m must be "
@@ -1717,8 +1691,8 @@ void validateConfiguration(const Configuration& configuration) {
     throw std::runtime_error(
         "configuration: map bounds, origin, occupancy resolution, inflation, "
         "and granularity are invalid");
-  const std::set<std::string> bounds_policies{
-      "require_declared", "infer", "infer_expandable"};
+  const std::set<std::string> bounds_policies{"require_declared", "infer",
+                                              "infer_expandable"};
   if (!bounds_policies.contains(map.bounds_policy) ||
       !std::isfinite(map.inferred_bounds_padding_m) ||
       map.inferred_bounds_padding_m < 0.0 ||
@@ -1744,21 +1718,18 @@ void validateConfiguration(const Configuration& configuration) {
       "profile", "most_intersections", "largest_vertex_count"};
   const auto& grids = configuration.navigation.grids;
   if ((grids.extent_policy != "fixed" && grids.extent_policy != "expand") ||
-      grids.frame_id.empty() ||
-      !std::isfinite(grids.mapless_initial_width_m) ||
+      grids.frame_id.empty() || !std::isfinite(grids.mapless_initial_width_m) ||
       grids.mapless_initial_width_m <= 0.0 ||
       !std::isfinite(grids.mapless_initial_height_m) ||
       grids.mapless_initial_height_m <= 0.0 ||
       !std::isfinite(grids.resolution_m) || grids.resolution_m <= 0.0 ||
       !std::isfinite(grids.highway_origin_x_m) ||
       !std::isfinite(grids.highway_origin_y_m) ||
-      !highway_smoothing_policies.contains(
-          grids.highway_smoothing_policy) ||
+      !highway_smoothing_policies.contains(grids.highway_smoothing_policy) ||
       !highway_component_policies.contains(
           grids.highway_component_selection_policy) ||
       !std::isfinite(grids.expansion_margin_m) ||
-      grids.expansion_margin_m < 0.0 ||
-      grids.expansion_increment_cells == 0U ||
+      grids.expansion_margin_m < 0.0 || grids.expansion_increment_cells == 0U ||
       !std::isfinite(grids.maximum_width_m) || grids.maximum_width_m < 0.0 ||
       !std::isfinite(grids.maximum_height_m) || grids.maximum_height_m < 0.0 ||
       grids.memory_limit_cells == 0U ||
@@ -1784,9 +1755,8 @@ void validateConfiguration(const Configuration& configuration) {
       !configuration.navigation.sensed_occupancy_on)
     throw std::runtime_error(
         "configuration: sensor_distance requires features.sensed_occupancy");
-  if (map_planner &&
-      (map.mode != MapOperatingMode::MapEnabled ||
-       !map.map_based_planning_enabled))
+  if (map_planner && (map.mode != MapOperatingMode::MapEnabled ||
+                      !map.map_based_planning_enabled))
     throw std::runtime_error(
         "configuration: static-map grid and crowd planners require "
         "map.mode=map_enabled, map.planning.enabled=true, and successfully "

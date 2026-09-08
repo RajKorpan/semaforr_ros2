@@ -33,9 +33,9 @@ SafetyFilterResult HardSafetyFilter::filter(
   SafetyFilterResult result;
   const auto now = std::chrono::steady_clock::now();
   const auto observed_at = context.world.robot.observed_at;
-  const bool fresh =
-      observed_at != std::chrono::steady_clock::time_point{} &&
-      observed_at <= now && now - observed_at <= sensor_freshness_timeout_;
+  const bool fresh = observed_at != std::chrono::steady_clock::time_point{} &&
+                     observed_at <= now &&
+                     now - observed_at <= sensor_freshness_timeout_;
   if (fresh && context.world.robot.laser) {
     result.vetoes = obstacle_filter_.evaluate(context);
     for (auto& veto : result.vetoes) {
@@ -50,17 +50,16 @@ SafetyFilterResult HardSafetyFilter::filter(
   for (const auto& veto : result.vetoes) unsafe.insert(veto.action);
   for (const auto& action : candidates) {
     if (!action_space_.contains(action)) {
-      result.vetoes.push_back(
-          {action, "HardSafetyFilter", "hard_safety:invalid_action_index",
-           RejectionKind::Safety, VetoCategory::Unsafe});
+      result.vetoes.push_back({action, "HardSafetyFilter",
+                               "hard_safety:invalid_action_index",
+                               RejectionKind::Safety, VetoCategory::Unsafe});
       continue;
     }
     if ((!fresh || !context.world.robot.laser) &&
         action.type() != domain::ActionType::Pause) {
-      result.vetoes.push_back(
-          {action, "HardSafetyFilter",
-           "hard_safety:sensor_stale_or_missing", RejectionKind::Safety,
-           VetoCategory::Unsafe});
+      result.vetoes.push_back({action, "HardSafetyFilter",
+                               "hard_safety:sensor_stale_or_missing",
+                               RejectionKind::Safety, VetoCategory::Unsafe});
       continue;
     }
     if (!unsafe.contains(action)) result.safe_actions.push_back(action);

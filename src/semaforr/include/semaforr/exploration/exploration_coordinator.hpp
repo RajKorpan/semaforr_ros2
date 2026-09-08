@@ -65,8 +65,7 @@ class ExplorationCoordinator {
    * Exceptions:
    * - None documented; validation or dependency failures may propagate.
    */
-  explicit ExplorationCoordinator(double candidate_completion_distance_m =
-                                      0.1);
+  explicit ExplorationCoordinator(double candidate_completion_distance_m = 0.1);
   /**
    * @brief Performs the exploration coordinator operation for this
    * subsystem.

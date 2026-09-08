@@ -28,9 +28,9 @@ namespace semaforr::spatial {
  * Exceptions:
  * - None documented; validation or dependency failures may propagate.
  */
-TrailLearner::TrailLearner(
-    double minimum_sample_distance_m, SpatialLearningMode mode,
-    TrailLearningConfiguration compatibility)
+TrailLearner::TrailLearner(double minimum_sample_distance_m,
+                           SpatialLearningMode mode,
+                           TrailLearningConfiguration compatibility)
     : SpatialLearnerBase(
           SpatialRepresentation::Trails, "trail",
           mode == SpatialLearningMode::Compatibility
@@ -41,7 +41,8 @@ TrailLearner::TrailLearner(
            false,
            true,
            mode == SpatialLearningMode::Compatibility
-               ? "derive backward historical-visibility markers at target completion"
+               ? "derive backward historical-visibility markers at target "
+                 "completion"
                : "append distance-sampled execution-confirmed poses",
            {"TrailerLinear", "TrailerRotation", "trail path planner"},
            mode == SpatialLearningMode::Compatibility
@@ -115,8 +116,9 @@ void TrailLearner::onRebuild() {
       rebuilt.learned_trails.push_back(std::move(trail));
     }
     model_ = std::move(rebuilt);
-    publish(model_, model_.learned_trails.empty() ? ModelStatus::Incomplete
-                                                  : ModelStatus::Fresh,
+    publish(model_,
+            model_.learned_trails.empty() ? ModelStatus::Incomplete
+                                          : ModelStatus::Fresh,
             model_.learned_trails.empty()
                 ? "no execution-confirmed completed path can form a trail"
                 : "trails rebuilt by backward historical visibility");

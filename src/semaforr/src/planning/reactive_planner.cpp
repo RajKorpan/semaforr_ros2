@@ -11,8 +11,8 @@
 #include <cmath>
 #include <limits>
 #include <map>
-#include <semaforr/planning/reactive_planner.hpp>
 #include <semaforr/domain/motion_model.hpp>
+#include <semaforr/planning/reactive_planner.hpp>
 #include <semaforr/spatial/chapter3_learning.hpp>
 #include <set>
 #include <stdexcept>
@@ -54,10 +54,9 @@ std::optional<domain::Point2D> waypoint(const domain::WorldModel& world) {
  * - None documented; validation or dependency failures may propagate.
  */
 double headingError(const domain::Pose2D& pose, domain::Point2D target) {
-  return domain::Angle::normalize(
-      std::atan2(target.y_m - pose.position.y_m,
-                 target.x_m - pose.position.x_m) -
-      pose.heading.radians());
+  return domain::Angle::normalize(std::atan2(target.y_m - pose.position.y_m,
+                                             target.x_m - pose.position.x_m) -
+                                  pose.heading.radians());
 }
 
 /**
@@ -168,9 +167,8 @@ double containingRegionRadius(const domain::SpatialModel& spatial,
 bool available(const decision::DecisionContext& context,
                domain::Action action) {
   return context.viable_actions.empty() ||
-         std::find(context.viable_actions.begin(),
-                   context.viable_actions.end(), action) !=
-             context.viable_actions.end();
+         std::find(context.viable_actions.begin(), context.viable_actions.end(),
+                   action) != context.viable_actions.end();
 }
 
 /**
@@ -268,9 +266,8 @@ ObservationCell observationCell(const OutGridGeometry& geometry,
 bool validObservationRay(const domain::LaserObservation& laser,
                          double measured) {
   return !std::isnan(measured) && measured >= laser.minimum_range.meters() &&
-         (std::isfinite(measured)
-              ? measured <= laser.maximum_range.meters()
-              : measured > 0.0);
+         (std::isfinite(measured) ? measured <= laser.maximum_range.meters()
+                                  : measured > 0.0);
 }
 
 /**
@@ -291,9 +288,8 @@ std::optional<double> rayExtent(const domain::LaserObservation& laser,
   if (std::isnan(measured) || measured < laser.minimum_range.meters())
     return std::nullopt;
   if (std::isinf(measured))
-    return measured > 0.0
-               ? std::optional<double>(laser.maximum_range.meters())
-               : std::nullopt;
+    return measured > 0.0 ? std::optional<double>(laser.maximum_range.meters())
+                          : std::nullopt;
   return std::min(measured, laser.maximum_range.meters());
 }
 
@@ -319,22 +315,18 @@ ObservationCellSet observedCells(const domain::Pose2D& pose,
   for (std::size_t ray = 0U; ray < laser.ranges_m.size(); ++ray) {
     const double measured = laser.ranges_m[ray];
     if (!validObservationRay(laser, measured)) continue;
-    const double extent = std::isfinite(measured)
-                              ? measured
-                              : laser.maximum_range.meters();
-    const double angle = pose.heading.radians() +
-                         laser.angle_min.radians() +
-                         static_cast<double>(ray) *
-                             laser.angle_increment.radians();
+    const double extent =
+        std::isfinite(measured) ? measured : laser.maximum_range.meters();
+    const double angle =
+        pose.heading.radians() + laser.angle_min.radians() +
+        static_cast<double>(ray) * laser.angle_increment.radians();
     for (double distance = 0.0; distance < extent; distance += step)
       cells.insert(observationCell(
-          geometry,
-          {pose.position.x_m + std::cos(angle) * distance,
-           pose.position.y_m + std::sin(angle) * distance}));
+          geometry, {pose.position.x_m + std::cos(angle) * distance,
+                     pose.position.y_m + std::sin(angle) * distance}));
     cells.insert(observationCell(
-        geometry,
-        {pose.position.x_m + std::cos(angle) * extent,
-         pose.position.y_m + std::sin(angle) * extent}));
+        geometry, {pose.position.x_m + std::cos(angle) * extent,
+                   pose.position.y_m + std::sin(angle) * extent}));
   }
   return cells;
 }
@@ -425,9 +417,9 @@ ObservationCellSet currentObservationGrid(const domain::WorldModel& world) {
  */
 std::size_t newObservationCells(const ObservationCellSet& current,
                                 const RecentObservationGrid& recent) {
-  return static_cast<std::size_t>(std::count_if(
-      current.begin(), current.end(),
-      [&](const auto& cell) { return !recent.contains(cell); }));
+  return static_cast<std::size_t>(
+      std::count_if(current.begin(), current.end(),
+                    [&](const auto& cell) { return !recent.contains(cell); }));
 }
 
 /**
@@ -444,16 +436,14 @@ std::size_t newObservationCells(const ObservationCellSet& current,
  * Exceptions:
  * - None documented; validation or dependency failures may propagate.
  */
-bool sensed(const domain::Pose2D& pose,
-            const domain::LaserObservation& laser,
+bool sensed(const domain::Pose2D& pose, const domain::LaserObservation& laser,
             domain::Point2D point) {
   if (laser.ranges_m.empty() || laser.angle_increment.radians() <= 0.0)
     return false;
   const double distance = domain::distance(pose.position, point).meters();
   const double bearing = headingError(pose, point);
   const double coordinate =
-      (bearing - laser.angle_min.radians()) /
-      laser.angle_increment.radians();
+      (bearing - laser.angle_min.radians()) / laser.angle_increment.radians();
   if (coordinate < 0.0 ||
       coordinate > static_cast<double>(laser.ranges_m.size() - 1U))
     return false;
@@ -462,8 +452,7 @@ bool sensed(const domain::Pose2D& pose,
   std::size_t sampled = 0U;
   for (std::ptrdiff_t offset = -2; offset <= 2; ++offset) {
     const auto beam = center + offset;
-    if (beam < 0 ||
-        beam >= static_cast<std::ptrdiff_t>(laser.ranges_m.size()))
+    if (beam < 0 || beam >= static_cast<std::ptrdiff_t>(laser.ranges_m.size()))
       continue;
     ++sampled;
     const double range = laser.ranges_m[static_cast<std::size_t>(beam)];
@@ -519,8 +508,7 @@ bool forwardBlocked(const domain::LaserObservation& laser,
  * - None documented; validation or dependency failures may propagate.
  */
 template <typename Grid>
-std::optional<std::size_t> gridIndex(const Grid& grid,
-                                     domain::Point2D point) {
+std::optional<std::size_t> gridIndex(const Grid& grid, domain::Point2D point) {
   return grid.extent().index(point);
 }
 
@@ -541,16 +529,15 @@ bool pointBlocked(const domain::WorldModel& world, domain::Point2D point) {
   const auto& sensed_grid = world.spatial.sensed_occupancy;
   if (sensed_grid.valid()) {
     const auto sensed_index = sensed_grid.geometry.index(point);
-    if (sensed_index &&
-        sensed_grid.valueAt(*sensed_index).state ==
-            domain::SensedOccupancyState::ObservedOccupied)
+    if (sensed_index && sensed_grid.valueAt(*sensed_index).state ==
+                            domain::SensedOccupancyState::ObservedOccupied)
       return true;
   }
   if (world.static_map && world.static_map->occupancyAvailable()) {
     const auto& occupancy = world.static_map->occupancy;
     const auto index = occupancy.geometry.index(point);
-    if (!index || occupancy.cells[*index] ==
-                      domain::StaticOccupancyState::StaticOccupied)
+    if (!index ||
+        occupancy.cells[*index] == domain::StaticOccupancyState::StaticOccupied)
       return true;
   }
   return false;
@@ -620,8 +607,7 @@ std::optional<std::vector<domain::Point2D>> inclusionRoute(
     const auto row = static_cast<long long>(current / columns);
     const auto column = static_cast<long long>(current % columns);
     for (long long row_offset = -1; row_offset <= 1; ++row_offset) {
-      for (long long column_offset = -1; column_offset <= 1;
-           ++column_offset) {
+      for (long long column_offset = -1; column_offset <= 1; ++column_offset) {
         if (row_offset == 0 && column_offset == 0) continue;
         const auto next_row = row + row_offset;
         const auto next_column = column + column_offset;
@@ -658,7 +644,8 @@ std::optional<std::vector<domain::Point2D>> inclusionRoute(
   std::reverse(reversed.begin(), reversed.end());
   std::vector<domain::Point2D> route;
   route.reserve(reversed.size() + 1U);
-  for (const auto index : reversed) route.push_back(grid.extent().center(index));
+  for (const auto index : reversed)
+    route.push_back(grid.extent().center(index));
   if (route.empty() || domain::distance(route.back(), goal).meters() >
                            domain::geometry_tolerance_m)
     route.push_back(goal);
@@ -682,15 +669,14 @@ std::optional<std::vector<domain::Point2D>> inclusionRoute(
  * Exceptions:
  * - None documented; validation or dependency failures may propagate.
  */
-domain::Action stepToward(const domain::Pose2D& pose,
-                          domain::Point2D point,
+domain::Action stepToward(const domain::Pose2D& pose, domain::Point2D point,
                           const domain::ActionSpace& actions,
                           double desired_step_m) {
   const double error = headingError(pose, point);
   if (std::abs(error) > 0.2) return turn(error, actions);
   const auto& distances = actions.move_distances_m();
-  const auto found = std::upper_bound(distances.begin(), distances.end(),
-                                      desired_step_m);
+  const auto found =
+      std::upper_bound(distances.begin(), distances.end(), desired_step_m);
   const std::size_t magnitude =
       found == distances.begin()
           ? 1U
@@ -711,10 +697,12 @@ domain::Action stepToward(const domain::Pose2D& pose,
  * Exceptions:
  * - None documented; validation or dependency failures may propagate.
  */
-ReactiveResult resultFrom(std::string_view planner,
-                          ReactivePlanUpdate update) {
-  return {update.status, update.action, std::string(planner),
-          std::move(update.explanation), update.completion_reason,
+ReactiveResult resultFrom(std::string_view planner, ReactivePlanUpdate update) {
+  return {update.status,
+          update.action,
+          std::string(planner),
+          std::move(update.explanation),
+          update.completion_reason,
           std::move(update.prepend_waypoints),
           std::move(update.learned_recovery_trail)};
 }
@@ -754,15 +742,22 @@ ReactiveResult ReactivePlanner::evaluate(const ReactiveRequest& request) {
  */
 std::string_view toString(ReactiveCompletionReason reason) noexcept {
   switch (reason) {
-    case ReactiveCompletionReason::None: return "none";
-    case ReactiveCompletionReason::TargetSensed: return "target_sensed";
-    case ReactiveCompletionReason::NewPlanAvailable: return "new_plan_available";
+    case ReactiveCompletionReason::None:
+      return "none";
+    case ReactiveCompletionReason::TargetSensed:
+      return "target_sensed";
+    case ReactiveCompletionReason::NewPlanAvailable:
+      return "new_plan_available";
     case ReactiveCompletionReason::CandidateExhausted:
       return "candidate_exhausted";
-    case ReactiveCompletionReason::NoCandidates: return "no_candidates";
-    case ReactiveCompletionReason::BudgetExceeded: return "budget_exceeded";
-    case ReactiveCompletionReason::SensorLost: return "sensor_lost";
-    case ReactiveCompletionReason::MissionChanged: return "mission_changed";
+    case ReactiveCompletionReason::NoCandidates:
+      return "no_candidates";
+    case ReactiveCompletionReason::BudgetExceeded:
+      return "budget_exceeded";
+    case ReactiveCompletionReason::SensorLost:
+      return "sensor_lost";
+    case ReactiveCompletionReason::MissionChanged:
+      return "mission_changed";
   }
   return "none";
 }
@@ -793,7 +788,8 @@ std::string_view toString(LowLevelExplorationState state) noexcept {
       return "pursue_candidate";
     case LowLevelExplorationState::CheckConnectivity:
       return "check_connectivity";
-    case LowLevelExplorationState::Complete: return "complete";
+    case LowLevelExplorationState::Complete:
+      return "complete";
   }
   return "complete";
 }
@@ -826,8 +822,7 @@ std::string_view toString(LowLevelExplorationState state) noexcept {
 Thru::Thru(std::size_t decision_budget, double desired_step_m,
            double endpoint_tolerance_m,
            std::size_t beam_neighborhood_half_width,
-           std::size_t minimum_clear_beams,
-           std::size_t openness_bundle_beams,
+           std::size_t minimum_clear_beams, std::size_t openness_bundle_beams,
            double corridor_half_width_m,
            double corridor_longitudinal_tolerance_m)
     : decision_budget_(decision_budget),
@@ -837,16 +832,13 @@ Thru::Thru(std::size_t decision_budget, double desired_step_m,
       minimum_clear_beams_(minimum_clear_beams),
       openness_bundle_beams_(openness_bundle_beams),
       corridor_half_width_m_(corridor_half_width_m),
-      corridor_longitudinal_tolerance_m_(
-          corridor_longitudinal_tolerance_m) {
-  const std::size_t neighborhood_size =
-      2U * beam_neighborhood_half_width_ + 1U;
+      corridor_longitudinal_tolerance_m_(corridor_longitudinal_tolerance_m) {
+  const std::size_t neighborhood_size = 2U * beam_neighborhood_half_width_ + 1U;
   if (decision_budget_ == 0U || !std::isfinite(desired_step_m_) ||
       desired_step_m_ <= 0.0 || !std::isfinite(endpoint_tolerance_m_) ||
       endpoint_tolerance_m_ <= 0.0 || minimum_clear_beams_ == 0U ||
       minimum_clear_beams_ > neighborhood_size ||
-      openness_bundle_beams_ == 0U ||
-      !std::isfinite(corridor_half_width_m_) ||
+      openness_bundle_beams_ == 0U || !std::isfinite(corridor_half_width_m_) ||
       corridor_half_width_m_ <= 0.0 ||
       !std::isfinite(corridor_longitudinal_tolerance_m_) ||
       corridor_longitudinal_tolerance_m_ <= 0.0)
@@ -873,16 +865,15 @@ std::optional<Thru::SensedObjective> Thru::sensedObjective(
   const auto& laser = *world.robot.laser;
   if (!(laser.angle_increment.radians() > 0.0)) return std::nullopt;
 
-  const auto evaluate = [&](domain::Point2D point,
-                            bool mission_target)
-      -> std::optional<SensedObjective> {
+  const auto evaluate =
+      [&](domain::Point2D point,
+          bool mission_target) -> std::optional<SensedObjective> {
     if (!point.finite()) return std::nullopt;
     const double distance_m =
         domain::distance(world.robot.pose.position, point).meters();
     const double bearing = headingError(world.robot.pose, point);
     const double coordinate =
-        (bearing - laser.angle_min.radians()) /
-        laser.angle_increment.radians();
+        (bearing - laser.angle_min.radians()) / laser.angle_increment.radians();
     if (!std::isfinite(coordinate) || coordinate < 0.0 ||
         coordinate > static_cast<double>(laser.ranges_m.size() - 1U))
       return std::nullopt;
@@ -924,8 +915,8 @@ std::optional<Thru::SensedObjective> Thru::sensedObjective(
             (corridor_longitudinal_tolerance_m_ *
              corridor_longitudinal_tolerance_m_);
     if (ellipse > 1.0 + domain::geometry_tolerance_m) return std::nullopt;
-    return SensedObjective{point, static_cast<std::size_t>(center),
-                           distance_m, mission_target};
+    return SensedObjective{point, static_cast<std::size_t>(center), distance_m,
+                           mission_target};
   };
 
   // Compatibility order: use the mission target whenever it is sensed, and
@@ -952,15 +943,11 @@ std::optional<Thru::SensedObjective> Thru::sensedObjective(
 TriggerEvaluation Thru::evaluateTrigger(
     const decision::DecisionContext& context) const {
   if (endpoint_) return {true, "thru:pursuit_active"};
-  if (!context.world.mission.active())
-    return {false, "thru:no_active_mission"};
-  if (!context.action_space)
-    return {false, "thru:missing_action_space"};
-  if (!context.world.robot.laser)
-    return {false, "thru:missing_laser"};
+  if (!context.world.mission.active()) return {false, "thru:no_active_mission"};
+  if (!context.action_space) return {false, "thru:missing_action_space"};
+  if (!context.world.robot.laser) return {false, "thru:missing_laser"};
   const auto objective = sensedObjective(context.world);
-  if (!objective)
-    return {false, "thru:target_and_waypoint_not_sensed"};
+  if (!objective) return {false, "thru:target_and_waypoint_not_sensed"};
 
   const bool obstacle_blocked =
       forwardBlocked(*context.world.robot.laser, *context.action_space);
@@ -973,13 +960,10 @@ TriggerEvaluation Thru::evaluateTrigger(
   // An empty viable span means a standalone ReactivePlanner evaluation did
   // not supply the post-veto set; in that case the obstacle test is the
   // authoritative fallback. NavigationEngine always supplies the set.
-  const bool forward_unavailable = context.viable_actions.empty()
-                                       ? obstacle_blocked
-                                       : !forward_viable;
-  if (!obstacle_blocked)
-    return {false, "thru:forward_not_obstacle_blocked"};
-  if (!forward_unavailable)
-    return {false, "thru:forward_action_still_viable"};
+  const bool forward_unavailable =
+      context.viable_actions.empty() ? obstacle_blocked : !forward_viable;
+  if (!obstacle_blocked) return {false, "thru:forward_not_obstacle_blocked"};
+  if (!forward_unavailable) return {false, "thru:forward_action_still_viable"};
   return {true, objective->mission_target
                     ? "thru:sensed_target_forward_obstacle_blocked"
                     : "thru:sensed_waypoint_forward_obstacle_blocked"};
@@ -999,8 +983,7 @@ TriggerEvaluation Thru::evaluateTrigger(
  * - None documented; validation or dependency failures may propagate.
  */
 std::optional<Thru::EndpointChoice> Thru::chooseEndpoint(
-    const domain::WorldModel& world,
-    const SensedObjective& objective) const {
+    const domain::WorldModel& world, const SensedObjective& objective) const {
   if (!world.robot.laser || world.robot.laser->ranges_m.size() < 3U)
     return std::nullopt;
   const auto& laser = *world.robot.laser;
@@ -1014,9 +997,10 @@ std::optional<Thru::EndpointChoice> Thru::chooseEndpoint(
     double y = 0.0;
     std::size_t count = 0U;
     for (std::size_t offset = 1U; offset <= openness_bundle_beams_; ++offset) {
-      const auto beam = center +
-                        direction * static_cast<std::ptrdiff_t>(offset);
-      if (beam < 0 || beam >= static_cast<std::ptrdiff_t>(laser.ranges_m.size()))
+      const auto beam =
+          center + direction * static_cast<std::ptrdiff_t>(offset);
+      if (beam < 0 ||
+          beam >= static_cast<std::ptrdiff_t>(laser.ranges_m.size()))
         break;
       const auto extent =
           rayExtent(laser, laser.ranges_m[static_cast<std::size_t>(beam)]);
@@ -1032,12 +1016,11 @@ std::optional<Thru::EndpointChoice> Thru::chooseEndpoint(
     x /= static_cast<double>(count);
     y /= static_cast<double>(count);
     const double heading = world.robot.pose.heading.radians();
-    return AverageRay{
-        {world.robot.pose.position.x_m + std::cos(heading) * x -
-             std::sin(heading) * y,
-         world.robot.pose.position.y_m + std::sin(heading) * x +
-             std::cos(heading) * y},
-        std::hypot(x, y)};
+    return AverageRay{{world.robot.pose.position.x_m + std::cos(heading) * x -
+                           std::sin(heading) * y,
+                       world.robot.pose.position.y_m + std::sin(heading) * x +
+                           std::cos(heading) * y},
+                      std::hypot(x, y)};
   };
   const auto left = bundle(1);
   const auto right = bundle(-1);
@@ -1061,26 +1044,31 @@ std::optional<Thru::EndpointChoice> Thru::chooseEndpoint(
  * Exceptions:
  * - None documented; validation or dependency failures may propagate.
  */
-ReactivePlanUpdate Thru::update(
-    const decision::DecisionContext& context) {
+ReactivePlanUpdate Thru::update(const decision::DecisionContext& context) {
   if (!context.action_space || !evaluateTrigger(context).triggered) return {};
   if (!context.world.mission.active()) {
     cancel(InterruptionReason::MissionChanged);
-    return {ReactiveStatus::NotApplicable, std::nullopt, {},
-            ReactiveCompletionReason::MissionChanged, std::nullopt,
+    return {ReactiveStatus::NotApplicable,
+            std::nullopt,
+            {},
+            ReactiveCompletionReason::MissionChanged,
+            std::nullopt,
             "thru:mission_ended"};
   }
   if (mission_id_ && *mission_id_ != context.world.mission.active()->id) {
     cancel(InterruptionReason::MissionChanged);
-    return {ReactiveStatus::NotApplicable, std::nullopt, {},
-            ReactiveCompletionReason::MissionChanged, std::nullopt,
+    return {ReactiveStatus::NotApplicable,
+            std::nullopt,
+            {},
+            ReactiveCompletionReason::MissionChanged,
+            std::nullopt,
             "thru:mission_changed"};
   }
   if (!context.world.robot.laser) {
     cancel(InterruptionReason::SensorLost);
-    return {ReactiveStatus::NotApplicable, std::nullopt, {},
-            ReactiveCompletionReason::SensorLost, std::nullopt,
-            "thru:sensor_lost"};
+    return {
+        ReactiveStatus::NotApplicable,        std::nullopt, {},
+        ReactiveCompletionReason::SensorLost, std::nullopt, "thru:sensor_lost"};
   }
   if (!endpoint_) {
     const auto objective = sensedObjective(context.world);
@@ -1088,8 +1076,11 @@ ReactivePlanUpdate Thru::update(
     const auto choice = chooseEndpoint(context.world, *objective);
     if (!choice) {
       cancel(InterruptionReason::Disabled);
-      return {ReactiveStatus::NotApplicable, std::nullopt, {},
-              ReactiveCompletionReason::CandidateExhausted, std::nullopt,
+      return {ReactiveStatus::NotApplicable,
+              std::nullopt,
+              {},
+              ReactiveCompletionReason::CandidateExhausted,
+              std::nullopt,
               "thru:no_valid_openness_bundle"};
     }
     endpoint_ = choice->point;
@@ -1098,17 +1089,23 @@ ReactivePlanUpdate Thru::update(
     mission_id_ = context.world.mission.active()->id;
     decisions_ = 0U;
   }
-  if (domain::distance(context.world.robot.pose.position, *endpoint_).meters() <=
-      endpoint_tolerance_m_) {
+  if (domain::distance(context.world.robot.pose.position, *endpoint_)
+          .meters() <= endpoint_tolerance_m_) {
     cancel(InterruptionReason::Disabled);
-    return {ReactiveStatus::NotApplicable, std::nullopt, {},
-            ReactiveCompletionReason::CandidateExhausted, std::nullopt,
+    return {ReactiveStatus::NotApplicable,
+            std::nullopt,
+            {},
+            ReactiveCompletionReason::CandidateExhausted,
+            std::nullopt,
             "thru:endpoint_reached"};
   }
   if (decisions_ >= decision_budget_) {
     cancel(InterruptionReason::Disabled);
-    return {ReactiveStatus::NotApplicable, std::nullopt, {},
-            ReactiveCompletionReason::BudgetExceeded, std::nullopt,
+    return {ReactiveStatus::NotApplicable,
+            std::nullopt,
+            {},
+            ReactiveCompletionReason::BudgetExceeded,
+            std::nullopt,
             "thru:decision_limit_reached"};
   }
   const auto action = stepToward(context.world.robot.pose, *endpoint_,
@@ -1118,15 +1115,20 @@ ReactivePlanUpdate Thru::update(
        std::find(context.viable_actions.begin(), context.viable_actions.end(),
                  action) == context.viable_actions.end())) {
     cancel(InterruptionReason::Disabled);
-    return {ReactiveStatus::NotApplicable, std::nullopt, {},
-            ReactiveCompletionReason::CandidateExhausted, std::nullopt,
+    return {ReactiveStatus::NotApplicable,
+            std::nullopt,
+            {},
+            ReactiveCompletionReason::CandidateExhausted,
+            std::nullopt,
             "thru:pursuit_action_not_viable"};
   }
   ++decisions_;
-  return {ReactiveStatus::Action, action, {},
-          ReactiveCompletionReason::None, std::nullopt,
-          "thru:pursue_" + selected_side_ + "_opening_for_" +
-              objective_kind_};
+  return {ReactiveStatus::Action,
+          action,
+          {},
+          ReactiveCompletionReason::None,
+          std::nullopt,
+          "thru:pursue_" + selected_side_ + "_opening_for_" + objective_kind_};
 }
 
 /**
@@ -1172,9 +1174,10 @@ TriggerEvaluation Behind::evaluateTrigger(
       trigger_distance_m)
     return {false, "behind:waypoint_outside_distance_threshold"};
   const auto& history = context.world.navigation_history.entries();
-  const bool visible_now = sensed(context.world.robot.pose,
-                                  *context.world.robot.laser, *target);
-  const bool visible_before = !history.empty() &&
+  const bool visible_now =
+      sensed(context.world.robot.pose, *context.world.robot.laser, *target);
+  const bool visible_before =
+      !history.empty() &&
       sensed(history.back().observation_pose, history.back().laser, *target);
   bool last_was_quarter_turn = false;
   if (!history.empty() && context.action_space &&
@@ -1184,10 +1187,9 @@ TriggerEvaluation Behind::evaluateTrigger(
        history.back().action.type() == domain::ActionType::TurnRight)) {
     const auto magnitude = history.back().action.magnitude_index();
     const auto& turns = context.action_space->rotation_angles_rad();
-    last_was_quarter_turn =
-        magnitude > 0U && magnitude <= turns.size() &&
-        std::abs(history.back().rotation_achieved_rad -
-                 1.5707963267948966) <= 0.1;
+    last_was_quarter_turn = magnitude > 0U && magnitude <= turns.size() &&
+                            std::abs(history.back().rotation_achieved_rad -
+                                     1.5707963267948966) <= 0.1;
   }
   if (visible_now) return {false, "behind:waypoint_visible_now"};
   if (visible_before) return {false, "behind:waypoint_visible_in_recent_view"};
@@ -1208,8 +1210,7 @@ TriggerEvaluation Behind::evaluateTrigger(
  * Exceptions:
  * - None documented; validation or dependency failures may propagate.
  */
-ReactivePlanUpdate Behind::update(
-    const decision::DecisionContext& context) {
+ReactivePlanUpdate Behind::update(const decision::DecisionContext& context) {
   const auto target = waypoint(context.world);
   if (!target || !context.action_space || !evaluateTrigger(context).triggered)
     return {};
@@ -1219,23 +1220,30 @@ ReactivePlanUpdate Behind::update(
         return std::abs(left - 1.5707963267948966) <
                std::abs(right - 1.5707963267948966);
       });
-  if (closest == turns.end() ||
-      std::abs(*closest - 1.5707963267948966) > 0.1)
+  if (closest == turns.end() || std::abs(*closest - 1.5707963267948966) > 0.1)
     return {};
-  const auto magnitude =
-      static_cast<std::size_t>(closest - turns.begin()) + 1U;
+  const auto magnitude = static_cast<std::size_t>(closest - turns.begin()) + 1U;
   const domain::Action right(domain::ActionType::TurnRight, magnitude);
   const domain::Action left(domain::ActionType::TurnLeft, magnitude);
   if (available(context, right))
-    return {ReactiveStatus::Action, right, {},
-            ReactiveCompletionReason::None, std::nullopt,
+    return {ReactiveStatus::Action,
+            right,
+            {},
+            ReactiveCompletionReason::None,
+            std::nullopt,
             "behind:turn_right_to_reveal_waypoint"};
   if (available(context, left))
-    return {ReactiveStatus::Action, left, {},
-            ReactiveCompletionReason::None, std::nullopt,
+    return {ReactiveStatus::Action,
+            left,
+            {},
+            ReactiveCompletionReason::None,
+            std::nullopt,
             "behind:turn_left_when_right_unavailable"};
-  return {ReactiveStatus::NotApplicable, std::nullopt, {},
-          ReactiveCompletionReason::None, std::nullopt,
+  return {ReactiveStatus::NotApplicable,
+          std::nullopt,
+          {},
+          ReactiveCompletionReason::None,
+          std::nullopt,
           "behind:no_quarter_turn_available"};
 }
 
@@ -1284,9 +1292,8 @@ TriggerEvaluation Out::evaluateTrigger(
   const auto current = currentObservationGrid(context.world);
   const std::size_t nonzero = recent.size();
   const auto well_covered = static_cast<std::size_t>(std::count_if(
-      recent.begin(), recent.end(), [&](const auto& item) {
-        return item.second >= coverage_threshold_;
-      }));
+      recent.begin(), recent.end(),
+      [&](const auto& item) { return item.second >= coverage_threshold_; }));
   const std::size_t new_cells = newObservationCells(current, recent);
   const bool repeatedly_confined =
       nonzero > 0U &&
@@ -1295,9 +1302,9 @@ TriggerEvaluation Out::evaluateTrigger(
       new_cells <= maximum_new_cells_;
   if (context.world.recovery.confined)
     return {true, "out:explicit_confinement_signal"};
-  return {repeatedly_confined,
-          repeatedly_confined ? "out:recent_window_confined"
-                              : "out:recent_window_not_confined"};
+  return {repeatedly_confined, repeatedly_confined
+                                   ? "out:recent_window_confined"
+                                   : "out:recent_window_not_confined"};
 }
 
 /**
@@ -1312,8 +1319,7 @@ TriggerEvaluation Out::evaluateTrigger(
  * Exceptions:
  * - None documented; validation or dependency failures may propagate.
  */
-ReactivePlanUpdate Out::update(
-    const decision::DecisionContext& context) {
+ReactivePlanUpdate Out::update(const decision::DecisionContext& context) {
   if (!context.action_space || !evaluateTrigger(context).triggered) return {};
   if (!context.world.mission.active()) {
     reset();
@@ -1334,31 +1340,43 @@ ReactivePlanUpdate Out::update(
     if (rotations_ > 0U &&
         newObservationCells(current, recent) > maximum_new_cells_) {
       reset();
-      return {ReactiveStatus::NotApplicable, std::nullopt, {},
-              ReactiveCompletionReason::NewPlanAvailable, std::nullopt,
+      return {ReactiveStatus::NotApplicable,
+              std::nullopt,
+              {},
+              ReactiveCompletionReason::NewPlanAvailable,
+              std::nullopt,
               "out:survey_revealed_new_freespace"};
     }
     if (rotations_ < 4U) {
       ++rotations_;
       return {ReactiveStatus::Action,
-              turn(-1.5707963267948966, *context.action_space), {},
-              ReactiveCompletionReason::None, std::nullopt,
+              turn(-1.5707963267948966, *context.action_space),
+              {},
+              ReactiveCompletionReason::None,
+              std::nullopt,
               "out:survey_turn_right"};
     }
     buildEscape(context.world);
     if (escape_points_.empty()) {
       reset();
-      return {ReactiveStatus::NotApplicable, std::nullopt, {},
-              ReactiveCompletionReason::CandidateExhausted, std::nullopt,
+      return {ReactiveStatus::NotApplicable,
+              std::nullopt,
+              {},
+              ReactiveCompletionReason::CandidateExhausted,
+              std::nullopt,
               "out:no_execution_confirmed_reverse_subtrail"};
     }
     auto reverse_subtrail = escape_points_;
     auto recovery_trail = recovery_trail_;
     reset();
-    return {ReactiveStatus::InstallPlan, std::nullopt, {},
-            ReactiveCompletionReason::None, std::nullopt,
+    return {ReactiveStatus::InstallPlan,
+            std::nullopt,
+            {},
+            ReactiveCompletionReason::None,
+            std::nullopt,
             "out:prepend_reverse_subtrail_for_enforcer",
-            std::move(reverse_subtrail), std::move(recovery_trail)};
+            std::move(reverse_subtrail),
+            std::move(recovery_trail)};
   }
   return {};
 }
@@ -1398,8 +1416,8 @@ void Out::buildEscape(const domain::WorldModel& world) {
   for (std::size_t index = active.decision_points.size(); index > suffix_begin;
        --index) {
     const auto& point = active.decision_points[index - 1U];
-    const auto cell = observationCell(
-        geometry, point.execution.start_pose.position);
+    const auto cell =
+        observationCell(geometry, point.execution.start_pose.position);
     if (!recent.contains(cell)) {
       recovery_index = index - 1U;
       break;
@@ -1430,14 +1448,13 @@ void Out::buildEscape(const domain::WorldModel& world) {
     observation.laser = previous.view;
     domain::VisibilityEvidence visibility;
     if (spatial::historicallyVisible(
-            observation, trail.markers[index].pose.position, 0.05,
-            &visibility))
+            observation, trail.markers[index].pose.position, 0.05, &visibility))
       previous.visibility_to_next = visibility;
     trail.subtrail_geometry.push_back(
         {previous.pose.position, trail.markers[index].pose.position});
-    trail.length_m +=
-        domain::distance(previous.pose.position,
-                         trail.markers[index].pose.position).meters();
+    trail.length_m += domain::distance(previous.pose.position,
+                                       trail.markers[index].pose.position)
+                          .meters();
   }
   trail.markers.back().visibility_to_next.reset();
   trail.target = trail.markers.back().pose.position;
@@ -1525,8 +1542,7 @@ ReactivePlannerCoordinator::ReactivePlannerCoordinator(
  * Exceptions:
  * - None documented; validation or dependency failures may propagate.
  */
-void ReactivePlannerCoordinator::add(
-    std::unique_ptr<ReactivePlanner> planner) {
+void ReactivePlannerCoordinator::add(std::unique_ptr<ReactivePlanner> planner) {
   if (!planner) throw std::invalid_argument("reactive planner is null");
   if (std::any_of(planners_.begin(), planners_.end(), [&](const auto& item) {
         return item->name() == planner->name();
@@ -1552,23 +1568,24 @@ ReactiveResult ReactivePlannerCoordinator::evaluate(
   return evaluateDetailed(request, {}).result;
 }
 
-ReactivePlannerCoordinator::Evaluation
-/**
- * @brief Evaluates detailed for this subsystem.
- *
- * Arguments:
- * - @p request: Supplies request input to the operation.
- * - @p viable_actions: Supplies viable actions input to the operation.
- *
- * Returns:
- * - No value; effects are applied to owned state or outputs.
- *
- * Exceptions:
- * - None documented; validation or dependency failures may propagate.
- */
-ReactivePlannerCoordinator::evaluateDetailed(
-    const ReactiveRequest& request,
-    std::span<const domain::Action> viable_actions) {
+ReactivePlannerCoordinator::
+    Evaluation
+    /**
+     * @brief Evaluates detailed for this subsystem.
+     *
+     * Arguments:
+     * - @p request: Supplies request input to the operation.
+     * - @p viable_actions: Supplies viable actions input to the operation.
+     *
+     * Returns:
+     * - No value; effects are applied to owned state or outputs.
+     *
+     * Exceptions:
+     * - None documented; validation or dependency failures may propagate.
+     */
+    ReactivePlannerCoordinator::evaluateDetailed(
+        const ReactiveRequest& request,
+        std::span<const domain::Action> viable_actions) {
   Evaluation evaluation;
   decision::DecisionContext context{request.world, &request.action_space,
                                     viable_actions};
@@ -1592,8 +1609,7 @@ ReactivePlannerCoordinator::evaluateDetailed(
                   *result.action) != viable_actions.end();
     event.mandate = result.action;
     event.reason_code = result.explanation;
-    event.outcome = !action_viable
-                        ? "reactive_action_not_viable_continue"
+    event.outcome = !action_viable ? "reactive_action_not_viable_continue"
                     : result.status == ReactiveStatus::Action
                         ? "reactive_action_selected"
                     : result.status == ReactiveStatus::InstallPlan
@@ -1707,13 +1723,13 @@ TriggerEvaluation LowLevelExplorer::evaluateTrigger(
     const decision::DecisionContext& context) const {
   if (!context.world.mission.active()) return {};
   const auto& task = *context.world.mission.active();
-  const bool no_plan = !context.world.recovery.plan_available &&
-                       task.plan.empty();
+  const bool no_plan =
+      !context.world.recovery.plan_available && task.plan.empty();
   const bool completed_plan_failed =
       context.world.recovery.completed_plan_failed_target ||
       (!task.plan.empty() && task.waypoint_index >= task.plan.size() &&
        !domain::goalReached(context.world.robot.pose, task.target,
-                           domain::Distance(progress_threshold_m_)));
+                            domain::Distance(progress_threshold_m_)));
   const auto& history = context.world.navigation_history.entries();
   bool stalled = false;
   if (history.size() >= history_window_) {
@@ -1738,17 +1754,16 @@ TriggerEvaluation LowLevelExplorer::evaluateTrigger(
   else if (stalled_extension)
     last_trigger_ = {true, "target navigation has stalled"};
   else
-    last_trigger_ = {
-        false,
-        configuration_.behavior_policy == LLEBehaviorPolicy::Compatibility
-            ? "compatibility trigger requires no plan or a completed failed plan"
-            : "no LLE trigger condition is active"};
+    last_trigger_ = {false, configuration_.behavior_policy ==
+                                    LLEBehaviorPolicy::Compatibility
+                                ? "compatibility trigger requires no plan or a "
+                                  "completed failed plan"
+                                : "no LLE trigger condition is active"};
   last_trigger_reason_code_ = completed_plan_failed
                                   ? "completed_plan_failed_target"
-                              : no_plan ? "no_plan_available"
-                              : stalled_extension
-                                  ? "stalled_history_extension"
-                                  : "none";
+                              : no_plan           ? "no_plan_available"
+                              : stalled_extension ? "stalled_history_extension"
+                                                  : "none";
   return last_trigger_;
 }
 
@@ -1792,16 +1807,15 @@ void LowLevelExplorer::assembleCandidates(const domain::WorldModel& world) {
                        bool require_target_relevance = true) {
     if (domain::distance(start, point).meters() < minimum_cue_length_m_ ||
         (require_target_relevance &&
-         domain::distance(point, target).meters() >
-             target_cue_tolerance_m_))
+         domain::distance(point, target).meters() > target_cue_tolerance_m_))
       return;
     if (source != LLECandidateSource::UnfinishedHle &&
-        std::any_of(ranked_candidates_.begin(), ranked_candidates_.end(),
-                    [&](const auto& candidate) {
-                      return candidate.source == source &&
-                             domain::distance(candidate.target, point).meters() <=
-                                 0.25;
-                    }))
+        std::any_of(
+            ranked_candidates_.begin(), ranked_candidates_.end(),
+            [&](const auto& candidate) {
+              return candidate.source == source &&
+                     domain::distance(candidate.target, point).meters() <= 0.25;
+            }))
       return;
     const double relevance = -domain::distance(point, target).meters();
     ranked_candidates_.push_back(
@@ -1820,10 +1834,9 @@ void LowLevelExplorer::assembleCandidates(const domain::WorldModel& world) {
       const auto extent = rayExtent(laser, laser.ranges_m[beam]);
       if (!extent) continue;
       const double range = *extent;
-      const double angle = pose.heading.radians() +
-                           laser.angle_min.radians() +
-                           static_cast<double>(beam) *
-                               laser.angle_increment.radians();
+      const double angle =
+          pose.heading.radians() + laser.angle_min.radians() +
+          static_cast<double>(beam) * laser.angle_increment.radians();
       const domain::Point2D endpoint{
           pose.position.x_m + range * std::cos(angle),
           pose.position.y_m + range * std::sin(angle)};
@@ -1840,9 +1853,9 @@ void LowLevelExplorer::assembleCandidates(const domain::WorldModel& world) {
       if (!valid_cue && uncovered) {
         uncovered_ray = true;
         fallback_rays.push_back(
-            {next_candidate_id_++,
-             LLECandidateSource::CurrentTargetObservation, pose.position,
-             endpoint, -domain::distance(endpoint, target).meters(), false});
+            {next_candidate_id_++, LLECandidateSource::CurrentTargetObservation,
+             pose.position, endpoint,
+             -domain::distance(endpoint, target).meters(), false});
       }
     }
     return uncovered_ray;
@@ -1871,10 +1884,12 @@ void LowLevelExplorer::assembleCandidates(const domain::WorldModel& world) {
       if (domain::distance(world.robot.pose.position, point).meters() <=
           progress_threshold_m_)
         return;
-      LLECandidate candidate{
-          next_candidate_id_++, LLECandidateSource::IncludedRelocation,
-          point, point,
-          -domain::distance(point, target).meters(), false};
+      LLECandidate candidate{next_candidate_id_++,
+                             LLECandidateSource::IncludedRelocation,
+                             point,
+                             point,
+                             -domain::distance(point, target).meters(),
+                             false};
       if (!closest_included ||
           candidate.target_relevance > closest_included->target_relevance ||
           (candidate.target_relevance == closest_included->target_relevance &&
@@ -1949,8 +1964,8 @@ void LowLevelExplorer::installCandidateWaypoints(
   cue_waypoints_.clear();
   cue_waypoints_.reserve(cue_waypoint_count_);
   for (std::size_t index = 1U; index <= cue_waypoint_count_; ++index) {
-    const double fraction = static_cast<double>(index) /
-                            static_cast<double>(cue_waypoint_count_);
+    const double fraction =
+        static_cast<double>(index) / static_cast<double>(cue_waypoint_count_);
     cue_waypoints_.push_back(
         {candidate.start.x_m +
              (candidate.target.x_m - candidate.start.x_m) * fraction,
@@ -1997,8 +2012,8 @@ bool LowLevelExplorer::planCandidateStart(const domain::WorldModel& world,
     candidate_start_diagnostics_.push_back(start_plan_reason_);
     return true;
   }
-  auto route = inclusionRoute(world, world.robot.pose.position,
-                              candidate.start);
+  auto route =
+      inclusionRoute(world, world.robot.pose.position, candidate.start);
   if (!route) {
     start_plan_outcome_ = CandidateStartPlanOutcome::Failed;
     start_plan_reason_ = "candidate_start_unreachable";
@@ -2094,15 +2109,13 @@ bool LowLevelExplorer::appendCurrentViewCandidates(
     if (!extent) continue;
     const double range = *extent;
     if (range < minimum_cue_length_m_) continue;
-    const double angle = world.robot.pose.heading.radians() +
-                         laser.angle_min.radians() +
-                         static_cast<double>(beam) *
-                             laser.angle_increment.radians();
+    const double angle =
+        world.robot.pose.heading.radians() + laser.angle_min.radians() +
+        static_cast<double>(beam) * laser.angle_increment.radians();
     const domain::Point2D endpoint{
         world.robot.pose.position.x_m + range * std::cos(angle),
         world.robot.pose.position.y_m + range * std::sin(angle)};
-    if (domain::distance(endpoint, target).meters() >
-        target_cue_tolerance_m_)
+    if (domain::distance(endpoint, target).meters() > target_cue_tolerance_m_)
       continue;
     const bool duplicate = std::any_of(
         ranked_candidates_.begin(), ranked_candidates_.end(),
@@ -2113,8 +2126,7 @@ bool LowLevelExplorer::appendCurrentViewCandidates(
         });
     if (duplicate) continue;
     ranked_candidates_.push_back(
-        {next_candidate_id_++,
-         LLECandidateSource::CurrentTargetObservation,
+        {next_candidate_id_++, LLECandidateSource::CurrentTargetObservation,
          world.robot.pose.position, endpoint,
          -domain::distance(endpoint, target).meters(), true});
     appended = true;
@@ -2176,13 +2188,13 @@ domain::Action LowLevelExplorer::actionToward(
  * Exceptions:
  * - None documented; validation or dependency failures may propagate.
  */
-ReactivePlanUpdate LowLevelExplorer::complete(
-    ReactiveCompletionReason reason, std::string explanation,
-    ReactiveStatus status) {
+ReactivePlanUpdate LowLevelExplorer::complete(ReactiveCompletionReason reason,
+                                              std::string explanation,
+                                              ReactiveStatus status) {
   completion_reason_ = reason;
   state_ = LowLevelExplorationState::Complete;
-  return {status, std::nullopt, state_, reason, std::nullopt,
-          std::move(explanation)};
+  return {status, std::nullopt, state_,
+          reason, std::nullopt, std::move(explanation)};
 }
 
 /**
@@ -2205,8 +2217,7 @@ ReactivePlanUpdate LowLevelExplorer::update(
   if (mission_id_ && *mission_id_ != context.world.mission.active()->id)
     return complete(ReactiveCompletionReason::MissionChanged,
                     "active mission changed");
-  if (!context.world.robot.laser ||
-      context.world.robot.laser->ranges_m.empty())
+  if (!context.world.robot.laser || context.world.robot.laser->ranges_m.empty())
     return complete(ReactiveCompletionReason::SensorLost,
                     "laser observation is unavailable");
   if (state_ != LowLevelExplorationState::DetectMissingGuidance &&
@@ -2260,9 +2271,10 @@ ReactivePlanUpdate LowLevelExplorer::update(
          !context.world.spatial.highways.nodes.empty() ||
          !context.world.spatial.highways.graph.vertices.empty());
     if (inclusion_growth || connectivity)
-      return complete(ReactiveCompletionReason::NewPlanAvailable,
-                      "LLE expanded inclusion/connectivity; request Tier-2 replanning",
-                      ReactiveStatus::RequestReplan);
+      return complete(
+          ReactiveCompletionReason::NewPlanAvailable,
+          "LLE expanded inclusion/connectivity; request Tier-2 replanning",
+          ReactiveStatus::RequestReplan);
   }
   if (state_ == LowLevelExplorationState::DetectMissingGuidance) {
     if (!evaluateTrigger(context).triggered) return {};
@@ -2325,8 +2337,7 @@ ReactivePlanUpdate LowLevelExplorer::update(
       }
       const auto sort_begin = candidate_cursor_ + 1U;
       std::stable_sort(
-          ranked_candidates_.begin() +
-              static_cast<std::ptrdiff_t>(sort_begin),
+          ranked_candidates_.begin() + static_cast<std::ptrdiff_t>(sort_begin),
           ranked_candidates_.end(), [](const auto& left, const auto& right) {
             return left.target_relevance > right.target_relevance ||
                    (left.target_relevance == right.target_relevance &&
@@ -2372,19 +2383,22 @@ ReactivePlanUpdate LowLevelExplorer::update(
                         "LLE candidate-start plan was invalidated");
       return update(context);
     }
-    while (start_connection_cursor_ < start_connection_waypoints_.size() &&
-           domain::distance(
-               context.world.robot.pose.position,
-               start_connection_waypoints_[start_connection_cursor_])
-                   .meters() <= progress_threshold_m_)
+    while (
+        start_connection_cursor_ < start_connection_waypoints_.size() &&
+        domain::distance(context.world.robot.pose.position,
+                         start_connection_waypoints_[start_connection_cursor_])
+                .meters() <= progress_threshold_m_)
       ++start_connection_cursor_;
     if (start_connection_cursor_ < start_connection_waypoints_.size()) {
-      return {ReactiveStatus::Action,
-              actionToward(context.world.robot.pose,
-                           start_connection_waypoints_[start_connection_cursor_],
-                           *context.action_space),
-              state_, ReactiveCompletionReason::None, candidate.id,
-              start_plan_reason_};
+      return {
+          ReactiveStatus::Action,
+          actionToward(context.world.robot.pose,
+                       start_connection_waypoints_[start_connection_cursor_],
+                       *context.action_space),
+          state_,
+          ReactiveCompletionReason::None,
+          candidate.id,
+          start_plan_reason_};
     }
     if (candidate.source == LLECandidateSource::IncludedRelocation) {
       candidate_start_diagnostics_.push_back(
@@ -2403,8 +2417,8 @@ ReactivePlanUpdate LowLevelExplorer::update(
   if (state_ == LowLevelExplorationState::PursueCandidate) {
     while (waypoint_cursor_ < cue_waypoints_.size() &&
            domain::distance(context.world.robot.pose.position,
-                            cue_waypoints_[waypoint_cursor_]).meters() <=
-               progress_threshold_m_)
+                            cue_waypoints_[waypoint_cursor_])
+                   .meters() <= progress_threshold_m_)
       ++waypoint_cursor_;
     if (waypoint_cursor_ >= cue_waypoints_.size()) {
       if (!advanceCandidate(context.world))
@@ -2412,9 +2426,9 @@ ReactivePlanUpdate LowLevelExplorer::update(
                         "all LLE candidates were exhausted");
       return update(context);
     }
-    const bool next_visible = sensed(
-        context.world.robot.pose, *context.world.robot.laser,
-        cue_waypoints_[waypoint_cursor_]);
+    const bool next_visible =
+        sensed(context.world.robot.pose, *context.world.robot.laser,
+               cue_waypoints_[waypoint_cursor_]);
     const bool following_visible =
         waypoint_cursor_ + 1U < cue_waypoints_.size() &&
         sensed(context.world.robot.pose, *context.world.robot.laser,
@@ -2429,13 +2443,14 @@ ReactivePlanUpdate LowLevelExplorer::update(
     } else {
       lost_waypoint_cycles_ = 0U;
     }
-    return {ReactiveStatus::Action,
-            actionToward(context.world.robot.pose,
-                         cue_waypoints_[waypoint_cursor_],
-                         *context.action_space),
-            LowLevelExplorationState::PursueCandidate,
-            ReactiveCompletionReason::None, candidate.id,
-            "pursue candidate ray"};
+    return {
+        ReactiveStatus::Action,
+        actionToward(context.world.robot.pose, cue_waypoints_[waypoint_cursor_],
+                     *context.action_space),
+        LowLevelExplorationState::PursueCandidate,
+        ReactiveCompletionReason::None,
+        candidate.id,
+        "pursue candidate ray"};
   }
   return {};
 }

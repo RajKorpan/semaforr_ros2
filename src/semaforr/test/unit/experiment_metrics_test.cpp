@@ -33,8 +33,8 @@ namespace {
  * - None documented; validation or dependency failures may propagate.
  */
 semaforr::decision::DecisionResult makeDecision(
-    double x_m, semaforr::navigation::NavigationPhase phase,
-    std::string policy, double latency_s) {
+    double x_m, semaforr::navigation::NavigationPhase phase, std::string policy,
+    double latency_s) {
   semaforr::decision::DecisionResult result;
   result.robot_pose.position = {x_m, 0.0};
   result.navigation_phase = phase;
@@ -49,19 +49,31 @@ semaforr::decision::DecisionResult makeDecision(
 TEST(ExperimentMetrics, ReportsPerformanceEfficiencyAndInterventions) {
   using namespace semaforr;
   validation::ExperimentMetricsCollector metrics("complex_office", "highway",
-                                                  100U);
-  metrics.record({makeDecision(
-                      0.0, navigation::NavigationPhase::InitialExploration,
-                      "hle:candidate", 0.1),
-                  1.0, 0.0, 0.25, {3U, 64U}, 20U});
-  metrics.record({makeDecision(
-                      2.0, navigation::NavigationPhase::InitialExploration,
-                      "hle:candidate", 0.2),
-                  2.0, 0.0, 0.5, {5U, 96U}, 30U});
-  metrics.record({makeDecision(5.0,
-                               navigation::NavigationPhase::TargetNavigation,
-                               "reactive:LLE", 0.3),
-                  3.0, 0.75, 0.1, {7U, 128U}, 40U});
+                                                 100U);
+  metrics.record(
+      {makeDecision(0.0, navigation::NavigationPhase::InitialExploration,
+                    "hle:candidate", 0.1),
+       1.0,
+       0.0,
+       0.25,
+       {3U, 64U},
+       20U});
+  metrics.record(
+      {makeDecision(2.0, navigation::NavigationPhase::InitialExploration,
+                    "hle:candidate", 0.2),
+       2.0,
+       0.0,
+       0.5,
+       {5U, 96U},
+       30U});
+  metrics.record(
+      {makeDecision(5.0, navigation::NavigationPhase::TargetNavigation,
+                    "reactive:LLE", 0.3),
+       3.0,
+       0.75,
+       0.1,
+       {7U, 128U},
+       40U});
   metrics.recordTargetOutcome(true);
   metrics.recordTargetOutcome(false);
 
@@ -81,8 +93,7 @@ TEST(ExperimentMetrics, ReportsPerformanceEfficiencyAndInterventions) {
                    2.0 / 3.0);
   EXPECT_DOUBLE_EQ(summary.intervention_frequency.at("reactive:LLE"),
                    1.0 / 3.0);
-  EXPECT_NE(metrics.serialize().find("\"allocations\""),
-            std::string::npos);
+  EXPECT_NE(metrics.serialize().find("\"allocations\""), std::string::npos);
 }
 
 TEST(ExperimentMetrics, CoverageUsesUnionOfRegionsAndTrailsAtOneMetre) {
@@ -99,8 +110,7 @@ TEST(ExperimentMetrics, CoverageUsesUnionOfRegionsAndTrailsAtOneMetre) {
 }
 
 TEST(ExperimentMetrics, RejectsInvalidMeasurements) {
-  semaforr::validation::ExperimentMetricsCollector metrics("room", "full",
-                                                            10U);
+  semaforr::validation::ExperimentMetricsCollector metrics("room", "full", 10U);
   auto observation = semaforr::validation::ExperimentObservation{};
   observation.runtime_s = -1.0;
   EXPECT_THROW(metrics.record(observation), std::invalid_argument);

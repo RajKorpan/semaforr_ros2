@@ -202,8 +202,7 @@ RegionModel learnDecisionRegions(
  * - None documented; validation or dependency failures may propagate.
  */
 DoorExitModel learnRegionExitsAndDoors(
-    const RegionModel& regions,
-    const std::vector<domain::CompletedPath>& paths,
+    const RegionModel& regions, const std::vector<domain::CompletedPath>& paths,
     const DoorLearningConfiguration& configuration = {});
 
 /**
@@ -256,8 +255,7 @@ ConveyorModel learnConveyorGrid(
  * - None documented; validation or dependency failures may propagate.
  */
 PassageSkeletonModel learnRegionSkeleton(
-    const RegionModel& regions,
-    const std::vector<domain::LearnedTrail>& trails,
+    const RegionModel& regions, const std::vector<domain::LearnedTrail>& trails,
     const std::vector<domain::CompletedPath>& paths);
 
 }  // namespace semaforr::spatial

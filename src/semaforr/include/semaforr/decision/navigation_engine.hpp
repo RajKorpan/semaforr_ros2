@@ -2,8 +2,8 @@
  * @file navigation_engine.hpp
  * @brief Navigation engine responsibilities.
  *
- * @details This file defines navigation engine behavior for tiered decision making
- * and action arbitration. It centers on `NavigationEngine`,
+ * @details This file defines navigation engine behavior for tiered decision
+ * making and action arbitration. It centers on `NavigationEngine`,
  * `PendingExecution`. Its package-relative location is
  * `include/semaforr/decision/navigation_engine.hpp`.
  */
@@ -12,8 +12,8 @@
 
 #include <cstdint>
 #include <deque>
-#include <memory>
 #include <map>
+#include <memory>
 #include <optional>
 #include <semaforr/decision/decision_coordinator.hpp>
 #include <semaforr/decision/enforcer.hpp>

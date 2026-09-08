@@ -24,11 +24,11 @@ namespace {
 using semaforr::decision::ActionScore;
 using semaforr::decision::Advisor;
 using semaforr::decision::AdvisorEvaluation;
+using semaforr::decision::Decision;
 using semaforr::decision::DecisionContext;
 using semaforr::decision::DecisionCoordinator;
 using semaforr::decision::DecisionSource;
 using semaforr::decision::DecisionTier;
-using semaforr::decision::Decision;
 using semaforr::decision::MandatoryRule;
 using semaforr::decision::Veto;
 using semaforr::decision::VetoRule;
@@ -68,7 +68,9 @@ class FixedAdvisor final : public Advisor {
                double weight = 1.0,
                semaforr::decision::ScoreNormalization normalization =
                    semaforr::decision::ScoreNormalization::None)
-      : name_(std::move(name)), scores_(std::move(scores)), weight_(weight),
+      : name_(std::move(name)),
+        scores_(std::move(scores)),
+        weight_(weight),
         normalization_(normalization) {}
 
   /**
@@ -371,7 +373,8 @@ TEST(DecisionCoordinator, CompatibilityCommentsAreZeroToTenAndUnweighted) {
   EXPECT_EQ(result.action, left);
 }
 
-TEST(DecisionCoordinator, AdaptedPolicyPreservesRawNormalizedAndWeightedScores) {
+TEST(DecisionCoordinator,
+     AdaptedPolicyPreservesRawNormalizedAndWeightedScores) {
   auto model = world();
   const Action forward(ActionType::Forward, 1U);
   const Action left(ActionType::TurnLeft, 1U);
@@ -406,24 +409,24 @@ TEST(DecisionCoordinator, ChapterFiveConfidenceMatchesWorkedCommentExample) {
   DecisionCoordinator coordinator(configuration);
   coordinator.addAdvisor(std::make_unique<FixedAdvisor>(
       "advisor_1", std::vector<ActionScore>{{actions[0], 0.0},
-                                             {actions[1], 1.0},
-                                             {actions[2], 1.0},
-                                             {actions[3], 10.0}}));
+                                            {actions[1], 1.0},
+                                            {actions[2], 1.0},
+                                            {actions[3], 10.0}}));
   coordinator.addAdvisor(std::make_unique<FixedAdvisor>(
       "advisor_2", std::vector<ActionScore>{{actions[0], 0.0},
-                                             {actions[1], 8.0},
-                                             {actions[2], 9.0},
-                                             {actions[3], 10.0}}));
+                                            {actions[1], 8.0},
+                                            {actions[2], 9.0},
+                                            {actions[3], 10.0}}));
   coordinator.addAdvisor(std::make_unique<FixedAdvisor>(
       "advisor_3", std::vector<ActionScore>{{actions[0], 2.0},
-                                             {actions[1], 0.0},
-                                             {actions[2], 10.0},
-                                             {actions[3], 2.0}}));
+                                            {actions[1], 0.0},
+                                            {actions[2], 10.0},
+                                            {actions[3], 2.0}}));
   coordinator.addAdvisor(std::make_unique<FixedAdvisor>(
       "advisor_4", std::vector<ActionScore>{{actions[0], 3.0},
-                                             {actions[1], 10.0},
-                                             {actions[2], 1.0},
-                                             {actions[3], 0.0}}));
+                                            {actions[1], 10.0},
+                                            {actions[2], 1.0},
+                                            {actions[3], 0.0}}));
 
   const auto result = coordinator.decideTierThree({model}, actions);
   EXPECT_EQ(result.action, actions[3]);
@@ -477,8 +480,7 @@ TEST(DecisionCoordinator, NoAdvisorUsesConfiguredFallback) {
   semaforr::decision::ArbitrationConfiguration configuration;
   configuration.fallback = left;
   DecisionCoordinator coordinator(configuration);
-  const std::vector<Action> candidates{left,
-                                       Action(ActionType::TurnRight, 1U)};
+  const std::vector<Action> candidates{left, Action(ActionType::TurnRight, 1U)};
   const auto result = coordinator.decide(DecisionContext{model}, candidates);
   EXPECT_EQ(result.action, left);
   EXPECT_EQ(result.source, DecisionSource::Fallback);
@@ -521,10 +523,8 @@ TEST(DecisionCoordinator, StagedTierOnePreservesRegisteredSemanticOrder) {
       std::make_unique<FixedVeto>(Action::pause(), "AvoidObstacles"));
   coordinator.addVetoRule(
       std::make_unique<FixedVeto>(Action::pause(), "NotOpposite"));
-  coordinator.addVetoRule(
-      std::make_unique<FixedVeto>(forward, "Forward"));
-  coordinator.addVetoRule(
-      std::make_unique<FixedVeto>(left, "Precedent"));
+  coordinator.addVetoRule(std::make_unique<FixedVeto>(forward, "Forward"));
+  coordinator.addVetoRule(std::make_unique<FixedVeto>(left, "Precedent"));
 
   const auto early = coordinator.evaluateTierOneStage(
       DecisionContext{model}, candidates,
@@ -571,8 +571,7 @@ TEST(DecisionCoordinator, TierThreeRunsOnlyAfterTierOneContinues) {
 TEST(DecisionCoordinator,
      CircumstanceWeightingIsEvidenceGatedAndPreservesBaseTotals) {
   auto model = world();
-  model.mission = semaforr::domain::Mission(
-      {{1U, {4.0, 0.0}}}, 100U);
+  model.mission = semaforr::domain::Mission({{1U, {4.0, 0.0}}}, 100U);
   ASSERT_TRUE(model.mission.activate_next());
   semaforr::domain::LaserObservation laser;
   laser.angle_min = semaforr::domain::Angle(-0.2);
@@ -622,8 +621,8 @@ TEST(DecisionCoordinator,
   DecisionCoordinator coordinator(configuration);
   coordinator.addAdvisor(std::make_unique<FixedAdvisor>(
       "base", std::vector<ActionScore>{{forward, 1.0}, {left, 1.1}}));
-  const auto result = coordinator.decideTierThree(
-      {model}, std::vector<Action>{forward, left});
+  const auto result =
+      coordinator.decideTierThree({model}, std::vector<Action>{forward, left});
   EXPECT_EQ(result.action, forward);
   EXPECT_TRUE(result.circumstance_weighting_applied);
   EXPECT_TRUE(result.circumstance_weighting_changed_winner);

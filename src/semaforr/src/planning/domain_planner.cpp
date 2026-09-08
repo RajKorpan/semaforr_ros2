@@ -108,8 +108,8 @@ std::size_t nearTrailMarkers(
 std::size_t nearExits(domain::Point2D point,
                       const std::vector<domain::RegionExit>& exits,
                       double radius = 0.5) {
-  return static_cast<std::size_t>(std::count_if(
-      exits.begin(), exits.end(), [&](const auto& exit) {
+  return static_cast<std::size_t>(
+      std::count_if(exits.begin(), exits.end(), [&](const auto& exit) {
         return domain::distance(point, exit.point).meters() <= radius;
       }));
 }
@@ -213,22 +213,22 @@ double edgeCost(PlanObjective objective, const PlanningRequest& request,
     }
     case PlanObjective::HallwayPreference: {
       if (!s) return 10.0 * w;
-      const auto fa = s->hallway_entities.empty()
-                          ? nearSegments(a, s->hallways)
-                          : static_cast<std::size_t>(std::count_if(
-                                s->hallway_entities.begin(),
-                                s->hallway_entities.end(),
-                                [&](const auto& hallway) {
-                                  return hallwayContains(a, hallway);
-                                }));
-      const auto fb = s->hallway_entities.empty()
-                          ? nearSegments(b, s->hallways)
-                          : static_cast<std::size_t>(std::count_if(
-                                s->hallway_entities.begin(),
-                                s->hallway_entities.end(),
-                                [&](const auto& hallway) {
-                                  return hallwayContains(b, hallway);
-                                }));
+      const auto fa =
+          s->hallway_entities.empty()
+              ? nearSegments(a, s->hallways)
+              : static_cast<std::size_t>(std::count_if(
+                    s->hallway_entities.begin(), s->hallway_entities.end(),
+                    [&](const auto& hallway) {
+                      return hallwayContains(a, hallway);
+                    }));
+      const auto fb =
+          s->hallway_entities.empty()
+              ? nearSegments(b, s->hallways)
+              : static_cast<std::size_t>(std::count_if(
+                    s->hallway_entities.begin(), s->hallway_entities.end(),
+                    [&](const auto& hallway) {
+                      return hallwayContains(b, hallway);
+                    }));
       return fa && fb ? 2.0 * w / static_cast<double>(fa + fb) : 10.0 * w;
     }
     case PlanObjective::TrailPreference: {
@@ -299,13 +299,11 @@ std::vector<domain::ModelDependency> DomainPlanner::dependencies(
   using D = domain::ModelDependency;
   std::vector<D> result;
   if (source_mode_ == OccupancySourceMode::StaticMapWithSensors) {
-    result = {D::StaticMapGeometry, D::StaticOccupancy,
-              D::SensedOccupancy};
+    result = {D::StaticMapGeometry, D::StaticOccupancy, D::SensedOccupancy};
   } else if (source_mode_ == OccupancySourceMode::SensorDerivedPartial) {
     result = {D::SensedOccupancy};
   } else if (request.static_map && request.static_map->occupancyAvailable()) {
-    result = {D::StaticMapGeometry, D::StaticOccupancy,
-              D::SensedOccupancy};
+    result = {D::StaticMapGeometry, D::StaticOccupancy, D::SensedOccupancy};
   } else {
     result = {D::SensedOccupancy};
   }
@@ -425,9 +423,10 @@ PlanResult DomainPlanner::plan(const PlanningRequest& request) {
     auto traversal_configuration = request.traversability;
     auto effective_source = source_mode_;
     if (source_mode_ == OccupancySourceMode::StaticOrSensorDerived)
-      effective_source = request.static_map && request.static_map->occupancyAvailable()
-                             ? OccupancySourceMode::StaticMapWithSensors
-                             : OccupancySourceMode::SensorDerivedPartial;
+      effective_source =
+          request.static_map && request.static_map->occupancyAvailable()
+              ? OccupancySourceMode::StaticMapWithSensors
+              : OccupancySourceMode::SensorDerivedPartial;
     if (effective_source == OccupancySourceMode::SensorDerivedPartial)
       traversal_configuration.unknown_policy =
           traversal_configuration.sensor_unknown_policy;
@@ -437,22 +436,28 @@ PlanResult DomainPlanner::plan(const PlanningRequest& request) {
                               : nullptr,
         traversal_configuration);
     if (!traversability->grid.valid())
-      return {PlanStatus::PlannerUnavailable, {}, 0.0,
-              traversability->diagnostic};
+      return {
+          PlanStatus::PlannerUnavailable, {}, 0.0, traversability->diagnostic};
     if (effective_source == OccupancySourceMode::StaticMapWithSensors &&
         (!request.static_map->bounds.contains(request.start.position) ||
          !request.static_map->bounds.contains(request.goal)))
-      return {PlanStatus::InvalidRequest, {}, 0.0,
+      return {PlanStatus::InvalidRequest,
+              {},
+              0.0,
               "start or goal lies outside static-map bounds"};
     const auto start_cell =
         traversability->grid.geometry.index(request.start.position);
     const auto goal_cell = traversability->grid.geometry.index(request.goal);
     if (!start_cell || !goal_cell)
-      return {PlanStatus::InvalidRequest, {}, 0.0,
+      return {PlanStatus::InvalidRequest,
+              {},
+              0.0,
               "start or goal lies outside the planning extent"};
     if (!traversability->grid.cells[*start_cell].permitsTraversal() ||
         !traversability->grid.cells[*goal_cell].permitsTraversal())
-      return {PlanStatus::NoPath, {}, 0.0,
+      return {PlanStatus::NoPath,
+              {},
+              0.0,
               "start or goal is not traversable under the selected occupancy "
               "policy"};
   }
@@ -488,7 +493,9 @@ PlanResult DomainPlanner::plan(const PlanningRequest& request) {
     }
   }
   if (nodes.empty()) {
-    return {PlanStatus::PlannerUnavailable, {}, 0.0,
+    return {PlanStatus::PlannerUnavailable,
+            {},
+            0.0,
             "derived traversability contains no permitted cells"};
   }
   const std::size_t original = nodes.size(), start = nodes.size();
@@ -537,8 +544,7 @@ PlanResult DomainPlanner::plan(const PlanningRequest& request) {
   if (objective_ == PlanObjective::Distance) {
     const auto path = AStar{}.search(distance_graph, start, goal);
     if (!path.succeeded())
-      return {PlanStatus::NoPath, {}, 0.0,
-              "no path in shared planning graph"};
+      return {PlanStatus::NoPath, {}, 0.0, "no path in shared planning graph"};
     ids.assign(std::next(path.vertices.begin()), path.vertices.end());
     selected_cost = path.cost;
     search_algorithm = "A*";
@@ -563,8 +569,7 @@ PlanResult DomainPlanner::plan(const PlanningRequest& request) {
         }
     }
     if (!std::isfinite(distance[goal]))
-      return {PlanStatus::NoPath, {}, 0.0,
-              "no path in shared planning graph"};
+      return {PlanStatus::NoPath, {}, 0.0, "no path in shared planning graph"};
     for (std::size_t u = goal; u != start; u = parent[u]) {
       if (u >= nodes.size() || parent[u] >= nodes.size())
         return {PlanStatus::NoPath, {}, 0.0, "broken predecessor chain"};
@@ -581,9 +586,8 @@ PlanResult DomainPlanner::plan(const PlanningRequest& request) {
   result.primary_objective = objective_;
   result.objective_costs = evaluatePathObjectives(request, result.path);
   result.explanation = search_algorithm + " over " +
-                       traversability->diagnostic +
-                       " using the " + std::string(toString(objective_)) +
-                       " objective";
+                       traversability->diagnostic + " using the " +
+                       std::string(toString(objective_)) + " objective";
   HierarchicalPlan hierarchy;
   hierarchy.family = PlanFamily::Grid;
   hierarchy.planner = name_;
@@ -598,23 +602,29 @@ PlanResult DomainPlanner::plan(const PlanningRequest& request) {
   return result;
 }
 }  // namespace semaforr::planning
-semaforr::planning::PlannerMetadata
-/**
- * @brief Performs the metadata operation for this subsystem.
- *
- * Arguments:
- * - None.
- *
- * Returns:
- * - No value; effects are applied to owned state or outputs.
- *
- * Exceptions:
- * - None documented; validation or dependency failures may propagate.
- */
-semaforr::planning::DomainPlanner::metadata() const {
-  const bool mapless = source_mode_ != OccupancySourceMode::StaticMapWithSensors;
-  return {name_, PlanFamily::Grid, objective_, std::string(toString(objective_)),
+semaforr::planning::
+    PlannerMetadata
+    /**
+     * @brief Performs the metadata operation for this subsystem.
+     *
+     * Arguments:
+     * - None.
+     *
+     * Returns:
+     * - No value; effects are applied to owned state or outputs.
+     *
+     * Exceptions:
+     * - None documented; validation or dependency failures may propagate.
+     */
+    semaforr::planning::DomainPlanner::metadata() const {
+  const bool mapless =
+      source_mode_ != OccupancySourceMode::StaticMapWithSensors;
+  return {name_,
+          PlanFamily::Grid,
+          objective_,
+          std::string(toString(objective_)),
           std::string(objectiveDescription(objective_)),
-          {mapless ? "sensed_occupancy" : "static_occupancy"}, !mapless,
+          {mapless ? "sensed_occupancy" : "static_occupancy"},
+          !mapless,
           mapless};
 }

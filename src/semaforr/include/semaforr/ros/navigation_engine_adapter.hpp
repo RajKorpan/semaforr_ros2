@@ -247,8 +247,7 @@ class NavigationEngineAdapter {
    * Exceptions:
    * - None documented; validation or dependency failures may propagate.
    */
-  domain::FeedbackDisposition onControllerRestart(
-      const domain::Pose2D& pose);
+  domain::FeedbackDisposition onControllerRestart(const domain::Pose2D& pose);
   /**
    * @brief Performs the world model operation for this subsystem.
    *

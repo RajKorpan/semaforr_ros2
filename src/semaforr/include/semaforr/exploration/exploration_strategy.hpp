@@ -2,8 +2,8 @@
  * @file exploration_strategy.hpp
  * @brief Exploration strategy responsibilities.
  *
- * @details This file defines exploration strategy behavior for initial or reactive
- * exploration. It centers on `HleBehaviorPolicy`, `HleAngularSector`,
+ * @details This file defines exploration strategy behavior for initial or
+ * reactive exploration. It centers on `HleBehaviorPolicy`, `HleAngularSector`,
  * `HighLevelExplorationConfiguration`, `ExplorationInput`,
  * `ExplorationStrategy`. Its package-relative location is
  * `include/semaforr/exploration/exploration_strategy.hpp`.

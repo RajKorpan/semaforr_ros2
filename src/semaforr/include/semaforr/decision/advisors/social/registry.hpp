@@ -11,8 +11,8 @@
 #define SEMAFORR_DECISION_SOCIAL_ADVISOR_REGISTRY_HPP
 
 #include <semaforr/decision/advisors/social/learned_crowd_advisor.hpp>
-#include <semaforr/decision/registry.hpp>
 #include <semaforr/decision/advisors/social/social_navigation_advisor.hpp>
+#include <semaforr/decision/registry.hpp>
 
 namespace semaforr::decision {
 

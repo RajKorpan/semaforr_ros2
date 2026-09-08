@@ -2,8 +2,8 @@
  * @file exploration_candidate.hpp
  * @brief Exploration candidate responsibilities.
  *
- * @details This file defines exploration candidate behavior for initial or reactive
- * exploration. It centers on `PassageKind`, `PassageCueType`,
+ * @details This file defines exploration candidate behavior for initial or
+ * reactive exploration. It centers on `PassageKind`, `PassageCueType`,
  * `HleBundleType`, `HleBundleMeasurement`, `ExplorationCandidateState`,
  * `ExplorationCandidate`, `CandidatePriority`, `CueValidation`. Its
  * package-relative location is
@@ -203,8 +203,7 @@ struct CandidatePriority {
    */
   bool operator()(const ExplorationCandidate& left,
                   const ExplorationCandidate& right) const noexcept {
-    if (left.priority != right.priority)
-      return left.priority < right.priority;
+    if (left.priority != right.priority) return left.priority < right.priority;
     return left.id > right.id;
   }
 };

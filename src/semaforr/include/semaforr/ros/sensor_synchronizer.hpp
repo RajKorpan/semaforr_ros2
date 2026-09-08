@@ -2,8 +2,8 @@
  * @file sensor_synchronizer.hpp
  * @brief Sensor synchronizer responsibilities.
  *
- * @details This file defines sensor synchronizer behavior for the ROS 2 composition
- * and message-adaptation boundary. It centers on
+ * @details This file defines sensor synchronizer behavior for the ROS 2
+ * composition and message-adaptation boundary. It centers on
  * `SensorSynchronizerConfiguration`, `SensorStatus`,
  * `SynchronizedSensors`, `SensorSynchronizer`, `PoseSample`, `ScanSample`.
  * Its package-relative location is

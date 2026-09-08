@@ -50,11 +50,9 @@ semaforr::domain::RobotObservation observation(double x,
                                                    2.0, 2.0, 2.0, 2.0, 2.0}) {
   semaforr::domain::RobotObservation result;
   result.pose = {{x, 0.0}, semaforr::domain::Angle::zero()};
-  result.laser.angle_min =
-      semaforr::domain::Angle(-1.5707963267948966);
+  result.laser.angle_min = semaforr::domain::Angle(-1.5707963267948966);
   result.laser.angle_increment = semaforr::domain::Angle(
-      3.1415926535897932 /
-      static_cast<double>(ranges.size() - 1U));
+      3.1415926535897932 / static_cast<double>(ranges.size() - 1U));
   result.laser.minimum_range = semaforr::domain::Distance(0.1);
   result.laser.maximum_range = semaforr::domain::Distance(5.0);
   result.laser.ranges_m = std::move(ranges);
@@ -85,17 +83,16 @@ semaforr::domain::RobotObservation compatibilityObservation(
     std::size_t beam_count = 360U) {
   semaforr::domain::RobotObservation result;
   result.pose = {{x, y}, semaforr::domain::Angle(heading)};
-  result.laser.angle_min =
-      semaforr::domain::Angle(-1.5707963267948966);
+  result.laser.angle_min = semaforr::domain::Angle(-1.5707963267948966);
   result.laser.angle_increment = semaforr::domain::Angle(
       3.1415926535897932 / static_cast<double>(beam_count - 1U));
   result.laser.minimum_range = semaforr::domain::Distance(0.1);
   result.laser.maximum_range = semaforr::domain::Distance(10.0);
   result.laser.ranges_m.resize(beam_count);
   for (std::size_t beam = 0U; beam < beam_count; ++beam) {
-    const double angle = result.laser.angle_min.radians() +
-                         static_cast<double>(beam) *
-                             result.laser.angle_increment.radians();
+    const double angle =
+        result.laser.angle_min.radians() +
+        static_cast<double>(beam) * result.laser.angle_increment.radians();
     result.laser.ranges_m[beam] = angle < 0.0 ? right_range : left_range;
   }
   return result;
@@ -118,10 +115,11 @@ semaforr::domain::RobotObservation compatibilityObservation(
  */
 void setAngularSectorRange(semaforr::domain::RobotObservation& observation,
                            double minimum, double maximum, double range) {
-  for (std::size_t beam = 0U; beam < observation.laser.ranges_m.size(); ++beam) {
-    const double angle = observation.laser.angle_min.radians() +
-                         static_cast<double>(beam) *
-                             observation.laser.angle_increment.radians();
+  for (std::size_t beam = 0U; beam < observation.laser.ranges_m.size();
+       ++beam) {
+    const double angle =
+        observation.laser.angle_min.radians() +
+        static_cast<double>(beam) * observation.laser.angle_increment.radians();
     if (angle >= minimum && angle <= maximum)
       observation.laser.ranges_m[beam] = range;
   }
@@ -144,10 +142,12 @@ semaforr::domain::StaticMap planningMap() {
   map.source = "planning-test";
   map.bounds = {{0.0, -1.5}, {3.0, 1.5}};
   map.walls = {{{0.0, -1.5}, {3.0, -1.5}}};
-  map.occupancy = {
-      3U, 3U, 1.0, {0.0, -1.5},
-      std::vector<semaforr::domain::StaticOccupancyState>(
-          9U, semaforr::domain::StaticOccupancyState::StaticFree)};
+  map.occupancy = {3U,
+                   3U,
+                   1.0,
+                   {0.0, -1.5},
+                   std::vector<semaforr::domain::StaticOccupancyState>(
+                       9U, semaforr::domain::StaticOccupancyState::StaticFree)};
   return map;
 }
 
@@ -201,12 +201,12 @@ TEST(HighLevelExplore,
       [](const auto& cell) {
         return cell.state == semaforr::exploration::PassageCellState::Free;
       }));
-  EXPECT_TRUE(std::any_of(
-      passage_grid.cells.begin(), passage_grid.cells.end(),
-      [](const auto& cell) {
-        return cell.state ==
-               semaforr::exploration::PassageCellState::Obstructed;
-      }));
+  EXPECT_TRUE(
+      std::any_of(passage_grid.cells.begin(), passage_grid.cells.end(),
+                  [](const auto& cell) {
+                    return cell.state ==
+                           semaforr::exploration::PassageCellState::Obstructed;
+                  }));
   EXPECT_TRUE(std::any_of(
       passage_grid.cells.begin(), passage_grid.cells.end(),
       [&](const auto& cell) {
@@ -248,10 +248,8 @@ TEST(HighLevelExplore,
   const auto candidates =
       exploration::HighLevelExplorer::discoverCandidates(view, configuration);
   ASSERT_EQ(candidates.size(), 2U);
-  EXPECT_EQ(candidates[0].cue_type,
-            exploration::PassageCueType::RightFocus);
-  EXPECT_EQ(candidates[1].cue_type,
-            exploration::PassageCueType::LeftFocus);
+  EXPECT_EQ(candidates[0].cue_type, exploration::PassageCueType::RightFocus);
+  EXPECT_EQ(candidates[1].cue_type, exploration::PassageCueType::LeftFocus);
   EXPECT_GT(candidates[1].first_beam, candidates[0].last_beam);
   for (const auto& candidate : candidates) {
     EXPECT_GT(candidate.length.meters(), candidate.width.meters());
@@ -261,9 +259,9 @@ TEST(HighLevelExplore,
   }
   auto narrow_policy = configuration;
   narrow_policy.minimum_length_to_width_ratio = 10.0;
-  EXPECT_TRUE(exploration::HighLevelExplorer::discoverCandidates(
-                  view, narrow_policy)
-                  .empty());
+  EXPECT_TRUE(
+      exploration::HighLevelExplorer::discoverCandidates(view, narrow_policy)
+          .empty());
   auto room_policy = configuration;
   room_policy.large_room_width = domain::Distance(3.0);
   const auto rooms = exploration::HighLevelExplorer::discoverCandidates(
@@ -296,8 +294,7 @@ TEST(HighLevelExplore,
 
   exploration::PassageGridSnapshot prior;
   prior.geometry = domain::GridGeometry::fromBounds(
-      "map", {5.0, -7.0}, {15.0, 3.0}, 0.5,
-      domain::GridExtentMode::Expandable,
+      "map", {5.0, -7.0}, {15.0, 3.0}, 0.5, domain::GridExtentMode::Expandable,
       domain::GridExtentSource::SensorDerivedExpansion,
       domain::GridOutOfBoundsBehavior::ExpandBeforeInsert);
   prior.revision = 4U;
@@ -317,8 +314,7 @@ TEST(HighLevelExplore,
     evidence.column = static_cast<int>(cell->first);
     evidence.state = exploration::PassageCellState::Passage;
     evidence.passage_id = passage;
-    evidence.completion_state =
-        exploration::PassageCompletionState::Completed;
+    evidence.completion_state = exploration::PassageCompletionState::Completed;
     evidence.evidence_count = 1U;
     prior.cells.push_back(evidence);
   }
@@ -332,12 +328,12 @@ TEST(HighLevelExplore,
   auto overlapping = candidates.front();
   overlapping.start.x_m += 0.1;
   overlapping.endpoint.x_m += 0.1;
-  EXPECT_TRUE(exploration::HighLevelExplorer::cuesSimilar(
-      candidates.front(), overlapping, 0.5));
+  EXPECT_TRUE(exploration::HighLevelExplorer::cuesSimilar(candidates.front(),
+                                                          overlapping, 0.5));
   overlapping.start.y_m += 5.0;
   overlapping.endpoint.y_m += 5.0;
-  EXPECT_FALSE(exploration::HighLevelExplorer::cuesSimilar(
-      candidates.front(), overlapping, 0.5));
+  EXPECT_FALSE(exploration::HighLevelExplorer::cuesSimilar(candidates.front(),
+                                                           overlapping, 0.5));
 }
 
 TEST(HighLevelExplore,
@@ -347,8 +343,7 @@ TEST(HighLevelExplore,
   configuration.behavior_policy = exploration::HleBehaviorPolicy::Compatibility;
   std::optional<std::array<exploration::HleBundleMeasurement, 4U>> reference;
   for (const std::size_t beams : {180U, 360U, 660U, 720U}) {
-    const auto scan =
-        compatibilityObservation(2.0, -1.0, 0.4, 4.0, 6.0, beams);
+    const auto scan = compatibilityObservation(2.0, -1.0, 0.4, 4.0, 6.0, beams);
     const auto measured =
         exploration::HighLevelExplorer::measureBundles(scan, configuration);
     for (const auto& bundle : measured) {
@@ -369,15 +364,14 @@ TEST(HighLevelExplore,
     }
   }
 
-  auto asymmetric =
-      compatibilityObservation(0.0, 0.0, 0.0, 4.0, 4.0, 720U);
+  auto asymmetric = compatibilityObservation(0.0, 0.0, 0.0, 4.0, 4.0, 720U);
   double expected_x = 0.0;
   double expected_y = 0.0;
   std::size_t expected_count = 0U;
   for (std::size_t beam = 0U; beam < asymmetric.laser.ranges_m.size(); ++beam) {
-    const double angle = asymmetric.laser.angle_min.radians() +
-                         static_cast<double>(beam) *
-                             asymmetric.laser.angle_increment.radians();
+    const double angle =
+        asymmetric.laser.angle_min.radians() +
+        static_cast<double>(beam) * asymmetric.laser.angle_increment.radians();
     if (angle < configuration.left_focus.minimum.radians() ||
         angle > configuration.left_focus.maximum.radians())
       continue;
@@ -386,9 +380,8 @@ TEST(HighLevelExplore,
           std::numeric_limits<double>::quiet_NaN();
       continue;
     }
-    const double range = beam % 2U == 0U
-                             ? asymmetric.laser.maximum_range.meters()
-                             : 2.0;
+    const double range =
+        beam % 2U == 0U ? asymmetric.laser.maximum_range.meters() : 2.0;
     asymmetric.laser.ranges_m[beam] =
         beam % 2U == 0U ? std::numeric_limits<double>::infinity() : range;
     expected_x += range * std::cos(angle);
@@ -423,17 +416,15 @@ TEST(HighLevelExplore,
       [&](const auto& value) { return value.id == *selected.candidate_id; });
   static_cast<void>(explorer.update({view, actions, {}}));
 
-  view.pose.position =
-      {0.5 * std::cos(candidate.direction.radians()),
-       0.5 * std::sin(candidate.direction.radians())};
+  view.pose.position = {0.5 * std::cos(candidate.direction.radians()),
+                        0.5 * std::sin(candidate.direction.radians())};
   setAngularSectorRange(view, -1.5707963267948966, 0.0, 5.0);
   const auto extended = explorer.update({view, actions, {}});
   EXPECT_EQ(extended.state, exploration::HleState::PursueCandidate);
   const auto unfinished = explorer.unfinishedCandidates();
-  const auto active = std::find_if(unfinished.begin(), unfinished.end(),
-                                   [&](const auto& value) {
-                                     return value.id == *selected.candidate_id;
-                                   });
+  const auto active = std::find_if(
+      unfinished.begin(), unfinished.end(),
+      [&](const auto& value) { return value.id == *selected.candidate_id; });
   ASSERT_NE(active, unfinished.end());
   EXPECT_GT(active->current_extension.meters(),
             candidate.current_extension.meters());
@@ -474,8 +465,9 @@ TEST(HighLevelExplore,
     static_cast<void>(explorer.update({initial, actions, {}}));
     const auto terminal = explorer.update({terminal_view, actions, {}});
     EXPECT_EQ(terminal.pursuit_termination_reason, expected);
-    EXPECT_TRUE(terminal.event == exploration::CandidateLifecycleEvent::Completed ||
-                terminal.event == exploration::CandidateLifecycleEvent::Suspended);
+    EXPECT_TRUE(
+        terminal.event == exploration::CandidateLifecycleEvent::Completed ||
+        terminal.event == exploration::CandidateLifecycleEvent::Suspended);
     EXPECT_TRUE(std::any_of(
         terminal.diagnostics.begin(), terminal.diagnostics.end(),
         [&](const auto& diagnostic) {
@@ -485,14 +477,13 @@ TEST(HighLevelExplore,
                       : exploration::CandidateDiagnosticKind::Completed);
         }));
     const auto grid = explorer.passageGrid();
-    EXPECT_TRUE(std::any_of(grid.cells.begin(), grid.cells.end(),
-                            [&](const auto& cell) {
-                              return cell.state ==
-                                         exploration::PassageCellState::Passage &&
-                                     cell.candidate_id == selected.candidate_id &&
-                                     cell.passage_id.has_value() &&
-                                     cell.completion_state == completion;
-                            }));
+    EXPECT_TRUE(std::any_of(
+        grid.cells.begin(), grid.cells.end(), [&](const auto& cell) {
+          return cell.state == exploration::PassageCellState::Passage &&
+                 cell.candidate_id == selected.candidate_id &&
+                 cell.passage_id.has_value() &&
+                 cell.completion_state == completion;
+        }));
   };
 
   auto width_change = compatibilityObservation(0.2, 0.0, 0.0, 1.5, 1.5);
@@ -537,19 +528,18 @@ TEST(HighLevelExplore,
 
   exploration::HighLevelExplorationConfiguration bounded = configuration;
   bounded.passage_grid_geometry = domain::GridGeometry::fromBounds(
-      "map", {-1.0, -1.0}, {1.0, 1.0}, 0.5,
-      domain::GridExtentMode::Fixed,
+      "map", {-1.0, -1.0}, {1.0, 1.0}, 0.5, domain::GridExtentMode::Fixed,
       domain::GridExtentSource::RepresentationLocalBounds,
       domain::GridOutOfBoundsBehavior::Reject);
   exploration::HighLevelExplorer rejecting(bounded);
   static_cast<void>(rejecting.update({view, actions, {}}));
   const auto rejection = rejecting.update({view, actions, {}});
-  EXPECT_TRUE(std::any_of(rejection.diagnostics.begin(),
-                          rejection.diagnostics.end(), [](const auto& item) {
-                            return item.kind ==
-                                       exploration::CandidateDiagnosticKind::Rejected &&
-                                   item.reason == "cue_outside_fixed_grid";
-                          }));
+  EXPECT_TRUE(std::any_of(
+      rejection.diagnostics.begin(), rejection.diagnostics.end(),
+      [](const auto& item) {
+        return item.kind == exploration::CandidateDiagnosticKind::Rejected &&
+               item.reason == "cue_outside_fixed_grid";
+      }));
 
   const auto& all = explorer.candidateDiagnostics();
   for (const auto kind : {exploration::CandidateDiagnosticKind::Created,
@@ -564,8 +554,7 @@ TEST(HighLevelExplore,
   EXPECT_TRUE(std::any_of(
       explorer.candidateDiagnostics().begin(),
       explorer.candidateDiagnostics().end(), [](const auto& item) {
-        return item.kind ==
-               exploration::CandidateDiagnosticKind::Abandoned;
+        return item.kind == exploration::CandidateDiagnosticKind::Abandoned;
       }));
 }
 
@@ -619,19 +608,19 @@ TEST(HighwayLearning, LabelsNegativeWorldCoordinatesWithoutDiscardingThem) {
   learner.observe(episode);
   learner.rebuild();
   const auto update = learner.snapshot();
-  const auto& model = std::get<semaforr::spatial::HighwayModel>(
-      update.payload);
+  const auto& model = std::get<semaforr::spatial::HighwayModel>(update.payload);
   ASSERT_FALSE(model.grid_labels.empty());
   EXPECT_GE(model.grid_labels.front().row, 0);
   EXPECT_GE(model.grid_labels.front().column, 0);
   ASSERT_TRUE(model.geometry.valid());
   EXPECT_LT(model.geometry.minimum.x_m, 0.0);
   EXPECT_LT(model.geometry.minimum.y_m, 0.0);
-  EXPECT_LT(model.geometry.center(
-                static_cast<std::size_t>(model.grid_labels.front().column),
-                static_cast<std::size_t>(model.grid_labels.front().row))
-                .x_m,
-            0.0);
+  EXPECT_LT(
+      model.geometry
+          .center(static_cast<std::size_t>(model.grid_labels.front().column),
+                  static_cast<std::size_t>(model.grid_labels.front().row))
+          .x_m,
+      0.0);
 }
 
 TEST(HighwayLearning, CompatibilitySmoothingUsesThreeVonNeumannNeighbors) {
@@ -655,7 +644,8 @@ TEST(HighwayLearning, CompatibilitySmoothingUsesThreeVonNeumannNeighbors) {
 
 TEST(HighwayLearning, ComponentPolicyCanPreferIntersectionCountOrSize) {
   semaforr::domain::Graph<semaforr::domain::Intersection,
-                          semaforr::domain::HighwayEdge> graph;
+                          semaforr::domain::HighwayEdge>
+      graph;
   for (std::size_t id = 0U; id < 7U; ++id)
     graph.vertices.push_back(
         {id, {}, {static_cast<double>(id), 0.0}, id != 4U});
@@ -682,10 +672,9 @@ TEST(HierarchicalPlans, HighwayPlanProducesTypedOperationalSteps) {
       semaforr::domain::GridExtentMode::Fixed,
       semaforr::domain::GridExtentSource::RepresentationLocalBounds,
       semaforr::domain::GridOutOfBoundsBehavior::NonTraversable);
-  spatial.highways.graph.vertices = {
-      {0U, {0, 0}, {0.5, 0.5}, true},
-      {1U, {0, 1}, {1.5, 0.5}, false},
-      {2U, {0, 2}, {2.5, 0.5}, true}};
+  spatial.highways.graph.vertices = {{0U, {0, 0}, {0.5, 0.5}, true},
+                                     {1U, {0, 1}, {1.5, 0.5}, false},
+                                     {2U, {0, 2}, {2.5, 0.5}, true}};
   spatial.highways.graph.edges = {
       {0U, 1U, 0U, 1.0, {}, {{0.5, 0.5}, {1.5, 0.5}}},
       {1U, 2U, 1U, 1.0, {}, {{1.5, 0.5}, {2.5, 0.5}}}};
@@ -729,14 +718,14 @@ TEST(HierarchicalPlans, HighwayAttachmentInsideHighwayUsesCloserEndpoint) {
       semaforr::domain::GridExtentMode::Fixed,
       semaforr::domain::GridExtentSource::RepresentationLocalBounds,
       semaforr::domain::GridOutOfBoundsBehavior::NonTraversable);
-  spatial.highways.graph.vertices = {
-      {0U, {0, 0}, {0.5, 0.5}, true},
-      {1U, {0, 4}, {4.5, 0.5}, true}};
+  spatial.highways.graph.vertices = {{0U, {0, 0}, {0.5, 0.5}, true},
+                                     {1U, {0, 4}, {4.5, 0.5}, true}};
   spatial.highways.graph.edges = {
       {0U, 1U, 8U, 4.0, {}, {{0.5, 0.5}, {4.5, 0.5}}}};
-  spatial.highways.highways = {
-      {8U, semaforr::domain::Axis::Horizontal,
-       {{0, 0}, {0, 1}, {0, 2}, {0, 3}, {0, 4}}, {0U, 1U}}};
+  spatial.highways.highways = {{8U,
+                                semaforr::domain::Axis::Horizontal,
+                                {{0, 0}, {0, 1}, {0, 2}, {0, 3}, {0, 4}},
+                                {0U, 1U}}};
   const auto result = semaforr::planning::HighwayPlan{}.plan(
       {{{3.5, 0.5}, semaforr::domain::Angle::zero()}, {0.5, 0.5}, &spatial});
   ASSERT_TRUE(result.succeeded());
@@ -756,21 +745,23 @@ TEST(HierarchicalPlans,
      HighwayPlanPreservesVisibilityAndMultiEdgeSkeletonAttachmentsBothSides) {
   semaforr::domain::SpatialModel spatial;
   const std::array<semaforr::domain::Point2D, 5U> centers{
-      semaforr::domain::Point2D{0.0, 0.0}, {3.0, 0.0}, {6.0, 0.0},
-      {10.0, 0.0}, {11.0, 0.0}};
+      semaforr::domain::Point2D{0.0, 0.0},
+      {3.0, 0.0},
+      {6.0, 0.0},
+      {10.0, 0.0},
+      {11.0, 0.0}};
   for (std::size_t index = 0U; index < centers.size(); ++index) {
     semaforr::domain::LearnedRegion region;
     region.id = index;
     region.boundary = {centers[index], semaforr::domain::Distance(0.6)};
     spatial.regions.push_back(region);
     spatial.learned_regions.push_back(region.boundary);
-    spatial.region_skeleton_nodes.push_back(
-        {index, index, centers[index], {}});
+    spatial.region_skeleton_nodes.push_back({index, index, centers[index], {}});
   }
-  spatial.region_skeleton_nodes[0].visibility[180] =
-      {true, 2.0, {0.0, 0.0}, {-2.0, 0.0}, 70U};
-  spatial.region_skeleton_nodes[4].visibility[0] =
-      {true, 2.0, {11.0, 0.0}, {13.0, 0.0}, 71U};
+  spatial.region_skeleton_nodes[0].visibility[180] = {
+      true, 2.0, {0.0, 0.0}, {-2.0, 0.0}, 70U};
+  spatial.region_skeleton_nodes[4].visibility[0] = {
+      true, 2.0, {11.0, 0.0}, {13.0, 0.0}, 71U};
   const auto edge = [&](std::size_t from, std::size_t to) {
     spatial.region_skeleton_edges.emplace_back(
         from, to,
@@ -785,14 +776,14 @@ TEST(HierarchicalPlans,
       semaforr::domain::GridExtentMode::Fixed,
       semaforr::domain::GridExtentSource::RepresentationLocalBounds,
       semaforr::domain::GridOutOfBoundsBehavior::NonTraversable);
-  spatial.highways.graph.vertices = {
-      {0U, {1, 7}, {6.0, 0.0}, true},
-      {1U, {1, 11}, {10.0, 0.0}, true}};
+  spatial.highways.graph.vertices = {{0U, {1, 7}, {6.0, 0.0}, true},
+                                     {1U, {1, 11}, {10.0, 0.0}, true}};
   spatial.highways.graph.edges = {
       {0U, 1U, 4U, 4.0, {}, {{6.0, 0.0}, {10.0, 0.0}}}};
-  spatial.highways.highways = {
-      {4U, semaforr::domain::Axis::Horizontal,
-       {{1, 7}, {1, 8}, {1, 9}, {1, 10}, {1, 11}}, {0U, 1U}}};
+  spatial.highways.highways = {{4U,
+                                semaforr::domain::Axis::Horizontal,
+                                {{1, 7}, {1, 8}, {1, 9}, {1, 10}, {1, 11}},
+                                {0U, 1U}}};
 
   const auto result = semaforr::planning::HighwayPlan{}.plan(
       {{{-1.0, 0.0}, semaforr::domain::Angle::zero()}, {12.0, 0.0}, &spatial});
@@ -803,10 +794,11 @@ TEST(HierarchicalPlans,
   std::size_t transitions = 0U;
   std::vector<semaforr::planning::VisibilityConnectionStep> visibility;
   for (const auto& step : result.hierarchical->steps) {
-    if (std::holds_alternative<semaforr::planning::SkeletonTransitionStep>(step))
+    if (std::holds_alternative<semaforr::planning::SkeletonTransitionStep>(
+            step))
       ++transitions;
-    if (const auto* connection = std::get_if<
-            semaforr::planning::VisibilityConnectionStep>(&step))
+    if (const auto* connection =
+            std::get_if<semaforr::planning::VisibilityConnectionStep>(&step))
       visibility.push_back(*connection);
   }
   // The start attachment traverses two skeleton edges. The goal surrogate
@@ -832,8 +824,8 @@ TEST(HierarchicalPlans, DisconnectedSkeletonHighwayAttachmentsReturnNoPath) {
     spatial.learned_regions.push_back(region.boundary);
     spatial.region_skeleton_nodes.push_back({index, index, center, {}});
   }
-  spatial.highways.graph.vertices = {
-      {0U, {}, {0.0, 0.0}, true}, {1U, {}, {10.0, 0.0}, true}};
+  spatial.highways.graph.vertices = {{0U, {}, {0.0, 0.0}, true},
+                                     {1U, {}, {10.0, 0.0}, true}};
   const auto result = semaforr::planning::HighwayPlan{}.plan(
       {{{0.0, 0.0}, semaforr::domain::Angle::zero()}, {10.0, 0.0}, &spatial});
   EXPECT_FALSE(result.succeeded());
@@ -850,14 +842,13 @@ TEST(HierarchicalPlans, HighwayPlanChoosesBestValidNetworkAlternative) {
   for (std::size_t id = 0U; id < spatial.skeleton_nodes.size(); ++id) {
     semaforr::domain::LearnedRegion region;
     region.id = id;
-    region.boundary =
-        {spatial.skeleton_nodes[id], semaforr::domain::Distance(1.1)};
+    region.boundary = {spatial.skeleton_nodes[id],
+                       semaforr::domain::Distance(1.1)};
     spatial.regions.push_back(region);
     spatial.learned_regions.push_back(region.boundary);
   }
   spatial.region_skeleton_edges = {
-      {0U, 1U, {}, 10.0, 0U}, {1U, 2U, {}, 10.0, 0U},
-      {2U, 3U, {}, 10.0, 0U}};
+      {0U, 1U, {}, 10.0, 0U}, {1U, 2U, {}, 10.0, 0U}, {2U, 3U, {}, 10.0, 0U}};
   spatial.highways.graph.vertices = {{0U, {0, 0}, {0.0, 0.0}, true},
                                      {1U, {0, 10}, {10.0, 0.0}, true}};
   spatial.highways.graph.edges = {
@@ -867,11 +858,20 @@ TEST(HierarchicalPlans, HighwayPlanChoosesBestValidNetworkAlternative) {
       semaforr::domain::GridExtentMode::Fixed,
       semaforr::domain::GridExtentSource::RepresentationLocalBounds,
       semaforr::domain::GridOutOfBoundsBehavior::NonTraversable);
-  spatial.highways.highways = {
-      {0U, semaforr::domain::Axis::Horizontal,
-       {{1, 1}, {1, 2}, {1, 3}, {1, 4}, {1, 5}, {1, 6}, {1, 7}, {1, 8},
-        {1, 9}, {1, 10}, {1, 11}},
-       {0U, 1U}}};
+  spatial.highways.highways = {{0U,
+                                semaforr::domain::Axis::Horizontal,
+                                {{1, 1},
+                                 {1, 2},
+                                 {1, 3},
+                                 {1, 4},
+                                 {1, 5},
+                                 {1, 6},
+                                 {1, 7},
+                                 {1, 8},
+                                 {1, 9},
+                                 {1, 10},
+                                 {1, 11}},
+                                {0U, 1U}}};
   semaforr::planning::HighwayPlan planner;
   const auto assisted =
       planner.plan({{{-1.0, 0.0}, semaforr::domain::Angle::zero()},
@@ -886,7 +886,8 @@ TEST(HierarchicalPlans, HighwayPlanChoosesBestValidNetworkAlternative) {
   EXPECT_TRUE(std::any_of(
       assisted.hierarchical->steps.begin(), assisted.hierarchical->steps.end(),
       [](const auto& step) {
-        const auto* highway = std::get_if<semaforr::planning::HighwayStep>(&step);
+        const auto* highway =
+            std::get_if<semaforr::planning::HighwayStep>(&step);
         return highway != nullptr && !highway->fallback_subtrail.empty();
       }));
 

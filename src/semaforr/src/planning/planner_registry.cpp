@@ -31,15 +31,15 @@ namespace semaforr::planning {
  * - None documented; validation or dependency failures may propagate.
  */
 void PlannerRegistry::add(std::string name, PlannerInputModel model,
-                          Factory factory,
-                          StaticMapRequirement map_requirement,
+                          Factory factory, StaticMapRequirement map_requirement,
                           OccupancyRequirement occupancy_requirement) {
   if (name.empty() || !factory)
     throw std::invalid_argument(
         "planner registration requires a name and factory");
-  if (!entries_.emplace(std::move(name),
-                        Entry{model, std::move(factory), map_requirement,
-                              occupancy_requirement})
+  if (!entries_
+           .emplace(std::move(name),
+                    Entry{model, std::move(factory), map_requirement,
+                          occupancy_requirement})
            .second)
     throw std::invalid_argument("planner is already registered");
 }
@@ -103,7 +103,8 @@ PlannerDeclaration PlannerRegistry::declaration(
                   OccupancyRequirement::SensedPartial ||
               found->second.occupancy_requirement ==
                   OccupancyRequirement::StaticOrSensedPartial,
-          planner->objective(), planner->dependencies(request),
+          planner->objective(),
+          planner->dependencies(request),
           std::move(metadata)};
 }
 /**
@@ -221,8 +222,7 @@ PlannerRegistry defaultPlannerRegistry() {
         name, PlannerInputModel::AffordanceModifiedGrid,
         [name, objective] {
           return std::make_unique<DomainPlanner>(
-              name, objective,
-              OccupancySourceMode::StaticOrSensorDerived);
+              name, objective, OccupancySourceMode::StaticOrSensorDerived);
         },
         StaticMapRequirement::Optional,
         OccupancyRequirement::StaticOrSensedPartial);

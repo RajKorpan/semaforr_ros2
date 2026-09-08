@@ -2,8 +2,8 @@
  * @file exploration_result.hpp
  * @brief Exploration result responsibilities.
  *
- * @details This file defines exploration result behavior for initial or reactive
- * exploration. It centers on `HleState`, `CandidateLifecycleEvent`,
+ * @details This file defines exploration result behavior for initial or
+ * reactive exploration. It centers on `HleState`, `CandidateLifecycleEvent`,
  * `PursuitTerminationReason`, `CandidateDiagnosticKind`,
  * `CandidateDiagnostic`, `ExplorationCompletionReason`,
  * `ExplorationSubgoal`, `ExplorationResult`. Its package-relative location

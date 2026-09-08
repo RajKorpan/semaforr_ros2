@@ -2,14 +2,14 @@
  * @file highway_explorer.cpp
  * @brief Highway explorer responsibilities.
  *
- * @details This file implements highway explorer behavior for initial or reactive
- * exploration. It records the declarations, settings, fixtures, or
+ * @details This file implements highway explorer behavior for initial or
+ * reactive exploration. It records the declarations, settings, fixtures, or
  * guidance needed by that responsibility. Its package-relative location is
  * `src/exploration/highway_explorer.cpp`.
  */
-#include <semaforr/exploration/highway_explorer.hpp>
 #include <algorithm>
 #include <cmath>
+#include <semaforr/exploration/highway_explorer.hpp>
 
 namespace semaforr::exploration {
 namespace {
@@ -57,8 +57,8 @@ HighLevelExplorationConfiguration explorationConfiguration(
  */
 HighwayExplorer::HighwayExplorer(double minimum_clearance_m,
                                  double heading_tolerance_rad)
-    : configuration_(explorationConfiguration(minimum_clearance_m,
-                                              heading_tolerance_rad)),
+    : configuration_(
+          explorationConfiguration(minimum_clearance_m, heading_tolerance_rad)),
       explorer_(configuration_) {}
 
 /**
@@ -104,18 +104,18 @@ std::vector<PassageCandidate> HighwayExplorer::detectPassages(
  * Exceptions:
  * - None documented; validation or dependency failures may propagate.
  */
-HleDecision HighwayExplorer::decide(
-    const domain::RobotObservation& observation,
-    const domain::ActionSpace& action_space) {
-  auto candidates =
-      detectPassages(observation.laser,
-                     configuration_.minimum_clearance.meters());
+HleDecision HighwayExplorer::decide(const domain::RobotObservation& observation,
+                                    const domain::ActionSpace& action_space) {
+  auto candidates = detectPassages(observation.laser,
+                                   configuration_.minimum_clearance.meters());
   if (candidates.empty())
     return {domain::Action(domain::ActionType::TurnLeft, 1U),
-            HleState::DiscoverCandidate, {}, "survey for passage"};
+            HleState::DiscoverCandidate,
+            {},
+            "survey for passage"};
   const auto selected = std::max_element(
-      candidates.begin(), candidates.end(), [](const auto& left,
-                                                const auto& right) {
+      candidates.begin(), candidates.end(),
+      [](const auto& left, const auto& right) {
         if (left.confidence != right.confidence)
           return left.confidence < right.confidence;
         return left.heading.radians() > right.heading.radians();
@@ -129,16 +129,14 @@ HleDecision HighwayExplorer::decide(
         found == turns.end()
             ? turns.size()
             : static_cast<std::size_t>(found - turns.begin()) + 1U;
-    return {heading < 0.0
-                ? domain::Action(domain::ActionType::TurnRight, index)
-                : domain::Action(domain::ActionType::TurnLeft, index),
+    return {heading < 0.0 ? domain::Action(domain::ActionType::TurnRight, index)
+                          : domain::Action(domain::ActionType::TurnLeft, index),
             HleState::PursueCandidate, std::move(candidates),
             "align with widest passage"};
   }
-  const std::size_t magnitude =
-      selected->clearance.meters() > 1.5
-          ? action_space.move_distances_m().size()
-          : 1U;
+  const std::size_t magnitude = selected->clearance.meters() > 1.5
+                                    ? action_space.move_distances_m().size()
+                                    : 1U;
   return {domain::Action(domain::ActionType::Forward, magnitude),
           HleState::PursueCandidate, std::move(candidates),
           "traverse selected passage"};

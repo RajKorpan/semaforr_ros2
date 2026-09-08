@@ -2,15 +2,15 @@
  * @file message_adapters.cpp
  * @brief Message adapters responsibilities.
  *
- * @details This file implements message adapters behavior for the ROS 2 composition
- * and message-adaptation boundary. It records the declarations, settings,
- * fixtures, or guidance needed by that responsibility. Its
+ * @details This file implements message adapters behavior for the ROS 2
+ * composition and message-adaptation boundary. It records the declarations,
+ * settings, fixtures, or guidance needed by that responsibility. Its
  * package-relative location is `src/ros/message_adapters.cpp`.
  */
 #include <algorithm>
 #include <array>
-#include <chrono>
 #include <cctype>
+#include <chrono>
 #include <cmath>
 #include <limits>
 #include <semaforr/ros/message_adapters.hpp>
@@ -35,8 +35,9 @@ namespace {
  * Exceptions:
  * - None documented; validation or dependency failures may propagate.
  */
-domain::SocialTimestamp observationTime(const builtin_interfaces::msg::Time& stamp,
-                                        const rclcpp::Time& received_at) {
+domain::SocialTimestamp observationTime(
+    const builtin_interfaces::msg::Time& stamp,
+    const rclcpp::Time& received_at) {
   const rclcpp::Time observed_at(stamp, received_at.get_clock_type());
   if (observed_at.nanoseconds() < 0 || received_at < observed_at) {
     throw std::invalid_argument(
@@ -58,8 +59,8 @@ domain::SocialTimestamp observationTime(const builtin_interfaces::msg::Time& sta
  * Exceptions:
  * - None documented; validation or dependency failures may propagate.
  */
-std::chrono::nanoseconds observationAge(
-    domain::SocialTimestamp observed_at, const rclcpp::Time& received_at) {
+std::chrono::nanoseconds observationAge(domain::SocialTimestamp observed_at,
+                                        const rclcpp::Time& received_at) {
   return std::chrono::nanoseconds(received_at.nanoseconds() -
                                   observed_at.count());
 }
@@ -125,8 +126,8 @@ void validateConfiguration(const SocialAdapterConfiguration& config) {
       !std::isfinite(config.minimum_covariance_confidence) ||
       config.minimum_covariance_confidence <= 0.0 ||
       config.minimum_covariance_confidence > 1.0 ||
-      !std::isfinite(config.hunav_confidence) || config.hunav_confidence < 0.0 ||
-      config.hunav_confidence > 1.0) {
+      !std::isfinite(config.hunav_confidence) ||
+      config.hunav_confidence < 0.0 || config.hunav_confidence > 1.0) {
     throw std::invalid_argument("invalid social adapter configuration");
   }
 }
@@ -178,7 +179,8 @@ domain::CrowdObservation trackedPeopleToDomain(
               configuration.history_step_s};
     }
     converted.confidence = person.confidence;
-    converted.position_covariance = covariance(converted.confidence, configuration);
+    converted.position_covariance =
+        covariance(converted.confidence, configuration);
     result.pedestrians.push_back(std::move(converted));
   }
   result.validate();
@@ -221,7 +223,8 @@ domain::CrowdObservation hunavAgentsToDomain(
     converted.position = {agent.position.position.x, agent.position.position.y};
     converted.velocity_mps = {agent.velocity.linear.x, agent.velocity.linear.y};
     converted.confidence = configuration.hunav_confidence;
-    converted.position_covariance = covariance(converted.confidence, configuration);
+    converted.position_covariance =
+        covariance(converted.confidence, configuration);
     result.pedestrians.push_back(std::move(converted));
   }
   result.validate();

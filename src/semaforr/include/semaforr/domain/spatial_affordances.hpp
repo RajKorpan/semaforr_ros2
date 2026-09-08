@@ -418,8 +418,7 @@ struct RegionSkeletonEdge {
    * - None documented; validation or dependency failures may propagate.
    */
   RegionSkeletonEdge(std::size_t edge_from, std::size_t edge_to,
-                     std::vector<Point2D> subtrail, double length,
-                     PathId path)
+                     std::vector<Point2D> subtrail, double length, PathId path)
       : from(edge_from),
         to(edge_to),
         supporting_subtrail(std::move(subtrail)),

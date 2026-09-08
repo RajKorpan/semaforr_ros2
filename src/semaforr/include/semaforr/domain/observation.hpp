@@ -2,8 +2,8 @@
  * @file observation.hpp
  * @brief Observation responsibilities.
  *
- * @details This file defines observation behavior for ROS-independent domain state
- * and value types. It centers on `LaserObservation`, `VelocityCommand`,
+ * @details This file defines observation behavior for ROS-independent domain
+ * state and value types. It centers on `LaserObservation`, `VelocityCommand`,
  * `RobotObservation`. Its package-relative location is
  * `include/semaforr/domain/observation.hpp`.
  */

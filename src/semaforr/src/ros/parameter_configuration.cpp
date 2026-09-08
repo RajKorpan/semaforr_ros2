@@ -116,8 +116,7 @@ void applyPlanner(config::PlannerConfiguration& planners,
  * - None documented; validation or dependency failures may propagate.
  */
 void declareConfigurationParameters(rclcpp::Node& node) {
-  node.declare_parameter("experiment.behavior_mode",
-                         std::string{"modernized"});
+  node.declare_parameter("experiment.behavior_mode", std::string{"modernized"});
   node.declare_parameter("experiment.profile", std::string{"custom"});
   node.declare_parameter("experiment.mode", std::string{"custom"});
   node.declare_parameter("experiment.random_seed", 0);
@@ -137,8 +136,7 @@ void declareConfigurationParameters(rclcpp::Node& node) {
   node.declare_parameter("tiers.tier1.enabled", true);
   node.declare_parameter("tiers.tier2.enabled", true);
   node.declare_parameter("tiers.tier3.enabled", true);
-  node.declare_parameter("tiers.tier3.scoring_policy",
-                         std::string{"profile"});
+  node.declare_parameter("tiers.tier3.scoring_policy", std::string{"profile"});
   node.declare_parameter("tiers.tier3.tie_policy", std::string{"profile"});
   node.declare_parameter("tiers.tier3.tie_tolerance", 1.0e-9);
   node.declare_parameter("tiers.tier1.rules",
@@ -179,17 +177,16 @@ void declareConfigurationParameters(rclcpp::Node& node) {
   node.declare_parameter("phases.initial_exploration.right_open_max_rad", 0.0);
   node.declare_parameter(
       "phases.initial_exploration.minimum_length_to_width_ratio", 1.5);
-  node.declare_parameter(
-      "phases.initial_exploration.minimum_passage_length_m", 1.0);
+  node.declare_parameter("phases.initial_exploration.minimum_passage_length_m",
+                         1.0);
   node.declare_parameter("phases.initial_exploration.large_room_width_m", 3.0);
   node.declare_parameter("phases.initial_exploration.large_room_length_m", 3.0);
-  node.declare_parameter(
-      "phases.initial_exploration.cue_clearance_margin_m", 0.05);
+  node.declare_parameter("phases.initial_exploration.cue_clearance_margin_m",
+                         0.05);
   node.declare_parameter(
       "phases.initial_exploration.maximum_width_change_ratio", 0.35);
-  node.declare_parameter(
-      "phases.initial_exploration.hard_turn_threshold_rad",
-      0.7853981633974483);
+  node.declare_parameter("phases.initial_exploration.hard_turn_threshold_rad",
+                         0.7853981633974483);
   node.declare_parameter(
       "phases.initial_exploration.end_of_passage_clearance_m", 0.8);
   node.declare_parameter("phases.initial_exploration.minimum_extension_m",
@@ -199,8 +196,8 @@ void declareConfigurationParameters(rclcpp::Node& node) {
   node.declare_parameter("exploration.reactive.strategy", std::string{"lle"});
   node.declare_parameter("exploration.reactive.behavior_policy",
                          std::string{"profile"});
-  node.declare_parameter(
-      "exploration.reactive.stalled_history_extension", true);
+  node.declare_parameter("exploration.reactive.stalled_history_extension",
+                         true);
   node.declare_parameter("exploration.reactive.closest_target_bin_m", 1.0);
   node.declare_parameter("exploration.opportunistic.enabled", false);
   node.declare_parameter("tiers.tier2.maximum_planning_attempts_per_task", 3);
@@ -242,14 +239,13 @@ void declareConfigurationParameters(rclcpp::Node& node) {
   node.declare_parameter("safety.max_forward_sweep_rad", 0.5236);
   for (const std::string feature :
        {"trails", "conveyors", "regions", "doors", "hallways", "barriers",
-        "astar", "known_grid", "sensed_occupancy", "inclusion_grid",
-        "highways", "circumstances"}) {
-    const bool default_value = feature == "trails" || feature == "conveyors" ||
-                               feature == "regions" || feature == "doors" ||
-                               feature == "circumstances" ||
-                               feature == "known_grid" ||
-                               feature == "sensed_occupancy" ||
-                               feature == "inclusion_grid";
+        "astar", "known_grid", "sensed_occupancy", "inclusion_grid", "highways",
+        "circumstances"}) {
+    const bool default_value =
+        feature == "trails" || feature == "conveyors" || feature == "regions" ||
+        feature == "doors" || feature == "circumstances" ||
+        feature == "known_grid" || feature == "sensed_occupancy" ||
+        feature == "inclusion_grid";
     node.declare_parameter("features." + feature, default_value);
   }
   node.declare_parameter("features.loaded_highway_model", std::string{});
@@ -437,8 +433,9 @@ config::Configuration configurationFromParameters(rclcpp::Node& node) {
       node.get_parameter("grids.highway.origin_y_m").as_double();
   navigation.grids.highway_smoothing_policy =
       node.get_parameter("grids.highway.smoothing_policy").as_string();
-  navigation.grids.highway_component_selection_policy = node.get_parameter(
-      "grids.highway.component_selection_policy").as_string();
+  navigation.grids.highway_component_selection_policy =
+      node.get_parameter("grids.highway.component_selection_policy")
+          .as_string();
   navigation.grids.expansion_margin_m =
       node.get_parameter("grids.expansion.margin_m").as_double();
   navigation.grids.expansion_increment_cells = static_cast<std::size_t>(
@@ -457,14 +454,17 @@ config::Configuration configurationFromParameters(rclcpp::Node& node) {
       node.get_parameter("grids.planning.map_unknown_policy").as_string();
   navigation.grids.sensor_unknown_policy =
       node.get_parameter("grids.planning.sensor_unknown_policy").as_string();
-  navigation.grids.localization_uncertainty_m = node.get_parameter(
-      "grids.planning.localization_uncertainty_m").as_double();
-  navigation.grids.turning_footprint_margin_m = node.get_parameter(
-      "grids.planning.turning_footprint_margin_m").as_double();
-  navigation.grids.dynamic_obstacle_margin_m = node.get_parameter(
-      "grids.planning.dynamic_obstacle_margin_m").as_double();
-  navigation.grids.unknown_cost_multiplier = node.get_parameter(
-      "grids.planning.unknown_cost_multiplier").as_double();
+  navigation.grids.localization_uncertainty_m =
+      node.get_parameter("grids.planning.localization_uncertainty_m")
+          .as_double();
+  navigation.grids.turning_footprint_margin_m =
+      node.get_parameter("grids.planning.turning_footprint_margin_m")
+          .as_double();
+  navigation.grids.dynamic_obstacle_margin_m =
+      node.get_parameter("grids.planning.dynamic_obstacle_margin_m")
+          .as_double();
+  navigation.grids.unknown_cost_multiplier =
+      node.get_parameter("grids.planning.unknown_cost_multiplier").as_double();
   auto& circumstances = navigation.circumstances;
   circumstances.learning_mode =
       node.get_parameter("circumstances.learning_mode").as_string();
@@ -474,10 +474,11 @@ config::Configuration configurationFromParameters(rclcpp::Node& node) {
       node.get_parameter("circumstances.setting_radius_m").as_double();
   circumstances.minimum_cluster_size = static_cast<std::size_t>(
       node.get_parameter("circumstances.minimum_cluster_size").as_int());
-  circumstances.assignment_confidence_threshold = node.get_parameter(
-      "circumstances.assignment_confidence_threshold").as_double();
-  circumstances.similarity_l1_threshold = node.get_parameter(
-      "circumstances.similarity_l1_threshold").as_double();
+  circumstances.assignment_confidence_threshold =
+      node.get_parameter("circumstances.assignment_confidence_threshold")
+          .as_double();
+  circumstances.similarity_l1_threshold =
+      node.get_parameter("circumstances.similarity_l1_threshold").as_double();
   circumstances.reclustering_threshold = static_cast<std::size_t>(
       node.get_parameter("circumstances.reclustering_threshold").as_int());
   circumstances.minimum_case_evidence = static_cast<std::size_t>(
@@ -486,20 +487,23 @@ config::Configuration configurationFromParameters(rclcpp::Node& node) {
       node.get_parameter("circumstances.minimum_action_evidence").as_int());
   circumstances.accuracy_threshold =
       node.get_parameter("circumstances.accuracy_threshold").as_double();
-  circumstances.action_confidence_threshold = node.get_parameter(
-      "circumstances.action_confidence_threshold").as_double();
-  circumstances.partial_success_credit = node.get_parameter(
-      "circumstances.partial_success_credit").as_double();
-  circumstances.safety_interruption_is_negative_evidence = node.get_parameter(
-      "circumstances.safety_interruption_is_negative_evidence").as_bool();
-  circumstances.precedent_veto_enabled = node.get_parameter(
-      "circumstances.precedent_veto_enabled").as_bool();
-  circumstances.tier_three_weighting_enabled = node.get_parameter(
-      "circumstances.tier3_weighting_enabled").as_bool();
-  circumstances.tier_three_maximum_influence = node.get_parameter(
-      "circumstances.tier3_maximum_influence").as_double();
-  circumstances.persistence_policy = node.get_parameter(
-      "circumstances.persistence_policy").as_string();
+  circumstances.action_confidence_threshold =
+      node.get_parameter("circumstances.action_confidence_threshold")
+          .as_double();
+  circumstances.partial_success_credit =
+      node.get_parameter("circumstances.partial_success_credit").as_double();
+  circumstances.safety_interruption_is_negative_evidence =
+      node.get_parameter(
+              "circumstances.safety_interruption_is_negative_evidence")
+          .as_bool();
+  circumstances.precedent_veto_enabled =
+      node.get_parameter("circumstances.precedent_veto_enabled").as_bool();
+  circumstances.tier_three_weighting_enabled =
+      node.get_parameter("circumstances.tier3_weighting_enabled").as_bool();
+  circumstances.tier_three_maximum_influence =
+      node.get_parameter("circumstances.tier3_maximum_influence").as_double();
+  circumstances.persistence_policy =
+      node.get_parameter("circumstances.persistence_policy").as_string();
   circumstances.model_path =
       node.get_parameter("circumstances.model_path").as_string();
   circumstances.model_version =
@@ -634,8 +638,8 @@ config::Configuration configurationFromParameters(rclcpp::Node& node) {
       scoped.lle_fallback == 0U && scoped.planner_ties == 0U &&
       scoped.clustering == 0U && scoped.simulation_noise == 0U) {
     const auto legacy_seed = static_cast<unsigned int>(experiment_seed);
-    configuration.experiment.seeds = {
-        legacy_seed, legacy_seed, legacy_seed, legacy_seed, legacy_seed};
+    configuration.experiment.seeds = {legacy_seed, legacy_seed, legacy_seed,
+                                      legacy_seed, legacy_seed};
   }
   configuration.experiment.reproducibility.recording_enabled =
       node.get_parameter("reproducibility.recording.enabled").as_bool();
@@ -698,40 +702,60 @@ config::Configuration configurationFromParameters(rclcpp::Node& node) {
     throw std::runtime_error(
         "phases.initial_exploration.minimum_bundle_beams must be positive");
   hle.minimum_bundle_beams = static_cast<std::size_t>(minimum_bundle_beams);
-  hle.left_focus_min_rad = node.get_parameter(
-      "phases.initial_exploration.left_focus_min_rad").as_double();
-  hle.left_focus_max_rad = node.get_parameter(
-      "phases.initial_exploration.left_focus_max_rad").as_double();
-  hle.right_focus_min_rad = node.get_parameter(
-      "phases.initial_exploration.right_focus_min_rad").as_double();
-  hle.right_focus_max_rad = node.get_parameter(
-      "phases.initial_exploration.right_focus_max_rad").as_double();
-  hle.left_open_min_rad = node.get_parameter(
-      "phases.initial_exploration.left_open_min_rad").as_double();
-  hle.left_open_max_rad = node.get_parameter(
-      "phases.initial_exploration.left_open_max_rad").as_double();
-  hle.right_open_min_rad = node.get_parameter(
-      "phases.initial_exploration.right_open_min_rad").as_double();
-  hle.right_open_max_rad = node.get_parameter(
-      "phases.initial_exploration.right_open_max_rad").as_double();
-  hle.minimum_length_to_width_ratio = node.get_parameter(
-      "phases.initial_exploration.minimum_length_to_width_ratio").as_double();
-  hle.minimum_passage_length_m = node.get_parameter(
-      "phases.initial_exploration.minimum_passage_length_m").as_double();
-  hle.large_room_width_m = node.get_parameter(
-      "phases.initial_exploration.large_room_width_m").as_double();
-  hle.large_room_length_m = node.get_parameter(
-      "phases.initial_exploration.large_room_length_m").as_double();
-  hle.cue_clearance_margin_m = node.get_parameter(
-      "phases.initial_exploration.cue_clearance_margin_m").as_double();
-  hle.maximum_width_change_ratio = node.get_parameter(
-      "phases.initial_exploration.maximum_width_change_ratio").as_double();
-  hle.hard_turn_threshold_rad = node.get_parameter(
-      "phases.initial_exploration.hard_turn_threshold_rad").as_double();
-  hle.end_of_passage_clearance_m = node.get_parameter(
-      "phases.initial_exploration.end_of_passage_clearance_m").as_double();
-  hle.minimum_extension_m = node.get_parameter(
-      "phases.initial_exploration.minimum_extension_m").as_double();
+  hle.left_focus_min_rad =
+      node.get_parameter("phases.initial_exploration.left_focus_min_rad")
+          .as_double();
+  hle.left_focus_max_rad =
+      node.get_parameter("phases.initial_exploration.left_focus_max_rad")
+          .as_double();
+  hle.right_focus_min_rad =
+      node.get_parameter("phases.initial_exploration.right_focus_min_rad")
+          .as_double();
+  hle.right_focus_max_rad =
+      node.get_parameter("phases.initial_exploration.right_focus_max_rad")
+          .as_double();
+  hle.left_open_min_rad =
+      node.get_parameter("phases.initial_exploration.left_open_min_rad")
+          .as_double();
+  hle.left_open_max_rad =
+      node.get_parameter("phases.initial_exploration.left_open_max_rad")
+          .as_double();
+  hle.right_open_min_rad =
+      node.get_parameter("phases.initial_exploration.right_open_min_rad")
+          .as_double();
+  hle.right_open_max_rad =
+      node.get_parameter("phases.initial_exploration.right_open_max_rad")
+          .as_double();
+  hle.minimum_length_to_width_ratio =
+      node.get_parameter(
+              "phases.initial_exploration.minimum_length_to_width_ratio")
+          .as_double();
+  hle.minimum_passage_length_m =
+      node.get_parameter("phases.initial_exploration.minimum_passage_length_m")
+          .as_double();
+  hle.large_room_width_m =
+      node.get_parameter("phases.initial_exploration.large_room_width_m")
+          .as_double();
+  hle.large_room_length_m =
+      node.get_parameter("phases.initial_exploration.large_room_length_m")
+          .as_double();
+  hle.cue_clearance_margin_m =
+      node.get_parameter("phases.initial_exploration.cue_clearance_margin_m")
+          .as_double();
+  hle.maximum_width_change_ratio =
+      node.get_parameter(
+              "phases.initial_exploration.maximum_width_change_ratio")
+          .as_double();
+  hle.hard_turn_threshold_rad =
+      node.get_parameter("phases.initial_exploration.hard_turn_threshold_rad")
+          .as_double();
+  hle.end_of_passage_clearance_m =
+      node.get_parameter(
+              "phases.initial_exploration.end_of_passage_clearance_m")
+          .as_double();
+  hle.minimum_extension_m =
+      node.get_parameter("phases.initial_exploration.minimum_extension_m")
+          .as_double();
   configuration.experiment.target_navigation.enabled =
       node.get_parameter("phases.target_navigation.enabled").as_bool();
   configuration.experiment.reactive_exploration_enabled =
@@ -748,8 +772,9 @@ config::Configuration configurationFromParameters(rclcpp::Node& node) {
           .as_double();
   configuration.experiment.opportunistic_exploration =
       node.get_parameter("exploration.opportunistic.enabled").as_bool();
-  const auto maximum_planning_attempts = node.get_parameter(
-      "tiers.tier2.maximum_planning_attempts_per_task").as_int();
+  const auto maximum_planning_attempts =
+      node.get_parameter("tiers.tier2.maximum_planning_attempts_per_task")
+          .as_int();
   if (maximum_planning_attempts <= 0)
     throw std::runtime_error(
         "tiers.tier2.maximum_planning_attempts_per_task must be positive");

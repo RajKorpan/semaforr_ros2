@@ -2,10 +2,10 @@
  * @file coverage.hpp
  * @brief Coverage responsibilities.
  *
- * @details This file defines coverage behavior for learned spatial representations
- * and their lifecycle. It records the declarations, settings, fixtures, or
- * guidance needed by that responsibility. Its package-relative location is
- * `include/semaforr/spatial/coverage.hpp`.
+ * @details This file defines coverage behavior for learned spatial
+ * representations and their lifecycle. It records the declarations, settings,
+ * fixtures, or guidance needed by that responsibility. Its package-relative
+ * location is `include/semaforr/spatial/coverage.hpp`.
  */
 #ifndef SEMAFORR_SPATIAL_COVERAGE_HPP
 #define SEMAFORR_SPATIAL_COVERAGE_HPP

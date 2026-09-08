@@ -160,8 +160,8 @@ std::vector<semaforr_msgs::msg::ModelRevision> toMessage(
  * Exceptions:
  * - None documented; validation or dependency failures may propagate.
  */
-semaforr_msgs::msg::PlanStepTrace toMessage(
-    const planning::PlanStep& source, std::size_t index) {
+semaforr_msgs::msg::PlanStepTrace toMessage(const planning::PlanStep& source,
+                                            std::size_t index) {
   semaforr_msgs::msg::PlanStepTrace result;
   result.step_id = index;
   std::visit(
@@ -181,8 +181,8 @@ semaforr_msgs::msg::PlanStepTrace toMessage(
           result.primary_entity_id = step.region_id;
           result.has_target = true;
           result.target = toMessage(step.center);
-        } else if constexpr (
-            std::is_same_v<T, planning::VisibilityConnectionStep>) {
+        } else if constexpr (std::is_same_v<
+                                 T, planning::VisibilityConnectionStep>) {
           result.step_type = "visibility_connection";
           result.primary_entity_id = step.region_id;
           result.has_target = true;
@@ -190,7 +190,8 @@ semaforr_msgs::msg::PlanStepTrace toMessage(
           result.geometry.push_back(toMessage(step.from));
           result.geometry.push_back(toMessage(step.to));
           result.execution_event =
-              std::string(step.toward_region ? "toward_region" : "toward_point") +
+              std::string(step.toward_region ? "toward_region"
+                                             : "toward_point") +
               ",supporting_decision=" +
               std::to_string(step.supporting_decision);
         } else if constexpr (std::is_same_v<T, planning::HighwayStep>) {
@@ -199,9 +200,9 @@ semaforr_msgs::msg::PlanStepTrace toMessage(
           result.secondary_entity_id = step.to;
           for (const auto& point : step.fallback_subtrail)
             result.geometry.push_back(toMessage(point));
-          result.execution_event = "intersection_from=" +
-                                   std::to_string(step.from) + ",to=" +
-                                   std::to_string(step.to);
+          result.execution_event =
+              "intersection_from=" + std::to_string(step.from) +
+              ",to=" + std::to_string(step.to);
         } else if constexpr (std::is_same_v<T, planning::IntersectionStep>) {
           result.step_type = "intersection";
           result.primary_entity_id = step.intersection_id;
@@ -221,8 +222,8 @@ semaforr_msgs::msg::PlanStepTrace toMessage(
           result.target = toMessage(step.exit);
           for (const auto& point : step.supporting_subtrail)
             result.geometry.push_back(toMessage(point));
-        } else if constexpr (
-            std::is_same_v<T, planning::SkeletonTransitionStep>) {
+        } else if constexpr (std::is_same_v<T,
+                                            planning::SkeletonTransitionStep>) {
           result.step_type = "skeleton_transition";
           result.primary_entity_id = step.from_region;
           result.secondary_entity_id = step.to_region;
@@ -341,7 +342,8 @@ std::uint8_t toMessage(decision::ActionOutcome outcome) {
     case decision::ActionOutcome::GoalPreempted:
       return semaforr_msgs::msg::DecisionRecord::OUTCOME_GOAL_PREEMPTED;
     case decision::ActionOutcome::NavigationModeTransition:
-      return semaforr_msgs::msg::DecisionRecord::OUTCOME_NAVIGATION_MODE_TRANSITION;
+      return semaforr_msgs::msg::DecisionRecord::
+          OUTCOME_NAVIGATION_MODE_TRANSITION;
   }
   return semaforr_msgs::msg::DecisionRecord::OUTCOME_CANCELLED;
 }
@@ -449,8 +451,7 @@ semaforr_msgs::msg::DecisionRecord toMessage(
     for (const auto& action : source_event.input_actions)
       event.input_actions.push_back(toMessage(action));
     event.has_mandate = source_event.mandate.has_value();
-    if (source_event.mandate)
-      event.mandate = toMessage(*source_event.mandate);
+    if (source_event.mandate) event.mandate = toMessage(*source_event.mandate);
     for (const auto& source_veto : source_event.vetoes) {
       semaforr_msgs::msg::DecisionVeto veto;
       veto.action = toMessage(source_veto.action);
@@ -466,8 +467,7 @@ semaforr_msgs::msg::DecisionRecord toMessage(
     for (const auto& action : source_event.remaining_actions)
       event.remaining_actions.push_back(toMessage(action));
     event.outcome = source_event.outcome;
-    event.returned_to_earlier_tier =
-        source_event.returned_to_earlier_tier;
+    event.returned_to_earlier_tier = source_event.returned_to_earlier_tier;
     event.has_final_attribution = source_event.final_attribution.has_value();
     if (source_event.final_attribution)
       event.final_attribution = toMessage(*source_event.final_attribution);
@@ -502,8 +502,7 @@ semaforr_msgs::msg::DecisionRecord toMessage(
     total.pre_circumstance_total = source_total.pre_circumstance_total;
     total.circumstance_multiplier = source_total.circumstance_multiplier;
     total.post_circumstance_total = source_total.post_circumstance_total;
-    total.chapter_five_comment_total =
-        source_total.chapter_five_comment_total;
+    total.chapter_five_comment_total = source_total.chapter_five_comment_total;
     total.circumstance_action_evidence =
         source_total.circumstance_action_evidence;
     total.circumstance_action_confidence =
@@ -518,10 +517,8 @@ semaforr_msgs::msg::DecisionRecord toMessage(
   result.circumstance_model_version = source.circumstance_model_version;
   result.circumstance_classifier_version =
       source.circumstance_classifier_version;
-  result.circumstance_weighting_policy =
-      source.circumstance_weighting_policy;
-  result.circumstance_weighting_applied =
-      source.circumstance_weighting_applied;
+  result.circumstance_weighting_policy = source.circumstance_weighting_policy;
+  result.circumstance_weighting_applied = source.circumstance_weighting_applied;
   result.circumstance_weighting_changed_winner =
       source.circumstance_weighting_changed_winner;
   result.circumstance_reason = source.circumstance_reason;
@@ -536,8 +533,7 @@ semaforr_msgs::msg::DecisionRecord toMessage(
       source.tier_three_random_selection_index.has_value();
   result.tier_three_random_selection_index =
       source.tier_three_random_selection_index.value_or(0U);
-  result.decision_gini_agreement =
-      source.decision_confidence.gini_agreement;
+  result.decision_gini_agreement = source.decision_confidence.gini_agreement;
   result.decision_standardized_total =
       source.decision_confidence.standardized_total;
   result.decision_relative_support =
@@ -558,8 +554,7 @@ semaforr_msgs::msg::DecisionRecord toMessage(
       source.decision_confidence.agreement_category;
   result.decision_support_category =
       source.decision_confidence.support_category;
-  result.decision_confidence_category =
-      source.decision_confidence.category;
+  result.decision_confidence_category = source.decision_confidence.category;
   result.selected_tier = toMessage(source.tier);
   result.selected_source = toMessage(source.source);
   result.selected_policy = source.selected_policy;
@@ -570,9 +565,9 @@ semaforr_msgs::msg::DecisionRecord toMessage(
   result.active_plan_revision = source.plan_revision;
   result.has_planning_episode = source.planning_episode_id.has_value();
   result.planning_episode_id = source.planning_episode_id.value_or(0U);
-  result.plan_family = source.plan_family
-                           ? std::string(planning::toString(*source.plan_family))
-                           : "";
+  result.plan_family =
+      source.plan_family ? std::string(planning::toString(*source.plan_family))
+                         : "";
   result.enforcer_mode = source.enforcer_mode.value_or("");
   result.active_plan_step = source.active_plan_step.value_or(0U);
   result.has_operational_target = source.operational_target.has_value();
@@ -605,8 +600,7 @@ semaforr_msgs::msg::DecisionRecord toMessage(
     for (std::size_t index = 0U; index < candidate.typed_steps.size(); ++index)
       diagnostic.typed_steps.push_back(
           toMessage(candidate.typed_steps[index], index));
-    diagnostic.dependency_revisions =
-        toMessage(candidate.dependency_revisions);
+    diagnostic.dependency_revisions = toMessage(candidate.dependency_revisions);
     diagnostic.planner_configuration_revision =
         candidate.planner_configuration_revision;
     diagnostic.operating_mode =
@@ -641,8 +635,10 @@ semaforr_msgs::msg::DecisionRecord toMessage(
   result.action_lifecycle_status = source.action_lifecycle_status;
   result.has_execution_result = source.execution_result.has_value();
   if (source.execution_result) {
-    result.execution_start_pose = toMessage(source.execution_result->start_pose);
-    result.execution_final_pose = toMessage(source.execution_result->final_pose);
+    result.execution_start_pose =
+        toMessage(source.execution_result->start_pose);
+    result.execution_final_pose =
+        toMessage(source.execution_result->final_pose);
     result.distance_achieved_m = source.execution_result->distance_achieved_m;
     result.rotation_achieved_rad =
         source.execution_result->rotation_achieved_rad;
@@ -661,8 +657,7 @@ semaforr_msgs::msg::DecisionRecord toMessage(
   result.social_input_source = source.social_input_source;
   result.social_prediction_source = source.social_prediction_source;
   result.social_input_status = source.social_input_status;
-  result.formation_evidence_available =
-      source.formation_evidence_available;
+  result.formation_evidence_available = source.formation_evidence_available;
   result.formation_evidence_participated =
       source.formation_evidence_participated;
   if (!source.source_provenance.empty()) {
@@ -673,7 +668,8 @@ semaforr_msgs::msg::DecisionRecord toMessage(
     result.source_provenance.push_back(
         source.predicted_actions.front().evidence_source);
   }
-  if (source.plan_id) result.source_provenance.push_back("active_plan_structure");
+  if (source.plan_id)
+    result.source_provenance.push_back("active_plan_structure");
   return result;
 }
 
@@ -999,11 +995,11 @@ class VisualizationPublisher::Impl {
 
     const auto& sensed = world_.spatial.sensed_occupancy;
     if (sensed.valid() && sensed.revision != last_sensed_revision_) {
-      auto free = gridMarker(header, "sensed_free", sensed.geometry.resolution_m,
-                             0.1F, 0.8F, 0.25F);
-      auto occupied = gridMarker(header, "sensed_occupied",
-                                 sensed.geometry.resolution_m, 0.9F, 0.1F,
-                                 0.1F);
+      auto free = gridMarker(header, "sensed_free",
+                             sensed.geometry.resolution_m, 0.1F, 0.8F, 0.25F);
+      auto occupied =
+          gridMarker(header, "sensed_occupied", sensed.geometry.resolution_m,
+                     0.9F, 0.1F, 0.1F);
       const auto append_sensed = [&](std::size_t index,
                                      domain::SensedOccupancyState state) {
         if (state == domain::SensedOccupancyState::Unknown) return;
@@ -1031,8 +1027,7 @@ class VisualizationPublisher::Impl {
         world_.static_map->occupancyAvailable()) {
       const auto& grid = world_.static_map->occupancy;
       auto marker = gridMarker(header, "static_occupancy",
-                               grid.geometry.resolution_m,
-                               0.2F, 0.2F, 0.2F);
+                               grid.geometry.resolution_m, 0.2F, 0.2F, 0.2F);
       const auto& geometry = grid.geometry;
       for (std::size_t index = 0U; index < grid.cells.size(); ++index) {
         if (grid.cells[index] != domain::StaticOccupancyState::StaticOccupied)
@@ -1068,8 +1063,7 @@ class VisualizationPublisher::Impl {
     nav_msgs::msg::OccupancyGrid result;
     result.header = header;
     result.info.map_load_time = header.stamp;
-    result.info.resolution =
-        static_cast<float>(snapshot.geometry.resolution_m);
+    result.info.resolution = static_cast<float>(snapshot.geometry.resolution_m);
     result.info.width = static_cast<std::uint32_t>(snapshot.geometry.columns);
     result.info.height = static_cast<std::uint32_t>(snapshot.geometry.rows);
     result.info.origin.position.x = snapshot.geometry.origin.x_m;
@@ -1079,8 +1073,7 @@ class VisualizationPublisher::Impl {
     for (std::size_t index = 0U; index < snapshot.cells.size(); ++index) {
       const auto& cell = snapshot.cells[index];
       if (!cell.hasEvidence()) continue;
-      const double value =
-          risk ? cell.learned_encounter_risk : cell.density;
+      const double value = risk ? cell.learned_encounter_risk : cell.density;
       result.data[index] = static_cast<std::int8_t>(
           std::lround(std::clamp(value, 0.0, 1.0) * 100.0));
     }
@@ -1100,8 +1093,8 @@ class VisualizationPublisher::Impl {
    * Exceptions:
    * - None documented; validation or dependency failures may propagate.
    */
-  visualization_msgs::msg::Marker deleteAll(
-      const std_msgs::msg::Header& header, const std::string& name) const {
+  visualization_msgs::msg::Marker deleteAll(const std_msgs::msg::Header& header,
+                                            const std::string& name) const {
     visualization_msgs::msg::Marker marker;
     marker.header = header;
     marker.ns = name;
@@ -1151,8 +1144,8 @@ class VisualizationPublisher::Impl {
       const double angle = domain::crowdFlowDirectionAngle(
           static_cast<domain::CrowdFlowDirection>(
               std::distance(cell.directional_flow.begin(), strongest)));
-      const double length = field.geometry.resolution_m *
-                            std::clamp(*strongest, 0.2, 1.0);
+      const double length =
+          field.geometry.resolution_m * std::clamp(*strongest, 0.2, 1.0);
       visualization_msgs::msg::Marker marker;
       marker.header = header;
       marker.ns = "crowd_flow";
@@ -1193,8 +1186,8 @@ class VisualizationPublisher::Impl {
    * - None documented; validation or dependency failures may propagate.
    */
   void publishLiveCrowd(const std_msgs::msg::Header& header) {
-    const auto revision = world_.crowd.revisionOf(
-        domain::ModelDependency::LiveCrowdObservation);
+    const auto revision =
+        world_.crowd.revisionOf(domain::ModelDependency::LiveCrowdObservation);
     if (revision == last_live_crowd_revision_) return;
     visualization_msgs::msg::MarkerArray people;
     visualization_msgs::msg::MarkerArray predictions;

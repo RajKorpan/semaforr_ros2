@@ -2,8 +2,8 @@
  * @file planning_coordinator.hpp
  * @brief Planning coordinator responsibilities.
  *
- * @details This file defines planning coordinator behavior for path planning and
- * hierarchical plan construction. It centers on `PlanSelectionPolicy`,
+ * @details This file defines planning coordinator behavior for path planning
+ * and hierarchical plan construction. It centers on `PlanSelectionPolicy`,
  * `SelectedPlan`, `CandidateEvidence`, `SelectionEvidence`,
  * `PlanningCoordinator`, `CacheEntry`. Its package-relative location is
  * `include/semaforr/planning/planning_coordinator.hpp`.

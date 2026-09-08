@@ -2,8 +2,8 @@
  * @file motion_model.hpp
  * @brief Motion model responsibilities.
  *
- * @details This file defines motion model behavior for ROS-independent domain state
- * and value types. It records the declarations, settings, fixtures, or
+ * @details This file defines motion model behavior for ROS-independent domain
+ * state and value types. It records the declarations, settings, fixtures, or
  * guidance needed by that responsibility. Its package-relative location is
  * `include/semaforr/domain/motion_model.hpp`.
  */

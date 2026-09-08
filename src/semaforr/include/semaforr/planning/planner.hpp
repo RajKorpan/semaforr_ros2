@@ -2,11 +2,11 @@
  * @file planner.hpp
  * @brief Planner responsibilities.
  *
- * @details This file defines planner behavior for path planning and hierarchical
- * plan construction. It centers on `PlanFamily`, `PlanningOperatingMode`,
- * `PlanObjective`, `PlannerMetadata`, `WaypointStep`, `SubtrailStep`,
- * `RegionStep`, `VisibilityConnectionStep`. Its package-relative location
- * is `include/semaforr/planning/planner.hpp`.
+ * @details This file defines planner behavior for path planning and
+ * hierarchical plan construction. It centers on `PlanFamily`,
+ * `PlanningOperatingMode`, `PlanObjective`, `PlannerMetadata`, `WaypointStep`,
+ * `SubtrailStep`, `RegionStep`, `VisibilityConnectionStep`. Its
+ * package-relative location is `include/semaforr/planning/planner.hpp`.
  */
 #ifndef SEMAFORR_PLANNING_PLANNER_HPP
 #define SEMAFORR_PLANNING_PLANNER_HPP
@@ -326,11 +326,11 @@ struct FinalTargetStep {
   domain::Point2D target;
 };
 
-using PlanStep = std::variant<WaypointStep, SubtrailStep, RegionStep,
-                              VisibilityConnectionStep, HighwayStep,
-                              IntersectionStep, HighwayEntryStep,
-                              HighwayExitStep, SkeletonTransitionStep,
-                              FinalTargetStep>;
+using PlanStep =
+    std::variant<WaypointStep, SubtrailStep, RegionStep,
+                 VisibilityConnectionStep, HighwayStep, IntersectionStep,
+                 HighwayEntryStep, HighwayExitStep, SkeletonTransitionStep,
+                 FinalTargetStep>;
 
 /**
  * @brief Enumerates the supported plan validity values used by this
@@ -840,10 +840,11 @@ void attachDependencySnapshot(
  * Exceptions:
  * - None documented; validation or dependency failures may propagate.
  */
-std::vector<std::string> stalePlanReasons(
-    const PlanResult& plan, const PlanningRequest& request,
-    domain::Distance start_tolerance, domain::Distance target_tolerance,
-    bool execution_invalidated = false);
+std::vector<std::string> stalePlanReasons(const PlanResult& plan,
+                                          const PlanningRequest& request,
+                                          domain::Distance start_tolerance,
+                                          domain::Distance target_tolerance,
+                                          bool execution_invalidated = false);
 
 }  // namespace semaforr::planning
 #endif

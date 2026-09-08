@@ -48,7 +48,8 @@ PassageSkeletonLearner::PassageSkeletonLearner(
            false,
            true,
            mode == SpatialLearningMode::Compatibility
-               ? "build region nodes, direct-transition edges, shortest subtrails, and visibility"
+               ? "build region nodes, direct-transition edges, shortest "
+                 "subtrails, and visibility"
                : "append a distinctly named sampled-pose path graph",
            {"skeleton", "hallwayskel", "skeletonhall", "passage planners"},
            mode == SpatialLearningMode::Compatibility
@@ -107,8 +108,8 @@ void PassageSkeletonLearner::onObserve(const NavigationEpisode& episode) {
     ++model_.connectivity_revision;
     model_.sampled_path_nodes = model_.nodes;
     model_.sampled_path_edges = model_.edges;
-    publish(model_, model_.edges.empty() ? ModelStatus::Incomplete
-                                        : ModelStatus::Fresh,
+    publish(model_,
+            model_.edges.empty() ? ModelStatus::Incomplete : ModelStatus::Fresh,
             model_.edges.empty()
                 ? "at least two spaced observations are required"
                 : "skeleton connectivity and component cache updated");
@@ -131,22 +132,25 @@ void PassageSkeletonLearner::onObserve(const NavigationEpisode& episode) {
 void PassageSkeletonLearner::onRebuild() {
   if (mode_ == SpatialLearningMode::Compatibility) {
     const auto paths = completedPathsFromEpisodes(episodes());
-    const auto regions = learnDecisionRegions(episodes(), region_configuration_);
+    const auto regions =
+        learnDecisionRegions(episodes(), region_configuration_);
     std::vector<domain::LearnedTrail> trails;
     for (const auto& path : paths) {
       auto trail = learnVisibilityTrail(path, path.id, trail_configuration_);
       if (trail.markers.size() >= 2U) trails.push_back(std::move(trail));
     }
     model_ = learnRegionSkeleton(regions, trails, paths);
-    publish(model_, model_.region_nodes.empty() ? ModelStatus::Incomplete
-                                                : ModelStatus::Fresh,
-            model_.region_nodes.empty()
-                ? "no reconciled regions are available for the skeleton"
-                : "region skeleton rebuilt with visibility and shortest subtrails");
+    publish(
+        model_,
+        model_.region_nodes.empty() ? ModelStatus::Incomplete
+                                    : ModelStatus::Fresh,
+        model_.region_nodes.empty()
+            ? "no reconciled regions are available for the skeleton"
+            : "region skeleton rebuilt with visibility and shortest subtrails");
     return;
   }
-  publish(model_, model_.edges.empty() ? ModelStatus::Incomplete
-                                      : ModelStatus::Fresh,
+  publish(model_,
+          model_.edges.empty() ? ModelStatus::Incomplete : ModelStatus::Fresh,
           "incremental skeleton snapshot refreshed");
 }
 

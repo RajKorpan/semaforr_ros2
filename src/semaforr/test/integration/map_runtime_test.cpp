@@ -2,8 +2,8 @@
  * @file map_runtime_test.cpp
  * @brief Map runtime test responsibilities.
  *
- * @details This file exercises map runtime test behavior for automated verification
- * and regression testing. It centers on
+ * @details This file exercises map runtime test behavior for automated
+ * verification and regression testing. It centers on
  * `MaplessStartupSkipsLoadingAndGridPlannerRegistration`,
  * `MapEnabledStartupInstallsImmutableMapAndEnablesGridPlanner`,
  * `ExplicitFailurePolicyControlsStartup`. Its package-relative location is
@@ -95,8 +95,7 @@ TEST(MapRuntime, MaplessStartupSkipsLoadingAndGridPlannerRegistration) {
 
 TEST(MapRuntime, MapEnabledStartupInstallsImmutableMapAndEnablesGridPlanner) {
   auto configured = configuration();
-  configured.static_map.mode =
-      semaforr::config::MapOperatingMode::MapEnabled;
+  configured.static_map.mode = semaforr::config::MapOperatingMode::MapEnabled;
   configured.static_map.path = std::string(SEMAFORR_TEST_SOURCE_DIR) +
                                "/test/fixtures/maps/negative.xml";
   semaforr::ros::NavigationEngineAdapter adapter(std::move(configured));
@@ -117,8 +116,7 @@ TEST(MapRuntime, ExplicitFailurePolicyControlsStartup) {
       semaforr::config::MapLoadFailurePolicy::DisableMap;
   semaforr::ros::NavigationEngineAdapter adapter(std::move(lenient));
   EXPECT_FALSE(adapter.worldModel().map_capabilities.map_available);
-  EXPECT_TRUE(
-      hasDiagnostic(adapter, "map_status:load_failed_map_disabled"));
+  EXPECT_TRUE(hasDiagnostic(adapter, "map_status:load_failed_map_disabled"));
   EXPECT_TRUE(hasDiagnostic(adapter, "planner_disabled_no_map:distance"));
 
   auto strict = configuration();

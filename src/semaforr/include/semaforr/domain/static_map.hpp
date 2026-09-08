@@ -2,8 +2,8 @@
  * @file static_map.hpp
  * @brief Static map responsibilities.
  *
- * @details This file defines static map behavior for ROS-independent domain state
- * and value types. It centers on `GeometryProvenance`, `MapBounds`,
+ * @details This file defines static map behavior for ROS-independent domain
+ * state and value types. It centers on `GeometryProvenance`, `MapBounds`,
  * `StaticOccupancyGrid`, `StaticMap`, `MapCapabilities`. Its
  * package-relative location is `include/semaforr/domain/static_map.hpp`.
  */
@@ -64,8 +64,8 @@ struct MapBounds {
    * - None documented; validation or dependency failures may propagate.
    */
   bool valid() const noexcept {
-    return minimum.finite() && maximum.finite() &&
-           maximum.x_m > minimum.x_m && maximum.y_m > minimum.y_m;
+    return minimum.finite() && maximum.finite() && maximum.x_m > minimum.x_m &&
+           maximum.y_m > minimum.y_m;
   }
   /**
    * @brief Performs the contains operation for this subsystem.

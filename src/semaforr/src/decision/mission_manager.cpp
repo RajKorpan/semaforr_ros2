@@ -2,10 +2,10 @@
  * @file mission_manager.cpp
  * @brief Mission manager responsibilities.
  *
- * @details This file implements mission manager behavior for tiered decision making
- * and action arbitration. It records the declarations, settings, fixtures,
- * or guidance needed by that responsibility. Its package-relative location
- * is `src/decision/mission_manager.cpp`.
+ * @details This file implements mission manager behavior for tiered decision
+ * making and action arbitration. It records the declarations, settings,
+ * fixtures, or guidance needed by that responsibility. Its package-relative
+ * location is `src/decision/mission_manager.cpp`.
  */
 #include <semaforr/decision/mission_manager.hpp>
 
@@ -114,10 +114,10 @@ void MissionManager::prependPlan(std::vector<domain::Point2D> prefix) {
   if (!mission_.active())
     throw std::logic_error("cannot prepend a plan without an active task");
   const auto& task = *mission_.active();
-  prefix.insert(prefix.end(),
-                task.plan.begin() +
-                    static_cast<std::ptrdiff_t>(task.waypoint_index),
-                task.plan.end());
+  prefix.insert(
+      prefix.end(),
+      task.plan.begin() + static_cast<std::ptrdiff_t>(task.waypoint_index),
+      task.plan.end());
   mission_.install_active_plan(std::move(prefix));
 }
 

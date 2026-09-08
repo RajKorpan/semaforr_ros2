@@ -2,8 +2,8 @@
  * @file map_parser.hpp
  * @brief Map parser responsibilities.
  *
- * @details This file defines map parser behavior for path planning and hierarchical
- * plan construction. It centers on `MapRepresentation`. Its
+ * @details This file defines map parser behavior for path planning and
+ * hierarchical plan construction. It centers on `MapRepresentation`. Its
  * package-relative location is `include/semaforr/planning/map_parser.hpp`.
  */
 #ifndef SEMAFORR_PLANNING_MAP_PARSER_HPP

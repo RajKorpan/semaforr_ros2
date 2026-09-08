@@ -2,11 +2,11 @@
  * @file replay.hpp
  * @brief Replay responsibilities.
  *
- * @details This file defines replay behavior for replay, experimental validation,
- * and performance measurement. It centers on `RandomSeeds`, `RunMetadata`,
- * `ReplayDecision`, `ReplayCycle`, `RunTrace`, `ReplayDifference`,
- * `ReplayReport`, `RunRecorder`. Its package-relative location is
- * `include/semaforr/validation/replay.hpp`.
+ * @details This file defines replay behavior for replay, experimental
+ * validation, and performance measurement. It centers on `RandomSeeds`,
+ * `RunMetadata`, `ReplayDecision`, `ReplayCycle`, `RunTrace`,
+ * `ReplayDifference`, `ReplayReport`, `RunRecorder`. Its package-relative
+ * location is `include/semaforr/validation/replay.hpp`.
  */
 #ifndef SEMAFORR_VALIDATION_REPLAY_HPP
 #define SEMAFORR_VALIDATION_REPLAY_HPP

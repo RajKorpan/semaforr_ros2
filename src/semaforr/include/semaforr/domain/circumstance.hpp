@@ -2,8 +2,8 @@
  * @file circumstance.hpp
  * @brief Circumstance responsibilities.
  *
- * @details This file defines circumstance behavior for ROS-independent domain state
- * and value types. It centers on `CircumstanceLearningMode`,
+ * @details This file defines circumstance behavior for ROS-independent domain
+ * state and value types. It centers on `CircumstanceLearningMode`,
  * `CircumstanceCreationMethod`, `CaseOutcome`, `NormalizedSetting`,
  * `CircumstanceCluster`, `CircumstanceCaseKey`, `ActionPairEvidence`,
  * `ActionCaseEvidence`. Its package-relative location is
@@ -17,9 +17,9 @@
 #include <cstdint>
 #include <iosfwd>
 #include <map>
+#include <optional>
 #include <semaforr/domain/action.hpp>
 #include <semaforr/domain/observation.hpp>
-#include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -162,8 +162,7 @@ struct NormalizedSetting {
    */
   bool compatibleWith(const NormalizedSetting& other) const noexcept {
     return side_cells == other.side_cells &&
-           resolution_m == other.resolution_m &&
-           radius_m == other.radius_m &&
+           resolution_m == other.resolution_m && radius_m == other.radius_m &&
            freespace.size() == other.freespace.size();
   }
 };
@@ -380,8 +379,7 @@ struct CircumstanceMetrics {
   double averageAssignmentConfidence() const noexcept {
     return assignments == 0U
                ? 0.0
-               : assignment_confidence_sum /
-                     static_cast<double>(assignments);
+               : assignment_confidence_sum / static_cast<double>(assignments);
   }
 };
 

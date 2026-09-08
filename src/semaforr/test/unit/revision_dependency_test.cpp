@@ -131,7 +131,12 @@ semaforr::planning::PlanningRequest request(
     semaforr::domain::SpatialModel& spatial,
     semaforr::domain::CrowdModel* crowd = nullptr) {
   return {{{0.0, 0.0}, semaforr::domain::Angle::zero()},
-          {2.0, 0.0}, &spatial, crowd, nullptr, {}, 7U};
+          {2.0, 0.0},
+          &spatial,
+          crowd,
+          nullptr,
+          {},
+          7U};
 }
 
 /**
@@ -148,9 +153,13 @@ semaforr::planning::PlanningRequest request(
  */
 semaforr::domain::CrowdFieldSnapshot crowdField(double density) {
   semaforr::domain::CrowdFieldSnapshot field;
-  field.geometry = {1U, 1U, 1.0, {0.0, 0.0},
-                    semaforr::domain::GridExtentMode::Fixed,
-                    semaforr::domain::GridExtentSource::RepresentationLocalBounds};
+  field.geometry = {
+      1U,
+      1U,
+      1.0,
+      {0.0, 0.0},
+      semaforr::domain::GridExtentMode::Fixed,
+      semaforr::domain::GridExtentSource::RepresentationLocalBounds};
   field.cells.resize(1U);
   field.cells[0].density = density;
   field.cells[0].visibility_exposures = 1.0;
@@ -286,9 +295,9 @@ TEST(ExactDependencyRevisions, WorldMutationJournalIsDiagnosticAndMonotonic) {
   using D = semaforr::domain::ModelDependency;
   semaforr::domain::WorldModel world;
   world.spatial.revisions[D::Skeleton] = 1U;
-  world.spatial.mutation_history.push_back(
-      {1U, D::Skeleton, 1U, std::chrono::steady_clock::now(),
-       "skeleton connectivity changed"});
+  world.spatial.mutation_history.push_back({1U, D::Skeleton, 1U,
+                                            std::chrono::steady_clock::now(),
+                                            "skeleton connectivity changed"});
   world.crowd.setLearned(crowdField(0.2));
   world.synchronizeMutationJournal();
   ASSERT_GE(world.mutation_history.size(), 2U);

@@ -46,7 +46,11 @@ enum class CellBoundaryConvention { HalfOpen };
  * Exceptions:
  * - None documented; validation or dependency failures may propagate.
  */
-enum class GridOutOfBoundsBehavior { Reject, ExpandBeforeInsert, NonTraversable };
+enum class GridOutOfBoundsBehavior {
+  Reject,
+  ExpandBeforeInsert,
+  NonTraversable
+};
 /**
  * @brief Enumerates the supported grid extent mode values used by this
  * subsystem.
@@ -103,8 +107,7 @@ struct GridGeometry {
   std::size_t columns{0U};
   std::size_t rows{0U};
   Point2D origin;
-  CellBoundaryConvention boundary_convention =
-      CellBoundaryConvention::HalfOpen;
+  CellBoundaryConvention boundary_convention = CellBoundaryConvention::HalfOpen;
   GridOutOfBoundsBehavior out_of_bounds =
       GridOutOfBoundsBehavior::NonTraversable;
   GridExtentMode extent_mode = GridExtentMode::Fixed;
@@ -188,11 +191,12 @@ struct GridGeometry {
    * Exceptions:
    * - None documented; validation or dependency failures may propagate.
    */
-  static GridGeometry fromBounds(
-      std::string frame, Point2D minimum, Point2D maximum, double resolution,
-      GridExtentMode mode, GridExtentSource source,
-      GridOutOfBoundsBehavior out_of_bounds_behavior,
-      std::size_t revision = 1U, std::string map_id = {});
+  static GridGeometry fromBounds(std::string frame, Point2D minimum,
+                                 Point2D maximum, double resolution,
+                                 GridExtentMode mode, GridExtentSource source,
+                                 GridOutOfBoundsBehavior out_of_bounds_behavior,
+                                 std::size_t revision = 1U,
+                                 std::string map_id = {});
 
   /**
    * @brief Performs the valid operation for this subsystem.
@@ -385,8 +389,7 @@ struct GridExpansionResult {
  * Exceptions:
  * - None documented; validation or dependency failures may propagate.
  */
-GridExpansionResult expandToInclude(const GridGeometry& geometry,
-                                    Point2D point,
+GridExpansionResult expandToInclude(const GridGeometry& geometry, Point2D point,
                                     const GridExpansionPolicy& policy);
 
 /**

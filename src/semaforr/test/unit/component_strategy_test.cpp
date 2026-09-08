@@ -290,8 +290,7 @@ TEST(HardSafetyFilter, RejectsMissingLaserAndInvalidActionIndices) {
       Action::pause(), Action(ActionType::Forward, 1U),
       Action(ActionType::Forward, 2U), Action(ActionType::TurnLeft, 1U)};
 
-  const auto without_laser =
-      safety.filter(DecisionContext{world}, candidates);
+  const auto without_laser = safety.filter(DecisionContext{world}, candidates);
   ASSERT_EQ(without_laser.safe_actions.size(), 1U);
   EXPECT_EQ(without_laser.safe_actions.front(), Action::pause());
 
@@ -304,14 +303,14 @@ TEST(HardSafetyFilter, RejectsMissingLaserAndInvalidActionIndices) {
   world.robot.laser = laser;
   world.robot.observed_at = std::chrono::steady_clock::now();
   const auto obstructed = safety.filter(DecisionContext{world}, candidates);
-  EXPECT_EQ(std::find(obstructed.safe_actions.begin(),
-                      obstructed.safe_actions.end(),
-                      Action(ActionType::Forward, 1U)),
-            obstructed.safe_actions.end());
-  EXPECT_EQ(std::find(obstructed.safe_actions.begin(),
-                      obstructed.safe_actions.end(),
-                      Action(ActionType::Forward, 2U)),
-            obstructed.safe_actions.end());
+  EXPECT_EQ(
+      std::find(obstructed.safe_actions.begin(), obstructed.safe_actions.end(),
+                Action(ActionType::Forward, 1U)),
+      obstructed.safe_actions.end());
+  EXPECT_EQ(
+      std::find(obstructed.safe_actions.begin(), obstructed.safe_actions.end(),
+                Action(ActionType::Forward, 2U)),
+      obstructed.safe_actions.end());
 }
 
 TEST(PlanningCoordinator, SelectsLowestCostAndUsesNameForStableTies) {
@@ -415,10 +414,8 @@ TEST(ExplorationCoordinator, EmitsCandidateLifecycleEvents) {
   exploration::ExplorationCoordinator coordinator(0.1);
   domain::ActionSpace actions({0.1, 0.2}, {0.25, 0.5});
   domain::RobotObservation observation;
-  observation.laser.angle_min =
-      domain::Angle(-1.5707963267948966);
-  observation.laser.angle_increment =
-      domain::Angle(0.7853981633974483);
+  observation.laser.angle_min = domain::Angle(-1.5707963267948966);
+  observation.laser.angle_increment = domain::Angle(0.7853981633974483);
   observation.laser.minimum_range = domain::Distance(0.05);
   observation.laser.maximum_range = domain::Distance(5.0);
   observation.laser.ranges_m = {2.0, 2.0, 2.0, 2.0, 2.0};

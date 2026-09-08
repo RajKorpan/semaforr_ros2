@@ -92,7 +92,8 @@ TraversabilityBuildResult deriveTraversability(
       configuration.turning_footprint_margin_m < 0.0 ||
       configuration.dynamic_obstacle_margin_m < 0.0 ||
       configuration.unknown_cost_multiplier < 1.0F)
-    throw std::invalid_argument("traversability margins and unknown cost are invalid");
+    throw std::invalid_argument(
+        "traversability margins and unknown cost are invalid");
 
   TraversabilityBuildResult result;
   domain::GridExtent extent;
@@ -108,7 +109,8 @@ TraversabilityBuildResult deriveTraversability(
     result.grid.source_static_revision = static_map->revision;
   } else {
     if (!sensed || !sensed->valid() || sensed->observedCellCount() == 0U) {
-      result.diagnostic = "sensor-derived occupancy is not sufficiently defined";
+      result.diagnostic =
+          "sensor-derived occupancy is not sufficiently defined";
       return result;
     }
     extent = sensed->geometry;
@@ -124,8 +126,9 @@ TraversabilityBuildResult deriveTraversability(
     auto& output = result.grid.cells[index];
     const auto point = extent.center(index);
     const auto sensor = sensedAt(sensed, point);
-    const auto static_state = prior ? prior->cells[index]
-                                    : domain::StaticOccupancyState::StaticUnknown;
+    const auto static_state = prior
+                                  ? prior->cells[index]
+                                  : domain::StaticOccupancyState::StaticUnknown;
     if (prior && static_state == domain::StaticOccupancyState::StaticOccupied) {
       output = {domain::TraversabilityState::NonTraversable, 1.0F,
                 domain::OccupancyEvidenceSource::StaticMap};
@@ -172,11 +175,11 @@ TraversabilityBuildResult deriveTraversability(
                              configuration.turning_footprint_margin_m;
   for (std::size_t source = 0U; source < occupied.size(); ++source) {
     if (!occupied[source]) continue;
-    const double margin = base_margin +
-                          (dynamic[source]
-                               ? configuration.dynamic_obstacle_margin_m
-                               : 0.0);
-    const int radius = static_cast<int>(std::ceil(margin / extent.resolution_m));
+    const double margin =
+        base_margin +
+        (dynamic[source] ? configuration.dynamic_obstacle_margin_m : 0.0);
+    const int radius =
+        static_cast<int>(std::ceil(margin / extent.resolution_m));
     const int source_row = static_cast<int>(source / extent.columns);
     const int source_column = static_cast<int>(source % extent.columns);
     for (int dy = -radius; dy <= radius; ++dy) {

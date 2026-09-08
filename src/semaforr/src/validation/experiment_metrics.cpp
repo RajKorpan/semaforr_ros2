@@ -11,8 +11,8 @@
 #include <algorithm>
 #include <cmath>
 #include <iomanip>
-#include <semaforr/validation/experiment_metrics.hpp>
 #include <semaforr/spatial/coverage.hpp>
+#include <semaforr/validation/experiment_metrics.hpp>
 #include <sstream>
 #include <stdexcept>
 
@@ -82,7 +82,8 @@ ExperimentMetricsCollector::ExperimentMetricsCollector(
       profile_(std::move(profile)),
       freespace_cells_(freespace_cells) {
   if (scenario_.empty() || profile_.empty() || freespace_cells_ == 0U)
-    throw std::invalid_argument("experiment identity and freespace are required");
+    throw std::invalid_argument(
+        "experiment identity and freespace are required");
 }
 
 /**
@@ -158,10 +159,10 @@ ExperimentSummary ExperimentMetricsCollector::summary() const {
     const bool exploring = observation.decision.navigation_phase ==
                            navigation::NavigationPhase::InitialExploration;
     if (previous_pose) {
-      const double distance = domain::distance(
-                                  previous_pose->position,
-                                  observation.decision.robot_pose.position)
-                                  .meters();
+      const double distance =
+          domain::distance(previous_pose->position,
+                           observation.decision.robot_pose.position)
+              .meters();
       if (exploring)
         result.exploration_distance_m += distance;
       else
@@ -177,11 +178,10 @@ ExperimentSummary ExperimentMetricsCollector::summary() const {
     result.allocation_count += observation.allocations.count;
     result.allocation_bytes += observation.allocations.bytes;
     decision_latency_total += observation.decision.decision_latency_s;
-    result.maximum_decision_latency_s = std::max(
-        result.maximum_decision_latency_s,
-        observation.decision.decision_latency_s);
-    if (observation.covered_cells)
-      latest_coverage = *observation.covered_cells;
+    result.maximum_decision_latency_s =
+        std::max(result.maximum_decision_latency_s,
+                 observation.decision.decision_latency_s);
+    if (observation.covered_cells) latest_coverage = *observation.covered_cells;
     const std::string intervention =
         observation.decision.selected_policy.empty()
             ? std::string(decision::toString(observation.decision.tier))
@@ -192,18 +192,16 @@ ExperimentSummary ExperimentMetricsCollector::summary() const {
       result.exploration_distance_m + result.target_distance_m;
   result.total_runtime_s =
       result.exploration_runtime_s + result.target_runtime_s;
-  result.mean_decision_latency_s = observations_.empty()
-                                       ? 0.0
-                                       : decision_latency_total /
-                                             observations_.size();
+  result.mean_decision_latency_s =
+      observations_.empty() ? 0.0
+                            : decision_latency_total / observations_.size();
   result.coverage = static_cast<double>(latest_coverage) /
                     static_cast<double>(freespace_cells_);
   for (const auto& [name, count] : result.intervention_counts)
     result.intervention_frequency[name] =
-        observations_.empty()
-            ? 0.0
-            : static_cast<double>(count) /
-                  static_cast<double>(observations_.size());
+        observations_.empty() ? 0.0
+                              : static_cast<double>(count) /
+                                    static_cast<double>(observations_.size());
   return result;
 }
 
@@ -231,17 +229,15 @@ std::string ExperimentMetricsCollector::serialize() const {
          << ",\"targets_succeeded\":" << value.targets_succeeded
          << ",\"success_rate\":" << value.success_rate
          << ",\"decisions\":" << value.decisions
-         << ",\"distance_m\":{\"exploration\":"
-         << value.exploration_distance_m << ",\"targets\":"
-         << value.target_distance_m << ",\"total\":"
-         << value.total_distance_m << "}"
-         << ",\"runtime_s\":{\"exploration\":"
-         << value.exploration_runtime_s << ",\"targets\":"
-         << value.target_runtime_s << ",\"total\":"
-         << value.total_runtime_s << "}"
+         << ",\"distance_m\":{\"exploration\":" << value.exploration_distance_m
+         << ",\"targets\":" << value.target_distance_m
+         << ",\"total\":" << value.total_distance_m << "}"
+         << ",\"runtime_s\":{\"exploration\":" << value.exploration_runtime_s
+         << ",\"targets\":" << value.target_runtime_s
+         << ",\"total\":" << value.total_runtime_s << "}"
          << ",\"decision_latency_s\":{\"mean\":"
-         << value.mean_decision_latency_s << ",\"maximum\":"
-         << value.maximum_decision_latency_s << "}"
+         << value.mean_decision_latency_s
+         << ",\"maximum\":" << value.maximum_decision_latency_s << "}"
          << ",\"planning_latency_s\":" << value.planning_latency_s
          << ",\"model_update_cost_s\":" << value.model_update_cost_s
          << ",\"allocations\":{\"count\":" << value.allocation_count

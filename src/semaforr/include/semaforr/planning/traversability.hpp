@@ -103,11 +103,12 @@ struct TraversabilityConfiguration {
    * Exceptions:
    * - None documented; validation or dependency failures may propagate.
    */
-  TraversabilityConfiguration(
-      domain::UnknownSpacePolicy map_policy,
-      domain::UnknownSpacePolicy partial_sensor_policy, double robot_radius,
-      double safety_clearance, double localization_uncertainty,
-      double turning_margin, double dynamic_margin, float unknown_cost)
+  TraversabilityConfiguration(domain::UnknownSpacePolicy map_policy,
+                              domain::UnknownSpacePolicy partial_sensor_policy,
+                              double robot_radius, double safety_clearance,
+                              double localization_uncertainty,
+                              double turning_margin, double dynamic_margin,
+                              float unknown_cost)
       : unknown_policy(map_policy),
         sensor_unknown_policy(partial_sensor_policy),
         robot_radius_m(robot_radius),

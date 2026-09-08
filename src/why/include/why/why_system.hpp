@@ -16,19 +16,19 @@ using ExplanationQuestion = semaforr_msgs::msg::ExplanationQuestion;
 using ExplanationResponse = semaforr_msgs::msg::ExplanationResponse;
 
 class ExplanationTraceStore {
- public:
-  void record(const DecisionRecord& record);
-  const DecisionRecord* latestDecision() const noexcept;
-  const DecisionRecord* decision(std::uint64_t id) const noexcept;
-  const DecisionRecord* action(std::uint64_t id) const noexcept;
-  const DecisionRecord* execution(std::uint64_t id) const noexcept;
-  const DecisionRecord* task(std::uint64_t id) const noexcept;
-  const DecisionRecord* currentTask() const noexcept;
-  const DecisionRecord* plan(std::uint64_t id) const noexcept;
-  const DecisionRecord* planningEpisode(std::uint64_t id) const noexcept;
+public:
+  void record(const DecisionRecord &record);
+  const DecisionRecord *latestDecision() const noexcept;
+  const DecisionRecord *decision(std::uint64_t id) const noexcept;
+  const DecisionRecord *action(std::uint64_t id) const noexcept;
+  const DecisionRecord *execution(std::uint64_t id) const noexcept;
+  const DecisionRecord *task(std::uint64_t id) const noexcept;
+  const DecisionRecord *currentTask() const noexcept;
+  const DecisionRecord *plan(std::uint64_t id) const noexcept;
+  const DecisionRecord *planningEpisode(std::uint64_t id) const noexcept;
   std::vector<std::uint64_t> decisionIds() const;
 
- private:
+private:
   std::map<std::uint64_t, DecisionRecord> decisions_;
   std::map<std::uint64_t, std::uint64_t> action_to_decision_;
   std::map<std::uint64_t, std::uint64_t> execution_to_decision_;
@@ -38,46 +38,45 @@ class ExplanationTraceStore {
 };
 
 class UnifiedWhySystem {
- public:
+public:
   using HypotheticalEvaluator =
-      std::function<DecisionRecord(const geometry_msgs::msg::Pose2D&)>;
+      std::function<DecisionRecord(const geometry_msgs::msg::Pose2D &)>;
   using RouteEvaluator = std::function<std::vector<double>(
-      const std::vector<geometry_msgs::msg::Point>&,
-      const std::vector<std::string>&)>;
+      const std::vector<geometry_msgs::msg::Point> &,
+      const std::vector<std::string> &)>;
 
-  void record(const DecisionRecord& record) { traces_.record(record); }
+  void record(const DecisionRecord &record) { traces_.record(record); }
   void setHypotheticalEvaluator(HypotheticalEvaluator evaluator) {
     hypothetical_evaluator_ = std::move(evaluator);
   }
   void setRouteEvaluator(RouteEvaluator evaluator) {
     route_evaluator_ = std::move(evaluator);
   }
-  ExplanationResponse answer(const ExplanationQuestion& question) const;
-  const ExplanationTraceStore& traces() const noexcept { return traces_; }
+  ExplanationResponse answer(const ExplanationQuestion &question) const;
+  const ExplanationTraceStore &traces() const noexcept { return traces_; }
 
- private:
-  const DecisionRecord* resolveDecision(
-      const ExplanationQuestion& question) const noexcept;
-  ExplanationResponse baseResponse(const ExplanationQuestion& question,
-                                   const DecisionRecord* record) const;
-  ExplanationResponse explainDecision(const ExplanationQuestion&,
-                                      const DecisionRecord&) const;
-  ExplanationResponse explainCounterfactual(const ExplanationQuestion&,
-                                            const DecisionRecord&) const;
-  ExplanationResponse explainDecisionConfidence(const ExplanationQuestion&,
-                                                const DecisionRecord&) const;
-  ExplanationResponse explainPlan(const ExplanationQuestion&,
-                                  const DecisionRecord&) const;
-  ExplanationResponse explainAlternativePlan(const ExplanationQuestion&,
-                                             const DecisionRecord&) const;
-  ExplanationResponse explainPlanConfidence(const ExplanationQuestion&,
-                                            const DecisionRecord&) const;
-  ExplanationResponse explainRoute(const ExplanationQuestion&,
-                                   const DecisionRecord&) const;
-  ExplanationResponse comparePlan(const ExplanationQuestion&,
-                                  const DecisionRecord&) const;
-  ExplanationResponse explainHypothetical(
-      const ExplanationQuestion&) const;
+private:
+  const DecisionRecord *
+  resolveDecision(const ExplanationQuestion &question) const noexcept;
+  ExplanationResponse baseResponse(const ExplanationQuestion &question,
+                                   const DecisionRecord *record) const;
+  ExplanationResponse explainDecision(const ExplanationQuestion &,
+                                      const DecisionRecord &) const;
+  ExplanationResponse explainCounterfactual(const ExplanationQuestion &,
+                                            const DecisionRecord &) const;
+  ExplanationResponse explainDecisionConfidence(const ExplanationQuestion &,
+                                                const DecisionRecord &) const;
+  ExplanationResponse explainPlan(const ExplanationQuestion &,
+                                  const DecisionRecord &) const;
+  ExplanationResponse explainAlternativePlan(const ExplanationQuestion &,
+                                             const DecisionRecord &) const;
+  ExplanationResponse explainPlanConfidence(const ExplanationQuestion &,
+                                            const DecisionRecord &) const;
+  ExplanationResponse explainRoute(const ExplanationQuestion &,
+                                   const DecisionRecord &) const;
+  ExplanationResponse comparePlan(const ExplanationQuestion &,
+                                  const DecisionRecord &) const;
+  ExplanationResponse explainHypothetical(const ExplanationQuestion &) const;
 
   mutable std::uint64_t next_explanation_id_{1U};
   ExplanationTraceStore traces_;
@@ -85,6 +84,6 @@ class UnifiedWhySystem {
   RouteEvaluator route_evaluator_;
 };
 
-}  // namespace semaforr::why
+} // namespace semaforr::why
 
 #endif

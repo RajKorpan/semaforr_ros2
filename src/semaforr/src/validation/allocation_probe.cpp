@@ -2,10 +2,10 @@
  * @file allocation_probe.cpp
  * @brief Allocation probe responsibilities.
  *
- * @details This file implements allocation probe behavior for replay, experimental
- * validation, and performance measurement. It records the declarations,
- * settings, fixtures, or guidance needed by that responsibility. Its
- * package-relative location is `src/validation/allocation_probe.cpp`.
+ * @details This file implements allocation probe behavior for replay,
+ * experimental validation, and performance measurement. It records the
+ * declarations, settings, fixtures, or guidance needed by that responsibility.
+ * Its package-relative location is `src/validation/allocation_probe.cpp`.
  */
 #include <atomic>
 #include <cstdlib>
@@ -15,7 +15,7 @@
 namespace {
 std::atomic<std::size_t> allocation_count{0U};
 std::atomic<std::size_t> allocation_bytes{0U};
-}
+}  // namespace
 
 namespace semaforr::validation {
 
@@ -108,9 +108,7 @@ void* operator new(std::size_t size) {
  * Exceptions:
  * - None documented; validation or dependency failures may propagate.
  */
-void* operator new[](std::size_t size) {
-  return ::operator new(size);
-}
+void* operator new[](std::size_t size) { return ::operator new(size); }
 
 /**
  * @brief Performs the operator new operation for this subsystem.
@@ -269,7 +267,6 @@ void operator delete(void* memory, std::size_t, std::align_val_t) noexcept {
  * Exceptions:
  * - None documented; validation or dependency failures may propagate.
  */
-void operator delete[](void* memory, std::size_t,
-                       std::align_val_t) noexcept {
+void operator delete[](void* memory, std::size_t, std::align_val_t) noexcept {
   std::free(memory);
 }

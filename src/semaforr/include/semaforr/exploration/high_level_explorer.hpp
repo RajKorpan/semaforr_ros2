@@ -2,8 +2,8 @@
  * @file high_level_explorer.hpp
  * @brief High level explorer responsibilities.
  *
- * @details This file defines high level explorer behavior for initial or reactive
- * exploration. It centers on `HighLevelExplorer`. Its package-relative
+ * @details This file defines high level explorer behavior for initial or
+ * reactive exploration. It centers on `HighLevelExplorer`. Its package-relative
  * location is `include/semaforr/exploration/high_level_explorer.hpp`.
  */
 #ifndef SEMAFORR_EXPLORATION_HIGH_LEVEL_EXPLORER_HPP
@@ -154,7 +154,8 @@ class HighLevelExplorer final : public ExplorationStrategy {
    * Exceptions:
    * - None documented; validation or dependency failures may propagate.
    */
-  const std::vector<CandidateDiagnostic>& candidateDiagnostics() const noexcept {
+  const std::vector<CandidateDiagnostic>& candidateDiagnostics()
+      const noexcept {
     return candidate_diagnostics_;
   }
   /**
@@ -200,7 +201,8 @@ class HighLevelExplorer final : public ExplorationStrategy {
    * - None documented; validation or dependency failures may propagate.
    */
   static std::vector<ExplorationCandidate> discoverCandidates(
-      const domain::RobotObservation&, const HighLevelExplorationConfiguration&);
+      const domain::RobotObservation&,
+      const HighLevelExplorationConfiguration&);
   /**
    * @brief Performs the measure bundles operation for this subsystem.
    *
@@ -217,7 +219,8 @@ class HighLevelExplorer final : public ExplorationStrategy {
    * - None documented; validation or dependency failures may propagate.
    */
   static std::array<HleBundleMeasurement, 4U> measureBundles(
-      const domain::RobotObservation&, const HighLevelExplorationConfiguration&);
+      const domain::RobotObservation&,
+      const HighLevelExplorationConfiguration&);
   /**
    * @brief Evaluates cue for this subsystem.
    *
@@ -295,8 +298,7 @@ class HighLevelExplorer final : public ExplorationStrategy {
    * Exceptions:
    * - None documented; validation or dependency failures may propagate.
    */
-  std::vector<ExplorationCandidate> discover(
-      const domain::RobotObservation&);
+  std::vector<ExplorationCandidate> discover(const domain::RobotObservation&);
   /**
    * @brief Performs the merge target operation for this subsystem.
    *
@@ -325,8 +327,7 @@ class HighLevelExplorer final : public ExplorationStrategy {
    * Exceptions:
    * - None documented; validation or dependency failures may propagate.
    */
-  void mergeCandidate(ExplorationCandidateId,
-                      const ExplorationCandidate&);
+  void mergeCandidate(ExplorationCandidateId, const ExplorationCandidate&);
   /**
    * @brief Records diagnostic for this subsystem.
    *

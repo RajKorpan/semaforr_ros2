@@ -2,8 +2,8 @@
  * @file chapter3_representations_test.cpp
  * @brief Chapter3 representations test responsibilities.
  *
- * @details This file exercises chapter3 representations test behavior for automated
- * verification and regression testing. It centers on
+ * @details This file exercises chapter3 representations test behavior for
+ * automated verification and regression testing. It centers on
  * `RetainsSelectionExecutionOutcomesAndInterruptions`,
  * `SelectsHandComputedHistoricalVisibilityMarkers`,
  * `UsesOnlyActualReachedTranslationGeometry`,
@@ -46,7 +46,7 @@ constexpr double pi = 3.14159265358979323846;
  * - None documented; validation or dependency failures may propagate.
  */
 semaforr::domain::RobotObservation observation(double x, double y,
-                                                double range = 10.0) {
+                                               double range = 10.0) {
   semaforr::domain::RobotObservation result;
   result.pose = {{x, y}, semaforr::domain::Angle::zero()};
   result.laser.angle_min = semaforr::domain::Angle(-pi);
@@ -138,14 +138,18 @@ semaforr::domain::CompletedPath path(
  * - None documented; validation or dependency failures may propagate.
  */
 semaforr::domain::LearnedTrail straightTrail(semaforr::domain::TrailId id,
-                                              double y) {
+                                             double y) {
   semaforr::domain::LearnedTrail trail;
   trail.id = id;
   trail.source_path = id;
-  trail.markers.push_back({0U, {{0.0, y}, semaforr::domain::Angle::zero()},
-                           observation(0.0, y).laser, std::nullopt});
-  trail.markers.push_back({1U, {{4.0, y}, semaforr::domain::Angle::zero()},
-                           observation(4.0, y).laser, std::nullopt});
+  trail.markers.push_back({0U,
+                           {{0.0, y}, semaforr::domain::Angle::zero()},
+                           observation(0.0, y).laser,
+                           std::nullopt});
+  trail.markers.push_back({1U,
+                           {{4.0, y}, semaforr::domain::Angle::zero()},
+                           observation(4.0, y).laser,
+                           std::nullopt});
   return trail;
 }
 
@@ -156,9 +160,9 @@ TEST(CompletedPath, RetainsSelectionExecutionOutcomesAndInterruptions) {
   history.begin(7U, 1U, semaforr::domain::Point2D{2.0, 0.0});
   auto successful = pathPoint(1U, {0.0, 0.0}, {1.0, 0.0});
   history.record(successful);
-  auto failed = pathPoint(
-      2U, {1.0, 0.0}, {1.2, 0.0},
-      semaforr::domain::ExecutionCompletionStatus::SafetyInterrupted);
+  auto failed =
+      pathPoint(2U, {1.0, 0.0}, {1.2, 0.0},
+                semaforr::domain::ExecutionCompletionStatus::SafetyInterrupted);
   failed.interrupted = true;
   failed.executed_action.reset();
   history.record(failed);
@@ -170,20 +174,20 @@ TEST(CompletedPath, RetainsSelectionExecutionOutcomesAndInterruptions) {
   EXPECT_TRUE(completed->decision_points.back().execution.moved());
   EXPECT_TRUE(completed->decision_points.back().interrupted);
   EXPECT_FALSE(completed->decision_points.back().executed_action);
-  EXPECT_EQ(completed->decision_points.back().selection.action,
-            semaforr::domain::Action(semaforr::domain::ActionType::Forward,
-                                     1U));
+  EXPECT_EQ(
+      completed->decision_points.back().selection.action,
+      semaforr::domain::Action(semaforr::domain::ActionType::Forward, 1U));
 }
 
 TEST(TrailCompatibility, SelectsHandComputedHistoricalVisibilityMarkers) {
-  auto completed = path(
-      11U,
-      {pathPoint(1U, {0.0, 0.0}, {1.0, 1.0}),
-       pathPoint(2U, {1.0, 1.0}, {1.0, 1.0},
-                 semaforr::domain::ExecutionCompletionStatus::NoMovement),
-       pathPoint(3U, {1.0, 1.0}, {2.0, -1.0}),
-       pathPoint(4U, {2.0, -1.0}, {4.0, 0.0})},
-      {4.0, 0.0});
+  auto completed =
+      path(11U,
+           {pathPoint(1U, {0.0, 0.0}, {1.0, 1.0}),
+            pathPoint(2U, {1.0, 1.0}, {1.0, 1.0},
+                      semaforr::domain::ExecutionCompletionStatus::NoMovement),
+            pathPoint(3U, {1.0, 1.0}, {2.0, -1.0}),
+            pathPoint(4U, {2.0, -1.0}, {4.0, 0.0})},
+           {4.0, 0.0});
   const auto trail = semaforr::spatial::learnVisibilityTrail(completed, 5U);
   ASSERT_EQ(trail.markers.size(), 2U);
   EXPECT_EQ(trail.markers.front().pose.position,
@@ -196,26 +200,26 @@ TEST(TrailCompatibility, SelectsHandComputedHistoricalVisibilityMarkers) {
 }
 
 TEST(TrailCompatibility, UsesOnlyActualReachedTranslationGeometry) {
-  auto failed = pathPoint(
-      1U, {0.0, 0.0}, {8.0, 0.0},
-      semaforr::domain::ExecutionCompletionStatus::ControllerFailure);
+  auto failed =
+      pathPoint(1U, {0.0, 0.0}, {8.0, 0.0},
+                semaforr::domain::ExecutionCompletionStatus::ControllerFailure);
   // The controller reported no achieved translation; an erroneous intended
   // final pose must not become learned geometry.
   failed.execution.distance_achieved_m = 0.0;
   failed.executed_action.reset();
   auto failed_path = path(12U, {failed}, {8.0, 0.0});
-  EXPECT_TRUE(
-      semaforr::spatial::learnVisibilityTrail(failed_path, 12U).markers.empty());
+  EXPECT_TRUE(semaforr::spatial::learnVisibilityTrail(failed_path, 12U)
+                  .markers.empty());
 
-  auto partial = pathPoint(
-      2U, {0.0, 0.0}, {0.4, 0.0},
-      semaforr::domain::ExecutionCompletionStatus::PartialMovement);
+  auto partial =
+      pathPoint(2U, {0.0, 0.0}, {0.4, 0.0},
+                semaforr::domain::ExecutionCompletionStatus::PartialMovement);
   partial.execution.distance_achieved_m = 0.4;
   const auto partial_path = path(13U, {partial}, {2.0, 0.0});
   semaforr::spatial::TrailLearningConfiguration configuration;
   configuration.include_partial_movement = true;
-  const auto learned = semaforr::spatial::learnVisibilityTrail(
-      partial_path, 13U, configuration);
+  const auto learned =
+      semaforr::spatial::learnVisibilityTrail(partial_path, 13U, configuration);
   ASSERT_EQ(learned.markers.size(), 2U);
   EXPECT_EQ(learned.markers.front().pose.position,
             (semaforr::domain::Point2D{0.0, 0.0}));
@@ -225,8 +229,8 @@ TEST(TrailCompatibility, UsesOnlyActualReachedTranslationGeometry) {
 
 TEST(TrailCompatibility, SuccessfulRotationIsNotTraversedPathGeometry) {
   auto rotation = pathPoint(1U, {0.0, 0.0}, {0.0, 0.0});
-  rotation.selection.action = semaforr::domain::Action(
-      semaforr::domain::ActionType::TurnLeft, 1U);
+  rotation.selection.action =
+      semaforr::domain::Action(semaforr::domain::ActionType::TurnLeft, 1U);
   rotation.executed_action = rotation.selection.action;
   rotation.execution.rotation_achieved_rad = 0.5;
   rotation.execution.final_pose.heading = semaforr::domain::Angle(0.5);
@@ -239,7 +243,8 @@ TEST(TrailCompatibility, SuccessfulRotationIsNotTraversedPathGeometry) {
 }
 
 TEST(ConveyorCompatibility, RepeatedSuccessfulTrailsIncreaseCellStrength) {
-  const auto one = semaforr::spatial::learnConveyorGrid({straightTrail(1U, 0.0)});
+  const auto one =
+      semaforr::spatial::learnConveyorGrid({straightTrail(1U, 0.0)});
   const auto two = semaforr::spatial::learnConveyorGrid(
       {straightTrail(1U, 0.0), straightTrail(2U, 0.0)});
   ASSERT_FALSE(one.grid.cells.empty());
@@ -258,9 +263,9 @@ TEST(ConveyorCompatibility, RepeatedSuccessfulTrailsIncreaseCellStrength) {
       request, {{1.0, 0.0}, {2.0, 0.0}});
   const auto unsupported = semaforr::planning::evaluatePathObjectives(
       request, {{1.0, 3.0}, {2.0, 3.0}});
-  EXPECT_LT(preferred.at(semaforr::planning::PlanObjective::ConveyorPreference),
-            unsupported.at(
-                semaforr::planning::PlanObjective::ConveyorPreference));
+  EXPECT_LT(
+      preferred.at(semaforr::planning::PlanObjective::ConveyorPreference),
+      unsupported.at(semaforr::planning::PlanObjective::ConveyorPreference));
 }
 
 TEST(ConveyorCompatibility, FailedTargetTraversalAddsNoFrequency) {
@@ -271,9 +276,9 @@ TEST(ConveyorCompatibility, FailedTargetTraversalAddsNoFrequency) {
   episode.observation = observation(0.0, 0.0);
   episode.active_task = 7U;
   episode.active_target = semaforr::domain::Point2D{2.0, 0.0};
-  const auto failed = pathPoint(
-      1U, {0.0, 0.0}, {0.3, 0.0},
-      semaforr::domain::ExecutionCompletionStatus::SafetyInterrupted);
+  const auto failed =
+      pathPoint(1U, {0.0, 0.0}, {0.3, 0.0},
+                semaforr::domain::ExecutionCompletionStatus::SafetyInterrupted);
   episode.selection = failed.selection;
   episode.execution_result = failed.execution;
   episode.action_started = true;
@@ -287,17 +292,15 @@ TEST(ConveyorCompatibility, FailedTargetTraversalAddsNoFrequency) {
   semaforr::spatial::ConveyorLearner successful(
       0.05, semaforr::spatial::SpatialLearningMode::Compatibility);
   auto completed = episode;
-  completed.execution_result =
-      pathPoint(2U, {0.0, 0.0}, {2.0, 0.0}).execution;
-  completed.selection =
-      pathPoint(2U, {0.0, 0.0}, {2.0, 0.0}).selection;
+  completed.execution_result = pathPoint(2U, {0.0, 0.0}, {2.0, 0.0}).execution;
+  completed.selection = pathPoint(2U, {0.0, 0.0}, {2.0, 0.0}).selection;
   completed.target_reached = true;
   completed.task_finished = true;
   completed.action_started = true;
   successful.observe(completed);
   successful.rebuild();
-  const auto successful_model = std::get<semaforr::spatial::ConveyorModel>(
-      successful.snapshot().payload);
+  const auto successful_model =
+      std::get<semaforr::spatial::ConveyorModel>(successful.snapshot().payload);
   EXPECT_FALSE(successful_model.grid.cells.empty());
 }
 
@@ -316,12 +319,12 @@ TEST(RegionCompatibility, UsesMinimumRangeAndDeterministicReconciliation) {
   EXPECT_EQ(regions.learned_regions.front().id, 1U);
   EXPECT_NEAR(regions.learned_regions.front().boundary.radius.meters(), 1.0,
               1.0e-9);
-  EXPECT_EQ(regions.learned_regions.front().supporting_observation.pose.position,
-            (semaforr::domain::Point2D{0.0, 0.0}));
-  EXPECT_TRUE(std::any_of(
-      regions.learned_regions.front().visibility.begin(),
-      regions.learned_regions.front().visibility.end(),
-      [](const auto& bin) { return bin.known; }));
+  EXPECT_EQ(
+      regions.learned_regions.front().supporting_observation.pose.position,
+      (semaforr::domain::Point2D{0.0, 0.0}));
+  EXPECT_TRUE(std::any_of(regions.learned_regions.front().visibility.begin(),
+                          regions.learned_regions.front().visibility.end(),
+                          [](const auto& bin) { return bin.known; }));
 }
 
 TEST(DoorCompatibility, BuildsFirstClassExitsAndExitDerivedArc) {
@@ -331,10 +334,10 @@ TEST(DoorCompatibility, BuildsFirstClassExitsAndExitDerivedArc) {
   region.boundary = {{0.0, 0.0}, semaforr::domain::Distance(1.0)};
   regions.learned_regions.push_back(region);
   regions.regions.push_back(region.boundary);
-  const auto east = path(1U, {pathPoint(1U, {0.0, 0.0}, {2.0, 0.0})},
-                         {2.0, 0.0});
-  const auto northeast = path(
-      2U, {pathPoint(2U, {0.0, 0.0}, {2.0, 0.4})}, {2.0, 0.4});
+  const auto east =
+      path(1U, {pathPoint(1U, {0.0, 0.0}, {2.0, 0.0})}, {2.0, 0.0});
+  const auto northeast =
+      path(2U, {pathPoint(2U, {0.0, 0.0}, {2.0, 0.4})}, {2.0, 0.4});
   semaforr::spatial::DoorLearningConfiguration configuration;
   configuration.exit_merge_angle_rad = 0.05;
   const auto doors = semaforr::spatial::learnRegionExitsAndDoors(
@@ -367,9 +370,8 @@ TEST(HallwayCompatibility, RunsDirectionalInferenceAndPublishesAreaAndWidth) {
   std::vector<semaforr::domain::CompletedPath> paths;
   for (std::size_t index = 0U; index < 4U; ++index) {
     const double y = static_cast<double>(index) * 0.4;
-    paths.push_back(path(index + 1U,
-                         {pathPoint(index + 1U, {0.0, y}, {5.0, y})},
-                         {5.0, y}));
+    paths.push_back(path(
+        index + 1U, {pathPoint(index + 1U, {0.0, y}, {5.0, y})}, {5.0, y}));
   }
   auto configuration = semaforr::spatial::HallwayLearningConfiguration{};
   configuration.initial_sigma = 0.0;
@@ -385,8 +387,8 @@ TEST(HallwayCompatibility, RunsDirectionalInferenceAndPublishesAreaAndWidth) {
 
 TEST(HallwayModernized, UsesSuccessfulExecutionSegmentNotDecisionPoseDelta) {
   using namespace semaforr;
-  spatial::HallwayLearner learner(
-      0.1, spatial::SpatialLearningMode::Modernized);
+  spatial::HallwayLearner learner(0.1,
+                                  spatial::SpatialLearningMode::Modernized);
   spatial::NavigationEpisode successful;
   successful.sequence = 1U;
   successful.observation = observation(100.0, 100.0);
@@ -395,10 +397,9 @@ TEST(HallwayModernized, UsesSuccessfulExecutionSegmentNotDecisionPoseDelta) {
   successful.execution_result.emplace();
   successful.execution_result->status =
       domain::ExecutionCompletionStatus::Succeeded;
-  successful.execution_result->start_pose =
-      {{-2.0, 1.0}, domain::Angle::zero()};
-  successful.execution_result->final_pose =
-      {{1.0, 1.0}, domain::Angle::zero()};
+  successful.execution_result->start_pose = {{-2.0, 1.0},
+                                             domain::Angle::zero()};
+  successful.execution_result->final_pose = {{1.0, 1.0}, domain::Angle::zero()};
   successful.execution_result->distance_achieved_m = 3.0;
   learner.observe(successful);
 
@@ -411,13 +412,11 @@ TEST(HallwayModernized, UsesSuccessfulExecutionSegmentNotDecisionPoseDelta) {
   rejected.execution_result->final_pose.position = {50.0, 50.0};
   learner.observe(rejected);
   learner.rebuild();
-  const auto model = std::get<spatial::HallwayModel>(
-      learner.snapshot().payload);
+  const auto model =
+      std::get<spatial::HallwayModel>(learner.snapshot().payload);
   ASSERT_EQ(model.centerlines.size(), 1U);
-  EXPECT_EQ(model.centerlines.front().start,
-            (domain::Point2D{-2.0, 1.0}));
-  EXPECT_EQ(model.centerlines.front().end,
-            (domain::Point2D{1.0, 1.0}));
+  EXPECT_EQ(model.centerlines.front().start, (domain::Point2D{-2.0, 1.0}));
+  EXPECT_EQ(model.centerlines.front().end, (domain::Point2D{1.0, 1.0}));
 }
 
 TEST(SkeletonCompatibility, NodesAreRegionsAndEdgesCarryShortestSubtrails) {
@@ -430,30 +429,29 @@ TEST(SkeletonCompatibility, NodesAreRegionsAndEdgesCarryShortestSubtrails) {
     regions.learned_regions.push_back(region);
     regions.regions.push_back(region.boundary);
   }
-  const auto traveled = path(
-      1U,
-      {pathPoint(1U, {0.0, 0.0}, {1.0, 0.0}),
-       pathPoint(2U, {1.0, 0.0}, {2.0, 0.0}),
-       pathPoint(3U, {2.0, 0.0}, {3.0, 0.0}),
-       pathPoint(4U, {3.0, 0.0}, {4.0, 0.0})},
-      {4.0, 0.0});
-  const auto second_traversal = path(
-      3U,
-      {pathPoint(5U, {0.0, 0.0}, {1.0, 0.2}),
-       pathPoint(6U, {1.0, 0.2}, {2.0, -0.2}),
-       pathPoint(7U, {2.0, -0.2}, {4.0, 0.0})},
-      {4.0, 0.0});
-  const auto interrupted = path(
-      2U,
-      {pathPoint(2U, {0.0, 0.0}, {4.0, 0.0},
-                 semaforr::domain::ExecutionCompletionStatus::SafetyInterrupted)},
-      {4.0, 0.0});
-  const auto failed_skeleton = semaforr::spatial::learnRegionSkeleton(
-      regions, {}, {interrupted});
+  const auto traveled = path(1U,
+                             {pathPoint(1U, {0.0, 0.0}, {1.0, 0.0}),
+                              pathPoint(2U, {1.0, 0.0}, {2.0, 0.0}),
+                              pathPoint(3U, {2.0, 0.0}, {3.0, 0.0}),
+                              pathPoint(4U, {3.0, 0.0}, {4.0, 0.0})},
+                             {4.0, 0.0});
+  const auto second_traversal = path(3U,
+                                     {pathPoint(5U, {0.0, 0.0}, {1.0, 0.2}),
+                                      pathPoint(6U, {1.0, 0.2}, {2.0, -0.2}),
+                                      pathPoint(7U, {2.0, -0.2}, {4.0, 0.0})},
+                                     {4.0, 0.0});
+  const auto interrupted =
+      path(2U,
+           {pathPoint(
+               2U, {0.0, 0.0}, {4.0, 0.0},
+               semaforr::domain::ExecutionCompletionStatus::SafetyInterrupted)},
+           {4.0, 0.0});
+  const auto failed_skeleton =
+      semaforr::spatial::learnRegionSkeleton(regions, {}, {interrupted});
   EXPECT_TRUE(failed_skeleton.region_edges.empty());
-  auto cancelled = pathPoint(
-      8U, {0.0, 0.0}, {4.0, 0.0},
-      semaforr::domain::ExecutionCompletionStatus::Cancelled);
+  auto cancelled =
+      pathPoint(8U, {0.0, 0.0}, {4.0, 0.0},
+                semaforr::domain::ExecutionCompletionStatus::Cancelled);
   cancelled.execution.distance_achieved_m = 0.0;
   const auto cancelled_skeleton = semaforr::spatial::learnRegionSkeleton(
       regions, {}, {path(4U, {cancelled}, {4.0, 0.0})});
@@ -486,12 +484,12 @@ TEST(SkeletonCompatibility, NodesAreRegionsAndEdgesCarryShortestSubtrails) {
   auto plan = semaforr::planning::SkeletonPlan{}.plan(request);
   ASSERT_TRUE(plan.succeeded());
   ASSERT_TRUE(plan.hierarchical);
-  EXPECT_TRUE(std::any_of(
-      plan.hierarchical->steps.begin(), plan.hierarchical->steps.end(),
-      [](const auto& step) {
-        return std::holds_alternative<
-            semaforr::planning::SkeletonTransitionStep>(step);
-      }));
+  EXPECT_TRUE(std::any_of(plan.hierarchical->steps.begin(),
+                          plan.hierarchical->steps.end(), [](const auto& step) {
+                            return std::holds_alternative<
+                                semaforr::planning::SkeletonTransitionStep>(
+                                step);
+                          }));
   EXPECT_NE(plan.explanation.find("region-skeleton"), std::string::npos);
 }
 
@@ -518,12 +516,12 @@ TEST(SkeletonSurrogates, UsesRetainedContainmentBeforeOtherChoices) {
                       result.hierarchical->diagnostics.end(),
                       "surrogate:contained:region=0"),
             result.hierarchical->diagnostics.end());
-  EXPECT_FALSE(std::any_of(
-      result.hierarchical->steps.begin(), result.hierarchical->steps.end(),
-      [](const auto& step) {
-        return std::holds_alternative<
-            semaforr::planning::VisibilityConnectionStep>(step);
-      }));
+  EXPECT_FALSE(
+      std::any_of(result.hierarchical->steps.begin(),
+                  result.hierarchical->steps.end(), [](const auto& step) {
+                    return std::holds_alternative<
+                        semaforr::planning::VisibilityConnectionStep>(step);
+                  }));
 }
 
 TEST(SkeletonSurrogates, RetainsStartAndGoalVisibilityRaysAsPlanSteps) {
@@ -538,10 +536,10 @@ TEST(SkeletonSurrogates, RetainsStartAndGoalVisibilityRaysAsPlanSteps) {
     spatial.region_skeleton_nodes.push_back(
         {index, region.id, region.boundary.center, {}});
   }
-  spatial.region_skeleton_nodes[0].visibility[180] =
-      {true, 3.0, {0.0, 0.0}, {-3.0, 0.0}, 41U};
-  spatial.region_skeleton_nodes[1].visibility[0] =
-      {true, 3.0, {5.0, 0.0}, {8.0, 0.0}, 42U};
+  spatial.region_skeleton_nodes[0].visibility[180] = {
+      true, 3.0, {0.0, 0.0}, {-3.0, 0.0}, 41U};
+  spatial.region_skeleton_nodes[1].visibility[0] = {
+      true, 3.0, {5.0, 0.0}, {8.0, 0.0}, 42U};
   spatial.region_skeleton_edges.emplace_back(
       0U, 1U, std::vector<semaforr::domain::Point2D>{{0.0, 0.0}, {5.0, 0.0}},
       5.0, 1U);
@@ -551,8 +549,8 @@ TEST(SkeletonSurrogates, RetainsStartAndGoalVisibilityRaysAsPlanSteps) {
   ASSERT_TRUE(result.hierarchical);
   std::vector<semaforr::planning::VisibilityConnectionStep> connections;
   for (const auto& step : result.hierarchical->steps)
-    if (const auto* connection = std::get_if<
-            semaforr::planning::VisibilityConnectionStep>(&step))
+    if (const auto* connection =
+            std::get_if<semaforr::planning::VisibilityConnectionStep>(&step))
       connections.push_back(*connection);
   ASSERT_EQ(connections.size(), 2U);
   EXPECT_TRUE(connections.front().toward_region);

@@ -9,10 +9,10 @@
  */
 #include <semaforr/decision/advisors/catalog_registry.hpp>
 #include <semaforr/decision/advisors/heuristic_advisor.hpp>
-#include <semaforr/decision/advisors/social/learned_crowd_advisor.hpp>
 #include <semaforr/decision/advisors/navigation_advisor.hpp>
-#include <semaforr/decision/tier_registry.hpp>
+#include <semaforr/decision/advisors/social/learned_crowd_advisor.hpp>
 #include <semaforr/decision/advisors/social/social_navigation_advisor.hpp>
+#include <semaforr/decision/tier_registry.hpp>
 #include <unordered_map>
 
 namespace semaforr::decision {
@@ -62,7 +62,8 @@ class RandomTieAdvisor final : public Advisor {
     return {{},
             {domain::ActionType::Pause, domain::ActionType::Forward,
              domain::ActionType::TurnLeft, domain::ActionType::TurnRight},
-            true, ScoreNormalization::None,
+            true,
+            ScoreNormalization::None,
             "leave all viable actions tied for seeded selection"};
   }
   /**
@@ -110,23 +111,21 @@ void registerAdvisorCatalog(
     const std::vector<config::AdvisorConfiguration>& configured) {
   std::unordered_map<std::string, double> weights;
   for (const auto& advisor : configured) weights[advisor.name] = advisor.weight;
-  registry.registerFactory(
-      "random", [] { return std::make_unique<RandomTieAdvisor>(); });
+  registry.registerFactory("random",
+                           [] { return std::make_unique<RandomTieAdvisor>(); });
   const auto weight = [&weights](const std::string& name) {
     const auto found = weights.find(name);
     return found == weights.end() ? 1.0 : found->second;
   };
-  const auto navigation =
-      [&](std::string name, NavigationAdvisorObjective objective,
-          ActionSelection selection) {
-        registry.registerFactory(
-            name, [name, objective, selection, action_space,
-                   value = weight(name)] {
-              return std::make_unique<NavigationAdvisor>(
-                  NavigationAdvisorConfiguration{name, objective, selection,
-                                                 action_space, value});
-            });
-      };
+  const auto navigation = [&](std::string name,
+                              NavigationAdvisorObjective objective,
+                              ActionSelection selection) {
+    registry.registerFactory(name, [name, objective, selection, action_space,
+                                    value = weight(name)] {
+      return std::make_unique<NavigationAdvisor>(NavigationAdvisorConfiguration{
+          name, objective, selection, action_space, value});
+    });
+  };
   navigation("goal_progress", NavigationAdvisorObjective::GoalProgress,
              ActionSelection::All);
   navigation("goal_progress_linear", NavigationAdvisorObjective::GoalProgress,
@@ -138,57 +137,55 @@ void registerAdvisorCatalog(
   navigation("exploration", NavigationAdvisorObjective::Exploration,
              ActionSelection::All);
 
-  const auto spatial =
-      [&](std::string name, SpatialAdvisorObjective objective) {
-        registry.registerFactory(
-            name, [name, objective, action_space, value = weight(name)] {
-              return std::make_unique<SpatialAdvisor>(
-                  name, objective, action_space, value);
-            });
-      };
+  const auto spatial = [&](std::string name,
+                           SpatialAdvisorObjective objective) {
+    registry.registerFactory(
+        name, [name, objective, action_space, value = weight(name)] {
+          return std::make_unique<SpatialAdvisor>(name, objective, action_space,
+                                                  value);
+        });
+  };
   spatial("avoid_revisit", SpatialAdvisorObjective::AvoidRevisit);
   spatial("prefer_regions", SpatialAdvisorObjective::PreferRegions);
   spatial("prefer_highways", SpatialAdvisorObjective::PreferHighways);
   spatial("prefer_doors", SpatialAdvisorObjective::PreferDoors);
   spatial("follow_trails", SpatialAdvisorObjective::FollowTrails);
 
-  const std::vector<std::pair<std::string, HeuristicObjective>>
-      heuristics{
-          {"big_step", HeuristicObjective::BigStep},
-          {"elbow_room", HeuristicObjective::ElbowRoom},
-          {"novelty", HeuristicObjective::Novelty},
-          {"go_around", HeuristicObjective::GoAround},
-          {"greedy", HeuristicObjective::Greedy},
-          {"curiosity", HeuristicObjective::Curiosity},
-          {"enfilade", HeuristicObjective::Enfilade},
-          {"visual_scan", HeuristicObjective::VisualScan},
-          {"convey", HeuristicObjective::Convey},
-          {"enter", HeuristicObjective::Enter},
-          {"exit", HeuristicObjective::Exit},
-          {"trailer", HeuristicObjective::Trailer},
-          {"unlikely", HeuristicObjective::Unlikely},
-          {"access", HeuristicObjective::Access},
-          {"crossroads", HeuristicObjective::Crossroads},
-          {"follow", HeuristicObjective::Follow},
-          {"least_angle", HeuristicObjective::LeastAngle},
-          {"spatial_learner", HeuristicObjective::SpatialLearner},
-          {"stay", HeuristicObjective::Stay}};
+  const std::vector<std::pair<std::string, HeuristicObjective>> heuristics{
+      {"big_step", HeuristicObjective::BigStep},
+      {"elbow_room", HeuristicObjective::ElbowRoom},
+      {"novelty", HeuristicObjective::Novelty},
+      {"go_around", HeuristicObjective::GoAround},
+      {"greedy", HeuristicObjective::Greedy},
+      {"curiosity", HeuristicObjective::Curiosity},
+      {"enfilade", HeuristicObjective::Enfilade},
+      {"visual_scan", HeuristicObjective::VisualScan},
+      {"convey", HeuristicObjective::Convey},
+      {"enter", HeuristicObjective::Enter},
+      {"exit", HeuristicObjective::Exit},
+      {"trailer", HeuristicObjective::Trailer},
+      {"unlikely", HeuristicObjective::Unlikely},
+      {"access", HeuristicObjective::Access},
+      {"crossroads", HeuristicObjective::Crossroads},
+      {"follow", HeuristicObjective::Follow},
+      {"least_angle", HeuristicObjective::LeastAngle},
+      {"spatial_learner", HeuristicObjective::SpatialLearner},
+      {"stay", HeuristicObjective::Stay}};
   for (const auto& [name, objective] : heuristics)
-    registry.registerFactory(
-        name, [name, objective, action_space, value = weight(name)] {
-          return std::make_unique<HeuristicAdvisor>(
-              HeuristicAdvisorConfiguration{name, objective, action_space,
-                                                value});
-        });
+    registry.registerFactory(name, [name, objective, action_space,
+                                    value = weight(name)] {
+      return std::make_unique<HeuristicAdvisor>(
+          HeuristicAdvisorConfiguration{name, objective, action_space, value});
+    });
 
   SocialAdvisorConfiguration live;
   live.move_distances_m = action_space.move_distances_m();
   live.rotation_angles_rad = action_space.rotation_angles_rad();
   live.weight = weight("social_navigation");
   live.advisor_name = "social_navigation";
-  registry.registerFactory(
-      "social_navigation",
-      [live] { return std::make_unique<SocialNavigationAdvisor>(live); });
+  registry.registerFactory("social_navigation", [live] {
+    return std::make_unique<SocialNavigationAdvisor>(live);
+  });
   const auto learned = [&](std::string name, LearnedCrowdObjective objective) {
     LearnedCrowdAdvisorConfiguration configuration;
     configuration.move_distances_m = action_space.move_distances_m();
@@ -196,10 +193,9 @@ void registerAdvisorCatalog(
     configuration.weight = weight(name);
     configuration.advisor_name = name;
     configuration.objective = objective;
-    registry.registerFactory(
-        name, [configuration] {
-          return std::make_unique<LearnedCrowdAdvisor>(configuration);
-        });
+    registry.registerFactory(name, [configuration] {
+      return std::make_unique<LearnedCrowdAdvisor>(configuration);
+    });
   };
   learned("crowd_avoid", LearnedCrowdObjective::AvoidDensity);
   learned("risk_avoid", LearnedCrowdObjective::AvoidEncounterRisk);

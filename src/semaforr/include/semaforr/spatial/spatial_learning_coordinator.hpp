@@ -530,7 +530,8 @@ class SpatialLearningCoordinator {
    * Exceptions:
    * - None documented; validation or dependency failures may propagate.
    */
-  const SnapshotProjectionMetrics& cumulativeProjectionMetrics() const noexcept {
+  const SnapshotProjectionMetrics& cumulativeProjectionMetrics()
+      const noexcept {
     return cumulative_projection_metrics_;
   }
   /**

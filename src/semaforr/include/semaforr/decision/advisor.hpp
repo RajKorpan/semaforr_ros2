@@ -2,8 +2,8 @@
  * @file advisor.hpp
  * @brief Advisor responsibilities.
  *
- * @details This file defines advisor behavior for tiered decision making and action
- * arbitration. It centers on `ScoreNormalization`, `AdvisorMetadata`,
+ * @details This file defines advisor behavior for tiered decision making and
+ * action arbitration. It centers on `ScoreNormalization`, `AdvisorMetadata`,
  * `ActionScore`, `AdvisorEvaluation`, `Advisor`. Its package-relative
  * location is `include/semaforr/decision/advisor.hpp`.
  */
@@ -161,7 +161,9 @@ class Advisor {
     return {dependencies(),
             {domain::ActionType::Pause, domain::ActionType::Forward,
              domain::ActionType::TurnLeft, domain::ActionType::TurnRight},
-            false, ScoreNormalization::SignedUnit, "advisor score"};
+            false,
+            ScoreNormalization::SignedUnit,
+            "advisor score"};
   }
   /**
    * @brief Evaluates package content for this subsystem.

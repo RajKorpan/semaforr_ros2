@@ -124,8 +124,10 @@ struct PathDecisionPoint {
       case ExecutionCompletionStatus::SensorLost:
       case ExecutionCompletionStatus::Shutdown:
       case ExecutionCompletionStatus::ClockReset:
-      case ExecutionCompletionStatus::OdometryReset: return true;
-      default: return false;
+      case ExecutionCompletionStatus::OdometryReset:
+        return true;
+      default:
+        return false;
     }
   }
   /**

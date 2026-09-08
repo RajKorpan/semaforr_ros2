@@ -25,11 +25,13 @@ using semaforr_msgs::msg::DecisionRecord;
 std::map<std::string, std::string> goldenExplanations() {
   std::ifstream stream(std::string(WHY_TEST_SOURCE_DIR) +
                        "/test/fixtures/why_explanations.golden");
-  if (!stream) throw std::runtime_error("cannot open Why golden fixture");
+  if (!stream)
+    throw std::runtime_error("cannot open Why golden fixture");
   std::map<std::string, std::string> result;
   std::string line;
   while (std::getline(stream, line)) {
-    if (line.empty() || line.front() == '#') continue;
+    if (line.empty() || line.front() == '#')
+      continue;
     const auto separator = line.find('=');
     if (separator == std::string::npos)
       throw std::runtime_error("malformed Why golden fixture line");
@@ -65,11 +67,9 @@ DecisionRecord tierThreeRecord() {
   record.decision_action_total_mean = 16.75;
   record.decision_action_total_standard_deviation = std::sqrt(188.75 / 3.0);
   record.decision_gamma = 0.495;
-  record.decision_zeta =
-      (22.0 - record.decision_action_total_mean) /
-      record.decision_action_total_standard_deviation;
-  record.decision_lambda =
-      (0.5 - record.decision_gamma) * record.decision_zeta;
+  record.decision_zeta = (22.0 - record.decision_action_total_mean) /
+                         record.decision_action_total_standard_deviation;
+  record.decision_lambda = (0.5 - record.decision_gamma) * record.decision_zeta;
   record.decision_gini_agreement = record.decision_gamma;
   record.decision_standardized_total = record.decision_zeta;
   record.decision_relative_support = record.decision_lambda;
@@ -105,8 +105,8 @@ DecisionRecord tierThreeRecord() {
   return record;
 }
 
-semaforr_msgs::msg::PlanCandidateDiagnostic plan(
-    std::uint64_t id, const std::string& planner, double total) {
+semaforr_msgs::msg::PlanCandidateDiagnostic
+plan(std::uint64_t id, const std::string &planner, double total) {
   semaforr_msgs::msg::PlanCandidateDiagnostic result;
   result.plan_id = id;
   result.planner = planner;
@@ -118,14 +118,14 @@ semaforr_msgs::msg::PlanCandidateDiagnostic plan(
   result.normalized_costs = {total, total / 2.0};
   result.summed_score = total;
   result.metadata.planner_name = planner;
-  result.metadata.plan_type = planner == "HighwayPlan" ? "model-based"
-                                                        : "grid-based";
-  result.metadata.objective_name = planner == "HighwayPlan"
-                                       ? "highway_distance"
-                                       : "distance";
-  result.metadata.objective_description = planner == "HighwayPlan"
-      ? "prefer travel through the learned highway network and its intersections"
-      : "minimize metric or graph path cost";
+  result.metadata.plan_type =
+      planner == "HighwayPlan" ? "model-based" : "grid-based";
+  result.metadata.objective_name =
+      planner == "HighwayPlan" ? "highway_distance" : "distance";
+  result.metadata.objective_description =
+      planner == "HighwayPlan" ? "prefer travel through the learned highway "
+                                 "network and its intersections"
+                               : "minimize metric or graph path cost";
   result.metadata.representation_dependencies =
       planner == "HighwayPlan"
           ? std::vector<std::string>{"highway_graph", "skeleton"}
@@ -177,8 +177,9 @@ TEST(WhyDecision, PreservesAttemptedActionOutcomeAndActualReachedPose) {
             std::string::npos);
   EXPECT_NE(answer.natural_language_response.find("partial_movement"),
             std::string::npos);
-  EXPECT_NE(answer.natural_language_response.find("actually reached (1.35, 2.1)"),
-            std::string::npos);
+  EXPECT_NE(
+      answer.natural_language_response.find("actually reached (1.35, 2.1)"),
+      std::string::npos);
   EXPECT_NE(answer.natural_language_response.find("local safety stop"),
             std::string::npos);
 }
@@ -224,14 +225,14 @@ TEST(WhyDecision, ReportsReadyAndDegradedSocialEvidence) {
   EXPECT_NE(answer.natural_language_response.find(
                 "Social evidence came from social_context_tracked with gst"),
             std::string::npos);
-  EXPECT_NE(answer.natural_language_response.find(
-                "Formation evidence participated"),
-            std::string::npos);
-  EXPECT_TRUE(std::any_of(answer.structured_facts.begin(),
-                          answer.structured_facts.end(), [](const auto& fact) {
-                            return fact ==
-                                   "crowd_revisions=live:3,density:5,risk:6,flow:7";
-                          }));
+  EXPECT_NE(
+      answer.natural_language_response.find("Formation evidence participated"),
+      std::string::npos);
+  EXPECT_TRUE(std::any_of(
+      answer.structured_facts.begin(), answer.structured_facts.end(),
+      [](const auto &fact) {
+        return fact == "crowd_revisions=live:3,density:5,risk:6,flow:7";
+      }));
 
   auto degraded = ready;
   degraded.decision_id = 42U;
@@ -244,8 +245,7 @@ TEST(WhyDecision, ReportsReadyAndDegradedSocialEvidence) {
   EXPECT_NE(answer.natural_language_response.find(
                 "Social input was degraded (missing_or_stale)"),
             std::string::npos);
-  EXPECT_NE(answer.natural_language_response.find(
-                "was not treated as current"),
+  EXPECT_NE(answer.natural_language_response.find("was not treated as current"),
             std::string::npos);
 }
 
@@ -257,11 +257,10 @@ TEST(WhyDecision, ExplainsCircumstanceEvidenceWithoutCallingItSafety) {
   record.circumstance_assignment_confidence = 0.97;
   record.circumstance_learning_mode = "adapted_threshold";
   record.circumstance_model_version = "circumstance_case_v2";
-  record.circumstance_weighting_policy =
-      "evidence_gated_laplace_confidence";
+  record.circumstance_weighting_policy = "evidence_gated_laplace_confidence";
   record.circumstance_weighting_applied = true;
   record.circumstance_weighting_changed_winner = false;
-  auto& selected = record.tier_three_action_totals.front();
+  auto &selected = record.tier_three_action_totals.front();
   selected.pre_circumstance_total = 12.0;
   selected.circumstance_multiplier = 1.1;
   selected.post_circumstance_total = 13.2;
@@ -275,8 +274,7 @@ TEST(WhyDecision, ExplainsCircumstanceEvidenceWithoutCallingItSafety) {
             std::string::npos);
   EXPECT_NE(answer.natural_language_response.find("did not change"),
             std::string::npos);
-  EXPECT_EQ(answer.natural_language_response.find("unsafe"),
-            std::string::npos);
+  EXPECT_EQ(answer.natural_language_response.find("unsafe"), std::string::npos);
 }
 
 class TierOneMandateExplanation
@@ -351,8 +349,7 @@ TEST(WhyDecision, DistinguishesGridAndModelEnforcer) {
             std::string::npos);
 }
 
-class LifecycleExplanation :
-    public ::testing::TestWithParam<std::string> {};
+class LifecycleExplanation : public ::testing::TestWithParam<std::string> {};
 
 TEST_P(LifecycleExplanation, NeverConflatesSelectionAndExecution) {
   UnifiedWhySystem why;
@@ -365,12 +362,13 @@ TEST_P(LifecycleExplanation, NeverConflatesSelectionAndExecution) {
             std::string::npos);
 }
 
-INSTANTIATE_TEST_SUITE_P(
-    ActionLifecycle, LifecycleExplanation,
-    ::testing::Values("selected", "commanded", "started", "completed",
-                      "partial_movement", "cancelled", "timed_out",
-                      "controller_failure", "safety_interrupted",
-                      "goal_preempted"));
+INSTANTIATE_TEST_SUITE_P(ActionLifecycle, LifecycleExplanation,
+                         ::testing::Values("selected", "commanded", "started",
+                                           "completed", "partial_movement",
+                                           "cancelled", "timed_out",
+                                           "controller_failure",
+                                           "safety_interrupted",
+                                           "goal_preempted"));
 
 TEST(WhyCounterfactual, DistinguishesSafetyCognitiveAndLowerPreference) {
   UnifiedWhySystem why;
@@ -391,8 +389,7 @@ TEST(WhyCounterfactual, DistinguishesSafetyCognitiveAndLowerPreference) {
   auto answer = why.answer(question);
   EXPECT_EQ(answer.primary_reasoning_source, "NotOpposite");
   EXPECT_EQ(answer.structured_facts.at(1), "cognitive");
-  EXPECT_EQ(answer.natural_language_response.find("unsafe"),
-            std::string::npos);
+  EXPECT_EQ(answer.natural_language_response.find("unsafe"), std::string::npos);
 
   question.alternative_action = action(DecisionAction::FORWARD, 1U);
   answer = why.answer(question);
@@ -430,8 +427,8 @@ TEST(WhyCounterfactual, ReportsNotGeneratedHardSafetyTieAndPlanEnforcement) {
 
   UnifiedWhySystem tied;
   record.vetoes.clear();
-  record.tier_three_tie_candidates = {
-      record.selected_action, action(DecisionAction::FORWARD, 1U)};
+  record.tier_three_tie_candidates = {record.selected_action,
+                                      action(DecisionAction::FORWARD, 1U)};
   tied.record(record);
   const auto tie_answer = tied.answer(question);
   EXPECT_EQ(tie_answer.primary_reasoning_source, "tie_breaking");
@@ -475,8 +472,8 @@ TEST(WhyPlan, ExplainsSelectionAlternativesConfidenceAndTypedHighwayRoute) {
   exit.step_id = 4U;
   exit.step_type = "highway_exit";
   exit.primary_entity_id = 8U;
-  record.planning_candidates[0].typed_steps =
-      {entry, travel, intersection, exit};
+  record.planning_candidates[0].typed_steps = {entry, travel, intersection,
+                                               exit};
   why.record(record);
 
   ExplanationQuestion question;
@@ -498,8 +495,9 @@ TEST(WhyPlan, ExplainsSelectionAlternativesConfidenceAndTypedHighwayRoute) {
 
   question.question_type = ExplanationQuestion::ROUTE_DESCRIPTION;
   answer = why.answer(question);
-  EXPECT_NE(answer.natural_language_response.find("turn left at an intersection"),
-            std::string::npos);
+  EXPECT_NE(
+      answer.natural_language_response.find("turn left at an intersection"),
+      std::string::npos);
   EXPECT_NE(answer.natural_language_response.find("We will"),
             std::string::npos);
   EXPECT_FALSE(answer.exact_distances_m.empty());
@@ -510,7 +508,7 @@ TEST(WhyPlan, ExplainsSelectionAlternativesConfidenceAndTypedHighwayRoute) {
 TEST(WhyHypothetical, UsesImmutableCallbackWithoutRecordingARealDecision) {
   UnifiedWhySystem why;
   int evaluations = 0;
-  why.setHypotheticalEvaluator([&](const geometry_msgs::msg::Pose2D& pose) {
+  why.setHypotheticalEvaluator([&](const geometry_msgs::msg::Pose2D &pose) {
     ++evaluations;
     auto record = tierThreeRecord();
     record.robot_pose = pose;
@@ -545,7 +543,7 @@ TEST(WhyPlanComparison, RefusesToInventUserRouteCostsWithoutEvaluator) {
   EXPECT_EQ(unavailable.primary_reasoning_source,
             "route_evaluator_unavailable");
 
-  why.setRouteEvaluator([](const auto&, const auto& objectives) {
+  why.setRouteEvaluator([](const auto &, const auto &objectives) {
     return std::vector<double>(objectives.size(), 3.0);
   });
   const auto evaluated = why.answer(question);
@@ -659,9 +657,8 @@ TEST(WhyRoute, CoversEveryTableFiveElevenDirectionAndWraparound) {
   double x = 0.0;
   double y = 0.0;
   constexpr double pi = 3.14159265358979323846;
-  for (const double angle :
-       {0.0, pi / 4.0, pi / 2.0, 3.0 * pi / 4.0, pi,
-        -3.0 * pi / 4.0, -pi / 2.0, -pi / 4.0, 0.0}) {
+  for (const double angle : {0.0, pi / 4.0, pi / 2.0, 3.0 * pi / 4.0, pi,
+                             -3.0 * pi / 4.0, -pi / 2.0, -pi / 4.0, 0.0}) {
     geometry_msgs::msg::Point point;
     x += 0.5 * std::cos(angle);
     y += 0.5 * std::sin(angle);
@@ -682,14 +679,19 @@ TEST(WhyRoute, CoversEveryTableFiveElevenDirectionAndWraparound) {
 
 TEST(WhyRoute, CoversTableFiveThirteenDistanceBoundaries) {
   const std::vector<std::pair<double, std::string>> cases{
-      {1.0, "1 meter"},       {1.01, "2 meters"},
-      {2.0, "2 meters"},      {2.01, "4 meters"},
-      {10.0, "10 meters"},    {10.01, "15 meters"},
-      {15.0, "15 meters"},    {50.0, "50 meters"},
-      {50.01, "60 meters"},   {110.0, "110 meters"},
+      {1.0, "1 meter"},
+      {1.01, "2 meters"},
+      {2.0, "2 meters"},
+      {2.01, "4 meters"},
+      {10.0, "10 meters"},
+      {10.01, "15 meters"},
+      {15.0, "15 meters"},
+      {50.0, "50 meters"},
+      {50.01, "60 meters"},
+      {110.0, "110 meters"},
       {110.01, "more than 110 meters"}};
   std::uint64_t decision_id = 100U;
-  for (const auto& [distance, expected] : cases) {
+  for (const auto &[distance, expected] : cases) {
     UnifiedWhySystem why;
     auto record = tierThreeRecord();
     record.decision_id = decision_id++;
@@ -734,12 +736,11 @@ TEST(WhyPlanConfidence, RequiresRecordedComparablePlanAndUsesTableFiveTen) {
   answer = why.answer(question);
   EXPECT_TRUE(answer.found);
   EXPECT_EQ(answer.confidence_category, "really");
-  EXPECT_NE(answer.structured_facts.back().find("really"),
+  EXPECT_NE(answer.structured_facts.back().find("really"), std::string::npos);
+  EXPECT_NE(answer.natural_language_response.find(
+                "better at following long hallways"),
             std::string::npos);
-  EXPECT_NE(answer.natural_language_response.find("better at following long hallways"),
-            std::string::npos);
-  EXPECT_NE(answer.natural_language_response.find("longer"),
-            std::string::npos);
+  EXPECT_NE(answer.natural_language_response.find("longer"), std::string::npos);
 
   record.decision_id = 44U;
   record.planning_candidates = {plan(12U, "HighwayPlan", 0.4),
@@ -804,9 +805,8 @@ TEST(WhyGoldenFixtures, PreserveEveryPublicExplanationCategory) {
   question.has_alternative_plan_id = true;
   question.alternative_plan_id = 13U;
   answer = why.answer(question);
-  EXPECT_NE(
-      answer.natural_language_response.find(golden.at("plan_comparison")),
-      std::string::npos);
+  EXPECT_NE(answer.natural_language_response.find(golden.at("plan_comparison")),
+            std::string::npos);
 
   question = ExplanationQuestion();
   question.question_type = ExplanationQuestion::ALTERNATIVE_PLAN;
@@ -834,4 +834,4 @@ TEST(WhyGoldenFixtures, PreserveEveryPublicExplanationCategory) {
             std::string::npos);
 }
 
-}  // namespace
+} // namespace

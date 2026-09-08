@@ -2,8 +2,8 @@
  * @file social.hpp
  * @brief Social responsibilities.
  *
- * @details This file defines social behavior for ROS-independent domain state and
- * value types. It centers on `PredictedPosition`, `PedestrianObservation`,
+ * @details This file defines social behavior for ROS-independent domain state
+ * and value types. It centers on `PredictedPosition`, `PedestrianObservation`,
  * `FormationObservation`, `CrowdObservation`, `CrowdState`. Its
  * package-relative location is `include/semaforr/domain/social.hpp`.
  */

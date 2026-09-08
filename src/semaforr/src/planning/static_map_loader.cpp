@@ -2,8 +2,8 @@
  * @file static_map_loader.cpp
  * @brief Static map loader responsibilities.
  *
- * @details This file implements static map loader behavior for path planning and
- * hierarchical plan construction. It records the declarations, settings,
+ * @details This file implements static map loader behavior for path planning
+ * and hierarchical plan construction. It records the declarations, settings,
  * fixtures, or guidance needed by that responsibility. Its
  * package-relative location is `src/planning/static_map_loader.cpp`.
  */
@@ -15,9 +15,9 @@
 #include <iomanip>
 #include <semaforr/planning/map_parser.hpp>
 #include <semaforr/planning/static_map_loader.hpp>
+#include <sstream>
 #include <stdexcept>
 #include <string>
-#include <sstream>
 #include <vector>
 
 namespace semaforr::planning {
@@ -110,8 +110,8 @@ void markWall(domain::StaticOccupancyGrid& grid,
     const double y = wall.start.y_m + t * (wall.end.y_m - wall.start.y_m);
     const int column = static_cast<int>(std::floor(
         (x - grid.geometry.origin.x_m) / grid.geometry.resolution_m));
-    const int row = static_cast<int>(std::floor(
-        (y - grid.geometry.origin.y_m) / grid.geometry.resolution_m));
+    const int row = static_cast<int>(std::floor((y - grid.geometry.origin.y_m) /
+                                                grid.geometry.resolution_m));
     for (int dy = -inflation_cells; dy <= inflation_cells; ++dy) {
       for (int dx = -inflation_cells; dx <= inflation_cells; ++dx) {
         if (dx * dx + dy * dy > inflation_cells * inflation_cells) continue;
@@ -162,10 +162,10 @@ std::filesystem::path resolveMapPath(const std::string& requested,
     const auto slash = remainder.find('/');
     if (slash == std::string::npos)
       throw std::runtime_error(
-          "package map URI must be package://<package>/<path>: '" +
-          requested + "'");
-    const auto package = search_paths.package_shares.find(
-        remainder.substr(0U, slash));
+          "package map URI must be package://<package>/<path>: '" + requested +
+          "'");
+    const auto package =
+        search_paths.package_shares.find(remainder.substr(0U, slash));
     if (package == search_paths.package_shares.end())
       throw std::runtime_error("map package is unavailable in this install: '" +
                                remainder.substr(0U, slash) + "'");
@@ -218,13 +218,12 @@ domain::StaticMap loadStaticMap(
     const config::StaticMapConfiguration& configuration) {
   if (resolved_path.extension() != ".xml")
     throw std::runtime_error("unsupported map format '" +
-                             resolved_path.extension().string() +
-                             "' for '" + resolved_path.string() +
+                             resolved_path.extension().string() + "' for '" +
+                             resolved_path.string() +
                              "'; supported format: XML ObstacleSet");
   const bool infer_bounds = configuration.bounds_policy == "infer" ||
                             configuration.bounds_policy == "infer_expandable";
-  if ((!infer_bounds &&
-       (dimensions.length <= 0 || dimensions.height <= 0)) ||
+  if ((!infer_bounds && (dimensions.length <= 0 || dimensions.height <= 0)) ||
       !std::isfinite(configuration.origin_x_m) ||
       !std::isfinite(configuration.origin_y_m) ||
       !std::isfinite(configuration.occupancy_resolution_m) ||
@@ -267,8 +266,9 @@ domain::StaticMap loadStaticMap(
   for (const auto& wall : parsed.walls) {
     if (!result.bounds.contains(wall.start) ||
         !result.bounds.contains(wall.end))
-      throw std::runtime_error("map obstacle lies outside declared bounds in '" +
-                               result.source + "'");
+      throw std::runtime_error(
+          "map obstacle lies outside declared bounds in '" + result.source +
+          "'");
     if (wall.length().meters() <= domain::geometry_tolerance_m)
       throw std::runtime_error("map contains a zero-length wall in '" +
                                result.source + "'");
@@ -285,11 +285,11 @@ domain::StaticMap loadStaticMap(
       result.source + "#" + result.checksum);
   grid.cells.assign(grid.geometry.cellCount(),
                     domain::StaticOccupancyState::StaticFree);
-  for (const auto& wall : result.walls)
-    markWall(grid, wall);
+  for (const auto& wall : result.walls) markWall(grid, wall);
   if (!result.geometryAvailable() || !result.occupancyAvailable())
-    throw std::runtime_error("map-derived geometry or occupancy is empty for '" +
-                             result.source + "'");
+    throw std::runtime_error(
+        "map-derived geometry or occupancy is empty for '" + result.source +
+        "'");
   return result;
 }
 

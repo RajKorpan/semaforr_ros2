@@ -2,17 +2,17 @@
  * @file circumstance.cpp
  * @brief Circumstance responsibilities.
  *
- * @details This file implements circumstance behavior for ROS-independent domain
- * state and value types. It records the declarations, settings, fixtures,
- * or guidance needed by that responsibility. Its package-relative location
- * is `src/domain/circumstance.cpp`.
+ * @details This file implements circumstance behavior for ROS-independent
+ * domain state and value types. It records the declarations, settings,
+ * fixtures, or guidance needed by that responsibility. Its package-relative
+ * location is `src/domain/circumstance.cpp`.
  */
 #include <algorithm>
 #include <cmath>
-#include <limits>
-#include <numbers>
 #include <iomanip>
 #include <istream>
+#include <limits>
+#include <numbers>
 #include <ostream>
 #include <semaforr/domain/circumstance.hpp>
 #include <stdexcept>
@@ -127,14 +127,22 @@ std::string_view toString(CircumstanceCreationMethod method) noexcept {
  */
 std::string_view toString(CaseOutcome outcome) noexcept {
   switch (outcome) {
-    case CaseOutcome::Successful: return "successful";
-    case CaseOutcome::Partial: return "partial";
-    case CaseOutcome::Failed: return "failed";
-    case CaseOutcome::Cancelled: return "cancelled";
-    case CaseOutcome::TimedOut: return "timed_out";
-    case CaseOutcome::SafetyInterrupted: return "safety_interrupted";
-    case CaseOutcome::Preempted: return "preempted";
-    case CaseOutcome::Unknown: return "unknown";
+    case CaseOutcome::Successful:
+      return "successful";
+    case CaseOutcome::Partial:
+      return "partial";
+    case CaseOutcome::Failed:
+      return "failed";
+    case CaseOutcome::Cancelled:
+      return "cancelled";
+    case CaseOutcome::TimedOut:
+      return "timed_out";
+    case CaseOutcome::SafetyInterrupted:
+      return "safety_interrupted";
+    case CaseOutcome::Preempted:
+      return "preempted";
+    case CaseOutcome::Unknown:
+      return "unknown";
   }
   return "unknown";
 }
@@ -168,17 +176,17 @@ NormalizedSetting normalizeSetting(
   const double sample_step = configuration.resolution_m * 0.5;
   double angle = laser.angle_min.radians();
   for (const double measured_range : laser.ranges_m) {
-    const double range = std::min(
-        configuration.radius_m,
-        std::isfinite(measured_range) ? measured_range
-                                      : laser.maximum_range.meters());
+    const double range =
+        std::min(configuration.radius_m, std::isfinite(measured_range)
+                                             ? measured_range
+                                             : laser.maximum_range.meters());
     for (double distance = 0.0; distance <= range; distance += sample_step) {
-      const long column = center + static_cast<long>(std::floor(
-                                       distance * std::cos(angle) /
-                                       result.resolution_m));
-      const long row = center + static_cast<long>(std::floor(
-                                    distance * std::sin(angle) /
-                                    result.resolution_m));
+      const long column =
+          center + static_cast<long>(std::floor(distance * std::cos(angle) /
+                                                result.resolution_m));
+      const long row =
+          center + static_cast<long>(std::floor(distance * std::sin(angle) /
+                                                result.resolution_m));
       if (row >= 0 && column >= 0 &&
           row < static_cast<long>(result.side_cells) &&
           column < static_cast<long>(result.side_cells))
@@ -240,11 +248,11 @@ std::optional<CircumstanceMatch> matchCircumstance(
       best_distance = distance;
     }
   }
-  double confidence = assignmentConfidence(best_distance,
-                                           setting.freespace.size());
+  double confidence =
+      assignmentConfidence(best_distance, setting.freespace.size());
   std::string semantics = "normalized_centroid_similarity";
-  if (best && model.learning_mode ==
-                  CircumstanceLearningMode::DissertationCompatible) {
+  if (best &&
+      model.learning_mode == CircumstanceLearningMode::DissertationCompatible) {
     // The compatibility classifier uses a softmax over negative normalized
     // centroid distances. This preserves classifier-probability semantics
     // while keeping the trained prototypes serializable with the model.
@@ -287,15 +295,14 @@ CircumstanceCaseKey circumstanceCaseKey(CircumstanceId circumstance_id,
           ? 0U
           : static_cast<std::size_t>(std::ceil(
                 std::log2(target_distance / model.distance_bin_base_m)));
-  const double relative = Angle::normalize(
-      std::atan2(target.y_m - pose.position.y_m,
-                 target.x_m - pose.position.x_m) -
-      pose.heading.radians());
+  const double relative =
+      Angle::normalize(std::atan2(target.y_m - pose.position.y_m,
+                                  target.x_m - pose.position.x_m) -
+                       pose.heading.radians());
   const double width =
       2.0 * std::numbers::pi / static_cast<double>(model.angle_bin_count);
-  const double shifted =
-      std::fmod(relative + width * 0.5 + 2.0 * std::numbers::pi,
-                2.0 * std::numbers::pi);
+  const double shifted = std::fmod(
+      relative + width * 0.5 + 2.0 * std::numbers::pi, 2.0 * std::numbers::pi);
   const std::size_t angle_bin = std::min(
       model.angle_bin_count - 1U, static_cast<std::size_t>(shifted / width));
   return {circumstance_id, distance_bin, angle_bin};
@@ -316,9 +323,9 @@ CircumstanceCaseKey circumstanceCaseKey(CircumstanceId circumstance_id,
  */
 const ActionCaseEvidence* findActionEvidence(
     const CircumstanceCaseEvidence& evidence, Action action) noexcept {
-  const auto found = std::find_if(
-      evidence.actions.begin(), evidence.actions.end(),
-      [&](const auto& item) { return item.action == action; });
+  const auto found =
+      std::find_if(evidence.actions.begin(), evidence.actions.end(),
+                   [&](const auto& item) { return item.action == action; });
   return found == evidence.actions.end() ? nullptr : &*found;
 }
 
@@ -359,18 +366,16 @@ void saveCircumstanceModel(const CircumstanceModel& model,
            << cluster.model_version << ' ' << cluster.last_update_sequence
            << ' ' << cluster.revision << ' ' << cluster.retired << ' '
            << cluster.centroid.side_cells << ' '
-           << cluster.centroid.resolution_m << ' '
-           << cluster.centroid.radius_m << ' '
-           << cluster.centroid.freespace.size();
+           << cluster.centroid.resolution_m << ' ' << cluster.centroid.radius_m
+           << ' ' << cluster.centroid.freespace.size();
     for (const double cell : cluster.centroid.freespace) output << ' ' << cell;
     output << '\n';
   }
   output << model.cases.size() << '\n';
   for (const auto& item : model.cases) {
     output << item.key.circumstance_id << ' ' << item.key.distance_bin << ' '
-           << item.key.angle_bin << ' ' << item.evidence << ' '
-           << item.accuracy << ' ' << item.revision << ' '
-           << item.actions.size() << '\n';
+           << item.key.angle_bin << ' ' << item.evidence << ' ' << item.accuracy
+           << ' ' << item.revision << ' ' << item.actions.size() << '\n';
     for (const auto& action : item.actions)
       output << static_cast<int>(action.action.type()) << ' '
              << action.action.magnitude_index() << ' ' << action.selected << ' '
@@ -380,9 +385,8 @@ void saveCircumstanceModel(const CircumstanceModel& model,
              << action.safety_interruptions << ' ' << action.preemptions << ' '
              << action.unknown << ' ' << action.effective_evidence << ' '
              << action.success_credit << ' ' << action.confidence << ' '
-             << action.accuracy << ' '
-             << static_cast<int>(action.last_outcome) << ' '
-             << action.last_update_sequence << '\n';
+             << action.accuracy << ' ' << static_cast<int>(action.last_outcome)
+             << ' ' << action.last_update_sequence << '\n';
   }
   output << model.migrations.size() << '\n';
   for (const auto& migration : model.migrations)
@@ -446,7 +450,8 @@ CircumstanceModel loadCircumstanceModel(
       (!expected_feature_version.empty() &&
        model.feature_version != expected_feature_version) ||
       (!expected_classifier_version.empty() &&
-       model.learning_mode == CircumstanceLearningMode::DissertationCompatible &&
+       model.learning_mode ==
+           CircumstanceLearningMode::DissertationCompatible &&
        model.classifier_version != expected_classifier_version))
     throw std::runtime_error(
         "circumstance model feature, model, or classifier version mismatch");
@@ -461,15 +466,14 @@ CircumstanceModel loadCircumstanceModel(
   for (auto& cluster : model.clusters) {
     int creation = 0;
     std::size_t freespace_size = 0U;
-    input >> cluster.id >> cluster.evidence >>
-        cluster.assignment_confidence >> creation >> cluster.model_version >>
-        cluster.last_update_sequence >> cluster.revision >> cluster.retired >>
-        cluster.centroid.side_cells >> cluster.centroid.resolution_m >>
-        cluster.centroid.radius_m >> freespace_size;
+    input >> cluster.id >> cluster.evidence >> cluster.assignment_confidence >>
+        creation >> cluster.model_version >> cluster.last_update_sequence >>
+        cluster.revision >> cluster.retired >> cluster.centroid.side_cells >>
+        cluster.centroid.resolution_m >> cluster.centroid.radius_m >>
+        freespace_size;
     if (creation < 0 || creation > 2)
       throw std::runtime_error("invalid circumstance creation method");
-    cluster.creation_method =
-        static_cast<CircumstanceCreationMethod>(creation);
+    cluster.creation_method = static_cast<CircumstanceCreationMethod>(creation);
     cluster.centroid.freespace.resize(freespace_size);
     for (double& cell : cluster.centroid.freespace) input >> cell;
   }
@@ -494,7 +498,8 @@ CircumstanceModel loadCircumstanceModel(
       if (type < static_cast<int>(ActionType::Forward) ||
           type > static_cast<int>(ActionType::Pause) || outcome < 0 ||
           outcome > static_cast<int>(CaseOutcome::Unknown))
-        throw std::runtime_error("invalid action evidence in circumstance model");
+        throw std::runtime_error(
+            "invalid action evidence in circumstance model");
       action.action = type == static_cast<int>(ActionType::Pause)
                           ? Action::pause()
                           : Action(static_cast<ActionType>(type), magnitude);

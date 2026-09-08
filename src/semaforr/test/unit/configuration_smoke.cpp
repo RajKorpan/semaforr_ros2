@@ -121,8 +121,7 @@ int main() {
     assert(std::find(no_social_manifest.begin(), no_social_manifest.end(),
                      "social:disabled") != no_social_manifest.end());
     assert(std::find(no_social_manifest.begin(), no_social_manifest.end(),
-                     "crowd_learning:disabled") !=
-           no_social_manifest.end());
+                     "crowd_learning:disabled") != no_social_manifest.end());
   }
   assert(semaforr::config::configurationFingerprint(valid).size() == 16U);
   const auto manifest = semaforr::config::componentManifest(valid);
@@ -133,28 +132,64 @@ int main() {
   assert(std::find(manifest.begin(), manifest.end(),
                    "tier2_maximum_planning_attempts_per_task:3") !=
          manifest.end());
-  for (const std::string profile :
-       {"full", "tier1_only", "tier1_tier3", "tier3_only",
-        "tier1_tier2_tier3", "no_initial_exploration",
-        "no_opportunistic_exploration", "no_spatial_model", "no_social",
-        "purely_reactive", "original", "doors", "least_angle", "access",
-        "tentative", "hallways", "shortest_path", "cost_graph", "wander",
-        "deliberator", "forward_only", "global_exploration",
-        "local_exploration", "highway", "circumstances", "naive",
-        "custom"}) {
+  for (const std::string profile : {"full",
+                                    "tier1_only",
+                                    "tier1_tier3",
+                                    "tier3_only",
+                                    "tier1_tier2_tier3",
+                                    "no_initial_exploration",
+                                    "no_opportunistic_exploration",
+                                    "no_spatial_model",
+                                    "no_social",
+                                    "purely_reactive",
+                                    "original",
+                                    "doors",
+                                    "least_angle",
+                                    "access",
+                                    "tentative",
+                                    "hallways",
+                                    "shortest_path",
+                                    "cost_graph",
+                                    "wander",
+                                    "deliberator",
+                                    "forward_only",
+                                    "global_exploration",
+                                    "local_exploration",
+                                    "highway",
+                                    "circumstances",
+                                    "naive",
+                                    "custom"}) {
     assert(semaforr::config::toString(
                semaforr::config::ablationProfileFromString(profile)) ==
            profile);
   }
   {
-    const std::vector<std::string> profiles{
-        "full", "tier1_only", "tier1_tier3", "tier3_only",
-        "tier1_tier2_tier3", "no_initial_exploration",
-        "no_opportunistic_exploration", "no_spatial_model", "no_social",
-        "purely_reactive", "original", "doors", "least_angle", "access",
-        "tentative", "hallways", "shortest_path", "cost_graph", "wander",
-        "deliberator", "forward_only", "global_exploration",
-        "local_exploration", "highway", "circumstances", "naive"};
+    const std::vector<std::string> profiles{"full",
+                                            "tier1_only",
+                                            "tier1_tier3",
+                                            "tier3_only",
+                                            "tier1_tier2_tier3",
+                                            "no_initial_exploration",
+                                            "no_opportunistic_exploration",
+                                            "no_spatial_model",
+                                            "no_social",
+                                            "purely_reactive",
+                                            "original",
+                                            "doors",
+                                            "least_angle",
+                                            "access",
+                                            "tentative",
+                                            "hallways",
+                                            "shortest_path",
+                                            "cost_graph",
+                                            "wander",
+                                            "deliberator",
+                                            "forward_only",
+                                            "global_exploration",
+                                            "local_exploration",
+                                            "highway",
+                                            "circumstances",
+                                            "naive"};
     for (const auto& profile : profiles) {
       auto integrated = valid;
       integrated.static_map.mode =
@@ -193,8 +228,7 @@ int main() {
   }
   {
     auto profiled = valid;
-    profiled.experiment.profile =
-        semaforr::config::AblationProfile::NoSocial;
+    profiled.experiment.profile = semaforr::config::AblationProfile::NoSocial;
     semaforr::config::applyAblationProfile(profiled);
     semaforr::config::validateConfiguration(profiled);
     assert(!profiled.experiment.social_enabled);
@@ -260,8 +294,8 @@ int main() {
   }
   {
     auto invalid = valid;
-    invalid.experiment.tiers.reactive_planners = {
-        "behind", "thru", "out", "low_level_exploration"};
+    invalid.experiment.tiers.reactive_planners = {"behind", "thru", "out",
+                                                  "low_level_exploration"};
     assertThrowsContaining(
         [&invalid]() { semaforr::config::validateConfiguration(invalid); },
         "must preserve the semantic order");
@@ -326,8 +360,7 @@ int main() {
     auto invalid = valid;
     invalid.experiment.social.enabled = false;
     invalid.navigation.crowd_learning.enabled = false;
-    invalid.advisors.push_back(
-        {"social_navigation", "social", true, 1.0, {}});
+    invalid.advisors.push_back({"social_navigation", "social", true, 1.0, {}});
     assertThrowsContaining(
         [&invalid]() { semaforr::config::validateConfiguration(invalid); },
         "requires social.enabled");
@@ -369,8 +402,7 @@ int main() {
   }
   {
     auto changed = valid;
-    changed.experiment.reactive_exploration_behavior_policy =
-        "compatibility";
+    changed.experiment.reactive_exploration_behavior_policy = "compatibility";
     changed.experiment.reactive_exploration_stalled_history_extension = false;
     assert(semaforr::config::configurationFingerprint(changed) !=
            semaforr::config::configurationFingerprint(valid));
@@ -378,8 +410,7 @@ int main() {
     assert(std::find(manifest.begin(), manifest.end(),
                      "lle_behavior_policy:compatibility") != manifest.end());
     assert(std::find(manifest.begin(), manifest.end(),
-                     "lle_stalled_history_extension:false") !=
-           manifest.end());
+                     "lle_stalled_history_extension:false") != manifest.end());
     semaforr::config::validateConfiguration(changed);
   }
   {
@@ -569,8 +600,7 @@ int main() {
   }
   {
     auto invalid = valid;
-    invalid.static_map.mode =
-        semaforr::config::MapOperatingMode::MapEnabled;
+    invalid.static_map.mode = semaforr::config::MapOperatingMode::MapEnabled;
     invalid.static_map.path.clear();
     assertThrowsContaining(
         [&invalid]() { semaforr::config::validateConfiguration(invalid); },
@@ -601,8 +631,7 @@ int main() {
   }
   {
     auto changed = valid;
-    changed.experiment.tier_three_scoring_policy =
-        "compatibility_comments";
+    changed.experiment.tier_three_scoring_policy = "compatibility_comments";
     changed.experiment.tier_three_tie_policy = "exact";
     semaforr::config::validateConfiguration(changed);
     assert(semaforr::config::configurationFingerprint(changed) !=

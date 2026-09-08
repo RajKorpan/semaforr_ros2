@@ -2,8 +2,8 @@
  * @file learner.hpp
  * @brief Learner responsibilities.
  *
- * @details This file defines learner behavior for learned spatial representations
- * and their lifecycle. It centers on `SpatialRepresentation`,
+ * @details This file defines learner behavior for learned spatial
+ * representations and their lifecycle. It centers on `SpatialRepresentation`,
  * `UpdateMode`, `SpatialLearningMode`, `UpdateSchedule`, `LearningEvent`,
  * `ModelStatus`, `ObservationContract`, `NavigationEpisode`. Its
  * package-relative location is `include/semaforr/spatial/learner.hpp`.
@@ -13,8 +13,8 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <optional>
 #include <memory>
+#include <optional>
 #include <semaforr/domain/action.hpp>
 #include <semaforr/domain/action_execution.hpp>
 #include <semaforr/domain/mission.hpp>
@@ -244,12 +244,11 @@ struct NavigationEpisode {
   }
 };
 
-using SpatialPayload = std::variant<std::monostate, TrailModel, ConveyorModel,
-                                    RegionModel, DoorExitModel, HallwayModel,
-                                    BarrierModel, PassageSkeletonModel,
-                                    KnownGridModel, SensedOccupancyModel,
-                                    InclusionGridModel,
-                                    HighwayModel, CircumstanceModel>;
+using SpatialPayload =
+    std::variant<std::monostate, TrailModel, ConveyorModel, RegionModel,
+                 DoorExitModel, HallwayModel, BarrierModel,
+                 PassageSkeletonModel, KnownGridModel, SensedOccupancyModel,
+                 InclusionGridModel, HighwayModel, CircumstanceModel>;
 
 /**
  * @brief Encapsulates changed cell range state and behavior for this

@@ -250,17 +250,16 @@ double SocialNavigationAdvisor::score(const domain::WorldModel& world,
     }
     const double observation_age_s =
         std::chrono::duration<double>(crowd.data_age).count();
-    const domain::Point2D current_person = pedestrianAt(
-        pedestrian, crowd.observed_at, observation_age_s);
+    const domain::Point2D current_person =
+        pedestrianAt(pedestrian, crowd.observed_at, observation_age_s);
     double minimum_separation = euclideanDistance(start, current_person);
     for (int sample = 1; sample <= samples; ++sample) {
       const double fraction =
           static_cast<double>(sample) / static_cast<double>(samples);
       const domain::Point2D robot = interpolate(start, end, fraction);
-      const domain::Point2D person =
-          pedestrianAt(pedestrian, crowd.observed_at,
-                       observation_age_s +
-                           configuration_.prediction_horizon_s * fraction);
+      const domain::Point2D person = pedestrianAt(
+          pedestrian, crowd.observed_at,
+          observation_age_s + configuration_.prediction_horizon_s * fraction);
       minimum_separation =
           std::min(minimum_separation, euclideanDistance(robot, person));
     }

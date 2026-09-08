@@ -116,7 +116,7 @@ jobs:
       - name: Run ${{ matrix.profile }} profile
         run: |
           source /opt/ros/humble/setup.bash
-          src/semaforr/scripts/run_phase0.sh "${{ matrix.profile }}"
+          bash src/semaforr/scripts/run_quality_checks.sh "${{ matrix.profile }}"
 
       - name: Upload coverage report
         if: matrix.profile == 'coverage'

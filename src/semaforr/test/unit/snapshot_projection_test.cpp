@@ -14,10 +14,10 @@
 
 #include <chrono>
 #include <iomanip>
-#include <sstream>
 #include <semaforr/spatial/learners/grid_learners.hpp>
 #include <semaforr/spatial/spatial_learning_coordinator.hpp>
 #include <semaforr/validation/allocation_probe.hpp>
+#include <sstream>
 
 namespace {
 
@@ -35,7 +35,7 @@ namespace {
  * - None documented; validation or dependency failures may propagate.
  */
 semaforr::spatial::NavigationEpisode episode(std::size_t sequence,
-                                              double x = 0.0) {
+                                             double x = 0.0) {
   semaforr::spatial::NavigationEpisode result;
   result.sequence = sequence;
   result.observation.pose = {{x, 0.0}, semaforr::domain::Angle::zero()};
@@ -67,8 +67,8 @@ semaforr::spatial::SpatialLearningCoordinator coordinator(double extent_m) {
   grid.resolution_m = 0.5;
   grid.extent_policy = semaforr::spatial::GridExtentPolicy::Fixed;
   grid.initialize_around_first_pose = false;
-  return semaforr::spatial::SpatialLearningCoordinator::defaults(
-      100U, {}, {}, grid);
+  return semaforr::spatial::SpatialLearningCoordinator::defaults(100U, {}, {},
+                                                                 grid);
 }
 
 /**
@@ -123,12 +123,10 @@ BenchmarkResult benchmark(double extent_m) {
   // learned inclusion. Inclusion is published from regions/subtrails or
   // successful LLE traversal.
   EXPECT_TRUE(world.inclusion_grid.sparseCells().empty());
-  return {first_metrics,
-          learning.lastProjectionMetrics(),
-          semaforr::validation::allocationDifference(first_before,
-                                                      first_after),
+  return {first_metrics, learning.lastProjectionMetrics(),
+          semaforr::validation::allocationDifference(first_before, first_after),
           semaforr::validation::allocationDifference(unchanged_before,
-                                                      unchanged_after)};
+                                                     unchanged_after)};
 }
 
 TEST(ImmutableSnapshots, SharedPublicationHasStableLifetimeAndIdentity) {

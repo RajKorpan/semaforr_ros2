@@ -64,8 +64,10 @@ RegionLearner::RegionLearner(double cluster_radius_m,
            false,
            false,
            mode == SpatialLearningMode::Compatibility
-               ? "create decision-point regions and reconcile them at target completion"
-               : "incrementally cluster and average local freespace observations",
+               ? "create decision-point regions and reconcile them at target "
+                 "completion"
+               : "incrementally cluster and average local freespace "
+                 "observations",
            {"RegionLeaverLinear", "RegionLeaverRotation", "skeleton planner"},
            mode == SpatialLearningMode::Compatibility
                ? UpdateSchedule::EveryDecisionCycle
@@ -100,8 +102,7 @@ void RegionLearner::onObserve(const NavigationEpisode& episode) {
   const auto point = episode.observation.pose.position;
   const auto finite_range = std::min_element(
       episode.observation.laser.ranges_m.begin(),
-      episode.observation.laser.ranges_m.end(),
-      [](double left, double right) {
+      episode.observation.laser.ranges_m.end(), [](double left, double right) {
         return (std::isfinite(left) ? left
                                     : std::numeric_limits<double>::max()) <
                (std::isfinite(right) ? right
@@ -136,24 +137,23 @@ void RegionLearner::onObserve(const NavigationEpisode& episode) {
     model_.regions.push_back({point, domain::Distance(sensed_radius)});
     observation_counts_.push_back(1U);
     const auto key = regionKey(bucket_x, bucket_y);
-    spatial_index_[key].push_back(
-        model_.regions.size() - 1U);
+    spatial_index_[key].push_back(model_.regions.size() - 1U);
     region_buckets_.push_back(key);
   } else {
     auto& region = model_.regions[nearest];
     const auto count = ++observation_counts_[nearest];
-    region.center.x_m += (point.x_m - region.center.x_m) /
-                         static_cast<double>(count);
-    region.center.y_m += (point.y_m - region.center.y_m) /
-                         static_cast<double>(count);
-    region.radius = domain::Distance(std::clamp(
-        std::max(region.radius.meters(), sensed_radius), 0.25,
-        cluster_radius_m_));
-    const auto new_key = regionKey(
-        static_cast<long long>(
-            std::floor(region.center.x_m / cluster_radius_m_)),
-        static_cast<long long>(
-            std::floor(region.center.y_m / cluster_radius_m_)));
+    region.center.x_m +=
+        (point.x_m - region.center.x_m) / static_cast<double>(count);
+    region.center.y_m +=
+        (point.y_m - region.center.y_m) / static_cast<double>(count);
+    region.radius = domain::Distance(
+        std::clamp(std::max(region.radius.meters(), sensed_radius), 0.25,
+                   cluster_radius_m_));
+    const auto new_key =
+        regionKey(static_cast<long long>(
+                      std::floor(region.center.x_m / cluster_radius_m_)),
+                  static_cast<long long>(
+                      std::floor(region.center.y_m / cluster_radius_m_)));
     if (new_key != region_buckets_[nearest]) {
       auto& old_bucket = spatial_index_[region_buckets_[nearest]];
       old_bucket.erase(
@@ -186,15 +186,16 @@ void RegionLearner::onObserve(const NavigationEpisode& episode) {
 void RegionLearner::onRebuild() {
   if (mode_ == SpatialLearningMode::Compatibility) {
     model_ = learnDecisionRegions(episodes(), compatibility_);
-    publish(model_, model_.learned_regions.empty() ? ModelStatus::Incomplete
-                                                   : ModelStatus::Fresh,
+    publish(model_,
+            model_.learned_regions.empty() ? ModelStatus::Incomplete
+                                           : ModelStatus::Fresh,
             model_.learned_regions.empty()
                 ? "no decision point has valid region evidence"
                 : "decision-point regions reconciled deterministically");
     return;
   }
-  publish(model_, model_.regions.empty() ? ModelStatus::Incomplete
-                                         : ModelStatus::Fresh,
+  publish(model_,
+          model_.regions.empty() ? ModelStatus::Incomplete : ModelStatus::Fresh,
           "incremental region snapshot refreshed");
 }
 

@@ -14,14 +14,14 @@
 #include <algorithm>
 #include <iterator>
 #include <numbers>
-#include <sstream>
 #include <semaforr/decision/navigation_engine.hpp>
 #include <semaforr/decision/tier_registry.hpp>
-#include <semaforr/spatial/spatial_learning_coordinator.hpp>
 #include <semaforr/spatial/learners/circumstance_learner.hpp>
 #include <semaforr/spatial/learners/grid_learners.hpp>
 #include <semaforr/spatial/representations/highway_model.hpp>
 #include <semaforr/spatial/representations/known_grid.hpp>
+#include <semaforr/spatial/spatial_learning_coordinator.hpp>
+#include <sstream>
 #include <string>
 #include <variant>
 #include <vector>
@@ -58,8 +58,7 @@ semaforr::spatial::NavigationEpisode episode(std::size_t sequence, double x_m,
   spatial::NavigationEpisode result;
   result.sequence = sequence;
   result.observation = std::move(observation);
-  result.selected_action =
-      domain::Action(domain::ActionType::Forward, 1U);
+  result.selected_action = domain::Action(domain::ActionType::Forward, 1U);
   result.active_task = domain::TaskId{1U};
   result.task_started = task_started;
   result.action_completed = true;
@@ -194,7 +193,12 @@ class CapturingLearner final : public semaforr::spatial::SpatialLearner {
     return value;
   }();
   semaforr::spatial::ObservationContract observation_contract{
-      true, true, true, true, "after terminal execution", {"test"},
+      true,
+      true,
+      true,
+      true,
+      "after terminal execution",
+      {"test"},
       semaforr::spatial::UpdateSchedule::AfterSuccessfulActionCompletion};
 };
 
@@ -239,7 +243,9 @@ class CountingReactive final : public semaforr::planning::ReactivePlanner {
    * Exceptions:
    * - None documented; validation or dependency failures may propagate.
    */
-  std::string_view name() const noexcept override { return "counting_reactive"; }
+  std::string_view name() const noexcept override {
+    return "counting_reactive";
+  }
   /**
    * @brief Performs the dependencies operation for this subsystem.
    *
@@ -609,7 +615,8 @@ class FixedPlanner final : public semaforr::planning::Planner {
     ++calls;
     if (!succeeds_)
       return {semaforr::planning::PlanStatus::NoPath, {}, 0.0, "no path"};
-    return {semaforr::planning::PlanStatus::Success, {request.goal},
+    return {semaforr::planning::PlanStatus::Success,
+            {request.goal},
             semaforr::domain::distance(request.start.position, request.goal)
                 .meters(),
             "test plan"};
@@ -640,9 +647,9 @@ void completeSelectedAction(semaforr::decision::NavigationEngine& engine,
                             const semaforr::decision::DecisionResult& result,
                             const semaforr::domain::Pose2D& pose) {
   const auto now = std::chrono::steady_clock::now();
-  ASSERT_EQ(engine.onActionStarted(
-                {result.decision_id, result.action_id, now, pose}),
-            semaforr::domain::FeedbackDisposition::Accepted);
+  ASSERT_EQ(
+      engine.onActionStarted({result.decision_id, result.action_id, now, pose}),
+      semaforr::domain::FeedbackDisposition::Accepted);
   semaforr::domain::ActionExecutionResult execution;
   execution.decision_id = result.decision_id;
   execution.action_id = result.action_id;
@@ -803,8 +810,7 @@ TEST(SpatialLearning, EveryRepresentationRebuildsAndSerializesIndependently) {
   EXPECT_TRUE(std::holds_alternative<CircumstanceModel>(
       coordinator.snapshot(SpatialRepresentation::Circumstances)->payload));
   const std::string all = coordinator.serializeAll();
-  EXPECT_NE(all.find("\"schema\":\"semaforr.spatial.v1\""),
-            std::string::npos);
+  EXPECT_NE(all.find("\"schema\":\"semaforr.spatial.v1\""), std::string::npos);
 }
 
 TEST(SpatialLearning,
@@ -813,8 +819,8 @@ TEST(SpatialLearning,
   auto first = SpatialLearningCoordinator::defaults(100U);
   auto second = SpatialLearningCoordinator::defaults(100U);
   for (std::size_t index = 0U; index < 6U; ++index) {
-    const auto value = episode(index + 1U, static_cast<double>(index) * 0.3,
-                               index == 0U);
+    const auto value =
+        episode(index + 1U, static_cast<double>(index) * 0.3, index == 0U);
     first.observe(value);
     second.observe(value);
   }
@@ -850,8 +856,7 @@ TEST(SpatialLearning,
   for (std::size_t index = 0U; index < rebuilt.size(); ++index) {
     SCOPED_TRACE(std::string(toString(rebuilt[index].representation)));
     EXPECT_EQ(rebuilt[index].revision, revisions[index]);
-    EXPECT_EQ(first.serialize(rebuilt[index].representation),
-              encodings[index]);
+    EXPECT_EQ(first.serialize(rebuilt[index].representation), encodings[index]);
   }
 }
 
@@ -859,8 +864,7 @@ TEST(SpatialLearning, PublishesImmutableRevisionedSparseSnapshots) {
   using namespace semaforr::spatial;
   auto coordinator = SpatialLearningCoordinator::defaults(100U);
   coordinator.observe(episode(1U, 0.0, true));
-  const auto first =
-      coordinator.snapshot(SpatialRepresentation::KnownGrid);
+  const auto first = coordinator.snapshot(SpatialRepresentation::KnownGrid);
   ASSERT_TRUE(first);
   ASSERT_TRUE(std::holds_alternative<KnownGridModel>(first->payload));
   const auto& grid = std::get<KnownGridModel>(first->payload);
@@ -868,12 +872,12 @@ TEST(SpatialLearning, PublishesImmutableRevisionedSparseSnapshots) {
   EXPECT_FALSE(grid.sparse_observations.empty());
 
   coordinator.rebuild(SpatialRepresentation::KnownGrid);
-  const auto rebuilt =
-      coordinator.snapshot(SpatialRepresentation::KnownGrid);
+  const auto rebuilt = coordinator.snapshot(SpatialRepresentation::KnownGrid);
   ASSERT_TRUE(rebuilt);
   EXPECT_EQ(rebuilt->revision, first->revision);
-  EXPECT_EQ(std::get<KnownGridModel>(rebuilt->payload).sparse_observations.size(),
-            grid.sparse_observations.size());
+  EXPECT_EQ(
+      std::get<KnownGridModel>(rebuilt->payload).sparse_observations.size(),
+      grid.sparse_observations.size());
 }
 
 TEST(InclusionGrid, RepresentsRegionsAndSupportingSubtrailsNotObservations) {
@@ -900,16 +904,12 @@ TEST(InclusionGrid, RepresentsRegionsAndSupportingSubtrailsNotObservations) {
   const auto trail_cell = inclusion.geometry.index({2.5, 0.0});
   ASSERT_TRUE(region_cell);
   ASSERT_TRUE(trail_cell);
-  EXPECT_TRUE(std::any_of(inclusion.sparse_included.begin(),
-                          inclusion.sparse_included.end(),
-                          [&](const auto& cell) {
-                            return cell.index == *region_cell;
-                          }));
-  EXPECT_TRUE(std::any_of(inclusion.sparse_included.begin(),
-                          inclusion.sparse_included.end(),
-                          [&](const auto& cell) {
-                            return cell.index == *trail_cell;
-                          }));
+  EXPECT_TRUE(std::any_of(
+      inclusion.sparse_included.begin(), inclusion.sparse_included.end(),
+      [&](const auto& cell) { return cell.index == *region_cell; }));
+  EXPECT_TRUE(std::any_of(
+      inclusion.sparse_included.begin(), inclusion.sparse_included.end(),
+      [&](const auto& cell) { return cell.index == *trail_cell; }));
 }
 
 TEST(InclusionGrid, AddsOnlySuccessfulLowLevelExplorationTranslation) {
@@ -922,8 +922,7 @@ TEST(InclusionGrid, AddsOnlySuccessfulLowLevelExplorationTranslation) {
   failed.execution_result->status =
       domain::ExecutionCompletionStatus::ControllerFailure;
   failed.execution_result->start_pose = failed.observation.pose;
-  failed.execution_result->final_pose =
-      {{2.0, 0.0}, domain::Angle::zero()};
+  failed.execution_result->final_pose = {{2.0, 0.0}, domain::Angle::zero()};
   learner.observe(failed);
   EXPECT_FALSE(learner.snapshot().usable());
 
@@ -935,12 +934,10 @@ TEST(InclusionGrid, AddsOnlySuccessfulLowLevelExplorationTranslation) {
       domain::ExecutionCompletionStatus::Succeeded;
   succeeded.action_started = true;
   succeeded.execution_result->start_pose = succeeded.observation.pose;
-  succeeded.execution_result->final_pose =
-      {{2.0, 0.0}, domain::Angle::zero()};
+  succeeded.execution_result->final_pose = {{2.0, 0.0}, domain::Angle::zero()};
   learner.observe(succeeded);
-  EXPECT_FALSE(
-      std::get<spatial::InclusionGridModel>(learner.snapshot().payload)
-          .sparse_included.empty());
+  EXPECT_FALSE(std::get<spatial::InclusionGridModel>(learner.snapshot().payload)
+                   .sparse_included.empty());
 }
 
 TEST(SpatialLearning, SkeletonCachesStableConnectedComponents) {
@@ -951,8 +948,7 @@ TEST(SpatialLearning, SkeletonCachesStableConnectedComponents) {
   const auto snapshot =
       coordinator.snapshot(SpatialRepresentation::PassagesAndSkeleton);
   ASSERT_TRUE(snapshot);
-  const auto& skeleton =
-      std::get<PassageSkeletonModel>(snapshot->payload);
+  const auto& skeleton = std::get<PassageSkeletonModel>(snapshot->payload);
   ASSERT_EQ(skeleton.component_by_node.size(), skeleton.nodes.size());
   EXPECT_EQ(skeleton.component_by_node[0], skeleton.component_by_node[1]);
   EXPECT_GT(skeleton.connectivity_revision, 0U);
@@ -1053,10 +1049,10 @@ TEST(NavigationEngine, VictoryStopsBeforeEnforcerAndReactivePlanners) {
   CountingReactive* reactive_observer = reactive.get();
   std::vector<std::unique_ptr<planning::ReactivePlanner>> reactives;
   reactives.push_back(std::move(reactive));
-  decision::NavigationEngine engine(
-      world, action_space, decisions, mission, planning, learning, nullptr,
-      domain::Distance(0.2), nullptr, nullptr, {}, {}, std::move(reactives),
-      true, true);
+  decision::NavigationEngine engine(world, action_space, decisions, mission,
+                                    planning, learning, nullptr,
+                                    domain::Distance(0.2), nullptr, nullptr, {},
+                                    {}, std::move(reactives), true, true);
   auto input = episode(1U, 0.0, true).observation;
   input.laser.ranges_m = {5.0, 5.0, 2.0, 5.0, 5.0};
 
@@ -1089,10 +1085,10 @@ TEST(NavigationEngine, CognitiveTraceFollowsSemanticOrderBeforeTierThree) {
   reactives.push_back(std::make_unique<PassiveReactive>("Thru"));
   reactives.push_back(std::make_unique<PassiveReactive>("Behind"));
   reactives.push_back(std::make_unique<PassiveReactive>("Out"));
-  decision::NavigationEngine engine(
-      world, action_space, decisions, mission, planning, learning, nullptr,
-      domain::Distance(0.2), nullptr, nullptr, {}, {}, std::move(reactives),
-      true, true);
+  decision::NavigationEngine engine(world, action_space, decisions, mission,
+                                    planning, learning, nullptr,
+                                    domain::Distance(0.2), nullptr, nullptr, {},
+                                    {}, std::move(reactives), true, true);
   auto input = episode(1U, 0.0, true).observation;
   input.laser.ranges_m.assign(input.laser.ranges_m.size(), 1.0);
 
@@ -1100,12 +1096,18 @@ TEST(NavigationEngine, CognitiveTraceFollowsSemanticOrderBeforeTierThree) {
   std::vector<std::string> components;
   for (const auto& event : result.decision_cycle)
     components.push_back(event.component);
-  const std::vector<std::string> expected{
-      "Victory",          "AvoidObstacles", "NotOpposite",
-      "Enforcer",         "Thru",           "Behind",
-      "Out",              "LLE",            "Forward",
-      "Precedent",        "PlanningCoordinator",
-      "tier3_fallback"};
+  const std::vector<std::string> expected{"Victory",
+                                          "AvoidObstacles",
+                                          "NotOpposite",
+                                          "Enforcer",
+                                          "Thru",
+                                          "Behind",
+                                          "Out",
+                                          "LLE",
+                                          "Forward",
+                                          "Precedent",
+                                          "PlanningCoordinator",
+                                          "tier3_fallback"};
   EXPECT_EQ(components, expected);
   EXPECT_EQ(result.selected_policy, "no_advisor_score");
 }
@@ -1126,23 +1128,24 @@ TEST(NavigationEngine, ReactiveMandateStopsLleLateVetoesAndLowerTiers) {
   CountingReactive* observer = reactive.get();
   std::vector<std::unique_ptr<planning::ReactivePlanner>> reactives;
   reactives.push_back(std::move(reactive));
-  decision::NavigationEngine engine(
-      world, action_space, decisions, mission, planning, learning, nullptr,
-      domain::Distance(0.2), nullptr, nullptr, {}, {}, std::move(reactives),
-      true, true);
+  decision::NavigationEngine engine(world, action_space, decisions, mission,
+                                    planning, learning, nullptr,
+                                    domain::Distance(0.2), nullptr, nullptr, {},
+                                    {}, std::move(reactives), true, true);
   auto input = episode(1U, 0.0, true).observation;
 
   const auto result = engine.decide(input);
   EXPECT_EQ(result.selected_policy, "reactive:counting_reactive");
   EXPECT_EQ(observer->trigger_count, 1U);
   EXPECT_EQ(observer->update_count, 1U);
-  EXPECT_TRUE(std::none_of(
-      result.decision_cycle.begin(), result.decision_cycle.end(),
-      [](const auto& event) {
-        return event.component == "LLE" || event.component == "Forward" ||
-               event.component == "Precedent" || event.tier == "tier2" ||
-               event.tier == "tier3";
-      }));
+  EXPECT_TRUE(std::none_of(result.decision_cycle.begin(),
+                           result.decision_cycle.end(), [](const auto& event) {
+                             return event.component == "LLE" ||
+                                    event.component == "Forward" ||
+                                    event.component == "Precedent" ||
+                                    event.tier == "tier2" ||
+                                    event.tier == "tier3";
+                           }));
 }
 
 TEST(NavigationEngine, TierTwoPlanCreationEndsCycleBeforeEnforcer) {
@@ -1163,10 +1166,10 @@ TEST(NavigationEngine, TierTwoPlanCreationEndsCycleBeforeEnforcer) {
   reactive_observer->triggered = false;
   std::vector<std::unique_ptr<planning::ReactivePlanner>> reactives;
   reactives.push_back(std::move(reactive));
-  decision::NavigationEngine engine(
-      world, action_space, decisions, mission, planning, learning, nullptr,
-      domain::Distance(0.2), nullptr, nullptr, {}, {}, std::move(reactives),
-      true, true);
+  decision::NavigationEngine engine(world, action_space, decisions, mission,
+                                    planning, learning, nullptr,
+                                    domain::Distance(0.2), nullptr, nullptr, {},
+                                    {}, std::move(reactives), true, true);
   auto input = episode(1U, 0.0, true).observation;
   input.laser.ranges_m.assign(input.laser.ranges_m.size(), 1.0);
 
@@ -1176,9 +1179,9 @@ TEST(NavigationEngine, TierTwoPlanCreationEndsCycleBeforeEnforcer) {
   EXPECT_EQ(result.tier, decision::DecisionTier::TierTwo);
   EXPECT_EQ(reactive_observer->trigger_count, 1U);
   EXPECT_EQ(reactive_observer->update_count, 0U);
-  const auto tier_two = std::find_if(
-      result.decision_cycle.begin(), result.decision_cycle.end(),
-      [](const auto& event) { return event.tier == "tier2"; });
+  const auto tier_two =
+      std::find_if(result.decision_cycle.begin(), result.decision_cycle.end(),
+                   [](const auto& event) { return event.tier == "tier2"; });
   const auto enforcer = std::find_if(
       result.decision_cycle.begin(), result.decision_cycle.end(),
       [](const auto& event) { return event.component == "Enforcer"; });
@@ -1189,9 +1192,9 @@ TEST(NavigationEngine, TierTwoPlanCreationEndsCycleBeforeEnforcer) {
   EXPECT_TRUE(std::none_of(
       std::next(tier_two), result.decision_cycle.end(),
       [](const auto& event) { return event.component == "Enforcer"; }));
-  EXPECT_TRUE(std::none_of(
-      std::next(tier_two), result.decision_cycle.end(),
-      [](const auto& event) { return event.tier == "tier3"; }));
+  EXPECT_TRUE(
+      std::none_of(std::next(tier_two), result.decision_cycle.end(),
+                   [](const auto& event) { return event.tier == "tier3"; }));
   EXPECT_EQ(tier_two->outcome.find("plan_created_cycle_end"), 0U);
   EXPECT_NE(tier_two->outcome.find("attempt=1"), std::string::npos);
 
@@ -1236,9 +1239,9 @@ TEST(NavigationEngine, RepeatedImmediateTierTwoFailureIsBounded) {
       [](const auto& event) {
         return event.outcome.find("no_valid_plan_tier3_eligible") == 0U;
       });
-  const auto first_tier_three = std::find_if(
-      first.decision_cycle.begin(), first.decision_cycle.end(),
-      [](const auto& event) { return event.tier == "tier3"; });
+  const auto first_tier_three =
+      std::find_if(first.decision_cycle.begin(), first.decision_cycle.end(),
+                   [](const auto& event) { return event.tier == "tier3"; });
   ASSERT_NE(first_failure, first.decision_cycle.end());
   ASSERT_NE(first_tier_three, first.decision_cycle.end());
   EXPECT_LT(first_failure->order, first_tier_three->order);
@@ -1252,7 +1255,8 @@ TEST(NavigationEngine, RepeatedImmediateTierTwoFailureIsBounded) {
   const auto failure = std::find_if(
       second.decision_cycle.begin(), second.decision_cycle.end(),
       [](const auto& event) {
-        return event.outcome.find("no_valid_plan_abandoned_tier3_eligible:attempt=2") !=
+        return event.outcome.find(
+                   "no_valid_plan_abandoned_tier3_eligible:attempt=2") !=
                std::string::npos;
       });
   ASSERT_NE(failure, second.decision_cycle.end());
@@ -1265,17 +1269,16 @@ TEST(NavigationEngine, RepeatedImmediateTierTwoFailureIsBounded) {
         return event.outcome ==
                "prior_planning_failure_recovery_exhausted_tier3_eligible";
       }));
-  EXPECT_TRUE(std::none_of(
-      third.decision_cycle.begin(), third.decision_cycle.end(),
-      [](const auto& event) {
-        return event.tier == "tier2" &&
-               event.outcome.find("attempt=3") != std::string::npos;
-      }));
+  EXPECT_TRUE(std::none_of(third.decision_cycle.begin(),
+                           third.decision_cycle.end(), [](const auto& event) {
+                             return event.tier == "tier2" &&
+                                    event.outcome.find("attempt=3") !=
+                                        std::string::npos;
+                           }));
 }
 
 TEST(SpatialLearning, InitialExplorationFinalizationPublishesGraphModels) {
-  auto coordinator =
-      semaforr::spatial::SpatialLearningCoordinator::defaults();
+  auto coordinator = semaforr::spatial::SpatialLearningCoordinator::defaults();
   for (std::size_t sequence = 1U; sequence <= 3U; ++sequence) {
     auto input = episode(sequence, static_cast<double>(sequence));
     input.initial_exploration = true;
@@ -1283,11 +1286,9 @@ TEST(SpatialLearning, InitialExplorationFinalizationPublishesGraphModels) {
   }
   coordinator.finalizeInitialExploration();
   const auto highway =
-      coordinator.snapshot(
-          semaforr::spatial::SpatialRepresentation::Highways);
-  const auto skeleton =
-      coordinator.snapshot(
-          semaforr::spatial::SpatialRepresentation::PassagesAndSkeleton);
+      coordinator.snapshot(semaforr::spatial::SpatialRepresentation::Highways);
+  const auto skeleton = coordinator.snapshot(
+      semaforr::spatial::SpatialRepresentation::PassagesAndSkeleton);
   ASSERT_TRUE(highway);
   ASSERT_TRUE(skeleton);
   EXPECT_GT(highway->revision, 0U);
@@ -1308,21 +1309,26 @@ TEST(CircumstanceLearning, NormalizesSettingsAndLearnsQualifiedCases) {
   CircumstanceLearner learner(configuration);
 
   for (std::size_t index = 0U; index < 4U; ++index) {
-    NavigationEpisode input = episode(index + 1U, 0.4 * index,
-                                      index == 0U);
+    NavigationEpisode input = episode(index + 1U, 0.4 * index, index == 0U);
     input.active_target = domain::Point2D{4.0, 0.0};
-    input.viable_actions = {
-        domain::Action(domain::ActionType::Forward, 1U),
-        domain::Action(domain::ActionType::TurnLeft, 1U)};
+    input.viable_actions = {domain::Action(domain::ActionType::Forward, 1U),
+                            domain::Action(domain::ActionType::TurnLeft, 1U)};
     input.move_distances_m = {0.25};
     input.rotation_angles_rad = {0.2};
     input.event = LearningEvent::SensorObservation;
     input.sequence = index * 3U + 1U;
     learner.observe(input);
-    input.selection = domain::SelectedActionRecord{
-        index + 1U, index + 1U, domain::TaskId{1U}, {},
-        input.observation.pose, *input.selected_action, "tier_three", "test",
-        0.25, 0.0, 0.0};
+    input.selection = domain::SelectedActionRecord{index + 1U,
+                                                   index + 1U,
+                                                   domain::TaskId{1U},
+                                                   {},
+                                                   input.observation.pose,
+                                                   *input.selected_action,
+                                                   "tier_three",
+                                                   "test",
+                                                   0.25,
+                                                   0.0,
+                                                   0.0};
     input.event = LearningEvent::DecisionSelected;
     input.sequence = index * 3U + 2U;
     learner.observe(input);
@@ -1368,15 +1374,23 @@ TEST(CircumstanceLearning, UsesOnlyTerminalOutcomesAndDistinguishesResults) {
   input.event = LearningEvent::SensorObservation;
   input.sequence = 1U;
   learner.observe(input);
-  input.selection = domain::SelectedActionRecord{
-      1U, 1U, domain::TaskId{1U}, {}, input.observation.pose,
-      *input.selected_action, "tier_three", "test", 0.25, 0.0, 0.0};
+  input.selection = domain::SelectedActionRecord{1U,
+                                                 1U,
+                                                 domain::TaskId{1U},
+                                                 {},
+                                                 input.observation.pose,
+                                                 *input.selected_action,
+                                                 "tier_three",
+                                                 "test",
+                                                 0.25,
+                                                 0.0,
+                                                 0.0};
   input.event = LearningEvent::DecisionSelected;
   input.sequence = 2U;
   learner.observe(input);
   learner.rebuild();
-  EXPECT_TRUE(std::get<CircumstanceModel>(learner.snapshot().payload)
-                  .cases.empty());
+  EXPECT_TRUE(
+      std::get<CircumstanceModel>(learner.snapshot().payload).cases.empty());
 
   input.execution_result->status =
       domain::ExecutionCompletionStatus::PartialMovement;
@@ -1386,8 +1400,7 @@ TEST(CircumstanceLearning, UsesOnlyTerminalOutcomesAndDistinguishesResults) {
   input.sequence = 4U;
   learner.observe(input);  // duplicate terminal feedback is idempotent
   learner.rebuild();
-  const auto& model =
-      std::get<CircumstanceModel>(learner.snapshot().payload);
+  const auto& model = std::get<CircumstanceModel>(learner.snapshot().payload);
   ASSERT_EQ(model.cases.size(), 1U);
   ASSERT_EQ(model.cases.front().actions.size(), 1U);
   const auto& action = model.cases.front().actions.front();
@@ -1408,10 +1421,9 @@ TEST(CircumstanceLearning, PersistencePreservesStableIdsCasesAndVersions) {
   NormalizedSetting setting;
   setting.side_cells = 1U;
   setting.freespace = {1.0};
-  model.clusters.push_back(
-      {42U, setting, 75U, 0.99,
-       CircumstanceCreationMethod::OfflineSimilarityGraph, 3U, 100U, 2U,
-       false});
+  model.clusters.push_back({42U, setting, 75U, 0.99,
+                            CircumstanceCreationMethod::OfflineSimilarityGraph,
+                            3U, 100U, 2U, false});
   model.next_circumstance_id = 43U;
   CircumstanceCaseEvidence evidence;
   evidence.key = {42U, 1U, 2U};
@@ -1434,9 +1446,9 @@ TEST(CircumstanceLearning, PersistencePreservesStableIdsCasesAndVersions) {
 
   std::stringstream encoded;
   saveCircumstanceModel(model, encoded);
-  const auto restored = loadCircumstanceModel(
-      encoded, model.model_version, model.feature_version,
-      model.classifier_version);
+  const auto restored =
+      loadCircumstanceModel(encoded, model.model_version, model.feature_version,
+                            model.classifier_version);
   ASSERT_EQ(restored.clusters.size(), 1U);
   EXPECT_EQ(restored.clusters.front().id, 42U);
   EXPECT_EQ(restored.next_circumstance_id, 43U);

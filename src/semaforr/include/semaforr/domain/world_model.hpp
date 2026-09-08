@@ -2,8 +2,8 @@
  * @file world_model.hpp
  * @brief World model responsibilities.
  *
- * @details This file defines world model behavior for ROS-independent domain state
- * and value types. It centers on `ActionSpace`, `RobotState`,
+ * @details This file defines world model behavior for ROS-independent domain
+ * state and value types. It centers on `ActionSpace`, `RobotState`,
  * `NavigationHistoryEntry`, `NavigationHistory`, `AppendOnlyHistory`,
  * `ObservationHistoryEntry`, `RecoveryState`, `ExplorationCue`. Its
  * package-relative location is `include/semaforr/domain/world_model.hpp`.
@@ -19,16 +19,16 @@
 #include <optional>
 #include <semaforr/domain/action.hpp>
 #include <semaforr/domain/action_execution.hpp>
-#include <semaforr/domain/crowd_model.hpp>
 #include <semaforr/domain/circumstance.hpp>
 #include <semaforr/domain/completed_path.hpp>
-#include <semaforr/domain/highway.hpp>
+#include <semaforr/domain/crowd_model.hpp>
 #include <semaforr/domain/grid_layers.hpp>
+#include <semaforr/domain/highway.hpp>
 #include <semaforr/domain/mission.hpp>
 #include <semaforr/domain/model_revision.hpp>
 #include <semaforr/domain/observation.hpp>
-#include <semaforr/domain/static_map.hpp>
 #include <semaforr/domain/spatial_affordances.hpp>
+#include <semaforr/domain/static_map.hpp>
 #include <stdexcept>
 #include <string>
 #include <utility>

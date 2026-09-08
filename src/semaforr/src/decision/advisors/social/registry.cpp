@@ -2,8 +2,8 @@
  * @file registry.cpp
  * @brief Registry responsibilities.
  *
- * @details This file implements registry behavior for tiered decision making and
- * action arbitration. It records the declarations, settings, fixtures, or
+ * @details This file implements registry behavior for tiered decision making
+ * and action arbitration. It records the declarations, settings, fixtures, or
  * guidance needed by that responsibility. Its package-relative location is
  * `src/decision/advisors/social/registry.cpp`.
  */

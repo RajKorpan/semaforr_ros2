@@ -69,8 +69,7 @@ class KnownGridLearner final : public SpatialLearnerBase {
    * - None documented; validation or dependency failures may propagate.
    */
   KnownGridLearner(std::size_t columns = 200U, std::size_t rows = 200U,
-                   double resolution_m = 1.0,
-                   domain::Point2D origin = {},
+                   double resolution_m = 1.0, domain::Point2D origin = {},
                    GridExtentPolicy extent_policy = GridExtentPolicy::Expand,
                    domain::GridExpansionPolicy expansion_policy = {},
                    bool initialize_around_first_pose = false,
@@ -175,8 +174,7 @@ class SensedOccupancyLearner final : public SpatialLearnerBase {
       SensedOccupancyLearningConfiguration configuration = {},
       GridExtentPolicy extent_policy = GridExtentPolicy::Expand,
       domain::GridExpansionPolicy expansion_policy = {},
-      bool initialize_around_first_pose = false,
-      std::string frame_id = "map");
+      bool initialize_around_first_pose = false, std::string frame_id = "map");
 
  private:
   /**
@@ -306,13 +304,12 @@ class InclusionGridLearner final : public SpatialLearnerBase {
    * Exceptions:
    * - None documented; validation or dependency failures may propagate.
    */
-  InclusionGridLearner(std::size_t columns = 200U, std::size_t rows = 200U,
-                       double resolution_m = 1.0,
-                       domain::Point2D origin = {},
-                       GridExtentPolicy extent_policy = GridExtentPolicy::Expand,
-                       domain::GridExpansionPolicy expansion_policy = {},
-                       bool initialize_around_first_pose = false,
-                       std::string frame_id = "map");
+  InclusionGridLearner(
+      std::size_t columns = 200U, std::size_t rows = 200U,
+      double resolution_m = 1.0, domain::Point2D origin = {},
+      GridExtentPolicy extent_policy = GridExtentPolicy::Expand,
+      domain::GridExpansionPolicy expansion_policy = {},
+      bool initialize_around_first_pose = false, std::string frame_id = "map");
   /**
    * @brief Performs the replace represented operation for this subsystem.
    *

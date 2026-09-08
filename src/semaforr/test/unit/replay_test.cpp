@@ -2,17 +2,18 @@
  * @file replay_test.cpp
  * @brief Replay test responsibilities.
  *
- * @details This file exercises replay test behavior for automated verification and
- * regression testing. It centers on
+ * @details This file exercises replay test behavior for automated verification
+ * and regression testing. It centers on
  * `RoundTripCapturesInputsSeedsRevisionsAndControllerOutcome`,
  * `ReproducesAndAttributesConfigurationOrDecisionDifferences`,
  * `RejectsLifecycleRecordsWithoutMatchingInputs`,
  * `FeedsEachControllerOutcomeToTheFollowingDecisionCycle`. Its
  * package-relative location is `test/unit/replay_test.cpp`.
  */
+#include <gtest/gtest.h>
+
 #include <cmath>
 #include <filesystem>
-#include <gtest/gtest.h>
 #include <limits>
 #include <semaforr/social/crowd_field_learner.hpp>
 #include <semaforr/validation/replay.hpp>
@@ -67,11 +68,10 @@ semaforr::domain::RobotObservation observation() {
   value.laser.angle_increment = semaforr::domain::Angle(0.5);
   value.laser.minimum_range = semaforr::domain::Distance(0.1);
   value.laser.maximum_range = semaforr::domain::Distance(8.0);
-  value.laser.ranges_m = {
-      1.0, std::numeric_limits<double>::quiet_NaN(),
-      std::numeric_limits<double>::infinity(), 8.0};
-  value.observed_at = semaforr::domain::ExecutionTimestamp(
-      std::chrono::nanoseconds(1234567));
+  value.laser.ranges_m = {1.0, std::numeric_limits<double>::quiet_NaN(),
+                          std::numeric_limits<double>::infinity(), 8.0};
+  value.observed_at =
+      semaforr::domain::ExecutionTimestamp(std::chrono::nanoseconds(1234567));
   semaforr::domain::CrowdObservation crowd;
   crowd.frame_id = "map";
   crowd.observed_at = std::chrono::nanoseconds(1200000);
@@ -88,8 +88,7 @@ semaforr::domain::RobotObservation observation() {
   pedestrian.prediction_source = "gst";
   pedestrian.formation_index = 0U;
   crowd.pedestrians.push_back(pedestrian);
-  crowd.formations.push_back(
-      {{"person-1"}, "side_by_side", {1.0, 2.0}, 0.8});
+  crowd.formations.push_back({{"person-1"}, "side_by_side", {1.0, 2.0}, 0.8});
   value.crowd = crowd;
   return value;
 }
@@ -110,17 +109,24 @@ semaforr::decision::DecisionResult decision() {
   semaforr::decision::DecisionResult value;
   value.decision_id = 41U;
   value.action_id = 42U;
-  value.action = semaforr::domain::Action(
-      semaforr::domain::ActionType::Forward, 1U);
+  value.action =
+      semaforr::domain::Action(semaforr::domain::ActionType::Forward, 1U);
   value.tier = semaforr::decision::DecisionTier::TierThree;
   value.source = semaforr::decision::DecisionSource::TierThreeAdvisor;
   value.selected_policy = "advisor_arbitration";
-  value.contributions.push_back(
-      {"greedy", value.action, 7.0, 7.0, 5.0, 2.0, 1.0, 1.0, 7.0,
-       true, 7.0, "target progress", 3U});
-  value.decision_cycle.push_back(
-      {1U, "tier3", "greedy", {value.action}, std::nullopt, {},
-       "advisor_scored_continue", false, std::nullopt, "greedy:scored"});
+  value.contributions.push_back({"greedy", value.action, 7.0, 7.0, 5.0, 2.0,
+                                 1.0, 1.0, 7.0, true, 7.0, "target progress",
+                                 3U});
+  value.decision_cycle.push_back({1U,
+                                  "tier3",
+                                  "greedy",
+                                  {value.action},
+                                  std::nullopt,
+                                  {},
+                                  "advisor_scored_continue",
+                                  false,
+                                  std::nullopt,
+                                  "greedy:scored"});
   value.source_provenance = {"sensor:sensed_occupancy"};
   value.social_input_source = "social_context_tracked";
   value.social_prediction_source = "gst";
@@ -143,10 +149,10 @@ TEST(Replay, RoundTripCapturesInputsSeedsRevisionsAndControllerOutcome) {
   semaforr::domain::ActionExecutionResult outcome;
   outcome.decision_id = 41U;
   outcome.action_id = 42U;
-  outcome.started_at = semaforr::domain::ExecutionTimestamp(
-      std::chrono::nanoseconds(2000000));
-  outcome.finished_at = semaforr::domain::ExecutionTimestamp(
-      std::chrono::nanoseconds(3000000));
+  outcome.started_at =
+      semaforr::domain::ExecutionTimestamp(std::chrono::nanoseconds(2000000));
+  outcome.finished_at =
+      semaforr::domain::ExecutionTimestamp(std::chrono::nanoseconds(3000000));
   outcome.status = semaforr::domain::ExecutionCompletionStatus::Succeeded;
   outcome.start_pose = observation().pose;
   outcome.final_pose = {{-2.0, 4.0}, semaforr::domain::Angle(0.25)};
@@ -174,10 +180,12 @@ TEST(Replay, RoundTripCapturesInputsSeedsRevisionsAndControllerOutcome) {
   ASSERT_EQ(restored.cycles.front().observation.crowd->pedestrians.size(), 1U);
   EXPECT_EQ(restored.cycles.front().observation.crowd->pedestrians.front().id,
             "person-1");
-  EXPECT_EQ(restored.cycles.front().observation.crowd->pedestrians.front()
+  EXPECT_EQ(restored.cycles.front()
+                .observation.crowd->pedestrians.front()
                 .predicted_trajectory.size(),
             1U);
-  EXPECT_EQ(restored.cycles.front().observation.crowd->pedestrians.front()
+  EXPECT_EQ(restored.cycles.front()
+                .observation.crowd->pedestrians.front()
                 .prediction_source,
             "gst");
   ASSERT_EQ(restored.cycles.front().observation.crowd->formations.size(), 1U);
@@ -282,8 +290,7 @@ TEST(Replay, FeedsEachControllerOutcomeToTheFollowingDecisionCycle) {
 
   std::size_t calls{};
   const auto report = semaforr::validation::OfflineReplay::run(
-      recorder.trace(), metadata(),
-      [&](const auto&, const auto& preceding) {
+      recorder.trace(), metadata(), [&](const auto&, const auto& preceding) {
         if (calls == 0U)
           EXPECT_FALSE(preceding.has_value());
         else {

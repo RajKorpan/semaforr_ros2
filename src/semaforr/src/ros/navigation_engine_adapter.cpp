@@ -2,8 +2,8 @@
  * @file navigation_engine_adapter.cpp
  * @brief Navigation engine adapter responsibilities.
  *
- * @details This file implements navigation engine adapter behavior for the ROS 2
- * composition and message-adaptation boundary. It centers on
+ * @details This file implements navigation engine adapter behavior for the ROS
+ * 2 composition and message-adaptation boundary. It centers on
  * `NavigationEngineAdapter`. Its package-relative location is
  * `src/ros/navigation_engine_adapter.cpp`.
  */
@@ -24,9 +24,9 @@
 #include <semaforr/planning/hierarchical_plan.hpp>
 #include <semaforr/planning/planner_registry.hpp>
 #include <semaforr/planning/static_map_loader.hpp>
-#include <stdexcept>
 #include <semaforr/ros/navigation_engine_adapter.hpp>
 #include <semaforr/validation/replay.hpp>
+#include <stdexcept>
 #include <string>
 #include <utility>
 #include <vector>
@@ -79,16 +79,16 @@ social::CrowdFieldLearnerConfiguration crowdConfiguration(
     const domain::StaticMap* static_map) {
   const auto& source = configuration.navigation.crowd_learning;
   social::CrowdFieldLearnerConfiguration result;
-  result.geometry = static_map && static_map->occupancyAvailable()
-                        ? static_map->occupancy.geometry
-                        : domain::GridGeometry{
-                              source.frame,
-                              static_cast<double>(
-                                  configuration.map_dimensions.length),
-                              static_cast<double>(
-                                  configuration.map_dimensions.height),
-                              source.resolution_m, source.origin_x_m,
-                              source.origin_y_m};
+  result.geometry =
+      static_map && static_map->occupancyAvailable()
+          ? static_map->occupancy.geometry
+          : domain::GridGeometry{
+                source.frame,
+                static_cast<double>(configuration.map_dimensions.length),
+                static_cast<double>(configuration.map_dimensions.height),
+                source.resolution_m,
+                source.origin_x_m,
+                source.origin_y_m};
   result.strategy = social::crowdEstimatorStrategyFromString(source.estimator);
   result.discount_factor = source.discount_factor;
   result.minimum_update_period_s = source.minimum_update_period_s;
@@ -224,8 +224,7 @@ domain::UnknownSpacePolicy unknownPolicy(const std::string& value) {
     return domain::UnknownSpacePolicy::WithinSensorRange;
   if (value == "exploration_only")
     return domain::UnknownSpacePolicy::ExplorationOnly;
-  throw std::runtime_error("unknown grid unknown-space policy '" + value +
-                           "'");
+  throw std::runtime_error("unknown grid unknown-space policy '" + value + "'");
 }
 
 /**
@@ -267,20 +266,19 @@ spatial::LearnedGridConfiguration learnedGridConfiguration(
   result.initial_width_m = source.mapless_initial_width_m;
   result.initial_height_m = source.mapless_initial_height_m;
   result.resolution_m = source.resolution_m;
-  result.highway_origin =
-      {source.highway_origin_x_m, source.highway_origin_y_m};
+  result.highway_origin = {source.highway_origin_x_m,
+                           source.highway_origin_y_m};
   result.highway_smoothing_policy = source.highway_smoothing_policy;
   result.highway_component_selection_policy =
       source.highway_component_selection_policy;
   result.extent_policy = gridExtentPolicy(source.extent_policy);
   result.expansion = {source.expansion_margin_m,
-                      source.expansion_increment_cells,
-                      source.maximum_width_m,
-                      source.maximum_height_m,
-                      source.memory_limit_cells};
+                      source.expansion_increment_cells, source.maximum_width_m,
+                      source.maximum_height_m, source.memory_limit_cells};
   result.initialize_around_first_pose = true;
   result.learning_mode =
-      configuration.experiment.behavior_mode == config::BehaviorMode::Compatibility ||
+      configuration.experiment.behavior_mode ==
+                  config::BehaviorMode::Compatibility ||
               configuration.navigation.spatial_learning_profile ==
                   config::SpatialLearningProfile::Chapter3Compatibility
           ? spatial::SpatialLearningMode::Compatibility
@@ -333,14 +331,12 @@ exploration::HighLevelExplorationConfiguration hleConfiguration(
                       domain::Angle(source.left_open_max_rad)};
   result.right_open = {domain::Angle(source.right_open_min_rad),
                        domain::Angle(source.right_open_max_rad)};
-  result.minimum_length_to_width_ratio =
-      source.minimum_length_to_width_ratio;
+  result.minimum_length_to_width_ratio = source.minimum_length_to_width_ratio;
   result.minimum_passage_length =
       domain::Distance(source.minimum_passage_length_m);
   result.large_room_width = domain::Distance(source.large_room_width_m);
   result.large_room_length = domain::Distance(source.large_room_length_m);
-  result.cue_clearance_margin =
-      domain::Distance(source.cue_clearance_margin_m);
+  result.cue_clearance_margin = domain::Distance(source.cue_clearance_margin_m);
   result.maximum_width_change_ratio = source.maximum_width_change_ratio;
   result.hard_turn_threshold = domain::Angle(source.hard_turn_threshold_rad);
   result.end_of_passage_clearance =
@@ -371,17 +367,15 @@ planning::LowLevelExplorationConfiguration lleConfiguration(
       configuration.experiment.reactive_exploration_behavior_policy;
   result.behavior_policy =
       policy == "compatibility" ||
-              (policy == "profile" &&
-               configuration.experiment.behavior_mode ==
-                   config::BehaviorMode::Compatibility)
+              (policy == "profile" && configuration.experiment.behavior_mode ==
+                                          config::BehaviorMode::Compatibility)
           ? planning::LLEBehaviorPolicy::Compatibility
           : planning::LLEBehaviorPolicy::Modernized;
   result.stalled_history_extension =
       result.behavior_policy == planning::LLEBehaviorPolicy::Modernized &&
-      configuration.experiment
-          .reactive_exploration_stalled_history_extension;
-  result.closest_target_bin_m = configuration.experiment
-                                    .reactive_exploration_closest_target_bin_m;
+      configuration.experiment.reactive_exploration_stalled_history_extension;
+  result.closest_target_bin_m =
+      configuration.experiment.reactive_exploration_closest_target_bin_m;
   result.random_seed = configuration.experiment.seeds.lle_fallback;
   return result;
 }
@@ -402,16 +396,13 @@ planning::LowLevelExplorationConfiguration lleConfiguration(
 decision::ArbitrationConfiguration arbitrationConfiguration(
     const config::Configuration& configuration) {
   decision::ArbitrationConfiguration result;
-  result.tie_tolerance =
-      configuration.experiment.tier_three_tie_tolerance;
+  result.tie_tolerance = configuration.experiment.tier_three_tie_tolerance;
   result.unscored_policy = decision::UnscoredActionPolicy::Exclude;
   result.fallback = domain::Action::pause();
   result.random_seed = configuration.experiment.seeds.tier_three_ties;
-  const bool compatibility_profile =
-      configuration.experiment.behavior_mode ==
-      config::BehaviorMode::Compatibility;
-  const auto& scoring =
-      configuration.experiment.tier_three_scoring_policy;
+  const bool compatibility_profile = configuration.experiment.behavior_mode ==
+                                     config::BehaviorMode::Compatibility;
+  const auto& scoring = configuration.experiment.tier_three_scoring_policy;
   if (scoring == "compatibility_comments" ||
       (scoring == "profile" && compatibility_profile))
     result.scoring_policy =
@@ -420,8 +411,7 @@ decision::ArbitrationConfiguration arbitrationConfiguration(
     result.scoring_policy =
         decision::TierThreeScoringPolicy::WeightedNormalized;
   else
-    throw std::runtime_error("unknown Tier-3 scoring policy '" + scoring +
-                             "'");
+    throw std::runtime_error("unknown Tier-3 scoring policy '" + scoring + "'");
   const auto& tie = configuration.experiment.tier_three_tie_policy;
   if (tie == "exact" || (tie == "profile" && compatibility_profile))
     result.tie_policy = decision::TierThreeTiePolicy::Exact;
@@ -484,8 +474,7 @@ class NavigationEngineAdapter::Impl {
             10U, circumstanceConfiguration(configuration_),
             {static_cast<std::uint16_t>(
                  configuration_.navigation.grids.free_observations_to_clear),
-             configuration_.navigation.grids.dynamic_expiry_observations,
-             true},
+             configuration_.navigation.grids.dynamic_expiry_observations, true},
             learnedGridConfiguration(configuration_))),
         hard_safety_(action_space_.move_distances_m(),
                      action_space_.rotation_angles_rad(),
@@ -502,17 +491,15 @@ class NavigationEngineAdapter::Impl {
     configurePlanning();
     configureDecisions();
     const auto& circumstances = configuration_.navigation.circumstances;
-    map_diagnostics_.push_back(
-        "circumstance_learning_mode:" + circumstances.learning_mode);
-    map_diagnostics_.push_back(
-        "circumstance_model_version:" + circumstances.model_version);
-    map_diagnostics_.push_back(
-        "circumstance_classifier_version:" +
-        circumstances.classifier_version);
+    map_diagnostics_.push_back("circumstance_learning_mode:" +
+                               circumstances.learning_mode);
+    map_diagnostics_.push_back("circumstance_model_version:" +
+                               circumstances.model_version);
+    map_diagnostics_.push_back("circumstance_classifier_version:" +
+                               circumstances.classifier_version);
     map_diagnostics_.push_back(
         std::string("circumstance_tier3_weighting:") +
-        (circumstances.tier_three_weighting_enabled ? "enabled" :
-                                                       "disabled"));
+        (circumstances.tier_three_weighting_enabled ? "enabled" : "disabled"));
     if (configuration_.navigation.crowd_learning.enabled) {
       crowd_learning_ = std::make_unique<social::CrowdFieldLearner>(
           crowdConfiguration(configuration_, world_.static_map));
@@ -572,12 +559,11 @@ class NavigationEngineAdapter::Impl {
     engine_ = std::make_unique<decision::NavigationEngine>(
         world_, action_space_, decisions_, mission_, planning_, learning_,
         crowd_learning_.get(), domain::Distance(0.5), &hard_safety_, &phases_,
-        config::configurationFingerprint(configuration_),
-        std::move(manifest), std::move(enabled_reactive),
+        config::configurationFingerprint(configuration_), std::move(manifest),
+        std::move(enabled_reactive),
         configuration_.experiment.reactive_exploration_enabled &&
             has_tier_one_rule("low_level_exploration"),
-        has_tier_one_rule("enforcer"),
-        hleConfiguration(configuration_),
+        has_tier_one_rule("enforcer"), hleConfiguration(configuration_),
         std::move(lle_component), std::move(enforcer_component),
         planning::TraversabilityConfiguration{
             unknownPolicy(configuration_.navigation.grids.map_unknown_policy),
@@ -684,9 +670,8 @@ class NavigationEngineAdapter::Impl {
                       [](const std::string& diagnostic) {
                         return diagnostic.starts_with("planner_disabled_");
                       });
-      if (explicitly_disabled ||
-          configuration_.static_map.failure_policy ==
-              config::MapLoadFailurePolicy::DisableMap) {
+      if (explicitly_disabled || configuration_.static_map.failure_policy ==
+                                     config::MapLoadFailurePolicy::DisableMap) {
         map_diagnostics_.push_back(
             "runtime_validation:all_requested_planners_disabled");
       } else {
@@ -696,13 +681,11 @@ class NavigationEngineAdapter::Impl {
             "will stop");
       }
     } else {
-      map_diagnostics_.push_back(
-          "runtime_validation:active_planners=" +
-          std::to_string(planning_.plannerCount()));
+      map_diagnostics_.push_back("runtime_validation:active_planners=" +
+                                 std::to_string(planning_.plannerCount()));
     }
-    map_diagnostics_.push_back(
-        "runtime_validation:explanations=" +
-        configuration_.experiment.explanations.mode);
+    map_diagnostics_.push_back("runtime_validation:explanations=" +
+                               configuration_.experiment.explanations.mode);
     map_diagnostics_.push_back("runtime_validation:passed");
   }
 
@@ -722,7 +705,8 @@ class NavigationEngineAdapter::Impl {
     if (configuration_.static_map.mode == config::MapOperatingMode::Mapless) {
       map_diagnostics_.push_back("map_mode:mapless");
       map_diagnostics_.push_back("map_status:mapless_parser_not_invoked");
-      map_diagnostics_.push_back("map_capabilities:geometry=false,occupancy=false,planning=false");
+      map_diagnostics_.push_back(
+          "map_capabilities:geometry=false,occupancy=false,planning=false");
       return;
     }
     map_diagnostics_.push_back("map_mode:map_enabled");
@@ -744,8 +728,7 @@ class NavigationEngineAdapter::Impl {
           configuration_.static_map.map_based_planning_enabled};
       map_diagnostics_.push_back("map_status:loaded");
       map_diagnostics_.push_back("map_source:" + world_.static_map->source);
-      map_diagnostics_.push_back("map_checksum:" +
-                                 world_.static_map->checksum);
+      map_diagnostics_.push_back("map_checksum:" + world_.static_map->checksum);
       map_diagnostics_.push_back(
           std::string("map_grid_extent_source:") +
           domain::toString(
@@ -755,7 +738,8 @@ class NavigationEngineAdapter::Impl {
           std::to_string(
               world_.static_map->occupancy.geometry.geometry_revision));
       map_diagnostics_.push_back(
-          std::string("map_capabilities:geometry=true,occupancy=true,planning=") +
+          std::string(
+              "map_capabilities:geometry=true,occupancy=true,planning=") +
           (world_.map_capabilities.map_based_planning_available ? "true"
                                                                 : "false"));
     } catch (const std::exception& error) {
@@ -768,7 +752,8 @@ class NavigationEngineAdapter::Impl {
             "failed to initialize requested SemaFORR map '" +
             configuration_.static_map.path + "': " + error.what());
       map_diagnostics_.push_back("map_status:load_failed_map_disabled");
-      map_diagnostics_.push_back("map_capabilities:geometry=false,occupancy=false,planning=false");
+      map_diagnostics_.push_back(
+          "map_capabilities:geometry=false,occupancy=false,planning=false");
       map_diagnostics_.push_back("map_error:" + std::string(error.what()));
     }
   }
@@ -799,12 +784,11 @@ class NavigationEngineAdapter::Impl {
                          features.hallways_on);
     learning_.setEnabled(spatial::SpatialRepresentation::Barriers,
                          features.barriers_on);
-    learning_.setEnabled(spatial::SpatialRepresentation::PassagesAndSkeleton,
-                         features.a_star_on || features.planners.skeleton ||
-                             features.planners.region ||
-                             features.planners.hallway ||
-                             features.planners.trail ||
-                             features.planners.conveyor);
+    learning_.setEnabled(
+        spatial::SpatialRepresentation::PassagesAndSkeleton,
+        features.a_star_on || features.planners.skeleton ||
+            features.planners.region || features.planners.hallway ||
+            features.planners.trail || features.planners.conveyor);
     learning_.setEnabled(spatial::SpatialRepresentation::KnownGrid,
                          features.known_grid_on);
     learning_.setEnabled(spatial::SpatialRepresentation::SensedOccupancy,
@@ -834,21 +818,24 @@ class NavigationEngineAdapter::Impl {
     const auto& planners = configuration_.navigation.planners;
     planning_.setSelectionPolicy(
         planning::planSelectionPolicyFromString(planners.selection_policy));
-    planning_.setTiePolicy(
-        planners.tie_policy == "seeded_exact" ||
-            (planners.tie_policy == "profile" &&
-             configuration_.experiment.behavior_mode ==
-                 config::BehaviorMode::Compatibility),
-        configuration_.experiment.seeds.planner_ties);
+    planning_.setTiePolicy(planners.tie_policy == "seeded_exact" ||
+                               (planners.tie_policy == "profile" &&
+                                configuration_.experiment.behavior_mode ==
+                                    config::BehaviorMode::Compatibility),
+                           configuration_.experiment.seeds.planner_ties);
     const auto registry = planning::defaultPlannerRegistry();
     const std::vector<std::pair<std::string, bool>> enabled = {
         {"distance", planners.distance},
         {"sensor_distance", planners.sensor_distance},
         {"density", planners.density},
-        {"risk", planners.risk},         {"flow", planners.flow},
-        {"region", planners.region},     {"hallway", planners.hallway},
-        {"trail", planners.trail},       {"conveyor", planners.conveyor},
-        {"skeleton", planners.skeleton}, {"highway", planners.highway}};
+        {"risk", planners.risk},
+        {"flow", planners.flow},
+        {"region", planners.region},
+        {"hallway", planners.hallway},
+        {"trail", planners.trail},
+        {"conveyor", planners.conveyor},
+        {"skeleton", planners.skeleton},
+        {"highway", planners.highway}};
     for (const auto& [name, on] : enabled) {
       if (!on) continue;
       if (registry.mapRequirement(name) ==
@@ -861,8 +848,7 @@ class NavigationEngineAdapter::Impl {
       const auto occupancy = registry.occupancyRequirement(name);
       const bool waits_for_sensor =
           occupancy == planning::OccupancyRequirement::SensedPartial ||
-          (occupancy ==
-               planning::OccupancyRequirement::StaticOrSensedPartial &&
+          (occupancy == planning::OccupancyRequirement::StaticOrSensedPartial &&
            !world_.map_capabilities.map_occupancy_available);
       map_diagnostics_.push_back(
           waits_for_sensor
@@ -1074,11 +1060,10 @@ decision::DecisionResult NavigationEngineAdapter::decide() {
   auto result = impl_->engine_->decide();
   if (impl_->recorder_) {
     auto revisions = impl_->world_.spatial.revisions;
-    for (const auto dependency :
-         {domain::ModelDependency::LiveCrowdObservation,
-          domain::ModelDependency::CrowdDensity,
-          domain::ModelDependency::CrowdRisk,
-          domain::ModelDependency::CrowdFlow})
+    for (const auto dependency : {domain::ModelDependency::LiveCrowdObservation,
+                                  domain::ModelDependency::CrowdDensity,
+                                  domain::ModelDependency::CrowdRisk,
+                                  domain::ModelDependency::CrowdFlow})
       revisions[dependency] = impl_->world_.crowd.revisionOf(dependency);
     impl_->recorder_->recordDecision(result, revisions);
   }
@@ -1128,9 +1113,9 @@ ActionExecutionRequest NavigationEngineAdapter::executionRequest(
  */
 domain::FeedbackDisposition NavigationEngineAdapter::onActionStarted(
     const ActionExecutionUpdate& update) {
-  return impl_->engine_->onActionStarted(
-      {update.decision_id, update.action_id, std::chrono::steady_clock::now(),
-       update.start_pose});
+  return impl_->engine_->onActionStarted({update.decision_id, update.action_id,
+                                          std::chrono::steady_clock::now(),
+                                          update.start_pose});
 }
 
 /**

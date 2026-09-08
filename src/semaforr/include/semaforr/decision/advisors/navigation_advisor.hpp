@@ -2,8 +2,8 @@
  * @file navigation_advisor.hpp
  * @brief Navigation advisor responsibilities.
  *
- * @details This file defines navigation advisor behavior for tiered decision making
- * and action arbitration. It centers on `NavigationAdvisorObjective`,
+ * @details This file defines navigation advisor behavior for tiered decision
+ * making and action arbitration. It centers on `NavigationAdvisorObjective`,
  * `ActionSelection`, `NavigationAdvisorConfiguration`,
  * `NavigationAdvisor`. Its package-relative location is
  * `include/semaforr/decision/advisors/navigation_advisor.hpp`.
@@ -144,13 +144,13 @@ class NavigationAdvisor final : public Advisor {
    * - None documented; validation or dependency failures may propagate.
    */
   AdvisorMetadata metadata() const override {
-    return {{},
-            {domain::ActionType::Pause, domain::ActionType::Forward,
-             domain::ActionType::TurnLeft, domain::ActionType::TurnRight},
-            configuration_.objective !=
-                NavigationAdvisorObjective::GoalProgress,
-            ScoreNormalization::TenPoint,
-            "local navigation objective"};
+    return {
+        {},
+        {domain::ActionType::Pause, domain::ActionType::Forward,
+         domain::ActionType::TurnLeft, domain::ActionType::TurnRight},
+        configuration_.objective != NavigationAdvisorObjective::GoalProgress,
+        ScoreNormalization::TenPoint,
+        "local navigation objective"};
   }
 
  private:

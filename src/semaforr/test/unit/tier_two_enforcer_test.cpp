@@ -113,8 +113,9 @@ decision::PlanEnforcementContext context(
     const domain::SpatialModel& spatial, const domain::Pose2D& pose,
     const domain::ActionSpace& actions,
     const std::vector<domain::Action>& viable) {
-  return {spatial, nullptr, nullptr, pose, actions, viable, zeroInflation(),
-          domain::Distance(0.2), std::nullopt};
+  return {spatial,     nullptr, nullptr,         pose,
+          actions,     viable,  zeroInflation(), domain::Distance(0.2),
+          std::nullopt};
 }
 
 TEST(GridPlanEnforcer, CompressesStraightPathToFarthestTraversablePoint) {
@@ -123,19 +124,20 @@ TEST(GridPlanEnforcer, CompressesStraightPathToFarthestTraversablePoint) {
   const domain::Pose2D pose{{0.5, 1.5}, domain::Angle::zero()};
   const domain::ActionSpace actions({0.5, 1.0, 2.0}, {0.5});
   const std::vector<domain::Action> viable = {
-      domain::Action::pause(), {domain::ActionType::Forward, 1U},
-      {domain::ActionType::Forward, 2U}, {domain::ActionType::Forward, 3U},
+      domain::Action::pause(),
+      {domain::ActionType::Forward, 1U},
+      {domain::ActionType::Forward, 2U},
+      {domain::ActionType::Forward, 3U},
       {domain::ActionType::TurnLeft, 1U},
       {domain::ActionType::TurnRight, 1U}};
-  const auto result =
-      decision::GridPlanEnforcer{}.enforce(plan, context(spatial, pose, actions, viable));
+  const auto result = decision::GridPlanEnforcer{}.enforce(
+      plan, context(spatial, pose, actions, viable));
   ASSERT_EQ(result.status, decision::EnforcementStatus::Mandated);
   EXPECT_EQ(result.operational_target, plan.geometric_path.back());
   EXPECT_EQ(result.step_index, 3U);
   EXPECT_EQ(result.skipped_elements, 3U);
   EXPECT_EQ(result.shortcut, "grid_path_lookahead");
-  EXPECT_EQ(result.action,
-            domain::Action(domain::ActionType::Forward, 3U));
+  EXPECT_EQ(result.action, domain::Action(domain::ActionType::Forward, 3U));
 }
 
 TEST(GridPlanEnforcer, RefusesObstacleShortcutAndDetectsRelevantRevision) {
@@ -150,8 +152,8 @@ TEST(GridPlanEnforcer, RefusesObstacleShortcutAndDetectsRelevantRevision) {
       {domain::ActionType::Forward, 2U},
       {domain::ActionType::TurnLeft, 1U},
       {domain::ActionType::TurnRight, 1U}};
-  auto result =
-      decision::GridPlanEnforcer{}.enforce(plan, context(spatial, pose, actions, viable));
+  auto result = decision::GridPlanEnforcer{}.enforce(
+      plan, context(spatial, pose, actions, viable));
   ASSERT_EQ(result.status, decision::EnforcementStatus::Mandated);
   ASSERT_TRUE(result.operational_target);
   EXPECT_LT(result.operational_target->x_m, 3.5);
@@ -172,8 +174,7 @@ TEST(GridPlanEnforcer, DetectsPathDeviationAndCompletion) {
   auto deviated = gridPlan();
   const domain::ActionSpace actions({1.0}, {0.5});
   const std::vector<domain::Action> viable = {
-      {domain::ActionType::Forward, 1U},
-      {domain::ActionType::TurnLeft, 1U}};
+      {domain::ActionType::Forward, 1U}, {domain::ActionType::TurnLeft, 1U}};
   domain::Pose2D pose{{0.5, -5.0}, domain::Angle::zero()};
   EXPECT_EQ(decision::GridPlanEnforcer{}
                 .enforce(deviated, context(spatial, pose, actions, viable))
@@ -203,8 +204,7 @@ TEST(GridPlanEnforcer, FollowsAPathTurnWithAHeadingAction) {
   const auto result = decision::GridPlanEnforcer{}.enforce(
       plan, context(spatial, pose, actions, viable));
   ASSERT_EQ(result.status, decision::EnforcementStatus::Mandated);
-  EXPECT_EQ(result.action,
-            domain::Action(domain::ActionType::TurnLeft, 3U));
+  EXPECT_EQ(result.action, domain::Action(domain::ActionType::TurnLeft, 3U));
 }
 
 TEST(ModelPlanEnforcer, OperationalizesRegionsSubtrailsAndSkeletonTransitions) {
@@ -227,8 +227,7 @@ TEST(ModelPlanEnforcer, OperationalizesRegionsSubtrailsAndSkeletonTransitions) {
   ASSERT_EQ(result.status, decision::EnforcementStatus::Mandated);
   EXPECT_EQ(result.step_type, "subtrail");
   EXPECT_TRUE(std::holds_alternative<planning::SubtrailStep>(plan.steps[0]));
-  EXPECT_EQ(result.action,
-            domain::Action(domain::ActionType::Forward, 2U));
+  EXPECT_EQ(result.action, domain::Action(domain::ActionType::Forward, 2U));
 }
 
 TEST(ModelPlanEnforcer, OperationalizesHighwayTrailAndRejectsStaleGraph) {
@@ -237,8 +236,7 @@ TEST(ModelPlanEnforcer, OperationalizesHighwayTrailAndRejectsStaleGraph) {
   const domain::Pose2D pose{{0.0, 0.0}, domain::Angle::zero()};
   const domain::ActionSpace actions({1.0}, {0.5});
   const std::vector<domain::Action> viable = {
-      {domain::ActionType::Forward, 1U},
-      {domain::ActionType::TurnLeft, 1U}};
+      {domain::ActionType::Forward, 1U}, {domain::ActionType::TurnLeft, 1U}};
   planning::HierarchicalPlan plan;
   plan.family = planning::PlanFamily::Model;
   plan.planner = "highway_plan";
@@ -275,7 +273,8 @@ TEST(ModelPlanEnforcer, HandlesRegionIntersectionEntryExitAndFinalTargetTypes) {
     EXPECT_TRUE(result.operational_target.has_value());
   };
   run(planning::RegionStep{0U, {1.0, 0.0}}, "region");
-  run(planning::VisibilityConnectionStep{
+  run(
+      planning::VisibilityConnectionStep{
           0U, {0.0, 0.0}, {1.0, 0.0}, {0.0, 0.0}, {2.0, 0.0}, 9U, true},
       "visibility_connection");
   run(planning::IntersectionStep{2U, {1.0, 0.0}}, "intersection");
@@ -357,7 +356,9 @@ class EvidencePlanner final : public planning::Planner {
    * Exceptions:
    * - None documented; validation or dependency failures may propagate.
    */
-  planning::PlanObjective objective() const noexcept override { return objective_; }
+  planning::PlanObjective objective() const noexcept override {
+    return objective_;
+  }
   /**
    * @brief Constructs family for this subsystem.
    *
@@ -388,6 +389,7 @@ class EvidencePlanner final : public planning::Planner {
   planning::PlanResult plan(const planning::PlanningRequest&) override {
     return {planning::PlanStatus::Success, path_, 1.0, "evidence fixture"};
   }
+
  private:
   std::string name_;
   planning::PlanObjective objective_;
@@ -395,7 +397,8 @@ class EvidencePlanner final : public planning::Planner {
 };
 
 TEST(PlanningCoordinator, RetainsFullCrossObjectiveRangeVoteEvidence) {
-  planning::PlanningCoordinator coordinator(planning::PlanSelectionPolicy::RangeVote);
+  planning::PlanningCoordinator coordinator(
+      planning::PlanSelectionPolicy::RangeVote);
   coordinator.registerPlanner(std::make_unique<EvidencePlanner>(
       "direct", planning::PlanObjective::Distance,
       std::vector<domain::Point2D>{{2.0, 0.0}}));
@@ -420,7 +423,8 @@ TEST(PlannerRegistry, DeclaresActualPlanFamilyAndOccupancyContracts) {
   const auto registry = planning::defaultPlannerRegistry();
   EXPECT_EQ(registry.create("distance")->planFamily(),
             planning::PlanFamily::Grid);
-  EXPECT_EQ(registry.create("region")->planFamily(), planning::PlanFamily::Grid);
+  EXPECT_EQ(registry.create("region")->planFamily(),
+            planning::PlanFamily::Grid);
   EXPECT_EQ(registry.create("skeleton")->planFamily(),
             planning::PlanFamily::Model);
   EXPECT_EQ(registry.create("highway")->planFamily(),

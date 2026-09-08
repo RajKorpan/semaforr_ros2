@@ -2,9 +2,9 @@
  * @file learned_crowd_advisor.cpp
  * @brief Learned crowd advisor responsibilities.
  *
- * @details This file implements learned crowd advisor behavior for tiered decision
- * making and action arbitration. It records the declarations, settings,
- * fixtures, or guidance needed by that responsibility. Its
+ * @details This file implements learned crowd advisor behavior for tiered
+ * decision making and action arbitration. It records the declarations,
+ * settings, fixtures, or guidance needed by that responsibility. Its
  * package-relative location is
  * `src/decision/advisors/social/learned_crowd_advisor.cpp`.
  */
@@ -145,11 +145,10 @@ AdvisorEvaluation LearnedCrowdAdvisor::evaluate(
   evaluation.model_revision_used = context.world.crowd.learned().version;
   evaluation.weight = configuration_.weight;
   evaluation.explanation = "shared visibility-normalized learned crowd field";
-  const bool live_people =
-      context.world.crowd.current() &&
-      context.world.crowd.current()->usable(
-          configuration_.maximum_live_age,
-          configuration_.minimum_live_confidence);
+  const bool live_people = context.world.crowd.current() &&
+                           context.world.crowd.current()->usable(
+                               configuration_.maximum_live_age,
+                               configuration_.minimum_live_confidence);
   const bool learned = context.world.crowd.learnedAvailable();
   if (!learned &&
       (configuration_.objective != LearnedCrowdObjective::AvoidEncounterRisk ||

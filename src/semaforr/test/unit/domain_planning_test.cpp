@@ -62,10 +62,12 @@ semaforr::domain::StaticMap openMap() {
   map.format = "test";
   map.bounds = {{0.0, 0.0}, {3.0, 2.0}};
   map.walls = {{{0.0, 0.0}, {3.0, 0.0}}};
-  map.occupancy = {
-      3U, 2U, 1.0, {0.0, 0.0},
-      std::vector<semaforr::domain::StaticOccupancyState>(
-          6U, semaforr::domain::StaticOccupancyState::StaticFree)};
+  map.occupancy = {3U,
+                   2U,
+                   1.0,
+                   {0.0, 0.0},
+                   std::vector<semaforr::domain::StaticOccupancyState>(
+                       6U, semaforr::domain::StaticOccupancyState::StaticFree)};
   return map;
 }
 
@@ -112,16 +114,22 @@ TEST(DomainPlanner, RequiresStaticMapAndReturnsTypedResults) {
   EXPECT_EQ(unavailable.status,
             semaforr::planning::PlanStatus::PlannerUnavailable);
   const auto map = openMap();
-  const auto direct_result = direct.plan(
-      {{{0.5, 0.5}, semaforr::domain::Angle::zero()}, {2.5, 0.5}, nullptr,
-       nullptr, &map});
+  const auto direct_result =
+      direct.plan({{{0.5, 0.5}, semaforr::domain::Angle::zero()},
+                   {2.5, 0.5},
+                   nullptr,
+                   nullptr,
+                   &map});
   ASSERT_TRUE(direct_result.succeeded());
   EXPECT_DOUBLE_EQ(direct_result.cost_m, 2.0);
 
   const auto invalid =
       direct.plan({{{std::numeric_limits<double>::quiet_NaN(), 0.0},
                     semaforr::domain::Angle::zero()},
-                   {2.0, 0.0}, nullptr, nullptr, &map});
+                   {2.0, 0.0},
+                   nullptr,
+                   nullptr,
+                   &map});
   EXPECT_EQ(invalid.status, semaforr::planning::PlanStatus::InvalidRequest);
   EXPECT_THROW(semaforr::planning::DomainPlanner(
                    "", semaforr::planning::PlannerObjective::Distance),
@@ -132,9 +140,12 @@ TEST(DomainPlanner, SearchesValidatedStaticOccupancy) {
   const auto map = openMap();
   semaforr::planning::DomainPlanner planner(
       "distance", semaforr::planning::PlannerObjective::Distance);
-  const auto result = planner.plan(
-      {{{0.5, 0.5}, semaforr::domain::Angle::zero()}, {2.5, 0.5}, nullptr,
-       nullptr, &map});
+  const auto result =
+      planner.plan({{{0.5, 0.5}, semaforr::domain::Angle::zero()},
+                    {2.5, 0.5},
+                    nullptr,
+                    nullptr,
+                    &map});
   ASSERT_TRUE(result.succeeded());
   EXPECT_DOUBLE_EQ(result.cost_m, 2.0);
   ASSERT_FALSE(result.path.empty());
@@ -142,11 +153,13 @@ TEST(DomainPlanner, SearchesValidatedStaticOccupancy) {
 
   auto invalid_map = map;
   invalid_map.occupancy.cells.clear();
-  const auto invalid = planner.plan({
-      {{0.5, 0.5}, semaforr::domain::Angle::zero()}, {2.5, 0.5}, nullptr,
-      nullptr, &invalid_map});
-  EXPECT_EQ(invalid.status,
-            semaforr::planning::PlanStatus::PlannerUnavailable);
+  const auto invalid =
+      planner.plan({{{0.5, 0.5}, semaforr::domain::Angle::zero()},
+                    {2.5, 0.5},
+                    nullptr,
+                    nullptr,
+                    &invalid_map});
+  EXPECT_EQ(invalid.status, semaforr::planning::PlanStatus::PlannerUnavailable);
 }
 
 TEST(DomainPlanner, UsesAStarForDistanceAndDijkstraForNonDistanceCosts) {
@@ -176,12 +189,10 @@ TEST(DomainPlanner, AffordancePlannerNeverSubstitutesTheLearnedSkeleton) {
   semaforr::domain::SpatialModel spatial;
   spatial.skeleton_nodes = {{0.5, 0.5}, {1.5, 0.5}, {2.5, 0.5}};
   spatial.skeleton_edges = {{0U, 1U}, {1U, 2U}};
-  spatial.learned_regions = {
-      {{1.5, 0.5}, semaforr::domain::Distance(1.0)}};
+  spatial.learned_regions = {{{1.5, 0.5}, semaforr::domain::Distance(1.0)}};
   semaforr::planning::DomainPlanner planner(
       "region", semaforr::planning::PlanObjective::RegionPreference,
-      semaforr::planning::OccupancySourceMode::
-          StaticOrSensorDerived);
+      semaforr::planning::OccupancySourceMode::StaticOrSensorDerived);
   const auto unavailable = planner.plan(
       {{{0.5, 0.5}, semaforr::domain::Angle::zero()}, {2.5, 0.5}, &spatial});
   EXPECT_EQ(unavailable.status,

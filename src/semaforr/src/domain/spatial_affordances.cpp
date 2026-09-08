@@ -2,9 +2,9 @@
  * @file spatial_affordances.cpp
  * @brief Spatial affordances responsibilities.
  *
- * @details This file implements spatial affordances behavior for ROS-independent
- * domain state and value types. It records the declarations, settings,
- * fixtures, or guidance needed by that responsibility. Its
+ * @details This file implements spatial affordances behavior for
+ * ROS-independent domain state and value types. It records the declarations,
+ * settings, fixtures, or guidance needed by that responsibility. Its
  * package-relative location is `src/domain/spatial_affordances.cpp`.
  */
 #include <algorithm>
@@ -27,11 +27,11 @@ namespace semaforr::domain {
 const ConveyorCell* ConveyorGrid::at(Point2D point) const noexcept {
   const auto index = geometry.index(point);
   if (!index) return nullptr;
-  const auto found = std::lower_bound(
-      cells.begin(), cells.end(), *index,
-      [](const ConveyorCell& cell, std::size_t value) {
-        return cell.index < value;
-      });
+  const auto found =
+      std::lower_bound(cells.begin(), cells.end(), *index,
+                       [](const ConveyorCell& cell, std::size_t value) {
+                         return cell.index < value;
+                       });
   return found != cells.end() && found->index == *index ? &*found : nullptr;
 }
 

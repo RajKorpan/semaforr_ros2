@@ -2,11 +2,11 @@
  * @file models.hpp
  * @brief Models responsibilities.
  *
- * @details This file defines models behavior for learned spatial representations
- * and their lifecycle. It centers on `TrailModel`, `ConveyorFlow`,
- * `ConveyorModel`, `RegionModel`, `DoorExitModel`, `HallwayModel`,
- * `BarrierModel`, `SkeletonEdge`. Its package-relative location is
- * `include/semaforr/spatial/representations/models.hpp`.
+ * @details This file defines models behavior for learned spatial
+ * representations and their lifecycle. It centers on `TrailModel`,
+ * `ConveyorFlow`, `ConveyorModel`, `RegionModel`, `DoorExitModel`,
+ * `HallwayModel`, `BarrierModel`, `SkeletonEdge`. Its package-relative location
+ * is `include/semaforr/spatial/representations/models.hpp`.
  */
 #ifndef SEMAFORR_SPATIAL_REPRESENTATIONS_MODELS_HPP
 #define SEMAFORR_SPATIAL_REPRESENTATIONS_MODELS_HPP
@@ -16,8 +16,8 @@
 #include <semaforr/domain/action.hpp>
 #include <semaforr/domain/circumstance.hpp>
 #include <semaforr/domain/geometry.hpp>
-#include <semaforr/domain/highway.hpp>
 #include <semaforr/domain/grid_layers.hpp>
+#include <semaforr/domain/highway.hpp>
 #include <semaforr/domain/spatial_affordances.hpp>
 #include <vector>
 
@@ -134,7 +134,9 @@ struct HallwayModel {
  * Exceptions:
  * - None documented; validation or dependency failures may propagate.
  */
-struct BarrierModel { std::vector<domain::Segment2D> barriers; };
+struct BarrierModel {
+  std::vector<domain::Segment2D> barriers;
+};
 /**
  * @brief Encapsulates skeleton edge state and behavior for this subsystem.
  *

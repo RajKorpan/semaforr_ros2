@@ -2,8 +2,8 @@
  * @file navigation_phase.hpp
  * @brief Navigation phase responsibilities.
  *
- * @details This file defines navigation phase behavior for the SemaFORR navigation
- * package. It centers on `NavigationPhase`, `PhaseUpdate`,
+ * @details This file defines navigation phase behavior for the SemaFORR
+ * navigation package. It centers on `NavigationPhase`, `PhaseUpdate`,
  * `PhaseDecision`, `PhaseConfiguration`, `NavigationPhaseCoordinator`. Its
  * package-relative location is
  * `include/semaforr/navigation/navigation_phase.hpp`.
@@ -13,9 +13,9 @@
 
 #include <chrono>
 #include <cstddef>
+#include <optional>
 #include <semaforr/domain/observation.hpp>
 #include <semaforr/domain/world_model.hpp>
-#include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -321,8 +321,7 @@ class NavigationPhaseCoordinator {
   PhaseConfiguration configuration_;
   NavigationPhase phase_;
   std::size_t exploration_observations_ = 0U;
-  std::optional<std::chrono::steady_clock::time_point>
-      exploration_started_at_;
+  std::optional<std::chrono::steady_clock::time_point> exploration_started_at_;
   bool exploration_time_limit_reached_ = false;
   std::vector<std::string> events_;
 };

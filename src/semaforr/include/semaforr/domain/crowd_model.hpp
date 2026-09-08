@@ -2,8 +2,8 @@
  * @file crowd_model.hpp
  * @brief Crowd model responsibilities.
  *
- * @details This file defines crowd model behavior for ROS-independent domain state
- * and value types. It centers on `CrowdFlowDirection`, `CrowdFieldCell`,
+ * @details This file defines crowd model behavior for ROS-independent domain
+ * state and value types. It centers on `CrowdFlowDirection`, `CrowdFieldCell`,
  * `CrowdFieldSample`, `CrowdFieldSnapshot`, `CrowdModelStatus`,
  * `CrowdModel`. Its package-relative location is
  * `include/semaforr/domain/crowd_model.hpp`.

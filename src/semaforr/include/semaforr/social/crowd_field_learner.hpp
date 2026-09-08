@@ -2,10 +2,11 @@
  * @file crowd_field_learner.hpp
  * @brief Crowd field learner responsibilities.
  *
- * @details This file defines crowd field learner behavior for social observation
- * processing and crowd learning. It centers on `CrowdEstimatorStrategy`,
- * `CrowdFieldLearnerConfiguration`, `CrowdLearningUpdate`,
- * `CrowdFieldLearner`, `CusumState`. Its package-relative location is
+ * @details This file defines crowd field learner behavior for social
+ * observation processing and crowd learning. It centers on
+ * `CrowdEstimatorStrategy`, `CrowdFieldLearnerConfiguration`,
+ * `CrowdLearningUpdate`, `CrowdFieldLearner`, `CusumState`. Its
+ * package-relative location is
  * `include/semaforr/social/crowd_field_learner.hpp`.
  */
 #ifndef SEMAFORR_SOCIAL_CROWD_FIELD_LEARNER_HPP

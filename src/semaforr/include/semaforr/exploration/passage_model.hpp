@@ -72,8 +72,7 @@ struct PassageCell {
   PassageCellState state = PassageCellState::Free;
   std::optional<std::uint64_t> passage_id;
   std::optional<ExplorationCandidateId> candidate_id;
-  PassageCompletionState completion_state =
-      PassageCompletionState::Unassigned;
+  PassageCompletionState completion_state = PassageCompletionState::Unassigned;
   std::uint32_t evidence_count = 0U;
 };
 

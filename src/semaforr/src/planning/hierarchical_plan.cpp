@@ -2,8 +2,8 @@
  * @file hierarchical_plan.cpp
  * @brief Hierarchical plan responsibilities.
  *
- * @details This file implements hierarchical plan behavior for path planning and
- * hierarchical plan construction. It centers on `RegionSurrogate`,
+ * @details This file implements hierarchical plan behavior for path planning
+ * and hierarchical plan construction. It centers on `RegionSurrogate`,
  * `Selection`, `VisibleCandidate`, `SkeletonRoute`, `RegionAccess`,
  * `HighwayAttachment`, `HighwayRoute`. Its package-relative location is
  * `src/planning/hierarchical_plan.cpp`.
@@ -55,8 +55,8 @@ double polylineLength(const std::vector<domain::Point2D>& points) {
  * Exceptions:
  * - None documented; validation or dependency failures may propagate.
  */
-std::optional<domain::Circle> regionBoundary(const domain::SpatialModel& spatial,
-                                             std::size_t node_index) {
+std::optional<domain::Circle> regionBoundary(
+    const domain::SpatialModel& spatial, std::size_t node_index) {
   if (node_index >= spatial.region_skeleton_nodes.size()) return std::nullopt;
   const auto region_id = spatial.region_skeleton_nodes[node_index].region;
   const auto learned = std::find_if(
@@ -175,8 +175,8 @@ std::optional<RegionSurrogate> selectRegionSurrogate(
     }
   }
   if (contained) {
-    RegionSurrogate result{RegionSurrogate::Selection::Contained, *contained,
-                           std::nullopt, {}};
+    RegionSurrogate result{
+        RegionSurrogate::Selection::Contained, *contained, std::nullopt, {}};
     result.diagnostics.push_back("surrogate:contained:region=" +
                                  std::to_string(*contained));
     return result;
@@ -197,14 +197,14 @@ std::optional<RegionSurrogate> selectRegionSurrogate(
       visible.push_back({index, distance, &ray});
   }
   if (!visible.empty()) {
-    std::sort(visible.begin(), visible.end(), [&](const auto& left,
-                                                  const auto& right) {
-      if (std::abs(left.distance - right.distance) > tie_tolerance)
-        return left.distance < right.distance;
-      if (degrees[left.node] != degrees[right.node])
-        return degrees[left.node] > degrees[right.node];
-      return left.node < right.node;
-    });
+    std::sort(visible.begin(), visible.end(),
+              [&](const auto& left, const auto& right) {
+                if (std::abs(left.distance - right.distance) > tie_tolerance)
+                  return left.distance < right.distance;
+                if (degrees[left.node] != degrees[right.node])
+                  return degrees[left.node] > degrees[right.node];
+                return left.node < right.node;
+              });
     const auto& selected = visible.front();
     const auto center = spatial.region_skeleton_nodes[selected.node].center;
     VisibilityConnectionStep connection;
@@ -215,8 +215,8 @@ std::optional<RegionSurrogate> selectRegionSurrogate(
     connection.evidence_ray_end = selected.ray->ray_end;
     connection.supporting_decision = selected.ray->decision_id;
     connection.toward_region = start_side;
-    RegionSurrogate result{RegionSurrogate::Selection::Visible, selected.node,
-                           connection, {}};
+    RegionSurrogate result{
+        RegionSurrogate::Selection::Visible, selected.node, connection, {}};
     for (const auto& candidate : visible) {
       std::ostringstream trace;
       trace << "surrogate:visible:candidate=" << candidate.node
@@ -231,12 +231,13 @@ std::optional<RegionSurrogate> selectRegionSurrogate(
 
   std::size_t selected = 0U;
   double best_score = std::numeric_limits<double>::infinity();
-  RegionSurrogate result{RegionSurrogate::Selection::DegreeDistance, 0U,
-                         std::nullopt, {}};
+  RegionSurrogate result{
+      RegionSurrogate::Selection::DegreeDistance, 0U, std::nullopt, {}};
   for (std::size_t index = 0U; index < spatial.region_skeleton_nodes.size();
        ++index) {
-    const double distance = domain::distance(
-        point, spatial.region_skeleton_nodes[index].center).meters();
+    const double distance =
+        domain::distance(point, spatial.region_skeleton_nodes[index].center)
+            .meters();
     const double score = distance / static_cast<double>(degrees[index] + 1U);
     std::ostringstream trace;
     trace << "surrogate:degree_distance:candidate=" << index
@@ -350,12 +351,12 @@ std::optional<SkeletonRoute> shortestSkeletonRoute(
  */
 const domain::RegionSkeletonEdge* skeletonEdge(
     const domain::SpatialModel& spatial, std::size_t from, std::size_t to) {
-  const auto found = std::find_if(
-      spatial.region_skeleton_edges.begin(),
-      spatial.region_skeleton_edges.end(), [&](const auto& edge) {
-        return (edge.from == from && edge.to == to) ||
-               (edge.from == to && edge.to == from);
-      });
+  const auto found =
+      std::find_if(spatial.region_skeleton_edges.begin(),
+                   spatial.region_skeleton_edges.end(), [&](const auto& edge) {
+                     return (edge.from == from && edge.to == to) ||
+                            (edge.from == to && edge.to == from);
+                   });
   return found == spatial.region_skeleton_edges.end() ? nullptr : &*found;
 }
 
@@ -382,8 +383,8 @@ void appendSkeletonRoute(const domain::SpatialModel& spatial,
   if (route.nodes.empty()) return;
   if (include_first_region) {
     const auto node = route.nodes.front();
-    steps.emplace_back(RegionStep{node,
-                                  spatial.region_skeleton_nodes[node].center});
+    steps.emplace_back(
+        RegionStep{node, spatial.region_skeleton_nodes[node].center});
   }
   for (std::size_t index = 1U; index < route.nodes.size(); ++index) {
     const auto from = route.nodes[index - 1U];
@@ -413,8 +414,8 @@ void appendSkeletonRoute(const domain::SpatialModel& spatial,
 std::vector<domain::Point2D> geometryFor(const std::vector<PlanStep>& steps) {
   std::vector<domain::Point2D> result;
   for (const auto& step : steps)
-    if (const auto target = stepTarget(step); target &&
-        (result.empty() || result.back() != *target))
+    if (const auto target = stepTarget(step);
+        target && (result.empty() || result.back() != *target))
       result.push_back(*target);
   return result;
 }
@@ -435,20 +436,30 @@ std::vector<domain::Point2D> geometryFor(const std::vector<PlanStep>& steps) {
 PlanResult buildSkeletonPlan(const PlanningRequest& request,
                              std::string planner_name) {
   if (!request.spatial_model)
-    return {PlanStatus::PlannerUnavailable, {}, 0.0,
+    return {PlanStatus::PlannerUnavailable,
+            {},
+            0.0,
             "spatial model is unavailable"};
   const auto& spatial = *request.spatial_model;
   if (spatial.region_skeleton_nodes.empty())
-    return {PlanStatus::PlannerUnavailable, {}, 0.0,
-            "region skeleton is unavailable; sampled path graphs are not accepted"};
-  const auto start = selectRegionSurrogate(spatial, request.start.position, true);
+    return {
+        PlanStatus::PlannerUnavailable,
+        {},
+        0.0,
+        "region skeleton is unavailable; sampled path graphs are not accepted"};
+  const auto start =
+      selectRegionSurrogate(spatial, request.start.position, true);
   const auto goal = selectRegionSurrogate(spatial, request.goal, false);
   if (!start || !goal)
-    return {PlanStatus::PlannerUnavailable, {}, 0.0,
+    return {PlanStatus::PlannerUnavailable,
+            {},
+            0.0,
             "region surrogates are unavailable"};
   const auto route = shortestSkeletonRoute(spatial, start->node, goal->node);
   if (!route)
-    return {PlanStatus::NoPath, {}, 0.0,
+    return {PlanStatus::NoPath,
+            {},
+            0.0,
             "selected region surrogates are disconnected"};
 
   HierarchicalPlan plan;
@@ -474,9 +485,10 @@ PlanResult buildSkeletonPlan(const PlanningRequest& request,
           .meters();
   const double cost = route->cost + connection_cost;
   plan.estimated_objective_costs[PlanObjective::SkeletonDistance] = cost;
-  PlanResult result{PlanStatus::Success, plan.geometric_path, cost,
-                    "hierarchical region-skeleton route with operational learned trails",
-                    std::move(plan)};
+  PlanResult result{
+      PlanStatus::Success, plan.geometric_path, cost,
+      "hierarchical region-skeleton route with operational learned trails",
+      std::move(plan)};
   result.family = PlanFamily::Model;
   result.primary_objective = PlanObjective::SkeletonDistance;
   result.objective_costs[PlanObjective::SkeletonDistance] = cost;
@@ -498,9 +510,9 @@ PlanResult buildSkeletonPlan(const PlanningRequest& request,
  */
 const domain::Intersection* intersectionById(const domain::HighwayGraph& graph,
                                              domain::IntersectionId id) {
-  const auto found = std::find_if(graph.graph.vertices.begin(),
-                                  graph.graph.vertices.end(),
-                                  [id](const auto& item) { return item.id == id; });
+  const auto found =
+      std::find_if(graph.graph.vertices.begin(), graph.graph.vertices.end(),
+                   [id](const auto& item) { return item.id == id; });
   return found == graph.graph.vertices.end() ? nullptr : &*found;
 }
 
@@ -566,10 +578,9 @@ std::optional<domain::IntersectionId> pointIntersection(
 const domain::Highway* pointHighway(const domain::HighwayGraph& graph,
                                     domain::Point2D point) {
   for (const auto& highway : graph.highways)
-    if (std::any_of(highway.cells.begin(), highway.cells.end(),
-                    [&](const auto cell) {
-                      return pointInCell(graph, point, cell);
-                    }))
+    if (std::any_of(
+            highway.cells.begin(), highway.cells.end(),
+            [&](const auto cell) { return pointInCell(graph, point, cell); }))
       return &highway;
   return nullptr;
 }
@@ -597,7 +608,8 @@ std::optional<domain::IntersectionId> closerEndpoint(
   for (const auto id : highway.endpoints) {
     const auto* endpoint = intersectionById(graph, id);
     if (!endpoint) continue;
-    const double candidate = domain::distance(point, endpoint->position).meters();
+    const double candidate =
+        domain::distance(point, endpoint->position).meters();
     if (candidate < best - tie_tolerance ||
         (std::abs(candidate - best) <= tie_tolerance &&
          (!selected || id < *selected))) {
@@ -661,8 +673,8 @@ std::optional<RegionAccess> regionHighwayAccess(
       }
     }
     if (!overlaps) continue;
-    const auto endpoint = closerEndpoint(spatial.highways, highway,
-                                          boundary->center);
+    const auto endpoint =
+        closerEndpoint(spatial.highways, highway, boundary->center);
     if (endpoint) return RegionAccess{*endpoint, highway.id};
   }
   return std::nullopt;
@@ -723,9 +735,9 @@ std::optional<HighwayAttachment> attachToHighway(
         highway->id, intersection->position, std::move(connection)});
     result.point_to_intersection.emplace_back(
         IntersectionStep{*endpoint, intersection->position});
-    result.diagnostics.push_back("highway_attachment:inside_highway=" +
-                                 std::to_string(highway->id) + ",endpoint=" +
-                                 std::to_string(*endpoint));
+    result.diagnostics.push_back(
+        "highway_attachment:inside_highway=" + std::to_string(highway->id) +
+        ",endpoint=" + std::to_string(*endpoint));
     return result;
   }
 
@@ -742,8 +754,9 @@ std::optional<HighwayAttachment> attachToHighway(
     if (!route) continue;
     const auto current_key = std::pair{node, access->intersection};
     const auto best_key = std::pair{
-        best_node, best_access ? best_access->intersection
-                               : std::numeric_limits<domain::IntersectionId>::max()};
+        best_node, best_access
+                       ? best_access->intersection
+                       : std::numeric_limits<domain::IntersectionId>::max()};
     if (!best_route || route->cost < best_route->cost - tie_tolerance ||
         (std::abs(route->cost - best_route->cost) <= tie_tolerance &&
          current_key < best_key)) {
@@ -770,16 +783,17 @@ std::optional<HighwayAttachment> attachToHighway(
   }
   result.point_to_intersection.emplace_back(
       IntersectionStep{best_access->intersection, intersection->position});
-  result.cost = best_route->cost +
-                domain::distance(point,
-                                 spatial.region_skeleton_nodes[surrogate->node].center)
-                    .meters() +
-                domain::distance(spatial.region_skeleton_nodes[best_node].center,
-                                 intersection->position)
-                    .meters();
-  result.diagnostics.push_back("highway_attachment:skeleton_access_region=" +
-                               std::to_string(best_node) + ",intersection=" +
-                               std::to_string(best_access->intersection));
+  result.cost =
+      best_route->cost +
+      domain::distance(point,
+                       spatial.region_skeleton_nodes[surrogate->node].center)
+          .meters() +
+      domain::distance(spatial.region_skeleton_nodes[best_node].center,
+                       intersection->position)
+          .meters();
+  result.diagnostics.push_back(
+      "highway_attachment:skeleton_access_region=" + std::to_string(best_node) +
+      ",intersection=" + std::to_string(best_access->intersection));
   return result;
 }
 
@@ -798,7 +812,8 @@ std::optional<HighwayAttachment> attachToHighway(
 std::vector<PlanStep> reverseAttachment(std::vector<PlanStep> forward) {
   std::vector<PlanStep> result;
   result.reserve(forward.size());
-  for (auto iterator = forward.rbegin(); iterator != forward.rend(); ++iterator) {
+  for (auto iterator = forward.rbegin(); iterator != forward.rend();
+       ++iterator) {
     std::visit(
         [&](auto step) {
           using T = std::decay_t<decltype(step)>;
@@ -863,8 +878,8 @@ struct HighwayRoute {
 std::optional<HighwayRoute> shortestHighwayRoute(
     const domain::HighwayGraph& highway, domain::IntersectionId start,
     domain::IntersectionId goal) {
-  std::map<domain::IntersectionId,
-           std::vector<const domain::HighwayEdge*>> adjacency;
+  std::map<domain::IntersectionId, std::vector<const domain::HighwayEdge*>>
+      adjacency;
   for (const auto& edge : highway.graph.edges) {
     adjacency[edge.from].push_back(&edge);
     adjacency[edge.to].push_back(&edge);
@@ -877,7 +892,8 @@ std::optional<HighwayRoute> shortestHighwayRoute(
       predecessor;
   for (const auto& vertex : highway.graph.vertices)
     distance[vertex.id] = std::numeric_limits<double>::infinity();
-  if (!distance.contains(start) || !distance.contains(goal)) return std::nullopt;
+  if (!distance.contains(start) || !distance.contains(goal))
+    return std::nullopt;
   distance[start] = 0.0;
   queue.push({0.0, start});
   while (!queue.empty()) {
@@ -929,17 +945,23 @@ std::optional<HighwayRoute> shortestHighwayRoute(
 PlanResult buildHighwayAssistedPlan(const PlanningRequest& request) {
   const auto& spatial = *request.spatial_model;
   if (spatial.highways.graph.vertices.empty())
-    return {PlanStatus::PlannerUnavailable, {}, 0.0,
+    return {PlanStatus::PlannerUnavailable,
+            {},
+            0.0,
             "highway graph is unavailable"};
   const auto start = attachToHighway(spatial, request.start.position);
   const auto goal = attachToHighway(spatial, request.goal);
   if (!start || !goal)
-    return {PlanStatus::NoPath, {}, 0.0,
+    return {PlanStatus::NoPath,
+            {},
+            0.0,
             "no hierarchical skeleton-to-highway attachment exists"};
   const auto highway = shortestHighwayRoute(
       spatial.highways, start->intersection, goal->intersection);
   if (!highway)
-    return {PlanStatus::NoPath, {}, 0.0,
+    return {PlanStatus::NoPath,
+            {},
+            0.0,
             "selected highway attachments are disconnected"};
 
   HierarchicalPlan plan;
@@ -957,7 +979,8 @@ PlanResult buildHighwayAssistedPlan(const PlanningRequest& request) {
     const auto to = highway->vertices[index + 1U];
     const auto* edge = highway->edges[index];
     auto operational = edge->operational_subtrail;
-    if (edge->from != from) std::reverse(operational.begin(), operational.end());
+    if (edge->from != from)
+      std::reverse(operational.begin(), operational.end());
     plan.steps.emplace_back(
         HighwayStep{edge->highway, from, to, std::move(operational)});
     const auto* intersection = intersectionById(spatial.highways, to);
@@ -975,9 +998,10 @@ PlanResult buildHighwayAssistedPlan(const PlanningRequest& request) {
   plan.geometric_path = geometryFor(plan.steps);
   const double cost = start->cost + highway->cost + goal->cost;
   plan.estimated_objective_costs[PlanObjective::HighwayDistance] = cost;
-  PlanResult result{PlanStatus::Success, plan.geometric_path, cost,
-                    "hybrid region/skeleton/highway route with complete attachments",
-                    std::move(plan)};
+  PlanResult result{
+      PlanStatus::Success, plan.geometric_path, cost,
+      "hybrid region/skeleton/highway route with complete attachments",
+      std::move(plan)};
   result.family = PlanFamily::Model;
   result.primary_objective = PlanObjective::HighwayDistance;
   result.objective_costs[PlanObjective::HighwayDistance] = cost;
@@ -1020,8 +1044,8 @@ std::vector<domain::ModelDependency> SkeletonPlan::dependencies(
 std::vector<domain::ModelDependency> HighwayPlan::dependencies(
     const PlanningRequest&) const {
   using D = domain::ModelDependency;
-  return {D::Skeleton, D::Highways, D::HighwayGraph, D::Regions, D::Trails,
-          D::VisibilityGeometry};
+  return {D::Skeleton, D::Highways, D::HighwayGraph,
+          D::Regions,  D::Trails,   D::VisibilityGeometry};
 }
 
 /**
@@ -1056,7 +1080,9 @@ PlanResult SkeletonPlan::plan(const PlanningRequest& request) {
  */
 PlanResult HighwayPlan::plan(const PlanningRequest& request) {
   if (!request.spatial_model)
-    return {PlanStatus::PlannerUnavailable, {}, 0.0,
+    return {PlanStatus::PlannerUnavailable,
+            {},
+            0.0,
             "spatial model is unavailable"};
   auto skeleton = buildSkeletonPlan(request, std::string(name()));
   auto highway = buildHighwayAssistedPlan(request);
@@ -1065,7 +1091,8 @@ PlanResult HighwayPlan::plan(const PlanningRequest& request) {
     result = std::move(skeleton);
     if (result.succeeded()) {
       result.explanation =
-          "skeleton-only route selected because hierarchical highway attachment failed";
+          "skeleton-only route selected because hierarchical highway "
+          "attachment failed";
       result.hierarchical->diagnostics.push_back(highway.explanation);
     } else {
       result = std::move(highway);
@@ -1083,45 +1110,54 @@ PlanResult HighwayPlan::plan(const PlanningRequest& request) {
 
 }  // namespace semaforr::planning
 
-semaforr::planning::PlannerMetadata
-/**
- * @brief Performs the metadata operation for this subsystem.
- *
- * Arguments:
- * - None.
- *
- * Returns:
- * - No value; effects are applied to owned state or outputs.
- *
- * Exceptions:
- * - None documented; validation or dependency failures may propagate.
- */
-semaforr::planning::SkeletonPlan::metadata() const {
-  return {std::string(name()), PlanFamily::Model, objective(),
+semaforr::planning::
+    PlannerMetadata
+    /**
+     * @brief Performs the metadata operation for this subsystem.
+     *
+     * Arguments:
+     * - None.
+     *
+     * Returns:
+     * - No value; effects are applied to owned state or outputs.
+     *
+     * Exceptions:
+     * - None documented; validation or dependency failures may propagate.
+     */
+    semaforr::planning::SkeletonPlan::metadata() const {
+  return {std::string(name()),
+          PlanFamily::Model,
+          objective(),
           std::string(toString(objective())),
           std::string(objectiveDescription(objective())),
-          {"regions", "region_visibility", "region_skeleton", "learned_edge_trails"},
-          false, true};
+          {"regions", "region_visibility", "region_skeleton",
+           "learned_edge_trails"},
+          false,
+          true};
 }
 
-semaforr::planning::PlannerMetadata
-/**
- * @brief Performs the metadata operation for this subsystem.
- *
- * Arguments:
- * - None.
- *
- * Returns:
- * - No value; effects are applied to owned state or outputs.
- *
- * Exceptions:
- * - None documented; validation or dependency failures may propagate.
- */
-semaforr::planning::HighwayPlan::metadata() const {
-  return {std::string(name()), PlanFamily::Model, objective(),
+semaforr::planning::
+    PlannerMetadata
+    /**
+     * @brief Performs the metadata operation for this subsystem.
+     *
+     * Arguments:
+     * - None.
+     *
+     * Returns:
+     * - No value; effects are applied to owned state or outputs.
+     *
+     * Exceptions:
+     * - None documented; validation or dependency failures may propagate.
+     */
+    semaforr::planning::HighwayPlan::metadata() const {
+  return {std::string(name()),
+          PlanFamily::Model,
+          objective(),
           std::string(toString(objective())),
           std::string(objectiveDescription(objective())),
           {"region_visibility", "region_skeleton", "highways", "highway_graph",
            "learned_edge_trails"},
-          false, true};
+          false,
+          true};
 }

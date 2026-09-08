@@ -17,12 +17,12 @@
 
 #include <algorithm>
 #include <chrono>
+#include <hunav_msgs/msg/agents.hpp>
 #include <limits>
 #include <memory>
-#include <hunav_msgs/msg/agents.hpp>
 #include <rclcpp/time.hpp>
-#include <semaforr/decision/decision_coordinator.hpp>
 #include <semaforr/decision/advisors/social/social_navigation_advisor.hpp>
+#include <semaforr/decision/decision_coordinator.hpp>
 #include <semaforr/domain/crowd_model.hpp>
 #include <semaforr/domain/social.hpp>
 #include <semaforr/ros/social_observation_buffer.hpp>
@@ -63,9 +63,14 @@ constexpr auto observed_at = std::chrono::seconds(10);
 PedestrianObservation pedestrian(
     std::string id, double x, double y, double velocity_x, double velocity_y,
     std::vector<PredictedPosition> predictions = {}) {
-  return {std::move(id),          {x, y}, {velocity_x, velocity_y},
-          std::move(predictions), 1.0,    {0.04, 0.0, 0.0, 0.04},
-          "none",                std::nullopt};
+  return {std::move(id),
+          {x, y},
+          {velocity_x, velocity_y},
+          std::move(predictions),
+          1.0,
+          {0.04, 0.0, 0.0, 0.04},
+          "none",
+          std::nullopt};
 }
 
 /**
@@ -273,14 +278,7 @@ TEST(SocialNavigation, PredictionStartsAtObservationAge) {
   auto aged = fresh;
   aged.data_age = std::chrono::seconds(1);
   const semaforr::decision::SocialNavigationAdvisor age_aware(
-      {{0.2, 1.0},
-       {0.5},
-       std::chrono::seconds(2),
-       0.25,
-       2.0,
-       1.2,
-       0.65,
-       1.0});
+      {{0.2, 1.0}, {0.5}, std::chrono::seconds(2), 0.25, 2.0, 1.2, 0.65, 1.0});
   const std::vector<Action> actions{Action(ActionType::Forward, 2U)};
 
   const auto fresh_result = age_aware.evaluate({worldWith(fresh)}, actions);
@@ -468,8 +466,7 @@ TEST(SocialObservationBuffer, ConvertsTrackedStateAndSeparatesFreshness) {
   ASSERT_EQ(snapshot->pedestrians.size(), 1U);
   EXPECT_EQ(snapshot->pedestrians[0].id, "7");
   EXPECT_NEAR(snapshot->pedestrians[0].velocity_mps.x_m, 2.0, 1.0e-5);
-  EXPECT_EQ(snapshot->pedestrians[0].prediction_source,
-            "constant_velocity");
+  EXPECT_EQ(snapshot->pedestrians[0].prediction_source, "constant_velocity");
   EXPECT_EQ(buffer.status(rclcpp::Time(11'000'000'000LL, RCL_ROS_TIME)),
             semaforr::ros::SocialObservationStatus::Stale);
 
@@ -539,8 +536,7 @@ TEST(SocialObservationBuffer, IncompleteGstUsesFallbackAndLaterCycleRecovers) {
   ASSERT_TRUE(buffer.acceptPrediction(prediction, received));
   auto snapshot = buffer.snapshot(received);
   ASSERT_TRUE(snapshot);
-  EXPECT_EQ(snapshot->pedestrians[0].prediction_source,
-            "constant_velocity");
+  EXPECT_EQ(snapshot->pedestrians[0].prediction_source, "constant_velocity");
   EXPECT_NE(snapshot->pedestrians[0].predicted_trajectory[0].position.x_m,
             99.0);
 
@@ -689,8 +685,7 @@ TEST(SocialObservationBuffer, DetectsDisappearanceAndReappearance) {
   ASSERT_TRUE(buffer.acceptTracked(trackedMessage(), received));
   auto events = buffer.takeLifecycleEvents();
   ASSERT_EQ(events.size(), 1U);
-  EXPECT_EQ(events[0].type,
-            semaforr::ros::TrackLifecycleEvent::Type::Appeared);
+  EXPECT_EQ(events[0].type, semaforr::ros::TrackLifecycleEvent::Type::Appeared);
 
   auto empty = trackedMessage();
   empty.people.clear();

@@ -30,9 +30,9 @@ namespace semaforr::spatial {
  * Exceptions:
  * - None documented; validation or dependency failures may propagate.
  */
-ConveyorLearner::ConveyorLearner(
-    double minimum_traversal_distance_m, SpatialLearningMode mode,
-    ConveyorLearningConfiguration compatibility)
+ConveyorLearner::ConveyorLearner(double minimum_traversal_distance_m,
+                                 SpatialLearningMode mode,
+                                 ConveyorLearningConfiguration compatibility)
     : SpatialLearnerBase(
           SpatialRepresentation::Conveyors, "conveyor",
           mode == SpatialLearningMode::Compatibility
@@ -76,9 +76,8 @@ void ConveyorLearner::onObserve(const NavigationEpisode& episode) {
   if (!episode.actionSucceeded()) return;
   if (episode.execution_result && episode.selected_action &&
       episode.selected_action->type() == domain::ActionType::Forward) {
-    domain::Segment2D traversal{
-        episode.execution_result->start_pose.position,
-        episode.execution_result->final_pose.position};
+    domain::Segment2D traversal{episode.execution_result->start_pose.position,
+                                episode.execution_result->final_pose.position};
     if (traversal.length().meters() >= minimum_traversal_distance_m_) {
       bool merged = false;
       for (ConveyorFlow& flow : model_.flows) {
@@ -121,8 +120,9 @@ void ConveyorLearner::onRebuild() {
         successful_trails.push_back(std::move(trail));
     }
     model_ = learnConveyorGrid(successful_trails, compatibility_);
-    publish(model_, model_.grid.cells.empty() ? ModelStatus::Incomplete
-                                              : ModelStatus::Fresh,
+    publish(model_,
+            model_.grid.cells.empty() ? ModelStatus::Incomplete
+                                      : ModelStatus::Fresh,
             model_.grid.cells.empty()
                 ? "no successful completed trail has conveyor evidence"
                 : "conveyor frequency grid rebuilt from successful trails");

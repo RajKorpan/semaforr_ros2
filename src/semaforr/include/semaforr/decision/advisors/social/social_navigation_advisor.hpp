@@ -2,8 +2,8 @@
  * @file social_navigation_advisor.hpp
  * @brief Social navigation advisor responsibilities.
  *
- * @details This file defines social navigation advisor behavior for tiered decision
- * making and action arbitration. It centers on
+ * @details This file defines social navigation advisor behavior for tiered
+ * decision making and action arbitration. It centers on
  * `SocialAdvisorConfiguration`, `SocialNavigationAdvisor`. Its
  * package-relative location is
  * `include/semaforr/decision/advisors/social/social_navigation_advisor.hpp`.
@@ -133,7 +133,8 @@ class SocialNavigationAdvisor final : public Advisor {
     return {dependencies(),
             {domain::ActionType::Pause, domain::ActionType::Forward,
              domain::ActionType::TurnLeft, domain::ActionType::TurnRight},
-            true, ScoreNormalization::TenPoint,
+            true,
+            ScoreNormalization::TenPoint,
             "predictive personal-space and collision preference"};
   }
 

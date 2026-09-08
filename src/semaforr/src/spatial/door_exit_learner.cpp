@@ -44,7 +44,8 @@ DoorExitLearner::DoorExitLearner(double minimum_range_jump_m,
            false,
            false,
            mode == SpatialLearningMode::Compatibility
-               ? "derive exits from region/path intersections and doors from exit arcs"
+               ? "derive exits from region/path intersections and doors from "
+                 "exit arcs"
                : "infer sensor-opening scan discontinuities",
            {"EnterLinear", "EnterRotation", "region and skeleton planners"},
            UpdateSchedule::EndOfTarget}),
@@ -118,9 +119,9 @@ void DoorExitLearner::onRebuild() {
     model.sensor_openings.push_back({opening, 0U, 0.5});
   publish(model,
           model.openings.empty() ? ModelStatus::Incomplete : ModelStatus::Fresh,
-          model.openings.empty()
-              ? "no qualifying laser discontinuity found"
-              : "sensor openings rebuilt from laser discontinuities; not learned doors");
+          model.openings.empty() ? "no qualifying laser discontinuity found"
+                                 : "sensor openings rebuilt from laser "
+                                   "discontinuities; not learned doors");
 }
 
 }  // namespace semaforr::spatial

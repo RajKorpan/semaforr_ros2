@@ -2,8 +2,8 @@
  * @file grid_layers.hpp
  * @brief Grid layers responsibilities.
  *
- * @details This file defines grid layers behavior for ROS-independent domain state
- * and value types. It centers on `LazyDenseGridCache`, `SparseCountCell`,
+ * @details This file defines grid layers behavior for ROS-independent domain
+ * state and value types. It centers on `LazyDenseGridCache`, `SparseCountCell`,
  * `SparseFamiliarityMetadata`, `FamiliarityGrid`, `SensedOccupancyState`,
  * `OccupancyEvidenceSource`, `SensedOccupancyCell`,
  * `SparseSensedOccupancyCell`. Its package-relative location is
@@ -16,14 +16,14 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
-#include <optional>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <semaforr/domain/geometry.hpp>
 #include <semaforr/domain/grid_geometry.hpp>
 #include <string>
-#include <vector>
 #include <utility>
+#include <vector>
 
 namespace semaforr::domain {
 
@@ -209,8 +209,8 @@ struct FamiliarityGrid {
    * - None documented; validation or dependency failures may propagate.
    */
   GridExtent extent() const noexcept {
-    GridExtent result{columns, rows, resolution_m, origin, extent_mode,
-                      extent_source};
+    GridExtent result{columns, rows,        resolution_m,
+                      origin,  extent_mode, extent_source};
     result.frame_id = frame_id;
     result.geometry_revision = geometry_revision;
     return result;
@@ -230,11 +230,11 @@ struct FamiliarityGrid {
   bool valid() const noexcept {
     return extent().valid() &&
            (cells.size() == columns * rows ||
-            (cells.empty() && std::all_of(
-                                  sparseCells().begin(), sparseCells().end(),
-                                  [&](const auto& cell) {
-                                    return cell.index < columns * rows;
-                                  })));
+            (cells.empty() &&
+             std::all_of(sparseCells().begin(), sparseCells().end(),
+                         [&](const auto& cell) {
+                           return cell.index < columns * rows;
+                         })));
   }
   /**
    * @brief Performs the value at operation for this subsystem.
@@ -278,7 +278,8 @@ struct FamiliarityGrid {
    * Exceptions:
    * - None documented; validation or dependency failures may propagate.
    */
-  const std::vector<SparseFamiliarityMetadata>& sparseMetadata() const noexcept {
+  const std::vector<SparseFamiliarityMetadata>& sparseMetadata()
+      const noexcept {
     return sparse_metadata_snapshot ? *sparse_metadata_snapshot
                                     : sparse_metadata;
   }
@@ -392,9 +393,9 @@ enum class OccupancyEvidenceSource : std::uint8_t {
  * - None documented; validation or dependency failures may propagate.
  */
 constexpr OccupancyEvidenceSource operator|(OccupancyEvidenceSource left,
-                                             OccupancyEvidenceSource right) {
-  return static_cast<OccupancyEvidenceSource>(
-      static_cast<std::uint8_t>(left) | static_cast<std::uint8_t>(right));
+                                            OccupancyEvidenceSource right) {
+  return static_cast<OccupancyEvidenceSource>(static_cast<std::uint8_t>(left) |
+                                              static_cast<std::uint8_t>(right));
 }
 /**
  * @brief Reports whether evidence for this subsystem.
@@ -518,11 +519,11 @@ struct SensedOccupancyGrid {
   bool valid() const noexcept {
     return geometry.valid() &&
            (cells.size() == geometry.columns * geometry.rows ||
-            (cells.empty() && std::all_of(
-                                  sparseCells().begin(), sparseCells().end(),
-                                  [&](const auto& cell) {
-                                    return cell.index < geometry.cellCount();
-                                  })));
+            (cells.empty() &&
+             std::all_of(sparseCells().begin(), sparseCells().end(),
+                         [&](const auto& cell) {
+                           return cell.index < geometry.cellCount();
+                         })));
   }
   /**
    * @brief Processes d cell count for this subsystem.
@@ -538,8 +539,8 @@ struct SensedOccupancyGrid {
    */
   std::size_t observedCellCount() const noexcept {
     if (cells.empty()) return sparseCells().size();
-    return static_cast<std::size_t>(std::count_if(
-        cells.begin(), cells.end(), [](const auto& cell) {
+    return static_cast<std::size_t>(
+        std::count_if(cells.begin(), cells.end(), [](const auto& cell) {
           return cell.state != SensedOccupancyState::Unknown;
         }));
   }
@@ -604,8 +605,9 @@ struct SensedOccupancyGrid {
       Point2D minimum, Point2D maximum) const;
 
  private:
-  mutable std::shared_ptr<LazyDenseGridCache<SensedOccupancyCell>> dense_cache_ =
-      std::make_shared<LazyDenseGridCache<SensedOccupancyCell>>();
+  mutable std::shared_ptr<LazyDenseGridCache<SensedOccupancyCell>>
+      dense_cache_ =
+          std::make_shared<LazyDenseGridCache<SensedOccupancyCell>>();
 };
 
 /**
@@ -685,9 +687,7 @@ struct SparseCountGrid {
    * Exceptions:
    * - None documented; validation or dependency failures may propagate.
    */
-  GridExtent extent() const {
-    return {columns, rows, resolution_m, origin};
-  }
+  GridExtent extent() const { return {columns, rows, resolution_m, origin}; }
   /**
    * @brief Performs the valid operation for this subsystem.
    *

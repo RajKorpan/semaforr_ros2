@@ -2,10 +2,10 @@
  * @file completed_path.cpp
  * @brief Completed path responsibilities.
  *
- * @details This file implements completed path behavior for ROS-independent domain
- * state and value types. It records the declarations, settings, fixtures,
- * or guidance needed by that responsibility. Its package-relative location
- * is `src/domain/completed_path.cpp`.
+ * @details This file implements completed path behavior for ROS-independent
+ * domain state and value types. It records the declarations, settings,
+ * fixtures, or guidance needed by that responsibility. Its package-relative
+ * location is `src/domain/completed_path.cpp`.
  */
 #include <semaforr/domain/completed_path.hpp>
 #include <stdexcept>
@@ -29,7 +29,8 @@ namespace semaforr::domain {
 void PathHistory::begin(PathId id, std::optional<TaskId> task_id,
                         std::optional<Point2D> target) {
   if (active_ && !active_->decision_points.empty())
-    throw std::logic_error("cannot replace an unfinished completed-path record");
+    throw std::logic_error(
+        "cannot replace an unfinished completed-path record");
   active_ = CompletedPath{};
   active_->id = id;
   active_->task_id = task_id;
@@ -55,7 +56,8 @@ void PathHistory::record(PathDecisionPoint point) {
   if (active_->decision_points.empty())
     active_->started_at = point.execution.started_at;
   if (active_->task_id != point.selection.task_id)
-    throw std::logic_error("path decision point task does not match active path");
+    throw std::logic_error(
+        "path decision point task does not match active path");
   active_->decision_points.push_back(std::move(point));
 }
 
@@ -73,8 +75,9 @@ void PathHistory::record(PathDecisionPoint point) {
  * Exceptions:
  * - None documented; validation or dependency failures may propagate.
  */
-std::optional<CompletedPath> PathHistory::finish(
-    bool target_reached, bool task_skipped, ExecutionTimestamp when) {
+std::optional<CompletedPath> PathHistory::finish(bool target_reached,
+                                                 bool task_skipped,
+                                                 ExecutionTimestamp when) {
   if (!active_) return std::nullopt;
   active_->target_reached = target_reached;
   active_->task_skipped = task_skipped;

@@ -31,16 +31,17 @@ namespace {
  * - None documented; validation or dependency failures may propagate.
  */
 template <typename Cell, typename Value>
-std::vector<std::size_t> changedSparseIndices(
-    const std::vector<Cell>& before, const std::vector<Cell>& after,
-    Value value) {
+std::vector<std::size_t> changedSparseIndices(const std::vector<Cell>& before,
+                                              const std::vector<Cell>& after,
+                                              Value value) {
   std::vector<std::size_t> changed;
   std::size_t left = 0U, right = 0U;
   while (left < before.size() || right < after.size()) {
     if (right >= after.size() ||
         (left < before.size() && before[left].index < after[right].index)) {
       changed.push_back(before[left++].index);
-    } else if (left >= before.size() || after[right].index < before[left].index) {
+    } else if (left >= before.size() ||
+               after[right].index < before[left].index) {
       changed.push_back(after[right++].index);
     } else {
       if (value(before[left]) != value(after[right]))
@@ -119,26 +120,26 @@ PayloadShape shape(const SpatialPayload& payload) {
         using Model = std::decay_t<decltype(model)>;
         PayloadShape result;
         if constexpr (std::is_same_v<Model, TrailModel>)
-          result.entities = std::max(model.trails.size(),
-                                     model.learned_trails.size());
+          result.entities =
+              std::max(model.trails.size(), model.learned_trails.size());
         else if constexpr (std::is_same_v<Model, ConveyorModel>)
           result.entities = model.flows.size();
         else if constexpr (std::is_same_v<Model, RegionModel>)
-          result.entities = std::max(model.regions.size(),
-                                     model.learned_regions.size());
+          result.entities =
+              std::max(model.regions.size(), model.learned_regions.size());
         else if constexpr (std::is_same_v<Model, DoorExitModel>)
           result.entities = model.exits.size() + model.doors.size() +
                             model.sensor_openings.size();
         else if constexpr (std::is_same_v<Model, HallwayModel>)
-          result.entities = std::max(model.centerlines.size(),
-                                     model.hallways.size());
+          result.entities =
+              std::max(model.centerlines.size(), model.hallways.size());
         else if constexpr (std::is_same_v<Model, BarrierModel>)
           result.entities = model.barriers.size();
         else if constexpr (std::is_same_v<Model, PassageSkeletonModel>) {
-          result.graph_nodes = std::max(model.nodes.size(),
-                                        model.region_nodes.size());
-          result.graph_edges = std::max(model.edges.size(),
-                                        model.region_edges.size());
+          result.graph_nodes =
+              std::max(model.nodes.size(), model.region_nodes.size());
+          result.graph_edges =
+              std::max(model.edges.size(), model.region_edges.size());
         } else if constexpr (std::is_same_v<Model, HighwayModel>) {
           result.entities = model.highways.size();
           result.graph_nodes = model.graph.vertices.size();
@@ -175,29 +176,26 @@ RepresentationChangeSet changeSet(const SpatialPayload* before,
   result.revision = revision;
   std::vector<std::size_t> changed_indices;
   static const std::vector<SparseGridCell> empty_counts;
-  static const std::vector<domain::SparseSensedOccupancyCell>
-      empty_occupancy;
+  static const std::vector<domain::SparseSensedOccupancyCell> empty_occupancy;
   if (const auto* current = std::get_if<KnownGridModel>(&after)) {
-    const auto* previous = before ? std::get_if<KnownGridModel>(before) : nullptr;
+    const auto* previous =
+        before ? std::get_if<KnownGridModel>(before) : nullptr;
     changed_indices = changedSparseIndices(
         previous ? previous->sparse_observations : empty_counts,
         current->sparse_observations,
         [](const auto& cell) { return cell.value; });
-  } else if (const auto* current =
-                 std::get_if<SensedOccupancyModel>(&after)) {
+  } else if (const auto* current = std::get_if<SensedOccupancyModel>(&after)) {
     const auto* previous =
         before ? std::get_if<SensedOccupancyModel>(before) : nullptr;
     changed_indices = changedSparseIndices(
         previous ? previous->sparse_cells : empty_occupancy,
-        current->sparse_cells,
-        [](const auto& cell) { return cell.value; });
+        current->sparse_cells, [](const auto& cell) { return cell.value; });
   } else if (const auto* current = std::get_if<InclusionGridModel>(&after)) {
     const auto* previous =
         before ? std::get_if<InclusionGridModel>(before) : nullptr;
     changed_indices = changedSparseIndices(
         previous ? previous->sparse_included : empty_counts,
-        current->sparse_included,
-        [](const auto& cell) { return cell.value; });
+        current->sparse_included, [](const auto& cell) { return cell.value; });
   }
   result.changed_cell_ranges = ranges(std::move(changed_indices));
   const auto old_shape = before ? shape(*before) : PayloadShape{};
@@ -325,20 +323,18 @@ void segment(std::ostream& output, const domain::Segment2D& value) {
  * Exceptions:
  * - None documented; validation or dependency failures may propagate.
  */
-void gridGeometry(std::ostream& output,
-                  const domain::GridGeometry& geometry) {
-  output << "{\"schema_version\":1,\"frame_id\":"
-         << quote(geometry.frame_id) << ",\"minimum\":";
+void gridGeometry(std::ostream& output, const domain::GridGeometry& geometry) {
+  output << "{\"schema_version\":1,\"frame_id\":" << quote(geometry.frame_id)
+         << ",\"minimum\":";
   point(output, geometry.minimum);
   output << ",\"maximum\":";
   point(output, geometry.maximum);
   output << ",\"origin\":";
   point(output, geometry.origin);
   output << ",\"resolution_m\":" << geometry.resolution_m
-         << ",\"columns\":" << geometry.columns << ",\"rows\":"
-         << geometry.rows << ",\"boundary_convention\":\"half_open\""
-         << ",\"out_of_bounds\":"
-         << static_cast<int>(geometry.out_of_bounds)
+         << ",\"columns\":" << geometry.columns << ",\"rows\":" << geometry.rows
+         << ",\"boundary_convention\":\"half_open\""
+         << ",\"out_of_bounds\":" << static_cast<int>(geometry.out_of_bounds)
          << ",\"expandable\":"
          << (geometry.extent_mode == domain::GridExtentMode::Expandable
                  ? "true"
@@ -415,12 +411,13 @@ void payload(std::ostream& output, const SpatialPayload& value) {
                                         << marker.path_point_index
                                         << ",\"position\":";
                           point(marker_stream, marker.pose.position);
-                          marker_stream << ",\"visibility_distance_m\":"
-                                        << (marker.visibility_to_next
-                                                ? marker.visibility_to_next
-                                                      ->visible_distance.meters()
-                                                : -1.0)
-                                        << '}';
+                          marker_stream
+                              << ",\"visibility_distance_m\":"
+                              << (marker.visibility_to_next
+                                      ? marker.visibility_to_next
+                                            ->visible_distance.meters()
+                                      : -1.0)
+                              << '}';
                         });
                   stream << '}';
                 });
@@ -438,13 +435,12 @@ void payload(std::ostream& output, const SpatialPayload& value) {
             output << "{\"geometry\":";
             gridGeometry(output, model.grid.geometry);
             output << ",\"decay_factor\":" << model.grid.decay_factor
-                   << ",\"maximum_frequency\":"
-                   << model.grid.maximum_frequency << ",\"cells\":";
+                   << ",\"maximum_frequency\":" << model.grid.maximum_frequency
+                   << ",\"cells\":";
             array(output, model.grid.cells,
                   [](std::ostream& stream, const auto& cell) {
                     stream << "{\"index\":" << cell.index
-                           << ",\"frequency\":"
-                           << cell.traversal_frequency
+                           << ",\"frequency\":" << cell.traversal_frequency
                            << ",\"direction_x\":" << cell.direction_x
                            << ",\"direction_y\":" << cell.direction_y
                            << ",\"strength\":" << cell.normalized_strength
@@ -468,16 +464,15 @@ void payload(std::ostream& output, const SpatialPayload& value) {
                 [](std::ostream& stream, const auto& region) {
                   stream << "{\"id\":" << region.id << ",\"center\":";
                   point(stream, region.boundary.center);
-                  stream << ",\"radius_m\":"
-                         << region.boundary.radius.meters()
+                  stream << ",\"radius_m\":" << region.boundary.radius.meters()
                          << ",\"supporting_decision\":"
                          << region.supporting_decision
                          << ",\"visibility_revision\":"
                          << region.visibility_revision << ",\"visibility\":";
                   array(stream, region.visibility,
                         [](std::ostream& bin_stream, const auto& bin) {
-                          bin_stream << (bin.known ? bin.maximum_distance_m
-                                                   : -1.0);
+                          bin_stream
+                              << (bin.known ? bin.maximum_distance_m : -1.0);
                         });
                   stream << '}';
                 });
@@ -488,22 +483,22 @@ void payload(std::ostream& output, const SpatialPayload& value) {
           output << ",\"exits\":";
           array(output, model.exits,
                 [](std::ostream& stream, const auto& exit) {
-                  stream << "{\"id\":" << exit.id << ",\"region\":"
-                         << exit.region << ",\"point\":";
+                  stream << "{\"id\":" << exit.id
+                         << ",\"region\":" << exit.region << ",\"point\":";
                   point(stream, exit.point);
                   stream << ",\"traversals\":" << exit.traversal_count
                          << ",\"confidence\":" << exit.confidence << '}';
                 });
           output << ",\"doors\":";
-          array(output, model.doors,
-                [](std::ostream& stream, const auto& door) {
-                  stream << "{\"id\":" << door.id << ",\"region\":"
-                         << door.region << ",\"start_rad\":"
-                         << door.clockwise_start_rad << ",\"end_rad\":"
-                         << door.clockwise_end_rad << ",\"confidence\":"
-                         << door.confidence << ",\"traversals\":"
-                         << door.supporting_traversals << '}';
-                });
+          array(
+              output, model.doors, [](std::ostream& stream, const auto& door) {
+                stream << "{\"id\":" << door.id << ",\"region\":" << door.region
+                       << ",\"start_rad\":" << door.clockwise_start_rad
+                       << ",\"end_rad\":" << door.clockwise_end_rad
+                       << ",\"confidence\":" << door.confidence
+                       << ",\"traversals\":" << door.supporting_traversals
+                       << '}';
+              });
           output << ",\"sensor_openings\":";
           array(output, model.sensor_openings,
                 [](std::ostream& stream, const auto& opening) {
@@ -519,8 +514,7 @@ void payload(std::ostream& output, const SpatialPayload& value) {
           output << ",\"hallways\":";
           array(output, model.hallways,
                 [](std::ostream& stream, const auto& hallway) {
-                  stream << "{\"id\":" << hallway.id
-                         << ",\"direction\":"
+                  stream << "{\"id\":" << hallway.id << ",\"direction\":"
                          << static_cast<int>(hallway.direction)
                          << ",\"centerline\":";
                   segment(stream, hallway.centerline);
@@ -560,16 +554,16 @@ void payload(std::ostream& output, const SpatialPayload& value) {
           output << ",\"region_nodes\":";
           array(output, model.region_nodes,
                 [](std::ostream& stream, const auto& node) {
-                  stream << "{\"id\":" << node.id << ",\"region\":"
-                         << node.region << ",\"center\":";
+                  stream << "{\"id\":" << node.id
+                         << ",\"region\":" << node.region << ",\"center\":";
                   point(stream, node.center);
                   stream << '}';
                 });
           output << ",\"region_edges\":";
           array(output, model.region_edges,
                 [](std::ostream& stream, const auto& edge) {
-                  stream << "{\"from\":" << edge.from << ",\"to\":"
-                         << edge.to << ",\"length_m\":" << edge.length_m
+                  stream << "{\"from\":" << edge.from << ",\"to\":" << edge.to
+                         << ",\"length_m\":" << edge.length_m
                          << ",\"source_path\":" << edge.source_path
                          << ",\"subtrail\":";
                   array(stream, edge.supporting_subtrail, point);
@@ -607,16 +601,14 @@ void payload(std::ostream& output, const SpatialPayload& value) {
                 [](std::ostream& stream, const auto& cell) {
                   stream << "{\"state\":" << static_cast<int>(cell.state)
                          << ",\"free_evidence\":" << cell.free_evidence
-                         << ",\"occupied_evidence\":"
-                         << cell.occupied_evidence << ",\"confidence\":"
-                         << cell.confidence << ",\"last_update_sequence\":"
-                         << cell.last_update_sequence
-                         << ",\"conflicting\":"
+                         << ",\"occupied_evidence\":" << cell.occupied_evidence
+                         << ",\"confidence\":" << cell.confidence
+                         << ",\"last_update_sequence\":"
+                         << cell.last_update_sequence << ",\"conflicting\":"
                          << (cell.conflicting ? "true" : "false")
-                         << ",\"dynamic\":"
-                         << (cell.dynamic ? "true" : "false")
-                         << ",\"provenance\":"
-                         << static_cast<int>(cell.source) << '}';
+                         << ",\"dynamic\":" << (cell.dynamic ? "true" : "false")
+                         << ",\"provenance\":" << static_cast<int>(cell.source)
+                         << '}';
                 });
           output << ",\"sparse_cells\":";
           array(output, model.sparse_cells,
@@ -625,16 +617,14 @@ void payload(std::ostream& output, const SpatialPayload& value) {
                   stream << "{\"index\":" << sparse.index
                          << ",\"state\":" << static_cast<int>(cell.state)
                          << ",\"free_evidence\":" << cell.free_evidence
-                         << ",\"occupied_evidence\":"
-                         << cell.occupied_evidence << ",\"confidence\":"
-                         << cell.confidence << ",\"last_update_sequence\":"
-                         << cell.last_update_sequence
-                         << ",\"conflicting\":"
+                         << ",\"occupied_evidence\":" << cell.occupied_evidence
+                         << ",\"confidence\":" << cell.confidence
+                         << ",\"last_update_sequence\":"
+                         << cell.last_update_sequence << ",\"conflicting\":"
                          << (cell.conflicting ? "true" : "false")
-                         << ",\"dynamic\":"
-                         << (cell.dynamic ? "true" : "false")
-                         << ",\"provenance\":"
-                         << static_cast<int>(cell.source) << '}';
+                         << ",\"dynamic\":" << (cell.dynamic ? "true" : "false")
+                         << ",\"provenance\":" << static_cast<int>(cell.source)
+                         << '}';
                 });
           output << '}';
         } else if constexpr (std::is_same_v<Model, InclusionGridModel>) {
@@ -651,8 +641,8 @@ void payload(std::ostream& output, const SpatialPayload& value) {
                 });
           output << '}';
         } else if constexpr (std::is_same_v<Model, HighwayModel>) {
-          output << "{\"schema_version\":"
-                 << model.serialized_schema_version << ",\"geometry\":";
+          output << "{\"schema_version\":" << model.serialized_schema_version
+                 << ",\"geometry\":";
           if (model.geometry.valid())
             gridGeometry(output, model.geometry);
           else
@@ -694,8 +684,8 @@ void payload(std::ostream& output, const SpatialPayload& value) {
           output << ",\"edges\":";
           array(output, model.graph.edges,
                 [](std::ostream& stream, const auto& edge) {
-                  stream << "{\"from\":" << edge.from << ",\"to\":"
-                         << edge.to << ",\"highway\":" << edge.highway
+                  stream << "{\"from\":" << edge.from << ",\"to\":" << edge.to
+                         << ",\"highway\":" << edge.highway
                          << ",\"length_m\":" << edge.length_m
                          << ",\"trail_labels\":";
                   array(stream, edge.trail_labels,
@@ -709,9 +699,11 @@ void payload(std::ostream& output, const SpatialPayload& value) {
           output << "},\"nodes\":";
           array(output, model.nodes, point);
           output << ",\"edges\":";
-          array(output, model.edges, [](std::ostream& stream, const auto& edge) {
-            stream << "{\"from\":" << edge.from << ",\"to\":" << edge.to << '}';
-          });
+          array(output, model.edges,
+                [](std::ostream& stream, const auto& edge) {
+                  stream << "{\"from\":" << edge.from << ",\"to\":" << edge.to
+                         << '}';
+                });
           output << ",\"intersections\":";
           array(output, model.intersections,
                 [](std::ostream& stream, const auto& intersection) {
@@ -741,17 +733,12 @@ void payload(std::ostream& output, const SpatialPayload& value) {
           output << "{\"schema_version\":2,\"learning_mode\":\""
                  << domain::toString(model.learning_mode)
                  << "\",\"model_version\":\"" << model.model_version
-                 << "\",\"classifier_version\":\""
-                 << model.classifier_version
+                 << "\",\"classifier_version\":\"" << model.classifier_version
                  << "\",\"feature_version\":\"" << model.feature_version
-                 << "\",\"similarity_metric\":\""
-                 << model.similarity_metric
-                 << "\",\"reclustering_policy\":\""
-                 << model.reclustering_policy
-                 << "\",\"minimum_cluster_size\":"
-                 << model.minimum_cluster_size
-                 << ",\"minimum_case_evidence\":"
-                 << model.minimum_case_evidence
+                 << "\",\"similarity_metric\":\"" << model.similarity_metric
+                 << "\",\"reclustering_policy\":\"" << model.reclustering_policy
+                 << "\",\"minimum_cluster_size\":" << model.minimum_cluster_size
+                 << ",\"minimum_case_evidence\":" << model.minimum_case_evidence
                  << ",\"assignment_confidence_threshold\":"
                  << model.assignment_confidence_threshold
                  << ",\"similarity_l1_threshold\":"
@@ -759,104 +746,94 @@ void payload(std::ostream& output, const SpatialPayload& value) {
                  << ",\"accuracy_threshold\":" << model.accuracy_threshold
                  << ",\"action_confidence_threshold\":"
                  << model.action_confidence_threshold
-                 << ",\"unclustered_settings\":"
-                 << model.unclustered_settings << ",\"clusters\":";
-          array(output, model.clusters,
-                [](std::ostream& stream, const auto& cluster) {
-                  stream << "{\"id\":" << cluster.id
-                         << ",\"evidence\":" << cluster.evidence
-                         << ",\"assignment_confidence\":"
-                         << cluster.assignment_confidence
-                         << ",\"creation_method\":\""
-                         << domain::toString(cluster.creation_method)
-                         << "\",\"model_version\":" << cluster.model_version
-                         << ",\"last_update_sequence\":"
-                         << cluster.last_update_sequence
-                         << ",\"revision\":" << cluster.revision
-                         << ",\"retired\":"
-                         << (cluster.retired ? "true" : "false")
-                         << ",\"side_cells\":"
-                         << cluster.centroid.side_cells
-                         << ",\"resolution_m\":"
-                         << cluster.centroid.resolution_m
-                         << ",\"radius_m\":" << cluster.centroid.radius_m
-                         << ",\"freespace\":";
-                  array(stream, cluster.centroid.freespace,
-                        [](std::ostream& values, double cell) {
-                          values << cell;
-                        });
-                  stream << '}';
-                });
+                 << ",\"unclustered_settings\":" << model.unclustered_settings
+                 << ",\"clusters\":";
+          array(
+              output, model.clusters,
+              [](std::ostream& stream, const auto& cluster) {
+                stream << "{\"id\":" << cluster.id
+                       << ",\"evidence\":" << cluster.evidence
+                       << ",\"assignment_confidence\":"
+                       << cluster.assignment_confidence
+                       << ",\"creation_method\":\""
+                       << domain::toString(cluster.creation_method)
+                       << "\",\"model_version\":" << cluster.model_version
+                       << ",\"last_update_sequence\":"
+                       << cluster.last_update_sequence
+                       << ",\"revision\":" << cluster.revision
+                       << ",\"retired\":"
+                       << (cluster.retired ? "true" : "false")
+                       << ",\"side_cells\":" << cluster.centroid.side_cells
+                       << ",\"resolution_m\":" << cluster.centroid.resolution_m
+                       << ",\"radius_m\":" << cluster.centroid.radius_m
+                       << ",\"freespace\":";
+                array(
+                    stream, cluster.centroid.freespace,
+                    [](std::ostream& values, double cell) { values << cell; });
+                stream << '}';
+              });
           output << ",\"cases\":";
-          array(output, model.cases,
-                [&](std::ostream& stream, const auto& item) {
-                  stream << "{\"circumstance_id\":"
-                         << item.key.circumstance_id
-                         << ",\"distance_bin\":" << item.key.distance_bin
-                         << ",\"angle_bin\":" << item.key.angle_bin
-                         << ",\"evidence\":" << item.evidence
-                         << ",\"accuracy\":" << item.accuracy
-                         << ",\"revision\":" << item.revision
-                         << ",\"action_pairs\":";
-                  array(stream, item.action_pairs,
-                        [&](std::ostream& pairs, const auto& pair) {
-                          pairs << "{\"actual\":";
-                          action(pairs, pair.actual);
-                          pairs << ",\"hypothetical\":";
-                          action(pairs, pair.hypothetical);
-                          pairs << ",\"occurrences\":" << pair.occurrences
-                                << '}';
-                        });
-                  stream << ",\"actions\":";
-                  array(stream, item.actions,
-                        [&](std::ostream& actions, const auto& evidence) {
-                          actions << "{\"action\":";
-                          action(actions, evidence.action);
-                          actions << ",\"selected\":" << evidence.selected
-                                  << ",\"executed\":" << evidence.executed
-                                  << ",\"successful\":"
-                                  << evidence.successful
-                                  << ",\"failed\":" << evidence.failed
-                                  << ",\"partial\":" << evidence.partial
-                                  << ",\"cancellations\":"
-                                  << evidence.cancellations
-                                  << ",\"timeouts\":" << evidence.timeouts
-                                  << ",\"safety_interruptions\":"
-                                  << evidence.safety_interruptions
-                                  << ",\"preemptions\":"
-                                  << evidence.preemptions
-                                  << ",\"unknown\":" << evidence.unknown
-                                  << ",\"effective_evidence\":"
-                                  << evidence.effective_evidence
-                                  << ",\"success_credit\":"
-                                  << evidence.success_credit
-                                  << ",\"confidence\":"
-                                  << evidence.confidence
-                                  << ",\"accuracy\":" << evidence.accuracy
-                                  << ",\"last_outcome\":\""
-                                  << domain::toString(evidence.last_outcome)
-                                  << "\",\"last_update_sequence\":"
-                                  << evidence.last_update_sequence << '}';
-                        });
-                  stream << '}';
-                });
+          array(
+              output, model.cases, [&](std::ostream& stream, const auto& item) {
+                stream << "{\"circumstance_id\":" << item.key.circumstance_id
+                       << ",\"distance_bin\":" << item.key.distance_bin
+                       << ",\"angle_bin\":" << item.key.angle_bin
+                       << ",\"evidence\":" << item.evidence
+                       << ",\"accuracy\":" << item.accuracy
+                       << ",\"revision\":" << item.revision
+                       << ",\"action_pairs\":";
+                array(stream, item.action_pairs,
+                      [&](std::ostream& pairs, const auto& pair) {
+                        pairs << "{\"actual\":";
+                        action(pairs, pair.actual);
+                        pairs << ",\"hypothetical\":";
+                        action(pairs, pair.hypothetical);
+                        pairs << ",\"occurrences\":" << pair.occurrences << '}';
+                      });
+                stream << ",\"actions\":";
+                array(stream, item.actions,
+                      [&](std::ostream& actions, const auto& evidence) {
+                        actions << "{\"action\":";
+                        action(actions, evidence.action);
+                        actions
+                            << ",\"selected\":" << evidence.selected
+                            << ",\"executed\":" << evidence.executed
+                            << ",\"successful\":" << evidence.successful
+                            << ",\"failed\":" << evidence.failed
+                            << ",\"partial\":" << evidence.partial
+                            << ",\"cancellations\":" << evidence.cancellations
+                            << ",\"timeouts\":" << evidence.timeouts
+                            << ",\"safety_interruptions\":"
+                            << evidence.safety_interruptions
+                            << ",\"preemptions\":" << evidence.preemptions
+                            << ",\"unknown\":" << evidence.unknown
+                            << ",\"effective_evidence\":"
+                            << evidence.effective_evidence
+                            << ",\"success_credit\":" << evidence.success_credit
+                            << ",\"confidence\":" << evidence.confidence
+                            << ",\"accuracy\":" << evidence.accuracy
+                            << ",\"last_outcome\":\""
+                            << domain::toString(evidence.last_outcome)
+                            << "\",\"last_update_sequence\":"
+                            << evidence.last_update_sequence << '}';
+                      });
+                stream << '}';
+              });
           output << ",\"migrations\":";
           array(output, model.migrations,
                 [](std::ostream& stream, const auto& migration) {
                   stream << "{\"previous_id\":" << migration.previous_id
                          << ",\"new_id\":" << migration.new_id
                          << ",\"operation\":\"" << migration.operation
-                         << "\",\"evidence_moved\":"
-                         << migration.evidence_moved
-                         << ",\"model_revision\":"
-                         << migration.model_revision << '}';
+                         << "\",\"evidence_moved\":" << migration.evidence_moved
+                         << ",\"model_revision\":" << migration.model_revision
+                         << '}';
                 });
           output << ",\"metrics\":{\"observations\":"
                  << model.metrics.observations
                  << ",\"assignments\":" << model.metrics.assignments
                  << ",\"unmatched\":" << model.metrics.unmatched
-                 << ",\"assignment_rate\":"
-                 << model.metrics.assignmentRate()
+                 << ",\"assignment_rate\":" << model.metrics.assignmentRate()
                  << ",\"average_assignment_confidence\":"
                  << model.metrics.averageAssignmentConfidence()
                  << ",\"reclusterings\":" << model.metrics.reclusterings
@@ -1022,8 +999,7 @@ std::string serialize(const SpatialModelUpdate& update) {
     output << "null";
   }
   output << ",\"update_mode\":" << quote(toString(update.update_mode))
-         << ",\"update_schedule\":"
-         << quote(toString(update.update_schedule))
+         << ",\"update_schedule\":" << quote(toString(update.update_schedule))
          << ",\"status\":" << quote(toString(update.status))
          << ",\"consumers\":";
   array(output, update.consumers,
@@ -1035,8 +1011,8 @@ std::string serialize(const SpatialModelUpdate& update) {
          << ",\"changed_cell_ranges\":";
   array(output, update.changes.changed_cell_ranges,
         [](std::ostream& stream, const auto& range) {
-          stream << "{\"first\":" << range.first << ",\"last\":"
-                 << range.last << '}';
+          stream << "{\"first\":" << range.first << ",\"last\":" << range.last
+                 << '}';
         });
   output << ",\"added_entities\":" << update.changes.added_entities
          << ",\"removed_entities\":" << update.changes.removed_entities
@@ -1183,8 +1159,7 @@ SharedSpatialSnapshot SpatialLearnerBase::sharedSnapshot() const {
   if (published_ && published_->revision == update_.revision &&
       published_->status == update_.status)
     return published_;
-  if (!metadata_snapshot_ ||
-      metadata_snapshot_->revision != update_.revision ||
+  if (!metadata_snapshot_ || metadata_snapshot_->revision != update_.revision ||
       metadata_snapshot_->status != update_.status ||
       metadata_snapshot_->observed_episodes != update_.observed_episodes)
     metadata_snapshot_ = std::make_shared<const SpatialModelUpdate>(update_);
@@ -1224,9 +1199,8 @@ void SpatialLearnerBase::publish(SpatialPayload payload_value,
   if (!changed) return;
   published_payload_signature_ = signature;
   auto publication = std::make_shared<SpatialModelUpdate>(update_);
-  publication->changes = changeSet(
-      published_ ? &published_->payload : nullptr, payload_value,
-      update_.revision);
+  publication->changes = changeSet(published_ ? &published_->payload : nullptr,
+                                   payload_value, update_.revision);
   publication->payload = std::move(payload_value);
   published_ = std::move(publication);
 }

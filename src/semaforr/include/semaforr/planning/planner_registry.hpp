@@ -123,11 +123,10 @@ class PlannerRegistry {
    * Exceptions:
    * - None documented; validation or dependency failures may propagate.
    */
-  void add(std::string name, PlannerInputModel model, Factory factory,
-           StaticMapRequirement map_requirement =
-               StaticMapRequirement::Independent,
-           OccupancyRequirement occupancy_requirement =
-               OccupancyRequirement::None);
+  void add(
+      std::string name, PlannerInputModel model, Factory factory,
+      StaticMapRequirement map_requirement = StaticMapRequirement::Independent,
+      OccupancyRequirement occupancy_requirement = OccupancyRequirement::None);
   /**
    * @brief Creates package content for this subsystem.
    *

@@ -26,7 +26,7 @@ namespace rclcpp {
  * - None documented; validation or dependency failures may propagate.
  */
 class Node;
-}
+}  // namespace rclcpp
 
 namespace semaforr::ros {
 

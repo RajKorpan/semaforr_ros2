@@ -2,9 +2,9 @@
  * @file decision_result.hpp
  * @brief Decision result responsibilities.
  *
- * @details This file defines decision result behavior for tiered decision making
- * and action arbitration. It centers on `DecisionSource`, `DecisionTier`,
- * `ActionOutcome`, `RejectionKind`, `VetoCategory`, `Veto`,
+ * @details This file defines decision result behavior for tiered decision
+ * making and action arbitration. It centers on `DecisionSource`,
+ * `DecisionTier`, `ActionOutcome`, `RejectionKind`, `VetoCategory`, `Veto`,
  * `DecisionCycleEvent`, `AdvisorContribution`. Its package-relative
  * location is `include/semaforr/decision/decision_result.hpp`.
  */
@@ -205,12 +205,14 @@ struct Veto {
    * - None documented; validation or dependency failures may propagate.
    */
   Veto(domain::Action vetoed_action, std::string vetoing_rule,
-       std::string detail,
-       RejectionKind kind = RejectionKind::Cognitive,
+       std::string detail, RejectionKind kind = RejectionKind::Cognitive,
        VetoCategory semantic = VetoCategory::InvalidNavigationState)
-      : action(vetoed_action), rule(std::move(vetoing_rule)),
-        explanation(detail), reason_code(std::move(detail)),
-        rejection_kind(kind), category(semantic) {}
+      : action(vetoed_action),
+        rule(std::move(vetoing_rule)),
+        explanation(detail),
+        reason_code(std::move(detail)),
+        rejection_kind(kind),
+        category(semantic) {}
 
   /**
    * @brief Performs the operator operation for this subsystem.
@@ -288,14 +290,14 @@ struct DecisionCycleEvent {
    * Exceptions:
    * - None documented; validation or dependency failures may propagate.
    */
-  DecisionCycleEvent(
-      std::size_t event_order, std::string event_tier,
-      std::string event_component, std::vector<domain::Action> inputs,
-      std::optional<domain::Action> event_mandate,
-      std::vector<Veto> event_vetoes, std::string event_outcome = {},
-      bool returned = false,
-      std::optional<DecisionTier> attribution = std::nullopt,
-      std::string event_reason_code = {})
+  DecisionCycleEvent(std::size_t event_order, std::string event_tier,
+                     std::string event_component,
+                     std::vector<domain::Action> inputs,
+                     std::optional<domain::Action> event_mandate,
+                     std::vector<Veto> event_vetoes,
+                     std::string event_outcome = {}, bool returned = false,
+                     std::optional<DecisionTier> attribution = std::nullopt,
+                     std::string event_reason_code = {})
       : order(event_order),
         tier(std::move(event_tier)),
         component(std::move(event_component)),

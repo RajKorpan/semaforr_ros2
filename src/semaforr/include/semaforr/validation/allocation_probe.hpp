@@ -75,7 +75,7 @@ namespace detail {
  * - None documented; validation or dependency failures may propagate.
  */
 void recordAllocation(std::size_t bytes) noexcept;
-}
+}  // namespace detail
 
 }  // namespace semaforr::validation
 

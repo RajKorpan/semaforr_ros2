@@ -36,8 +36,7 @@ using semaforr::domain::GridOutOfBoundsBehavior;
  */
 GridGeometry expandableGeometry() {
   return GridGeometry::fromBounds(
-      "odom", {-2.5, -1.5}, {2.5, 3.5}, 0.25,
-      GridExtentMode::Expandable,
+      "odom", {-2.5, -1.5}, {2.5, 3.5}, 0.25, GridExtentMode::Expandable,
       GridExtentSource::ConfiguredMaplessInitialBounds,
       GridOutOfBoundsBehavior::ExpandBeforeInsert);
 }
@@ -61,10 +60,11 @@ TEST(GridGeometry, ExpandsInEveryDirectionAndPreservesWorldCellCenters) {
   semaforr::domain::GridExpansionPolicy policy;
   policy.margin_m = 0.5;
   policy.increment_cells = 8U;
-  auto positive = semaforr::domain::expandToInclude(original, {8.0, 9.0}, policy);
+  auto positive =
+      semaforr::domain::expandToInclude(original, {8.0, 9.0}, policy);
   ASSERT_TRUE(positive.expanded);
-  auto both = semaforr::domain::expandToInclude(positive.geometry,
-                                                {-9.0, -8.0}, policy);
+  auto both = semaforr::domain::expandToInclude(positive.geometry, {-9.0, -8.0},
+                                                policy);
   ASSERT_TRUE(both.expanded);
   EXPECT_LT(both.geometry.minimum.x_m, original.minimum.x_m);
   EXPECT_GT(both.geometry.maximum.y_m, original.maximum.y_m);

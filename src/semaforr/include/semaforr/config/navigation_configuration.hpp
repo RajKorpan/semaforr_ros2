@@ -34,10 +34,7 @@ namespace config {
  * Exceptions:
  * - None documented; validation or dependency failures may propagate.
  */
-enum class BehaviorMode {
-  Compatibility,
-  Modernized
-};
+enum class BehaviorMode { Compatibility, Modernized };
 
 // Component-scoped selection.  This does not claim whole-system behavioral
 // compatibility; it permits validating the Chapter 3 learning pipeline while

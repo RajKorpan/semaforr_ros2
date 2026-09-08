@@ -35,10 +35,10 @@ namespace {
  */
 domain::Point2D endpoint(const domain::RobotObservation& observation,
                          std::size_t beam, double range_m) {
-  const double angle = observation.pose.heading.radians() +
-                       observation.laser.angle_min.radians() +
-                       static_cast<double>(beam) *
-                           observation.laser.angle_increment.radians();
+  const double angle =
+      observation.pose.heading.radians() +
+      observation.laser.angle_min.radians() +
+      static_cast<double>(beam) * observation.laser.angle_increment.radians();
   return {observation.pose.position.x_m + range_m * std::cos(angle),
           observation.pose.position.y_m + range_m * std::sin(angle)};
 }
@@ -59,8 +59,7 @@ domain::Point2D endpoint(const domain::RobotObservation& observation,
 double clampedRange(const domain::LaserObservation& laser, std::size_t beam) {
   if (beam >= laser.ranges_m.size()) return -1.0;
   const double value = laser.ranges_m[beam];
-  if (std::isnan(value) || value < laser.minimum_range.meters())
-    return -1.0;
+  if (std::isnan(value) || value < laser.minimum_range.meters()) return -1.0;
   if (std::isinf(value))
     return value > 0.0 ? laser.maximum_range.meters() : -1.0;
   return std::min(value, laser.maximum_range.meters());
@@ -89,9 +88,8 @@ domain::Action turnToward(double heading,
       found == turns.end()
           ? turns.size()
           : static_cast<std::size_t>(found - turns.begin()) + 1U;
-  return heading < 0.0
-             ? domain::Action(domain::ActionType::TurnRight, index)
-             : domain::Action(domain::ActionType::TurnLeft, index);
+  return heading < 0.0 ? domain::Action(domain::ActionType::TurnRight, index)
+                       : domain::Action(domain::ActionType::TurnLeft, index);
 }
 
 /**
@@ -134,11 +132,10 @@ double pointSegmentDistance(domain::Point2D point,
   const double squared = dx * dx + dy * dy;
   if (squared <= domain::geometry_tolerance_m)
     return domain::distance(point, segment.start).meters();
-  const double fraction = std::clamp(
-      ((point.x_m - segment.start.x_m) * dx +
-       (point.y_m - segment.start.y_m) * dy) /
-          squared,
-      0.0, 1.0);
+  const double fraction = std::clamp(((point.x_m - segment.start.x_m) * dx +
+                                      (point.y_m - segment.start.y_m) * dy) /
+                                         squared,
+                                     0.0, 1.0);
   return std::hypot(point.x_m - (segment.start.x_m + fraction * dx),
                     point.y_m - (segment.start.y_m + fraction * dy));
 }
@@ -164,18 +161,18 @@ bool similarSegments(const ExplorationCandidate& left,
   if (angle > std::numbers::pi / 9.0) return false;
   const domain::Segment2D left_segment{left.start, left.endpoint};
   const domain::Segment2D right_segment{right.start, right.endpoint};
-  const double lateral = std::min(
-      {pointSegmentDistance(right.start, left_segment),
-       pointSegmentDistance(right.endpoint, left_segment),
-       pointSegmentDistance(left.start, right_segment),
-       pointSegmentDistance(left.endpoint, right_segment)});
+  const double lateral =
+      std::min({pointSegmentDistance(right.start, left_segment),
+                pointSegmentDistance(right.endpoint, left_segment),
+                pointSegmentDistance(left.start, right_segment),
+                pointSegmentDistance(left.endpoint, right_segment)});
   if (lateral > tolerance) return false;
   const double first = projection(left.start, left.direction, right.start);
   const double second = projection(left.start, left.direction, right.endpoint);
   const double low = std::min(first, second);
   const double high = std::max(first, second);
-  const double overlap = std::min(left.current_extension.meters(), high) -
-                         std::max(0.0, low);
+  const double overlap =
+      std::min(left.current_extension.meters(), high) - std::max(0.0, low);
   return overlap >= -tolerance;
 }
 
@@ -201,10 +198,11 @@ std::optional<std::size_t> closestBeam(
       observation.pose.heading.radians());
   std::size_t best = 0U;
   double error = std::numeric_limits<double>::infinity();
-  for (std::size_t beam = 0U; beam < observation.laser.ranges_m.size(); ++beam) {
-    const double beam_angle = observation.laser.angle_min.radians() +
-                              static_cast<double>(beam) *
-                                  observation.laser.angle_increment.radians();
+  for (std::size_t beam = 0U; beam < observation.laser.ranges_m.size();
+       ++beam) {
+    const double beam_angle =
+        observation.laser.angle_min.radians() +
+        static_cast<double>(beam) * observation.laser.angle_increment.radians();
     const double candidate =
         std::abs(domain::Angle::normalize(relative - beam_angle));
     if (candidate < error) {
@@ -303,20 +301,19 @@ bool inSector(double relative_angle, const HleAngularSector& sector) {
 ExplorationCandidate focusCandidate(
     const domain::RobotObservation& observation,
     const HighLevelExplorationConfiguration& configuration,
-    const HleBundleMeasurement& focus,
-    const HleBundleMeasurement& openness, const HleAngularSector& focus_sector,
-    PassageCueType cue_type) {
+    const HleBundleMeasurement& focus, const HleBundleMeasurement& openness,
+    const HleAngularSector& focus_sector, PassageCueType cue_type) {
   ExplorationCandidate candidate;
   candidate.start = observation.pose.position;
   candidate.first_beam = focus.first_beam.value_or(0U);
   candidate.last_beam = focus.last_beam.value_or(0U);
   candidate.cue_type = cue_type;
   if (!focus.valid || !openness.valid) return candidate;
-  const double relative = std::atan2(focus.mean_endpoint.y_m,
-                                     focus.mean_endpoint.x_m);
+  const double relative =
+      std::atan2(focus.mean_endpoint.y_m, focus.mean_endpoint.x_m);
   const double length = focus.representative_length.meters();
-  const double global = domain::Angle::normalize(
-      observation.pose.heading.radians() + relative);
+  const double global =
+      domain::Angle::normalize(observation.pose.heading.radians() + relative);
   const double focus_span =
       focus_sector.maximum.radians() - focus_sector.minimum.radians();
   // Open-sector mean range supplies side-space depth while the narrow focus
@@ -335,17 +332,14 @@ ExplorationCandidate focusCandidate(
   const double usable_length =
       std::max(0.0, length - configuration.cue_clearance_margin.meters());
   candidate.current_extension = domain::Distance(usable_length);
-  candidate.endpoint =
-      {candidate.start.x_m + usable_length * std::cos(global),
-       candidate.start.y_m + usable_length * std::sin(global)};
-  const bool large_room =
-      length >= configuration.large_room_length.meters() &&
-      candidate.openness_width.meters() >=
-          configuration.large_room_width.meters();
+  candidate.endpoint = {candidate.start.x_m + usable_length * std::cos(global),
+                        candidate.start.y_m + usable_length * std::sin(global)};
+  const bool large_room = length >= configuration.large_room_length.meters() &&
+                          candidate.openness_width.meters() >=
+                              configuration.large_room_width.meters();
   candidate.kind = large_room ? PassageKind::LargeRoom : PassageKind::Corridor;
   candidate.confidence = std::clamp(
-      large_room ? 1.0
-                 : ratio / configuration.minimum_length_to_width_ratio,
+      large_room ? 1.0 : ratio / configuration.minimum_length_to_width_ratio,
       0.0, 1.0);
   candidate.priority = candidate.confidence * length;
   return candidate;
@@ -367,9 +361,12 @@ ExplorationCandidate focusCandidate(
  */
 const char* toString(PassageCellState state) noexcept {
   switch (state) {
-    case PassageCellState::Free: return "free";
-    case PassageCellState::Obstructed: return "obstructed";
-    case PassageCellState::Passage: return "passage";
+    case PassageCellState::Free:
+      return "free";
+    case PassageCellState::Obstructed:
+      return "obstructed";
+    case PassageCellState::Passage:
+      return "passage";
   }
   return "free";
 }
@@ -388,11 +385,16 @@ const char* toString(PassageCellState state) noexcept {
  */
 const char* toString(PassageCompletionState state) noexcept {
   switch (state) {
-    case PassageCompletionState::Unassigned: return "unassigned";
-    case PassageCompletionState::InProgress: return "in_progress";
-    case PassageCompletionState::Suspended: return "suspended";
-    case PassageCompletionState::Completed: return "completed";
-    case PassageCompletionState::Abandoned: return "abandoned";
+    case PassageCompletionState::Unassigned:
+      return "unassigned";
+    case PassageCompletionState::InProgress:
+      return "in_progress";
+    case PassageCompletionState::Suspended:
+      return "suspended";
+    case PassageCompletionState::Completed:
+      return "completed";
+    case PassageCompletionState::Abandoned:
+      return "abandoned";
   }
   return "unassigned";
 }
@@ -414,10 +416,9 @@ void HighLevelExplorationConfiguration::validate() const {
       !(heading_tolerance.radians() > 0.0) ||
       !(candidate_completion_distance.meters() > 0.0) ||
       !(cue_similarity_radius.meters() > 0.0) ||
-      !(passage_grid_resolution.meters() > 0.0) ||
-      minimum_bundle_beams == 0U || !validSector(left_focus) ||
-      !validSector(right_focus) || !validSector(left_open) ||
-      !validSector(right_open) ||
+      !(passage_grid_resolution.meters() > 0.0) || minimum_bundle_beams == 0U ||
+      !validSector(left_focus) || !validSector(right_focus) ||
+      !validSector(left_open) || !validSector(right_open) ||
       !(minimum_length_to_width_ratio > 0.0) ||
       !(minimum_passage_length.meters() > 0.0) ||
       !(large_room_width.meters() > 0.0) ||
@@ -432,8 +433,7 @@ void HighLevelExplorationConfiguration::validate() const {
         "must be finite, ordered, within [-pi,pi], and positive");
   if (passage_grid_geometry.valid() &&
       std::abs(passage_grid_geometry.resolution_m -
-               passage_grid_resolution.meters()) >
-          domain::geometry_tolerance_m)
+               passage_grid_resolution.meters()) > domain::geometry_tolerance_m)
     throw std::invalid_argument(
         "HLE passage grid geometry and configured resolution disagree");
 }
@@ -452,14 +452,22 @@ void HighLevelExplorationConfiguration::validate() const {
  */
 std::string_view toString(HleState state) noexcept {
   switch (state) {
-    case HleState::Initialize: return "initialize";
-    case HleState::DiscoverCandidate: return "discover_candidate";
-    case HleState::ReturnToCandidateStart: return "return_to_candidate_start";
-    case HleState::PursueCandidate: return "pursue_candidate";
-    case HleState::RecordPassage: return "record_passage";
-    case HleState::SelectNextCandidate: return "select_next_candidate";
-    case HleState::FinalizeModel: return "finalize_model";
-    case HleState::Complete: return "complete";
+    case HleState::Initialize:
+      return "initialize";
+    case HleState::DiscoverCandidate:
+      return "discover_candidate";
+    case HleState::ReturnToCandidateStart:
+      return "return_to_candidate_start";
+    case HleState::PursueCandidate:
+      return "pursue_candidate";
+    case HleState::RecordPassage:
+      return "record_passage";
+    case HleState::SelectNextCandidate:
+      return "select_next_candidate";
+    case HleState::FinalizeModel:
+      return "finalize_model";
+    case HleState::Complete:
+      return "complete";
   }
   return "complete";
 }
@@ -478,17 +486,26 @@ std::string_view toString(HleState state) noexcept {
  */
 std::string_view toString(CandidateLifecycleEvent event) noexcept {
   switch (event) {
-    case CandidateLifecycleEvent::None: return "none";
-    case CandidateLifecycleEvent::Discovered: return "candidate_discovered";
-    case CandidateLifecycleEvent::Merged: return "candidate_merged";
-    case CandidateLifecycleEvent::Rejected: return "candidate_rejected";
-    case CandidateLifecycleEvent::Selected: return "candidate_selected";
+    case CandidateLifecycleEvent::None:
+      return "none";
+    case CandidateLifecycleEvent::Discovered:
+      return "candidate_discovered";
+    case CandidateLifecycleEvent::Merged:
+      return "candidate_merged";
+    case CandidateLifecycleEvent::Rejected:
+      return "candidate_rejected";
+    case CandidateLifecycleEvent::Selected:
+      return "candidate_selected";
     case CandidateLifecycleEvent::PursuitStarted:
       return "candidate_pursuit_started";
-    case CandidateLifecycleEvent::Suspended: return "candidate_suspended";
-    case CandidateLifecycleEvent::Completed: return "candidate_completed";
-    case CandidateLifecycleEvent::Abandoned: return "candidate_abandoned";
-    case CandidateLifecycleEvent::Exhausted: return "candidate_exhausted";
+    case CandidateLifecycleEvent::Suspended:
+      return "candidate_suspended";
+    case CandidateLifecycleEvent::Completed:
+      return "candidate_completed";
+    case CandidateLifecycleEvent::Abandoned:
+      return "candidate_abandoned";
+    case CandidateLifecycleEvent::Exhausted:
+      return "candidate_exhausted";
   }
   return "none";
 }
@@ -507,7 +524,8 @@ std::string_view toString(CandidateLifecycleEvent event) noexcept {
  */
 std::string_view toString(ExplorationCompletionReason reason) noexcept {
   switch (reason) {
-    case ExplorationCompletionReason::None: return "none";
+    case ExplorationCompletionReason::None:
+      return "none";
     case ExplorationCompletionReason::CandidateQueueExhausted:
       return "candidate_queue_exhausted";
     case ExplorationCompletionReason::TimeBudgetExceeded:
@@ -534,13 +552,18 @@ std::string_view toString(ExplorationCompletionReason reason) noexcept {
  */
 std::string_view toString(PursuitTerminationReason reason) noexcept {
   switch (reason) {
-    case PursuitTerminationReason::None: return "none";
-    case PursuitTerminationReason::EndpointReached: return "endpoint_reached";
+    case PursuitTerminationReason::None:
+      return "none";
+    case PursuitTerminationReason::EndpointReached:
+      return "endpoint_reached";
     case PursuitTerminationReason::EndOfPassageClearance:
       return "end_of_passage_clearance";
-    case PursuitTerminationReason::WidthChanged: return "width_changed";
-    case PursuitTerminationReason::HardTurn: return "hard_turn";
-    case PursuitTerminationReason::LargeRoom: return "large_room";
+    case PursuitTerminationReason::WidthChanged:
+      return "width_changed";
+    case PursuitTerminationReason::HardTurn:
+      return "hard_turn";
+    case PursuitTerminationReason::LargeRoom:
+      return "large_room";
     case PursuitTerminationReason::CandidateUnreachable:
       return "candidate_unreachable";
     case PursuitTerminationReason::TimeBudgetExceeded:
@@ -567,13 +590,20 @@ std::string_view toString(PursuitTerminationReason reason) noexcept {
  */
 std::string_view toString(CandidateDiagnosticKind kind) noexcept {
   switch (kind) {
-    case CandidateDiagnosticKind::Created: return "created";
-    case CandidateDiagnosticKind::Merged: return "merged";
-    case CandidateDiagnosticKind::Rejected: return "rejected";
-    case CandidateDiagnosticKind::Selected: return "selected";
-    case CandidateDiagnosticKind::Suspended: return "suspended";
-    case CandidateDiagnosticKind::Completed: return "completed";
-    case CandidateDiagnosticKind::Abandoned: return "abandoned";
+    case CandidateDiagnosticKind::Created:
+      return "created";
+    case CandidateDiagnosticKind::Merged:
+      return "merged";
+    case CandidateDiagnosticKind::Rejected:
+      return "rejected";
+    case CandidateDiagnosticKind::Selected:
+      return "selected";
+    case CandidateDiagnosticKind::Suspended:
+      return "suspended";
+    case CandidateDiagnosticKind::Completed:
+      return "completed";
+    case CandidateDiagnosticKind::Abandoned:
+      return "abandoned";
   }
   return "created";
 }
@@ -628,8 +658,8 @@ std::int64_t HighLevelExplorer::cellKey(int row, int column) noexcept {
  * Exceptions:
  * - None documented; validation or dependency failures may propagate.
  */
-std::int64_t HighLevelExplorer::cueKey(const domain::Point2D& point) const
-    noexcept {
+std::int64_t HighLevelExplorer::cueKey(
+    const domain::Point2D& point) const noexcept {
   const double size = configuration_.cue_similarity_radius.meters();
   return cellKey(static_cast<int>(std::floor(point.y_m / size)),
                  static_cast<int>(std::floor(point.x_m / size)));
@@ -653,22 +683,19 @@ std::vector<ExplorationCandidate> HighLevelExplorer::discoverCandidates(
     const HighLevelExplorationConfiguration& configuration) {
   std::vector<ExplorationCandidate> result;
   const auto bundles = measureBundles(observation, configuration);
-  for (const auto& [focus_index, open_index, focus_sector, cue_type] : {
-           std::tuple<std::size_t, std::size_t, HleAngularSector,
-                      PassageCueType>{1U, 3U, configuration.right_focus,
-                                      PassageCueType::RightFocus},
-           {0U, 2U, configuration.left_focus,
-            PassageCueType::LeftFocus}}) {
+  for (const auto& [focus_index, open_index, focus_sector, cue_type] :
+       {std::tuple<std::size_t, std::size_t, HleAngularSector, PassageCueType>{
+            1U, 3U, configuration.right_focus, PassageCueType::RightFocus},
+        {0U, 2U, configuration.left_focus, PassageCueType::LeftFocus}}) {
     if (!bundles[focus_index].valid || !bundles[open_index].valid) continue;
-    auto candidate = focusCandidate(observation, configuration,
-                                    bundles[focus_index], bundles[open_index],
-                                    focus_sector, cue_type);
-    const double ratio = candidate.length.meters() /
-                         std::max(candidate.width.meters(), 0.01);
-    const bool passage =
-        candidate.length.meters() >=
-            configuration.minimum_passage_length.meters() &&
-        ratio >= configuration.minimum_length_to_width_ratio;
+    auto candidate =
+        focusCandidate(observation, configuration, bundles[focus_index],
+                       bundles[open_index], focus_sector, cue_type);
+    const double ratio =
+        candidate.length.meters() / std::max(candidate.width.meters(), 0.01);
+    const bool passage = candidate.length.meters() >=
+                             configuration.minimum_passage_length.meters() &&
+                         ratio >= configuration.minimum_length_to_width_ratio;
     if (passage || candidate.kind == PassageKind::LargeRoom)
       result.push_back(std::move(candidate));
   }
@@ -691,11 +718,11 @@ std::vector<ExplorationCandidate> HighLevelExplorer::discoverCandidates(
 std::array<HleBundleMeasurement, 4U> HighLevelExplorer::measureBundles(
     const domain::RobotObservation& observation,
     const HighLevelExplorationConfiguration& configuration) {
-  const std::array<std::pair<HleBundleType, HleAngularSector>, 4U> sectors{{
-      {HleBundleType::LeftFocus, configuration.left_focus},
-      {HleBundleType::RightFocus, configuration.right_focus},
-      {HleBundleType::LeftOpen, configuration.left_open},
-      {HleBundleType::RightOpen, configuration.right_open}}};
+  const std::array<std::pair<HleBundleType, HleAngularSector>, 4U> sectors{
+      {{HleBundleType::LeftFocus, configuration.left_focus},
+       {HleBundleType::RightFocus, configuration.right_focus},
+       {HleBundleType::LeftOpen, configuration.left_open},
+       {HleBundleType::RightOpen, configuration.right_open}}};
   std::array<HleBundleMeasurement, 4U> result{};
   for (std::size_t bundle_index = 0U; bundle_index < sectors.size();
        ++bundle_index) {
@@ -728,11 +755,11 @@ std::array<HleBundleMeasurement, 4U> HighLevelExplorer::measureBundles(
       ++measurement.beam_count;
     }
     if (measurement.beam_count < configuration.minimum_bundle_beams) continue;
-    measurement.mean_endpoint =
-        {sum_x / static_cast<double>(measurement.beam_count),
-         sum_y / static_cast<double>(measurement.beam_count)};
-    measurement.representative_length = domain::distance(
-        domain::Point2D{}, measurement.mean_endpoint);
+    measurement.mean_endpoint = {
+        sum_x / static_cast<double>(measurement.beam_count),
+        sum_y / static_cast<double>(measurement.beam_count)};
+    measurement.representative_length =
+        domain::distance(domain::Point2D{}, measurement.mean_endpoint);
     measurement.endpoint_span = domain::Distance(
         std::hypot(maximum_x - minimum_x, maximum_y - minimum_y));
     measurement.valid = true;
@@ -763,15 +790,18 @@ CueValidation HighLevelExplorer::evaluateCue(
   result.start_clear = pointClear(observation, candidate.start);
   result.midpoint_clear = pointClear(observation, midpoint);
   result.endpoint_clear = pointClear(observation, candidate.endpoint);
-  if (!result.start_clear) result.reason = "cue_start_not_clear";
-  else if (!result.midpoint_clear) result.reason = "cue_midpoint_not_clear";
-  else if (!result.endpoint_clear) result.reason = "cue_endpoint_not_clear";
+  if (!result.start_clear)
+    result.reason = "cue_start_not_clear";
+  else if (!result.midpoint_clear)
+    result.reason = "cue_midpoint_not_clear";
+  else if (!result.endpoint_clear)
+    result.reason = "cue_endpoint_not_clear";
   if (!result.reason.empty()) return result;
   std::set<std::uint64_t> passages;
   const auto samples = std::max<std::size_t>(
-      1U, static_cast<std::size_t>(std::ceil(
-              candidate.length.meters() /
-              configuration_.passage_grid_resolution.meters())));
+      1U, static_cast<std::size_t>(
+              std::ceil(candidate.length.meters() /
+                        configuration_.passage_grid_resolution.meters())));
   const domain::Point2D reference =
       configuration_.passage_grid_geometry.valid()
           ? configuration_.passage_grid_geometry.origin
@@ -795,12 +825,12 @@ CueValidation HighLevelExplorer::evaluateCue(
       row = static_cast<int>(cell->second);
       column = static_cast<int>(cell->first);
     } else {
-      row = static_cast<int>(std::floor(
-          (point.y_m - reference.y_m) /
-          configuration_.passage_grid_resolution.meters()));
-      column = static_cast<int>(std::floor(
-          (point.x_m - reference.x_m) /
-          configuration_.passage_grid_resolution.meters()));
+      row = static_cast<int>(
+          std::floor((point.y_m - reference.y_m) /
+                     configuration_.passage_grid_resolution.meters()));
+      column = static_cast<int>(
+          std::floor((point.x_m - reference.x_m) /
+                     configuration_.passage_grid_resolution.meters()));
     }
     const auto found = passage_cells_.find(cellKey(row, column));
     if (found != passage_cells_.end() && found->second.passage_id)
@@ -815,12 +845,10 @@ CueValidation HighLevelExplorer::evaluateCue(
   for (std::size_t sample = 1U; sample <= 5U; ++sample) {
     const double fraction = static_cast<double>(sample) / 5.0;
     if (!pointClear(observation,
-                    {candidate.start.x_m +
-                         fraction *
-                             (candidate.endpoint.x_m - candidate.start.x_m),
-                     candidate.start.y_m +
-                         fraction *
-                             (candidate.endpoint.y_m - candidate.start.y_m)})) {
+                    {candidate.start.x_m + fraction * (candidate.endpoint.x_m -
+                                                       candidate.start.x_m),
+                     candidate.start.y_m + fraction * (candidate.endpoint.y_m -
+                                                       candidate.start.y_m)})) {
       result.geometrically_reachable = false;
       result.reason = "cue_not_geometrically_reachable";
       return result;
@@ -922,11 +950,12 @@ void HighLevelExplorer::recordDiagnostic(ExplorationCandidateId id,
                                          std::string reason) {
   ExplorationCandidate snapshot;
   const auto found = candidate_registry_.find(id);
-  if (found != candidate_registry_.end()) snapshot = found->second;
-  else if (active_ && active_->id == id) snapshot = *active_;
-  candidate_diagnostics_.push_back(
-      {++diagnostic_sequence_, id, kind, std::move(reason),
-       std::move(snapshot)});
+  if (found != candidate_registry_.end())
+    snapshot = found->second;
+  else if (active_ && active_->id == id)
+    snapshot = *active_;
+  candidate_diagnostics_.push_back({++diagnostic_sequence_, id, kind,
+                                    std::move(reason), std::move(snapshot)});
 }
 
 /**
@@ -942,11 +971,10 @@ void HighLevelExplorer::recordDiagnostic(ExplorationCandidateId id,
  * Exceptions:
  * - None documented; validation or dependency failures may propagate.
  */
-void HighLevelExplorer::recordTrace(
-    const domain::RobotObservation& observation,
-    const ExplorationResult& result) {
-  trace_.push_back({static_cast<std::uint64_t>(decisions_), observation,
-                    result});
+void HighLevelExplorer::recordTrace(const domain::RobotObservation& observation,
+                                    const ExplorationResult& result) {
+  trace_.push_back(
+      {static_cast<std::uint64_t>(decisions_), observation, result});
 }
 
 /**
@@ -993,10 +1021,10 @@ std::vector<ExplorationCandidate> HighLevelExplorer::discover(
         !validation.accepted) {
       candidate.id = next_candidate_id_++;
       candidate.state = ExplorationCandidateState::Abandoned;
-      candidate_diagnostics_.push_back(
-          {++diagnostic_sequence_, candidate.id,
-           CandidateDiagnosticKind::Rejected, std::move(validation.reason),
-           candidate});
+      candidate_diagnostics_.push_back({++diagnostic_sequence_, candidate.id,
+                                        CandidateDiagnosticKind::Rejected,
+                                        std::move(validation.reason),
+                                        candidate});
       continue;
     }
     if (configuration_.behavior_policy == HleBehaviorPolicy::Modernized &&
@@ -1014,9 +1042,9 @@ std::vector<ExplorationCandidate> HighLevelExplorer::discover(
     candidate_registry_[candidate.id] = candidate;
     candidates_.push(candidate);
     discovered.push_back(candidate);
-    recordDiagnostic(candidate.id, CandidateDiagnosticKind::Created,
-                     validation.reason.empty() ? "clear_bundle"
-                                               : validation.reason);
+    recordDiagnostic(
+        candidate.id, CandidateDiagnosticKind::Created,
+        validation.reason.empty() ? "clear_bundle" : validation.reason);
   }
   return discovered;
 }
@@ -1056,11 +1084,10 @@ void HighLevelExplorer::updateCandidateExtension(
   active_->current_width = best->width;
   if (extension >= active_->current_extension.meters() +
                        configuration_.minimum_extension.meters()) {
-    active_->endpoint =
-        {active_->start.x_m +
-             extension * std::cos(active_->direction.radians()),
-         active_->start.y_m +
-             extension * std::sin(active_->direction.radians())};
+    active_->endpoint = {
+        active_->start.x_m + extension * std::cos(active_->direction.radians()),
+        active_->start.y_m +
+            extension * std::sin(active_->direction.radians())};
     active_->current_extension = domain::Distance(extension);
     active_->length = active_->current_extension;
     ++active_->revision;
@@ -1084,7 +1111,8 @@ PursuitTerminationReason HighLevelExplorer::pursuitTermination(
     const domain::RobotObservation& observation) const {
   if (!active_) return PursuitTerminationReason::CandidateUnreachable;
   if (configuration_.behavior_policy == HleBehaviorPolicy::Modernized)
-    return domain::distance(observation.pose.position, active_->start).meters() >=
+    return domain::distance(observation.pose.position, active_->start)
+                       .meters() >=
                    configuration_.candidate_completion_distance.meters()
                ? PursuitTerminationReason::EndpointReached
                : PursuitTerminationReason::None;
@@ -1124,8 +1152,8 @@ PursuitTerminationReason HighLevelExplorer::pursuitTermination(
     return PursuitTerminationReason::WidthChanged;
   const double extension =
       projection(active_->start, active_->direction, best->endpoint);
-  const double progress = projection(active_->start, active_->direction,
-                                     observation.pose.position);
+  const double progress =
+      projection(active_->start, active_->direction, observation.pose.position);
   if (extension < active_->current_extension.meters() +
                       configuration_.minimum_extension.meters() &&
       progress >= active_->current_extension.meters() -
@@ -1153,16 +1181,15 @@ PursuitTerminationReason HighLevelExplorer::pursuitTermination(
 void HighLevelExplorer::updatePassageGrid(
     const domain::RobotObservation& observation,
     ExplorationCandidateId candidate_id, std::uint64_t passage_number,
-    domain::Point2D passage_start,
-    PassageCompletionState completion_state) {
+    domain::Point2D passage_start, PassageCompletionState completion_state) {
   bool changed = false;
   const double resolution = configuration_.passage_grid_resolution.meters();
   if (!passage_grid_reference_)
     passage_grid_reference_ = configuration_.passage_grid_geometry.valid()
                                   ? configuration_.passage_grid_geometry.origin
                                   : observation.pose.position;
-  const auto coordinates = [&](domain::Point2D point)
-      -> std::optional<std::pair<int, int>> {
+  const auto coordinates =
+      [&](domain::Point2D point) -> std::optional<std::pair<int, int>> {
     if (configuration_.passage_grid_geometry.valid()) {
       const auto cell = configuration_.passage_grid_geometry.cell(point);
       if (!cell) return std::nullopt;
@@ -1170,10 +1197,10 @@ void HighLevelExplorer::updatePassageGrid(
                        static_cast<int>(cell->first)};
     }
     return std::pair{
-        static_cast<int>(std::floor(
-            (point.y_m - passage_grid_reference_->y_m) / resolution)),
-        static_cast<int>(std::floor(
-            (point.x_m - passage_grid_reference_->x_m) / resolution))};
+        static_cast<int>(std::floor((point.y_m - passage_grid_reference_->y_m) /
+                                    resolution)),
+        static_cast<int>(std::floor((point.x_m - passage_grid_reference_->x_m) /
+                                    resolution))};
   };
   const auto apply = [&](domain::Point2D point, PassageCellState state,
                          std::optional<std::uint64_t> numbered_passage,
@@ -1204,27 +1231,25 @@ void HighLevelExplorer::updatePassageGrid(
     ++cell.evidence_count;
     changed = true;
   };
-  for (std::size_t beam = 0U; beam < observation.laser.ranges_m.size(); ++beam) {
+  for (std::size_t beam = 0U; beam < observation.laser.ranges_m.size();
+       ++beam) {
     const double range = observation.laser.ranges_m[beam];
     if (!std::isfinite(range) ||
         range < observation.laser.minimum_range.meters())
       continue;
     const double extent =
         std::min(range, observation.laser.maximum_range.meters());
-    const bool obstacle_hit =
-        range + domain::geometry_tolerance_m <
-        observation.laser.maximum_range.meters();
+    const bool obstacle_hit = range + domain::geometry_tolerance_m <
+                              observation.laser.maximum_range.meters();
     const std::size_t samples = std::max<std::size_t>(
         1U, static_cast<std::size_t>(std::ceil(extent / resolution)));
     for (std::size_t sample = 0U; sample <= samples; ++sample)
       apply(endpoint(observation, beam,
                      extent * static_cast<double>(sample) /
                          static_cast<double>(samples)),
-            obstacle_hit && sample == samples
-                ? PassageCellState::Obstructed
-                : PassageCellState::Free,
-            std::nullopt, std::nullopt,
-            PassageCompletionState::Unassigned);
+            obstacle_hit && sample == samples ? PassageCellState::Obstructed
+                                              : PassageCellState::Free,
+            std::nullopt, std::nullopt, PassageCompletionState::Unassigned);
   }
   const double path_length =
       domain::distance(passage_start, observation.pose.position).meters();
@@ -1257,9 +1282,9 @@ void HighLevelExplorer::updatePassageGrid(
  */
 domain::Action HighLevelExplorer::pursue(const ExplorationInput& input) const {
   if (!active_) return domain::Action::pause();
-  const double desired = std::atan2(
-      active_->endpoint.y_m - input.observation.pose.position.y_m,
-      active_->endpoint.x_m - input.observation.pose.position.x_m);
+  const double desired =
+      std::atan2(active_->endpoint.y_m - input.observation.pose.position.y_m,
+                 active_->endpoint.x_m - input.observation.pose.position.x_m);
   const double relative = domain::Angle::normalize(
       desired - input.observation.pose.heading.radians());
   if (std::abs(relative) > configuration_.heading_tolerance.radians())
@@ -1312,8 +1337,7 @@ ExplorationResult HighLevelExplorer::update(const ExplorationInput& input) {
                        "time_budget_exceeded");
       if (active_->passage_id)
         updatePassageGrid(input.observation, active_->id, *active_->passage_id,
-                          active_->start,
-                          PassageCompletionState::Abandoned);
+                          active_->start, PassageCompletionState::Abandoned);
       result.event = CandidateLifecycleEvent::Abandoned;
       result.candidate_id = active_->id;
     }
@@ -1330,8 +1354,7 @@ ExplorationResult HighLevelExplorer::update(const ExplorationInput& input) {
                        "decision_budget_exceeded");
       if (active_->passage_id)
         updatePassageGrid(input.observation, active_->id, *active_->passage_id,
-                          active_->start,
-                          PassageCompletionState::Abandoned);
+                          active_->start, PassageCompletionState::Abandoned);
       result.event = CandidateLifecycleEvent::Abandoned;
       result.candidate_id = active_->id;
     }
@@ -1350,13 +1373,14 @@ ExplorationResult HighLevelExplorer::update(const ExplorationInput& input) {
   if (state_ == HleState::DiscoverCandidate) {
     const auto before = candidate_diagnostics_.size();
     result.discovered = discover(input.observation);
-    const auto begin = candidate_diagnostics_.begin() +
-                       static_cast<std::ptrdiff_t>(before);
+    const auto begin =
+        candidate_diagnostics_.begin() + static_cast<std::ptrdiff_t>(before);
     if (!result.discovered.empty())
       result.event = CandidateLifecycleEvent::Discovered;
-    else if (std::any_of(begin, candidate_diagnostics_.end(), [](const auto& d) {
-               return d.kind == CandidateDiagnosticKind::Merged;
-             }))
+    else if (std::any_of(begin, candidate_diagnostics_.end(),
+                         [](const auto& d) {
+                           return d.kind == CandidateDiagnosticKind::Merged;
+                         }))
       result.event = CandidateLifecycleEvent::Merged;
     else if (begin != candidate_diagnostics_.end())
       result.event = CandidateLifecycleEvent::Rejected;
@@ -1401,8 +1425,7 @@ ExplorationResult HighLevelExplorer::update(const ExplorationInput& input) {
   if (state_ == HleState::ReturnToCandidateStart) {
     result.candidate_id = active_->id;
     if (domain::distance(input.observation.pose.position, active_->start)
-            .meters() >
-        configuration_.candidate_completion_distance.meters()) {
+            .meters() > configuration_.candidate_completion_distance.meters()) {
       result.subgoal = ExplorationSubgoal{active_->start, active_->id};
       result.rationale = "return to candidate start";
       return finish_result(std::move(result));
@@ -1421,7 +1444,8 @@ ExplorationResult HighLevelExplorer::update(const ExplorationInput& input) {
       if (active_termination_reason_ == PursuitTerminationReason::None) {
         updateCandidateExtension(input.observation);
       } else {
-        if (active_termination_reason_ == PursuitTerminationReason::WidthChanged ||
+        if (active_termination_reason_ ==
+                PursuitTerminationReason::WidthChanged ||
             active_termination_reason_ == PursuitTerminationReason::HardTurn) {
           active_->state = ExplorationCandidateState::Suspended;
           recordDiagnostic(active_->id, CandidateDiagnosticKind::Suspended,
@@ -1622,20 +1646,21 @@ void HighLevelExplorer::restorePassageGrid(
   }
 }
 
-std::vector<ExplorationCandidate>
-/**
- * @brief Performs the unfinished candidates operation for this subsystem.
- *
- * Arguments:
- * - None.
- *
- * Returns:
- * - No value; effects are applied to owned state or outputs.
- *
- * Exceptions:
- * - None documented; validation or dependency failures may propagate.
- */
-HighLevelExplorer::unfinishedCandidates() const {
+std::
+    vector<ExplorationCandidate>
+    /**
+     * @brief Performs the unfinished candidates operation for this subsystem.
+     *
+     * Arguments:
+     * - None.
+     *
+     * Returns:
+     * - No value; effects are applied to owned state or outputs.
+     *
+     * Exceptions:
+     * - None documented; validation or dependency failures may propagate.
+     */
+    HighLevelExplorer::unfinishedCandidates() const {
   std::vector<ExplorationCandidate> result;
   for (const auto& [id, candidate] : candidate_registry_) {
     (void)id;
@@ -1645,10 +1670,9 @@ HighLevelExplorer::unfinishedCandidates() const {
         candidate.state == ExplorationCandidateState::Suspended)
       result.push_back(candidate);
   }
-  std::stable_sort(result.begin(), result.end(),
-                   [](const auto& left, const auto& right) {
-                     return left.id < right.id;
-                   });
+  std::stable_sort(
+      result.begin(), result.end(),
+      [](const auto& left, const auto& right) { return left.id < right.id; });
   return result;
 }
 

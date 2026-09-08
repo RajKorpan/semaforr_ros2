@@ -2,10 +2,10 @@
  * @file catalog_registry.hpp
  * @brief Catalog registry responsibilities.
  *
- * @details This file defines catalog registry behavior for tiered decision making
- * and action arbitration. It records the declarations, settings, fixtures,
- * or guidance needed by that responsibility. Its package-relative location
- * is `include/semaforr/decision/advisors/catalog_registry.hpp`.
+ * @details This file defines catalog registry behavior for tiered decision
+ * making and action arbitration. It records the declarations, settings,
+ * fixtures, or guidance needed by that responsibility. Its package-relative
+ * location is `include/semaforr/decision/advisors/catalog_registry.hpp`.
  */
 #ifndef SEMAFORR_DECISION_ADVISOR_CATALOG_REGISTRY_HPP
 #define SEMAFORR_DECISION_ADVISOR_CATALOG_REGISTRY_HPP
@@ -32,9 +32,8 @@ namespace semaforr::decision {
  * Exceptions:
  * - None documented; validation or dependency failures may propagate.
  */
-void registerAdvisorCatalog(
-    AdvisorRegistry&, const domain::ActionSpace&,
-    const std::vector<config::AdvisorConfiguration>&);
+void registerAdvisorCatalog(AdvisorRegistry&, const domain::ActionSpace&,
+                            const std::vector<config::AdvisorConfiguration>&);
 
 }  // namespace semaforr::decision
 

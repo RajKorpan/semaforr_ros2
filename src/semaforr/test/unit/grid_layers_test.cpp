@@ -2,8 +2,8 @@
  * @file grid_layers_test.cpp
  * @brief Grid layers test responsibilities.
  *
- * @details This file exercises grid layers test behavior for automated verification
- * and regression testing. It centers on
+ * @details This file exercises grid layers test behavior for automated
+ * verification and regression testing. It centers on
  * `HitEndpointIsOccupiedWhileFamiliarityOnlyRecordsObservation`,
  * `MaximumRangeIsFreeAndInvalidBeamsAreIgnored`,
  * `FamiliarityCountsEachCoveredCellOncePerDecisionObservation`,
@@ -69,18 +69,20 @@ semaforr::spatial::NavigationEpisode scan(std::size_t sequence, double range,
  * - None documented; validation or dependency failures may propagate.
  */
 semaforr::domain::StaticMap staticMap(std::size_t columns,
-                                     std::size_t rows = 1U) {
+                                      std::size_t rows = 1U) {
   semaforr::domain::StaticMap map;
   map.source = "grid-layer-test";
   map.format = "test";
-  map.bounds = {{0.0, 0.0}, {static_cast<double>(columns),
-                             static_cast<double>(rows)}};
+  map.bounds = {{0.0, 0.0},
+                {static_cast<double>(columns), static_cast<double>(rows)}};
   map.walls = {{{0.0, 0.0}, {static_cast<double>(columns), 0.0}}};
   map.occupancy = {
-      columns, rows, 1.0, {0.0, 0.0},
+      columns,
+      rows,
+      1.0,
+      {0.0, 0.0},
       std::vector<semaforr::domain::StaticOccupancyState>(
-          columns * rows,
-          semaforr::domain::StaticOccupancyState::StaticFree)};
+          columns * rows, semaforr::domain::StaticOccupancyState::StaticFree)};
   return map;
 }
 
@@ -115,8 +117,8 @@ TEST(GridLayers, HitEndpointIsOccupiedWhileFamiliarityOnlyRecordsObservation) {
   occupancy.observe(episode);
   familiarity.observe(episode);
 
-  const auto sensed = std::get<spatial::SensedOccupancyModel>(
-      occupancy.snapshot().payload);
+  const auto sensed =
+      std::get<spatial::SensedOccupancyModel>(occupancy.snapshot().payload);
   EXPECT_TRUE(sensed.cells.empty());
   EXPECT_EQ(sensed.valueAt(0U).state,
             domain::SensedOccupancyState::ObservedFree);
@@ -135,16 +137,16 @@ TEST(GridLayers, MaximumRangeIsFreeAndInvalidBeamsAreIgnored) {
   using namespace semaforr;
   spatial::SensedOccupancyLearner maximum(6U, 1U, 1.0);
   maximum.observe(scan(1U, 4.0));
-  const auto max_model = std::get<spatial::SensedOccupancyModel>(
-      maximum.snapshot().payload);
+  const auto max_model =
+      std::get<spatial::SensedOccupancyModel>(maximum.snapshot().payload);
   EXPECT_EQ(max_model.valueAt(4U).state,
             domain::SensedOccupancyState::ObservedFree);
-  EXPECT_EQ(std::count_if(max_model.sparseCells().begin(),
-                          max_model.sparseCells().end(),
-                          [](const auto& sparse) {
-                            return sparse.value.state ==
-                                   domain::SensedOccupancyState::ObservedOccupied;
-                          }),
+  EXPECT_EQ(std::count_if(
+                max_model.sparseCells().begin(), max_model.sparseCells().end(),
+                [](const auto& sparse) {
+                  return sparse.value.state ==
+                         domain::SensedOccupancyState::ObservedOccupied;
+                }),
             0);
 
   spatial::SensedOccupancyLearner invalid(6U, 1U, 1.0);
@@ -166,8 +168,8 @@ TEST(GridLayers, FamiliarityCountsEachCoveredCellOncePerDecisionObservation) {
   dense.observation.laser.ranges_m.assign(10U, 2.0);
   familiarity.observe(dense);
 
-  auto model = std::get<spatial::KnownGridModel>(
-      familiarity.snapshot().payload);
+  auto model =
+      std::get<spatial::KnownGridModel>(familiarity.snapshot().payload);
   EXPECT_EQ(familiarityAt(model, 0U), 1U);
   EXPECT_EQ(familiarityAt(model, 1U), 1U);
   EXPECT_EQ(familiarityAt(model, 2U), 1U);
@@ -192,14 +194,15 @@ TEST(GridLayers, FamiliarityCountsMaximumRangeButIgnoresInvalidRays) {
       4.0, std::numeric_limits<double>::quiet_NaN(), 0.05,
       std::numeric_limits<double>::infinity()};
   familiarity.observe(episode);
-  const auto model = std::get<spatial::KnownGridModel>(
-      familiarity.snapshot().payload);
+  const auto model =
+      std::get<spatial::KnownGridModel>(familiarity.snapshot().payload);
   EXPECT_EQ(familiarityAt(model, 0U), 1U);
   EXPECT_EQ(familiarityAt(model, 4U), 1U);
   EXPECT_EQ(model.sparse_observations.size(), 5U);
 }
 
-TEST(GridLayers, FamiliarityIsInvariantToDifferentRayCountsAcrossAdjacentCells) {
+TEST(GridLayers,
+     FamiliarityIsInvariantToDifferentRayCountsAcrossAdjacentCells) {
   using namespace semaforr;
   spatial::KnownGridLearner familiarity(5U, 5U, 1.0);
   auto episode = scan(1U, 2.0);
@@ -207,33 +210,33 @@ TEST(GridLayers, FamiliarityIsInvariantToDifferentRayCountsAcrossAdjacentCells) 
   episode.observation.laser.angle_increment = domain::Angle(0.7853981633974483);
   episode.observation.laser.ranges_m = {2.0, 2.0, 2.0};
   familiarity.observe(episode);
-  const auto model = std::get<spatial::KnownGridModel>(
-      familiarity.snapshot().payload);
+  const auto model =
+      std::get<spatial::KnownGridModel>(familiarity.snapshot().payload);
 
   // The robot's cell is crossed by all three rays while the two neighboring
   // branches are crossed by different subsets. Every covered cell still gets
   // exactly one increment from this decision observation.
   ASSERT_FALSE(model.sparse_observations.empty());
-  EXPECT_TRUE(std::all_of(
-      model.sparse_observations.begin(), model.sparse_observations.end(),
-      [](const auto& cell) { return cell.value == 1U; }));
+  EXPECT_TRUE(std::all_of(model.sparse_observations.begin(),
+                          model.sparse_observations.end(),
+                          [](const auto& cell) { return cell.value == 1U; }));
 }
 
 TEST(GridLayers, ExtentPolicyExpandsOrClipsExplicitly) {
   using namespace semaforr;
-  spatial::SensedOccupancyLearner expanding(
-      2U, 2U, 1.0, {}, {}, spatial::GridExtentPolicy::Expand);
+  spatial::SensedOccupancyLearner expanding(2U, 2U, 1.0, {}, {},
+                                            spatial::GridExtentPolicy::Expand);
   expanding.observe(scan(1U, 4.0));
-  const auto expanded = std::get<spatial::SensedOccupancyModel>(
-      expanding.snapshot().payload);
+  const auto expanded =
+      std::get<spatial::SensedOccupancyModel>(expanding.snapshot().payload);
   EXPECT_GT(expanded.geometry.columns, 2U);
   const auto endpoint = expanded.geometry.index({4.5, 0.5});
   ASSERT_TRUE(endpoint);
   EXPECT_EQ(expanded.valueAt(*endpoint).state,
             domain::SensedOccupancyState::ObservedFree);
 
-  spatial::SensedOccupancyLearner fixed(
-      2U, 2U, 1.0, {}, {}, spatial::GridExtentPolicy::Fixed);
+  spatial::SensedOccupancyLearner fixed(2U, 2U, 1.0, {}, {},
+                                        spatial::GridExtentPolicy::Fixed);
   fixed.observe(scan(1U, 4.0));
   const auto clipped =
       std::get<spatial::SensedOccupancyModel>(fixed.snapshot().payload);
@@ -241,19 +244,20 @@ TEST(GridLayers, ExtentPolicyExpandsOrClipsExplicitly) {
   EXPECT_FALSE(clipped.geometry.index({4.5, 0.5}));
 }
 
-TEST(GridLayers, MaplessGeometryInitializesAroundFirstPoseWithoutFabricatingFreeSpace) {
+TEST(GridLayers,
+     MaplessGeometryInitializesAroundFirstPoseWithoutFabricatingFreeSpace) {
   using namespace semaforr;
   domain::GridExpansionPolicy expansion;
   expansion.margin_m = 0.0;
   expansion.increment_cells = 4U;
-  spatial::SensedOccupancyLearner learner(
-      4U, 4U, 1.0, {}, {}, spatial::GridExtentPolicy::Expand, expansion, true,
-      "odom");
+  spatial::SensedOccupancyLearner learner(4U, 4U, 1.0, {}, {},
+                                          spatial::GridExtentPolicy::Expand,
+                                          expansion, true, "odom");
   auto episode = scan(1U, std::numeric_limits<double>::quiet_NaN());
   episode.observation.pose.position = {10.0, -5.0};
   learner.observe(episode);
-  const auto model = std::get<spatial::SensedOccupancyModel>(
-      learner.snapshot().payload);
+  const auto model =
+      std::get<spatial::SensedOccupancyModel>(learner.snapshot().payload);
   EXPECT_EQ(model.geometry.frame_id, "odom");
   EXPECT_DOUBLE_EQ(model.geometry.minimum.x_m, 8.0);
   EXPECT_DOUBLE_EQ(model.geometry.minimum.y_m, -7.0);
@@ -280,8 +284,7 @@ TEST(GridLayers, RepeatedFreeEvidenceClearsDynamicOccupancyAndStaleHitsExpire) {
   spatial::SensedOccupancyLearner expiry(6U, 1U, 1.0, {}, configuration);
   expiry.observe(scan(1U, 2.0));
   for (std::size_t sequence = 2U; sequence <= 4U; ++sequence)
-    expiry.observe(scan(sequence,
-                       std::numeric_limits<double>::quiet_NaN()));
+    expiry.observe(scan(sequence, std::numeric_limits<double>::quiet_NaN()));
   EXPECT_EQ(std::get<spatial::SensedOccupancyModel>(expiry.snapshot().payload)
                 .valueAt(2U)
                 .state,
@@ -347,15 +350,18 @@ TEST(GridLayers, InflationAndPartialPlannerExcludeOccupiedEndpoints) {
       domain::SensedOccupancyState::ObservedFree;
   spatial.sensed_occupancy.cells[2].state =
       domain::SensedOccupancyState::ObservedOccupied;
-  planning::DomainPlanner planner("sensor_distance",
-                                  planning::PlanObjective::Distance,
-                                  planning::OccupancySourceMode::SensorDerivedPartial);
+  planning::DomainPlanner planner(
+      "sensor_distance", planning::PlanObjective::Distance,
+      planning::OccupancySourceMode::SensorDerivedPartial);
   planning::TraversabilityConfiguration no_inflation;
   no_inflation.robot_radius_m = no_inflation.safety_clearance_m =
       no_inflation.localization_uncertainty_m =
           no_inflation.dynamic_obstacle_margin_m = 0.0;
-  const auto plan = planner.plan(
-      {{{0.5, 0.5}, domain::Angle::zero()}, {2.5, 0.5}, &spatial, nullptr,
-       nullptr, no_inflation});
+  const auto plan = planner.plan({{{0.5, 0.5}, domain::Angle::zero()},
+                                  {2.5, 0.5},
+                                  &spatial,
+                                  nullptr,
+                                  nullptr,
+                                  no_inflation});
   EXPECT_EQ(plan.status, planning::PlanStatus::NoPath);
 }

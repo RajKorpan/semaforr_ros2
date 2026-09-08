@@ -2,8 +2,8 @@
  * @file semaforr_node.hpp
  * @brief Semaforr node responsibilities.
  *
- * @details This file defines semaforr node behavior for the ROS 2 composition and
- * message-adaptation boundary. It centers on `NavigationNodeState`,
+ * @details This file defines semaforr node behavior for the ROS 2 composition
+ * and message-adaptation boundary. It centers on `NavigationNodeState`,
  * `SemaFORRNode`, `Impl`. Its package-relative location is
  * `include/semaforr/ros/semaforr_node.hpp`.
  */

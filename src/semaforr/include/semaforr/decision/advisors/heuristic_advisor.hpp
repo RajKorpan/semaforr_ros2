@@ -2,8 +2,8 @@
  * @file heuristic_advisor.hpp
  * @brief Heuristic advisor responsibilities.
  *
- * @details This file defines heuristic advisor behavior for tiered decision making
- * and action arbitration. It centers on `HeuristicObjective`,
+ * @details This file defines heuristic advisor behavior for tiered decision
+ * making and action arbitration. It centers on `HeuristicObjective`,
  * `HeuristicAdvisorConfiguration`, `HeuristicAdvisor`. Its
  * package-relative location is
  * `include/semaforr/decision/advisors/heuristic_advisor.hpp`.
@@ -31,9 +31,25 @@ namespace semaforr::decision {
  * - None documented; validation or dependency failures may propagate.
  */
 enum class HeuristicObjective {
-  BigStep, ElbowRoom, Novelty, GoAround, Greedy, Curiosity, Enfilade,
-  VisualScan, Convey, Enter, Exit, Trailer, Unlikely, Access, Crossroads,
-  Follow, LeastAngle, SpatialLearner, Stay
+  BigStep,
+  ElbowRoom,
+  Novelty,
+  GoAround,
+  Greedy,
+  Curiosity,
+  Enfilade,
+  VisualScan,
+  Convey,
+  Enter,
+  Exit,
+  Trailer,
+  Unlikely,
+  Access,
+  Crossroads,
+  Follow,
+  LeastAngle,
+  SpatialLearner,
+  Stay
 };
 
 /**
@@ -96,7 +112,9 @@ class HeuristicAdvisor final : public Advisor {
    * Exceptions:
    * - None documented; validation or dependency failures may propagate.
    */
-  std::string_view name() const noexcept override { return configuration_.name; }
+  std::string_view name() const noexcept override {
+    return configuration_.name;
+  }
   /**
    * @brief Performs the dependencies operation for this subsystem.
    *

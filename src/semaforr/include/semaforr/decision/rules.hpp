@@ -2,8 +2,8 @@
  * @file rules.hpp
  * @brief Rules responsibilities.
  *
- * @details This file defines rules behavior for tiered decision making and action
- * arbitration. It centers on `Decision`, `MandatoryRule`, `VetoRule`,
+ * @details This file defines rules behavior for tiered decision making and
+ * action arbitration. It centers on `Decision`, `MandatoryRule`, `VetoRule`,
  * `PlanOperationalizer`, `ReplanningRequest`, `ReplanningTrigger`. Its
  * package-relative location is `include/semaforr/decision/rules.hpp`.
  */

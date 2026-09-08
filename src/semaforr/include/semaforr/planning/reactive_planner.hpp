@@ -53,8 +53,13 @@ enum class ReactiveStatus { NotApplicable, Action, InstallPlan, RequestReplan };
  * Exceptions:
  * - None documented; validation or dependency failures may propagate.
  */
-enum class InterruptionReason { TargetSensed, NewPlanAvailable, SensorLost,
-                                MissionChanged, Disabled };
+enum class InterruptionReason {
+  TargetSensed,
+  NewPlanAvailable,
+  SensorLost,
+  MissionChanged,
+  Disabled
+};
 /**
  * @brief Enumerates the supported reactive completion reason values used by
  * this subsystem.
@@ -69,8 +74,14 @@ enum class InterruptionReason { TargetSensed, NewPlanAvailable, SensorLost,
  * - None documented; validation or dependency failures may propagate.
  */
 enum class ReactiveCompletionReason {
-  None, TargetSensed, NewPlanAvailable, CandidateExhausted, NoCandidates,
-  BudgetExceeded, SensorLost, MissionChanged
+  None,
+  TargetSensed,
+  NewPlanAvailable,
+  CandidateExhausted,
+  NoCandidates,
+  BudgetExceeded,
+  SensorLost,
+  MissionChanged
 };
 /**
  * @brief Enumerates the supported low level exploration state values used
@@ -86,8 +97,13 @@ enum class ReactiveCompletionReason {
  * - None documented; validation or dependency failures may propagate.
  */
 enum class LowLevelExplorationState {
-  DetectMissingGuidance, AssembleCandidateRays, RankByTargetRelevance,
-  PlanToCandidateStart, PursueCandidate, CheckConnectivity, Complete
+  DetectMissingGuidance,
+  AssembleCandidateRays,
+  RankByTargetRelevance,
+  PlanToCandidateStart,
+  PursueCandidate,
+  CheckConnectivity,
+  Complete
 };
 
 /**
@@ -258,13 +274,12 @@ struct ReactiveResult {
    * Exceptions:
    * - None documented; validation or dependency failures may propagate.
    */
-  ReactiveResult(ReactiveStatus result_status,
-                 std::optional<domain::Action> result_action,
-                 std::string result_planner, std::string result_explanation,
-                 ReactiveCompletionReason reason,
-                 std::vector<domain::Point2D> waypoints = {},
-                 std::optional<domain::LearnedTrail> recovery_trail =
-                     std::nullopt)
+  ReactiveResult(
+      ReactiveStatus result_status, std::optional<domain::Action> result_action,
+      std::string result_planner, std::string result_explanation,
+      ReactiveCompletionReason reason,
+      std::vector<domain::Point2D> waypoints = {},
+      std::optional<domain::LearnedTrail> recovery_trail = std::nullopt)
       : status(result_status),
         action(result_action),
         planner(std::move(result_planner)),
@@ -422,8 +437,7 @@ class Thru final : public ReactivePlanner {
    * Exceptions:
    * - None documented; validation or dependency failures may propagate.
    */
-  explicit Thru(std::size_t decision_budget = 20U,
-                double desired_step_m = 0.8,
+  explicit Thru(std::size_t decision_budget = 20U, double desired_step_m = 0.8,
                 double endpoint_tolerance_m = 0.75,
                 std::size_t beam_neighborhood_half_width = 2U,
                 std::size_t minimum_clear_beams = 3U,
@@ -564,8 +578,8 @@ class Thru final : public ReactivePlanner {
    * Exceptions:
    * - None documented; validation or dependency failures may propagate.
    */
-  std::optional<EndpointChoice> chooseEndpoint(
-      const domain::WorldModel&, const SensedObjective&) const;
+  std::optional<EndpointChoice> chooseEndpoint(const domain::WorldModel&,
+                                               const SensedObjective&) const;
   std::optional<domain::Point2D> endpoint_;
   std::optional<domain::TaskId> mission_id_;
   std::string selected_side_;
@@ -918,9 +932,8 @@ class ReactivePlannerCoordinator {
    * Exceptions:
    * - None documented; validation or dependency failures may propagate.
    */
-  Evaluation evaluateDetailed(
-      const ReactiveRequest& request,
-      std::span<const domain::Action> viable_actions);
+  Evaluation evaluateDetailed(const ReactiveRequest& request,
+                              std::span<const domain::Action> viable_actions);
   /**
    * @brief Performs the cancel all operation for this subsystem.
    *
@@ -953,7 +966,10 @@ class ReactivePlannerCoordinator {
  * - None documented; validation or dependency failures may propagate.
  */
 enum class LLECandidateSource {
-  UnfinishedHle, CurrentTargetObservation, RegionVisibility, InclusionGap,
+  UnfinishedHle,
+  CurrentTargetObservation,
+  RegionVisibility,
+  InclusionGap,
   IncludedRelocation
 };
 
@@ -971,7 +987,11 @@ enum class LLECandidateSource {
  * - None documented; validation or dependency failures may propagate.
  */
 enum class CandidateStartPlanOutcome {
-  NotAttempted, AlreadySatisfied, Succeeded, Failed, Invalidated
+  NotAttempted,
+  AlreadySatisfied,
+  Succeeded,
+  Failed,
+  Invalidated
 };
 
 /**
@@ -1490,8 +1510,7 @@ class LowLevelExplorer final : public ReactivePlanner,
   std::size_t decision_budget_;
   LowLevelExplorationState state_ =
       LowLevelExplorationState::DetectMissingGuidance;
-  ReactiveCompletionReason completion_reason_ =
-      ReactiveCompletionReason::None;
+  ReactiveCompletionReason completion_reason_ = ReactiveCompletionReason::None;
   std::vector<LLECandidate> ranked_candidates_;
   std::size_t candidate_cursor_ = 0U;
   std::size_t decisions_ = 0U;

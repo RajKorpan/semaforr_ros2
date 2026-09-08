@@ -2,8 +2,8 @@
  * @file experiment_metrics.hpp
  * @brief Experiment metrics responsibilities.
  *
- * @details This file defines experiment metrics behavior for replay, experimental
- * validation, and performance measurement. It centers on
+ * @details This file defines experiment metrics behavior for replay,
+ * experimental validation, and performance measurement. It centers on
  * `AllocationMeasurement`, `ExperimentObservation`, `ExperimentSummary`,
  * `ExperimentMetricsCollector`. Its package-relative location is
  * `include/semaforr/validation/experiment_metrics.hpp`.

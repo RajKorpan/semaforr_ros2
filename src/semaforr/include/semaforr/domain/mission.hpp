@@ -2,8 +2,8 @@
  * @file mission.hpp
  * @brief Mission responsibilities.
  *
- * @details This file defines mission behavior for ROS-independent domain state and
- * value types. It centers on `NavigationTask`, `Mission`. Its
+ * @details This file defines mission behavior for ROS-independent domain state
+ * and value types. It centers on `NavigationTask`, `Mission`. Its
  * package-relative location is `include/semaforr/domain/mission.hpp`.
  */
 #ifndef SEMAFORR_DOMAIN_MISSION_HPP

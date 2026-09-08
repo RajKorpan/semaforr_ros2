@@ -2,8 +2,8 @@
  * @file highway.hpp
  * @brief Highway responsibilities.
  *
- * @details This file defines highway behavior for ROS-independent domain state and
- * value types. It centers on `Axis`, `GridCell`, `Intersection`,
+ * @details This file defines highway behavior for ROS-independent domain state
+ * and value types. It centers on `Axis`, `GridCell`, `Intersection`,
  * `HighwayEdge`, `Graph`, `Highway`, `HighwayIntersection`,
  * `HighwayGraph`. Its package-relative location is
  * `include/semaforr/domain/highway.hpp`.

@@ -7,9 +7,9 @@
  * guidance needed by that responsibility. Its package-relative location is
  * `src/navigation/navigation_phase.cpp`.
  */
-#include <semaforr/navigation/navigation_phase.hpp>
 #include <chrono>
 #include <cmath>
+#include <semaforr/navigation/navigation_phase.hpp>
 #include <stdexcept>
 
 namespace semaforr::navigation {

@@ -2,8 +2,8 @@
  * @file crowd_model_test.cpp
  * @brief Crowd model test responsibilities.
  *
- * @details This file exercises crowd model test behavior for automated verification
- * and regression testing. It centers on
+ * @details This file exercises crowd model test behavior for automated
+ * verification and regression testing. It centers on
  * `UsesVisibilityAsDensityDenominator`,
  * `EmptyObservationIsNegativeEvidence`,
  * `NoReturnLaserBeamExposesCellsToMaximumRange`,
@@ -203,34 +203,33 @@ TEST(CrowdModel, TracksMeaningfulLiveMutationsAndInputDiagnostics) {
 
   semaforr::domain::CrowdModel model;
   model.update(observation);
-  EXPECT_EQ(model.revisionOf(
-                semaforr::domain::ModelDependency::LiveCrowdObservation),
-            1U);
+  EXPECT_EQ(
+      model.revisionOf(semaforr::domain::ModelDependency::LiveCrowdObservation),
+      1U);
   EXPECT_EQ(model.inputSource(), "social_context_tracked");
   EXPECT_EQ(model.predictionSource(), "gst");
   EXPECT_EQ(model.inputStatus(), "ready");
   EXPECT_TRUE(model.formationEvidenceAvailable());
 
   model.update(observation);
-  EXPECT_EQ(model.revisionOf(
-                semaforr::domain::ModelDependency::LiveCrowdObservation),
-            1U);
+  EXPECT_EQ(
+      model.revisionOf(semaforr::domain::ModelDependency::LiveCrowdObservation),
+      1U);
   model.clearCurrent("missing_or_stale");
-  EXPECT_EQ(model.revisionOf(
-                semaforr::domain::ModelDependency::LiveCrowdObservation),
-            2U);
+  EXPECT_EQ(
+      model.revisionOf(semaforr::domain::ModelDependency::LiveCrowdObservation),
+      2U);
   EXPECT_EQ(model.inputStatus(), "missing_or_stale");
   model.clearCurrent("missing_or_stale");
-  EXPECT_EQ(model.revisionOf(
-                semaforr::domain::ModelDependency::LiveCrowdObservation),
-            2U);
+  EXPECT_EQ(
+      model.revisionOf(semaforr::domain::ModelDependency::LiveCrowdObservation),
+      2U);
 }
 
 TEST(CrowdFieldLearner, FormationMetadataDoesNotChangeBaseLearning) {
   auto plain = crowd(1s, true);
   auto grouped = plain;
-  grouped.formations.push_back(
-      {{"person-1"}, "side_by_side", {2.2, 1.5}, 0.9});
+  grouped.formations.push_back({{"person-1"}, "side_by_side", {2.2, 1.5}, 0.9});
   grouped.pedestrians.front().formation_index = 0U;
   grouped.validate();
   semaforr::social::CrowdFieldLearner without_formations(configuration());
@@ -243,7 +242,8 @@ TEST(CrowdFieldLearner, FormationMetadataDoesNotChangeBaseLearning) {
   EXPECT_EQ(with_formations.lastUpdate().formation_count, 1U);
 }
 
-TEST(CrowdFieldLearner, DuplicateEvidenceAndMissingLiveDataDoNotMutateLearning) {
+TEST(CrowdFieldLearner,
+     DuplicateEvidenceAndMissingLiveDataDoNotMutateLearning) {
   semaforr::social::CrowdFieldLearner learner(configuration());
   const semaforr::domain::Pose2D robot{{1.5, 1.5},
                                        semaforr::domain::Angle::zero()};
@@ -252,16 +252,14 @@ TEST(CrowdFieldLearner, DuplicateEvidenceAndMissingLiveDataDoNotMutateLearning) 
   const auto learned = learner.snapshot();
   EXPECT_FALSE(learner.observe(robot, laser(), evidence));
   EXPECT_EQ(learner.snapshot(), learned);
-  EXPECT_EQ(learner.lastUpdate().status,
-            "rejected_non_monotonic_timestamp");
+  EXPECT_EQ(learner.lastUpdate().status, "rejected_non_monotonic_timestamp");
 
   semaforr::domain::CrowdModel model;
   model.setLearned(learned);
-  const auto learned_revision = model.revisionOf(
-      semaforr::domain::ModelDependency::CrowdDensity);
+  const auto learned_revision =
+      model.revisionOf(semaforr::domain::ModelDependency::CrowdDensity);
   model.clearCurrent("missing_or_stale");
-  EXPECT_EQ(model.revisionOf(
-                semaforr::domain::ModelDependency::CrowdDensity),
+  EXPECT_EQ(model.revisionOf(semaforr::domain::ModelDependency::CrowdDensity),
             learned_revision);
   EXPECT_EQ(model.learned(), learned);
 }
@@ -271,8 +269,8 @@ TEST(CrowdFieldLearner, DoesNotPublishWithoutRepresentedEvidence) {
   const auto outside = crowd(1s, true);
   auto no_view = laser();
   no_view.ranges_m = {0.0};
-  EXPECT_FALSE(learner.observe(
-      {{20.0, 20.0}, semaforr::domain::Angle::zero()}, no_view, outside));
+  EXPECT_FALSE(learner.observe({{20.0, 20.0}, semaforr::domain::Angle::zero()},
+                               no_view, outside));
   EXPECT_TRUE(learner.lastUpdate().accepted);
   EXPECT_FALSE(learner.lastUpdate().published);
   EXPECT_EQ(learner.lastUpdate().snapshot_version, 0U);
@@ -404,7 +402,10 @@ TEST(CrowdConsumers, TypedPlannerIncludesLearnedCrowdCost) {
   map.bounds = {{0.0, 0.0}, {4.0, 4.0}};
   map.walls = {{{0.0, 0.0}, {4.0, 0.0}}};
   map.occupancy = {
-      4U, 4U, 1.0, {0.0, 0.0},
+      4U,
+      4U,
+      1.0,
+      {0.0, 0.0},
       std::vector<semaforr::domain::StaticOccupancyState>(
           16U, semaforr::domain::StaticOccupancyState::StaticFree)};
   const semaforr::planning::PlanningRequest request{

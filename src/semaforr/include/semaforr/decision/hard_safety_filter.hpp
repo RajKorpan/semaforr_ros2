@@ -2,8 +2,8 @@
  * @file hard_safety_filter.hpp
  * @brief Hard safety filter responsibilities.
  *
- * @details This file defines hard safety filter behavior for tiered decision making
- * and action arbitration. It centers on `SafetyFilterResult`,
+ * @details This file defines hard safety filter behavior for tiered decision
+ * making and action arbitration. It centers on `SafetyFilterResult`,
  * `HardSafetyFilter`. Its package-relative location is
  * `include/semaforr/decision/hard_safety_filter.hpp`.
  */
@@ -100,9 +100,8 @@ class HardSafetyFilter {
    * Exceptions:
    * - None documented; validation or dependency failures may propagate.
    */
-  SafetyFilterResult filter(
-      const DecisionContext& context,
-      std::span<const domain::Action> candidates) const;
+  SafetyFilterResult filter(const DecisionContext& context,
+                            std::span<const domain::Action> candidates) const;
 
  private:
   domain::ActionSpace action_space_;

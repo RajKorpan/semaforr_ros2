@@ -2,9 +2,9 @@
  * @file command_executor.cpp
  * @brief Command executor responsibilities.
  *
- * @details This file implements command executor behavior for the ROS 2 composition
- * and message-adaptation boundary. It records the declarations, settings,
- * fixtures, or guidance needed by that responsibility. Its
+ * @details This file implements command executor behavior for the ROS 2
+ * composition and message-adaptation boundary. It records the declarations,
+ * settings, fixtures, or guidance needed by that responsibility. Its
  * package-relative location is `src/ros/command_executor.cpp`.
  */
 #include <algorithm>
@@ -83,8 +83,7 @@ domain::VelocityCommand commandFor(
  * - None documented; validation or dependency failures may propagate.
  */
 double approach(double current, double target, double maximum_delta) {
-  return current +
-         std::clamp(target - current, -maximum_delta, maximum_delta);
+  return current + std::clamp(target - current, -maximum_delta, maximum_delta);
 }
 
 }  // namespace
@@ -198,8 +197,8 @@ ActionExecutionUpdate CommandExecutor::start(
   distance_achieved_m_ = 0.0;
   rotation_achieved_rad_ = 0.0;
   command_ = {};
-  return {status_, command_, progress_, target(), request.decision_id,
-          request.action_id, pose, pose, 0.0, 0.0};
+  return {status_,           command_, progress_, target(), request.decision_id,
+          request.action_id, pose,     pose,      0.0,      0.0};
 }
 
 /**
@@ -221,10 +220,16 @@ ActionExecutionUpdate CommandExecutor::update(const domain::Pose2D& pose,
       !command_updated_at_) {
     const domain::Pose2D pose_value = previous_pose_.value_or(domain::Pose2D{});
     const domain::Pose2D start_value = start_pose_.value_or(pose_value);
-    return {status_, command_, progress_, target(),
+    return {status_,
+            command_,
+            progress_,
+            target(),
             request_ ? request_->decision_id : 0U,
-            request_ ? request_->action_id : 0U, start_value, pose_value,
-            distance_achieved_m_, rotation_achieved_rad_};
+            request_ ? request_->action_id : 0U,
+            start_value,
+            pose_value,
+            distance_achieved_m_,
+            rotation_achieved_rad_};
   }
   if (now.get_clock_type() != started_at_->get_clock_type() ||
       now < *started_at_) {
@@ -285,14 +290,12 @@ ActionExecutionUpdate CommandExecutor::update(const domain::Pose2D& pose,
   if (!std::isfinite(command_elapsed_s) || command_elapsed_s < 0.0)
     return terminal(ActionExecutionStatus::ClockReset);
   const auto desired = commandFor(request_->action, configuration_);
-  command_.linear_mps =
-      approach(command_.linear_mps, desired.linear_mps,
-               configuration_.maximum_linear_acceleration_mps2 *
-                   command_elapsed_s);
-  command_.angular_radps =
-      approach(command_.angular_radps, desired.angular_radps,
-               configuration_.maximum_angular_acceleration_radps2 *
-                   command_elapsed_s);
+  command_.linear_mps = approach(
+      command_.linear_mps, desired.linear_mps,
+      configuration_.maximum_linear_acceleration_mps2 * command_elapsed_s);
+  command_.angular_radps = approach(
+      command_.angular_radps, desired.angular_radps,
+      configuration_.maximum_angular_acceleration_radps2 * command_elapsed_s);
   command_updated_at_ = now;
   if (!command_.finite() ||
       std::abs(command_.linear_mps) >
@@ -300,9 +303,16 @@ ActionExecutionUpdate CommandExecutor::update(const domain::Pose2D& pose,
       std::abs(command_.angular_radps) >
           configuration_.maximum_angular_velocity_radps)
     return terminal(ActionExecutionStatus::SafetyInterrupted);
-  return {status_, command_, progress_, target(), request_->decision_id,
-          request_->action_id, start_pose_.value_or(pose), pose,
-          distance_achieved_m_, rotation_achieved_rad_};
+  return {status_,
+          command_,
+          progress_,
+          target(),
+          request_->decision_id,
+          request_->action_id,
+          start_pose_.value_or(pose),
+          pose,
+          distance_achieved_m_,
+          rotation_achieved_rad_};
 }
 
 /**
@@ -339,10 +349,15 @@ ActionExecutionUpdate CommandExecutor::terminal(
   status_ = status;
   command_ = {};
   const domain::Pose2D final_pose = previous_pose_.value_or(domain::Pose2D{});
-  return {status_, command_, progress_, target(),
+  return {status_,
+          command_,
+          progress_,
+          target(),
           request_ ? request_->decision_id : 0U,
           request_ ? request_->action_id : 0U,
-          start_pose_.value_or(final_pose), final_pose, distance_achieved_m_,
+          start_pose_.value_or(final_pose),
+          final_pose,
+          distance_achieved_m_,
           rotation_achieved_rad_};
 }
 

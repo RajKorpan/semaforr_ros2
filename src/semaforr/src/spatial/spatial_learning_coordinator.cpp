@@ -2,8 +2,8 @@
  * @file spatial_learning_coordinator.cpp
  * @brief Spatial learning coordinator responsibilities.
  *
- * @details This file implements spatial learning coordinator behavior for learned
- * spatial representations and their lifecycle. It centers on
+ * @details This file implements spatial learning coordinator behavior for
+ * learned spatial representations and their lifecycle. It centers on
  * `ProjectionEstimate`. Its package-relative location is
  * `src/spatial/spatial_learning_coordinator.cpp`.
  */
@@ -33,18 +33,30 @@ namespace {
 domain::ModelDependency dependencyFor(SpatialRepresentation representation) {
   using D = domain::ModelDependency;
   switch (representation) {
-    case SpatialRepresentation::Trails: return D::Trails;
-    case SpatialRepresentation::Conveyors: return D::Conveyors;
-    case SpatialRepresentation::Regions: return D::Regions;
-    case SpatialRepresentation::DoorsAndExits: return D::DoorsAndExits;
-    case SpatialRepresentation::Hallways: return D::Hallways;
-    case SpatialRepresentation::Barriers: return D::Barriers;
-    case SpatialRepresentation::PassagesAndSkeleton: return D::Skeleton;
-    case SpatialRepresentation::KnownGrid: return D::Familiarity;
-    case SpatialRepresentation::SensedOccupancy: return D::SensedOccupancy;
-    case SpatialRepresentation::InclusionGrid: return D::Inclusion;
-    case SpatialRepresentation::Highways: return D::Highways;
-    case SpatialRepresentation::Circumstances: return D::Circumstances;
+    case SpatialRepresentation::Trails:
+      return D::Trails;
+    case SpatialRepresentation::Conveyors:
+      return D::Conveyors;
+    case SpatialRepresentation::Regions:
+      return D::Regions;
+    case SpatialRepresentation::DoorsAndExits:
+      return D::DoorsAndExits;
+    case SpatialRepresentation::Hallways:
+      return D::Hallways;
+    case SpatialRepresentation::Barriers:
+      return D::Barriers;
+    case SpatialRepresentation::PassagesAndSkeleton:
+      return D::Skeleton;
+    case SpatialRepresentation::KnownGrid:
+      return D::Familiarity;
+    case SpatialRepresentation::SensedOccupancy:
+      return D::SensedOccupancy;
+    case SpatialRepresentation::InclusionGrid:
+      return D::Inclusion;
+    case SpatialRepresentation::Highways:
+      return D::Highways;
+    case SpatialRepresentation::Circumstances:
+      return D::Circumstances;
   }
   return D::Trails;
 }
@@ -91,25 +103,23 @@ ProjectionEstimate estimateProjection(const SpatialPayload& value) {
         const auto add = [&](const auto& entries) {
           result.entities += entries.size();
           result.allocations += entries.empty() ? 0U : 1U;
-          result.bytes += entries.size() *
-                          sizeof(typename std::decay_t<
-                              decltype(entries)>::value_type);
+          result.bytes +=
+              entries.size() *
+              sizeof(typename std::decay_t<decltype(entries)>::value_type);
         };
         if constexpr (std::is_same_v<Payload, KnownGridModel>) {
           result.dense_cells = payload.observations.size();
           result.sparse_cells = payload.sparse_observations.size();
           result.bytes = payload.observations.size() * sizeof(std::uint32_t);
-          result.shared_bytes = payload.sparse_observations.size() *
-                                    sizeof(SparseGridCell) +
-                                payload.sparse_metadata.size() *
-                                    sizeof(FamiliarityCellMetadata);
+          result.shared_bytes =
+              payload.sparse_observations.size() * sizeof(SparseGridCell) +
+              payload.sparse_metadata.size() * sizeof(FamiliarityCellMetadata);
           result.allocations = payload.observations.empty() ? 0U : 1U;
-        } else if constexpr (std::is_same_v<Payload,
-                                             SensedOccupancyModel>) {
+        } else if constexpr (std::is_same_v<Payload, SensedOccupancyModel>) {
           result.dense_cells = payload.cells.size();
           result.sparse_cells = payload.sparse_cells.size();
-          result.bytes = payload.cells.size() *
-                         sizeof(domain::SensedOccupancyCell);
+          result.bytes =
+              payload.cells.size() * sizeof(domain::SensedOccupancyCell);
           result.shared_bytes = payload.sparse_cells.size() *
                                 sizeof(domain::SparseSensedOccupancyCell);
           result.allocations = payload.cells.empty() ? 0U : 1U;
@@ -144,8 +154,7 @@ ProjectionEstimate estimateProjection(const SpatialPayload& value) {
           add(payload.hallways);
         } else if constexpr (std::is_same_v<Payload, BarrierModel>) {
           add(payload.barriers);
-        } else if constexpr (std::is_same_v<Payload,
-                                             PassageSkeletonModel>) {
+        } else if constexpr (std::is_same_v<Payload, PassageSkeletonModel>) {
           add(payload.nodes);
           add(payload.edges);
           add(payload.region_nodes);
@@ -401,8 +410,8 @@ SpatialLearningCoordinator SpatialLearningCoordinator::defaults(
       1.0, 3U, grid_configuration.learning_mode));
   coordinator.addLearner(std::make_unique<DoorExitLearner>(
       0.75, 2.5, grid_configuration.learning_mode));
-  coordinator.addLearner(std::make_unique<HallwayLearner>(
-      0.5, grid_configuration.learning_mode));
+  coordinator.addLearner(
+      std::make_unique<HallwayLearner>(0.5, grid_configuration.learning_mode));
   coordinator.addLearner(std::make_unique<BarrierLearner>());
   coordinator.addLearner(std::make_unique<PassageSkeletonLearner>(
       0.5, grid_configuration.learning_mode));
@@ -415,13 +424,12 @@ SpatialLearningCoordinator SpatialLearningCoordinator::defaults(
       grid_configuration.extent_policy, grid_configuration.expansion,
       grid_configuration.initialize_around_first_pose,
       grid_configuration.frame_id));
-  coordinator.addLearner(
-      std::make_unique<SensedOccupancyLearner>(
-          columns, rows, grid_configuration.resolution_m, domain::Point2D{},
-          occupancy_configuration, grid_configuration.extent_policy,
-          grid_configuration.expansion,
-          grid_configuration.initialize_around_first_pose,
-          grid_configuration.frame_id));
+  coordinator.addLearner(std::make_unique<SensedOccupancyLearner>(
+      columns, rows, grid_configuration.resolution_m, domain::Point2D{},
+      occupancy_configuration, grid_configuration.extent_policy,
+      grid_configuration.expansion,
+      grid_configuration.initialize_around_first_pose,
+      grid_configuration.frame_id));
   coordinator.addLearner(std::make_unique<InclusionGridLearner>(
       columns, rows, grid_configuration.resolution_m, domain::Point2D{},
       grid_configuration.extent_policy, grid_configuration.expansion,
@@ -666,9 +674,8 @@ void SpatialLearningCoordinator::dispatch(const NavigationEpisode& episode) {
         (episode.event == LearningEvent::SensorObservation ||
          episode.event == LearningEvent::DecisionSelected ||
          episode.event == LearningEvent::ActionTerminal);
-    if (entry.enabled &&
-        (circumstance_event ||
-         acceptsEvent(entry.learner->contract(), episode))) {
+    if (entry.enabled && (circumstance_event ||
+                          acceptsEvent(entry.learner->contract(), episode))) {
       if (!sequenced) {
         sequenced = episode;
         sequenced->sequence = ++learning_event_sequence_;
@@ -895,8 +902,7 @@ void SpatialLearningCoordinator::finalizeInitialExploration() {
          entry.learner->representation() == SpatialRepresentation::Regions ||
          entry.learner->representation() ==
              SpatialRepresentation::PassagesAndSkeleton) &&
-        entry.learner->representation() !=
-            SpatialRepresentation::InclusionGrid)
+        entry.learner->representation() != SpatialRepresentation::InclusionGrid)
       entry.learner->rebuild();
   }
   synchronizeInclusion();
@@ -921,8 +927,7 @@ void SpatialLearningCoordinator::finalizeTarget() {
          entry.learner->representation() == SpatialRepresentation::Regions ||
          entry.learner->representation() ==
              SpatialRepresentation::PassagesAndSkeleton) &&
-        entry.learner->representation() !=
-            SpatialRepresentation::InclusionGrid)
+        entry.learner->representation() != SpatialRepresentation::InclusionGrid)
       entry.learner->rebuild();
   synchronizeInclusion();
 }
@@ -940,8 +945,8 @@ void SpatialLearningCoordinator::finalizeTarget() {
  * - None documented; validation or dependency failures may propagate.
  */
 void SpatialLearningCoordinator::synchronizeInclusion() {
-  auto inclusion = std::find_if(
-      learners_.begin(), learners_.end(), [](const Entry& entry) {
+  auto inclusion =
+      std::find_if(learners_.begin(), learners_.end(), [](const Entry& entry) {
         return entry.learner->representation() ==
                SpatialRepresentation::InclusionGrid;
       });
@@ -952,8 +957,7 @@ void SpatialLearningCoordinator::synchronizeInclusion() {
       update && update->usable() &&
       std::holds_alternative<RegionModel>(update->payload))
     regions = std::get<RegionModel>(update->payload);
-  if (const auto update =
-          snapshot(SpatialRepresentation::PassagesAndSkeleton);
+  if (const auto update = snapshot(SpatialRepresentation::PassagesAndSkeleton);
       update && update->usable() &&
       std::holds_alternative<PassageSkeletonModel>(update->payload))
     skeleton = std::get<PassageSkeletonModel>(update->payload);
@@ -1170,9 +1174,9 @@ void SpatialLearningCoordinator::applyTo(domain::SpatialModel& model) const {
               model.sampled_path_edges.emplace_back(edge.from, edge.to);
           } else if constexpr (std::is_same_v<Payload, KnownGridModel>) {
             model.known_grid = {
-                payload.geometry.columns, payload.geometry.rows,
+                payload.geometry.columns,      payload.geometry.rows,
                 payload.geometry.resolution_m, payload.geometry.origin,
-                payload.observations, update.revision};
+                payload.observations,          update.revision};
             model.known_grid.sparse_snapshot =
                 std::shared_ptr<const std::vector<domain::SparseCountCell>>(
                     snapshot, &payload.sparse_observations);
@@ -1184,8 +1188,7 @@ void SpatialLearningCoordinator::applyTo(domain::SpatialModel& model) const {
                 payload.geometry.geometry_revision;
             model.known_grid.extent_mode = payload.geometry.extent_mode;
             model.known_grid.extent_source = payload.geometry.extent_source;
-          } else if constexpr (std::is_same_v<Payload,
-                                               SensedOccupancyModel>) {
+          } else if constexpr (std::is_same_v<Payload, SensedOccupancyModel>) {
             model.sensed_occupancy = {};
             model.sensed_occupancy.geometry = payload.geometry;
             model.sensed_occupancy.cells = payload.cells;
@@ -1193,8 +1196,7 @@ void SpatialLearningCoordinator::applyTo(domain::SpatialModel& model) const {
                 const std::vector<domain::SparseSensedOccupancyCell>>(
                 snapshot, &payload.sparse_cells);
             model.sensed_occupancy.revision = update.revision;
-          } else if constexpr (std::is_same_v<Payload,
-                                               InclusionGridModel>) {
+          } else if constexpr (std::is_same_v<Payload, InclusionGridModel>) {
             model.inclusion_grid = domain::SparseCountGrid(
                 payload.geometry.columns, payload.geometry.rows,
                 payload.geometry.resolution_m, payload.geometry.origin,
@@ -1243,9 +1245,9 @@ void SpatialLearningCoordinator::applyTo(domain::SpatialModel& model) const {
       model.revisions[domain::ModelDependency::VisibilityGeometry] =
           update.revision;
   }
-  metrics.projection_time_s = std::chrono::duration<double>(
-                                  std::chrono::steady_clock::now() - started)
-                                  .count();
+  metrics.projection_time_s =
+      std::chrono::duration<double>(std::chrono::steady_clock::now() - started)
+          .count();
   last_projection_metrics_ = metrics;
   auto& total = cumulative_projection_metrics_;
   total.snapshots_examined += metrics.snapshots_examined;

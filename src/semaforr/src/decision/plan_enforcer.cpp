@@ -2,10 +2,10 @@
  * @file plan_enforcer.cpp
  * @brief Plan enforcer responsibilities.
  *
- * @details This file implements plan enforcer behavior for tiered decision making
- * and action arbitration. It records the declarations, settings, fixtures,
- * or guidance needed by that responsibility. Its package-relative location
- * is `src/decision/plan_enforcer.cpp`.
+ * @details This file implements plan enforcer behavior for tiered decision
+ * making and action arbitration. It records the declarations, settings,
+ * fixtures, or guidance needed by that responsibility. Its package-relative
+ * location is `src/decision/plan_enforcer.cpp`.
  */
 #include <algorithm>
 #include <cmath>
@@ -60,15 +60,13 @@ bool visible(const domain::Pose2D& pose, domain::Point2D point,
     constexpr double pi = 3.14159265358979323846;
     double positive = std::fmod(angle, 2.0 * pi);
     if (positive < 0.0) positive += 2.0 * pi;
-    const auto bin = static_cast<std::size_t>(
-                         std::floor(positive * 180.0 / pi)) %
-                     360U;
+    const auto bin =
+        static_cast<std::size_t>(std::floor(positive * 180.0 / pi)) % 360U;
     const auto& evidence = region.visibility[bin];
-    learned_visibility = evidence.known &&
-                         evidence.maximum_distance_m +
-                                 domain::geometry_tolerance_m >=
-                             domain::distance(region.boundary.center, point)
-                                 .meters();
+    learned_visibility =
+        evidence.known &&
+        evidence.maximum_distance_m + domain::geometry_tolerance_m >=
+            domain::distance(region.boundary.center, point).meters();
     if (learned_visibility) break;
   }
   if (!learned_visibility &&
@@ -143,12 +141,12 @@ void record(planning::HierarchicalPlan& plan, std::string operation,
  * Exceptions:
  * - None documented; validation or dependency failures may propagate.
  */
-planning::PlanningRequest requestFor(
-    const planning::HierarchicalPlan& plan,
-    const PlanEnforcementContext& context) {
-  return {context.pose, plan.planned_goal, &context.spatial, context.crowd,
-          context.static_map, context.traversability, context.task_id,
-          plan.planner_configuration_revision};
+planning::PlanningRequest requestFor(const planning::HierarchicalPlan& plan,
+                                     const PlanEnforcementContext& context) {
+  return {context.pose,       plan.planned_goal,
+          &context.spatial,   context.crowd,
+          context.static_map, context.traversability,
+          context.task_id,    plan.planner_configuration_revision};
 }
 
 /**
@@ -191,16 +189,16 @@ bool segmentTraversable(const domain::TraversabilityGrid& grid,
                         std::string& evidence) {
   const double length = domain::distance(from, to).meters();
   const double stride = std::max(0.02, grid.geometry.resolution_m * 0.5);
-  const std::size_t samples =
-      std::max<std::size_t>(1U, static_cast<std::size_t>(std::ceil(length / stride)));
+  const std::size_t samples = std::max<std::size_t>(
+      1U, static_cast<std::size_t>(std::ceil(length / stride)));
   for (std::size_t i = 0U; i <= samples; ++i) {
     const double t = static_cast<double>(i) / static_cast<double>(samples);
     const domain::Point2D point{from.x_m + (to.x_m - from.x_m) * t,
                                 from.y_m + (to.y_m - from.y_m) * t};
     const auto cell = grid.geometry.index(point);
     if (!cell || !grid.cells[*cell].permitsTraversal()) {
-      evidence = !cell ? "outside_planning_extent"
-                       : "prohibited_or_inflated_cell";
+      evidence =
+          !cell ? "outside_planning_extent" : "prohibited_or_inflated_cell";
       return false;
     }
   }
@@ -224,17 +222,26 @@ std::string stepName(const planning::PlanStep& step) {
   return std::visit(
       [](const auto& value) -> std::string {
         using T = std::decay_t<decltype(value)>;
-        if constexpr (std::is_same_v<T, planning::WaypointStep>) return "waypoint";
-        if constexpr (std::is_same_v<T, planning::SubtrailStep>) return "subtrail";
+        if constexpr (std::is_same_v<T, planning::WaypointStep>)
+          return "waypoint";
+        if constexpr (std::is_same_v<T, planning::SubtrailStep>)
+          return "subtrail";
         if constexpr (std::is_same_v<T, planning::RegionStep>) return "region";
-        if constexpr (std::is_same_v<T, planning::VisibilityConnectionStep>) return "visibility_connection";
-        if constexpr (std::is_same_v<T, planning::HighwayStep>) return "highway";
-        if constexpr (std::is_same_v<T, planning::IntersectionStep>) return "intersection";
-        if constexpr (std::is_same_v<T, planning::HighwayEntryStep>) return "highway_entry";
-        if constexpr (std::is_same_v<T, planning::HighwayExitStep>) return "highway_exit";
-        if constexpr (std::is_same_v<T, planning::SkeletonTransitionStep>) return "skeleton_transition";
+        if constexpr (std::is_same_v<T, planning::VisibilityConnectionStep>)
+          return "visibility_connection";
+        if constexpr (std::is_same_v<T, planning::HighwayStep>)
+          return "highway";
+        if constexpr (std::is_same_v<T, planning::IntersectionStep>)
+          return "intersection";
+        if constexpr (std::is_same_v<T, planning::HighwayEntryStep>)
+          return "highway_entry";
+        if constexpr (std::is_same_v<T, planning::HighwayExitStep>)
+          return "highway_exit";
+        if constexpr (std::is_same_v<T, planning::SkeletonTransitionStep>)
+          return "skeleton_transition";
         return "final_target";
-      }, step);
+      },
+      step);
 }
 }  // namespace
 
@@ -252,16 +259,15 @@ std::string stepName(const planning::PlanStep& step) {
  * - None documented; validation or dependency failures may propagate.
  */
 PlanEnforcementResult LocalActionEvaluator::evaluate(
-    PlanEnforcementResult result,
-    const PlanEnforcementContext& context) const {
+    PlanEnforcementResult result, const PlanEnforcementContext& context) const {
   if (!result.operational_target) return result;
   const auto target = *result.operational_target;
   const auto score = [&](const domain::Pose2D& pose) {
     const double heading = std::atan2(target.y_m - pose.position.y_m,
                                       target.x_m - pose.position.x_m);
     return domain::distance(pose.position, target).meters() +
-           0.25 * std::abs(domain::Angle::normalize(
-                      heading - pose.heading.radians()));
+           0.25 * std::abs(domain::Angle::normalize(heading -
+                                                    pose.heading.radians()));
   };
   const double before = score(context.pose);
   std::optional<std::size_t> best;
@@ -317,7 +323,8 @@ PlanEnforcementResult GridPlanEnforcer::enforce(
   const auto changed = dependencyChanges(plan, context);
   if (!changed.empty()) {
     plan.validity = planning::PlanValidity::Stale;
-    plan.diagnostics.insert(plan.diagnostics.end(), changed.begin(), changed.end());
+    plan.diagnostics.insert(plan.diagnostics.end(), changed.begin(),
+                            changed.end());
     result.status = EnforcementStatus::Stale;
     result.reason_code = "enforcer:grid_dependency_changed:" + changed.front();
     return result;
@@ -329,7 +336,8 @@ PlanEnforcementResult GridPlanEnforcer::enforce(
     result.reason_code = "enforcer:grid_path_empty";
     return result;
   }
-  const double deviation_limit = std::max(2.0, 4.0 * context.tolerance.meters());
+  const double deviation_limit =
+      std::max(2.0, 4.0 * context.tolerance.meters());
   double nearest = std::numeric_limits<double>::infinity();
   std::size_t nearest_index = plan.cursor;
   for (std::size_t i = plan.cursor; i < path.size(); ++i) {
@@ -348,8 +356,8 @@ PlanEnforcementResult GridPlanEnforcer::enforce(
   }
   const std::size_t original = plan.cursor;
   plan.cursor = nearest_index;
-  while (plan.cursor < path.size() && reached(context.pose, path[plan.cursor],
-                                               context.tolerance))
+  while (plan.cursor < path.size() &&
+         reached(context.pose, path[plan.cursor], context.tolerance))
     ++plan.cursor;
   if (plan.cursor >= path.size()) {
     plan.validity = planning::PlanValidity::Complete;
@@ -384,19 +392,20 @@ PlanEnforcementResult GridPlanEnforcer::enforce(
   if (selected > plan.cursor) {
     result.shortcut = "grid_path_lookahead";
     result.skipped_elements = selected - plan.cursor;
-    plan.operationalizations.push_back(
-        {plan.cursor, "grid_path_lookahead_shortcut",
-         plan.dependency_revisions});
+    plan.operationalizations.push_back({plan.cursor,
+                                        "grid_path_lookahead_shortcut",
+                                        plan.dependency_revisions});
     plan.cursor = selected;
   }
   result.step_index = plan.cursor;
   if (!result.shortcut) result.skipped_elements = plan.cursor - original;
   result.operational_target = path[plan.cursor];
   result.lookahead_m =
-      domain::distance(context.pose.position, *result.operational_target).meters();
+      domain::distance(context.pose.position, *result.operational_target)
+          .meters();
   result.step_type = "grid_waypoint";
-  result.validation_evidence = evidence.empty() ? "next_path_cell_traversable"
-                                                : evidence;
+  result.validation_evidence =
+      evidence.empty() ? "next_path_cell_traversable" : evidence;
   return LocalActionEvaluator{}.evaluate(std::move(result), context);
 }
 
@@ -427,7 +436,8 @@ PlanEnforcementResult ModelPlanEnforcer::enforce(
   const auto changed = dependencyChanges(plan, context);
   if (!changed.empty()) {
     plan.validity = planning::PlanValidity::Stale;
-    plan.diagnostics.insert(plan.diagnostics.end(), changed.begin(), changed.end());
+    plan.diagnostics.insert(plan.diagnostics.end(), changed.begin(),
+                            changed.end());
     result.status = EnforcementStatus::Stale;
     result.reason_code = "enforcer:model_dependency_changed:" + changed.front();
     return result;
@@ -449,7 +459,8 @@ PlanEnforcementResult ModelPlanEnforcer::enforce(
   result.step_index = plan.cursor;
   result.skipped_elements = plan.cursor > before ? plan.cursor - before : 0U;
   result.operational_target = *target;
-  result.lookahead_m = domain::distance(context.pose.position, *target).meters();
+  result.lookahead_m =
+      domain::distance(context.pose.position, *target).meters();
   result.step_type = plan.cursor < plan.steps.size()
                          ? stepName(plan.steps[plan.cursor])
                          : "complete";
@@ -489,7 +500,8 @@ PlanEnforcementResult Enforcer::enforce(
                     ? grid_.enforce(plan, context)
                     : model_.enforce(plan, context);
   if (cursor != plan.cursor || validity != plan.validity ||
-      operations != plan.operationalizations.size() || steps != plan.steps.size())
+      operations != plan.operationalizations.size() ||
+      steps != plan.steps.size())
     ++plan.execution_revision;
   return result;
 }
@@ -630,15 +642,15 @@ std::optional<domain::Point2D> Enforcer::operationalizeNext(
     }
     current = planning::SubtrailStep{transition->supporting_subtrail,
                                      std::nullopt, 0U};
-    record(plan, "skeleton_transition_operationalized_as_subtrail", spatial,
-           {domain::ModelDependency::Skeleton,
-            domain::ModelDependency::Trails});
+    record(
+        plan, "skeleton_transition_operationalized_as_subtrail", spatial,
+        {domain::ModelDependency::Skeleton, domain::ModelDependency::Trails});
     return operationalizeNext(plan, spatial, pose, tolerance);
   }
   if (auto* entry = std::get_if<planning::HighwayEntryStep>(&current)) {
     if (!entry->supporting_subtrail.empty()) {
-      current = planning::SubtrailStep{entry->supporting_subtrail,
-                                       std::nullopt, 0U};
+      current =
+          planning::SubtrailStep{entry->supporting_subtrail, std::nullopt, 0U};
       record(plan, "highway_entry_operationalized_as_subtrail", spatial,
              {domain::ModelDependency::Skeleton,
               domain::ModelDependency::Highways});
@@ -648,8 +660,8 @@ std::optional<domain::Point2D> Enforcer::operationalizeNext(
   }
   if (auto* exit = std::get_if<planning::HighwayExitStep>(&current)) {
     if (!exit->supporting_subtrail.empty()) {
-      current = planning::SubtrailStep{exit->supporting_subtrail,
-                                       std::nullopt, 0U};
+      current =
+          planning::SubtrailStep{exit->supporting_subtrail, std::nullopt, 0U};
       record(plan, "highway_exit_operationalized_as_subtrail", spatial,
              {domain::ModelDependency::Skeleton,
               domain::ModelDependency::Highways});
@@ -753,9 +765,9 @@ std::optional<domain::Point2D> Enforcer::operationalizeNext(
     if (!highway->fallback_subtrail.empty()) {
       current =
           planning::SubtrailStep{highway->fallback_subtrail, std::nullopt, 0U};
-      record(plan, "highway_repaired_with_stored_trail", spatial,
-             {domain::ModelDependency::Highways,
-              domain::ModelDependency::Trails});
+      record(
+          plan, "highway_repaired_with_stored_trail", spatial,
+          {domain::ModelDependency::Highways, domain::ModelDependency::Trails});
       plan.diagnostics.push_back("highway_repaired_with_stored_trail");
       return operationalizeNext(plan, spatial, pose, tolerance);
     }

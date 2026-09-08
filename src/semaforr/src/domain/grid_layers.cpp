@@ -146,13 +146,12 @@ std::vector<SparseCountCell> FamiliarityGrid::regionOfInterest(
  */
 SensedOccupancyCell SensedOccupancyGrid::valueAt(
     std::size_t index) const noexcept {
-  if (!cells.empty()) return index < cells.size() ? cells[index]
-                                                  : SensedOccupancyCell{};
+  if (!cells.empty())
+    return index < cells.size() ? cells[index] : SensedOccupancyCell{};
   const auto& sparse = sparseCells();
   const auto found = findSparse(sparse, index);
-  return found != sparse.end() && found->index == index
-             ? found->value
-             : SensedOccupancyCell{};
+  return found != sparse.end() && found->index == index ? found->value
+                                                        : SensedOccupancyCell{};
 }
 
 /**
@@ -168,7 +167,8 @@ SensedOccupancyCell SensedOccupancyGrid::valueAt(
  * Exceptions:
  * - None documented; validation or dependency failures may propagate.
  */
-const std::vector<SensedOccupancyCell>& SensedOccupancyGrid::denseCells() const {
+const std::vector<SensedOccupancyCell>& SensedOccupancyGrid::denseCells()
+    const {
   if (!cells.empty()) return cells;
   std::scoped_lock lock(dense_cache_->mutex);
   if (dense_cache_->revision != revision ||
@@ -222,10 +222,10 @@ std::vector<SparseSensedOccupancyCell> SensedOccupancyGrid::regionOfInterest(
 bool SparseCountGrid::valid() const noexcept {
   return extent().valid() &&
          (cells.size() == columns * rows ||
-          (cells.empty() && std::all_of(sparseCells().begin(), sparseCells().end(),
-                                        [&](const auto& cell) {
-                                          return cell.index < columns * rows;
-                                        })));
+          (cells.empty() &&
+           std::all_of(
+               sparseCells().begin(), sparseCells().end(),
+               [&](const auto& cell) { return cell.index < columns * rows; })));
 }
 
 /**
@@ -309,11 +309,10 @@ std::vector<SparseCountCell> SparseCountGrid::regionOfInterest(
  * - None documented; validation or dependency failures may propagate.
  */
 std::size_t SparseCountGrid::observedCellCount() const noexcept {
-  return cells.empty()
-             ? sparseCells().size()
-             : static_cast<std::size_t>(std::count_if(
-                   cells.begin(), cells.end(),
-                   [](std::uint32_t value) { return value != 0U; }));
+  return cells.empty() ? sparseCells().size()
+                       : static_cast<std::size_t>(std::count_if(
+                             cells.begin(), cells.end(),
+                             [](std::uint32_t value) { return value != 0U; }));
 }
 
 }  // namespace semaforr::domain

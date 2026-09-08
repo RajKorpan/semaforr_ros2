@@ -2,8 +2,8 @@
  * @file passage_skeleton_learner.hpp
  * @brief Passage skeleton learner responsibilities.
  *
- * @details This file defines passage skeleton learner behavior for learned spatial
- * representations and their lifecycle. It centers on
+ * @details This file defines passage skeleton learner behavior for learned
+ * spatial representations and their lifecycle. It centers on
  * `PassageSkeletonLearner`. Its package-relative location is
  * `include/semaforr/spatial/learners/passage_skeleton_learner.hpp`.
  */

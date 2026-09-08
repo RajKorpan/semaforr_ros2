@@ -2,10 +2,10 @@
  * @file grid_geometry.cpp
  * @brief Grid geometry responsibilities.
  *
- * @details This file implements grid geometry behavior for ROS-independent domain
- * state and value types. It records the declarations, settings, fixtures,
- * or guidance needed by that responsibility. Its package-relative location
- * is `src/domain/grid_geometry.cpp`.
+ * @details This file implements grid geometry behavior for ROS-independent
+ * domain state and value types. It records the declarations, settings,
+ * fixtures, or guidance needed by that responsibility. Its package-relative
+ * location is `src/domain/grid_geometry.cpp`.
  */
 #include <algorithm>
 #include <cmath>
@@ -118,11 +118,11 @@ GridGeometry::GridGeometry(std::size_t column_count, std::size_t row_count,
 GridGeometry::GridGeometry(std::string frame, double width_m, double height_m,
                            double resolution, double origin_x_m,
                            double origin_y_m)
-    : GridGeometry(fromBounds(
-          std::move(frame), {origin_x_m, origin_y_m},
-          {origin_x_m + width_m, origin_y_m + height_m}, resolution,
-          GridExtentMode::Fixed, GridExtentSource::RepresentationLocalBounds,
-          GridOutOfBoundsBehavior::NonTraversable)) {}
+    : GridGeometry(fromBounds(std::move(frame), {origin_x_m, origin_y_m},
+                              {origin_x_m + width_m, origin_y_m + height_m},
+                              resolution, GridExtentMode::Fixed,
+                              GridExtentSource::RepresentationLocalBounds,
+                              GridOutOfBoundsBehavior::NonTraversable)) {}
 
 /**
  * @brief Constructs bounds for this subsystem.
@@ -155,7 +155,8 @@ GridGeometry GridGeometry::fromBounds(
       !std::isfinite(resolution) || resolution <= 0.0 ||
       requested_maximum.x_m <= grid_minimum.x_m ||
       requested_maximum.y_m <= grid_minimum.y_m)
-    throw std::invalid_argument("grid bounds, frame, and resolution are invalid");
+    throw std::invalid_argument(
+        "grid bounds, frame, and resolution are invalid");
   const auto column_count = static_cast<std::size_t>(
       std::ceil((requested_maximum.x_m - grid_minimum.x_m) / resolution));
   const auto row_count = static_cast<std::size_t>(
@@ -163,8 +164,9 @@ GridGeometry GridGeometry::fromBounds(
   GridGeometry result;
   result.frame_id = std::move(frame);
   result.minimum = grid_minimum;
-  result.maximum = {grid_minimum.x_m + static_cast<double>(column_count) * resolution,
-                    grid_minimum.y_m + static_cast<double>(row_count) * resolution};
+  result.maximum = {
+      grid_minimum.x_m + static_cast<double>(column_count) * resolution,
+      grid_minimum.y_m + static_cast<double>(row_count) * resolution};
   result.resolution_m = resolution;
   result.columns = column_count;
   result.rows = row_count;
@@ -195,8 +197,10 @@ bool GridGeometry::valid() const noexcept {
       !origin.finite() || !std::isfinite(resolution_m) || resolution_m <= 0.0 ||
       columns == 0U || rows == 0U || origin != minimum)
     return false;
-  const double expected_x = minimum.x_m + static_cast<double>(columns) * resolution_m;
-  const double expected_y = minimum.y_m + static_cast<double>(rows) * resolution_m;
+  const double expected_x =
+      minimum.x_m + static_cast<double>(columns) * resolution_m;
+  const double expected_y =
+      minimum.y_m + static_cast<double>(rows) * resolution_m;
   return std::abs(expected_x - maximum.x_m) <= geometry_tolerance_m &&
          std::abs(expected_y - maximum.y_m) <= geometry_tolerance_m;
 }
@@ -387,7 +391,8 @@ GridExpansionResult expandToInclude(const GridGeometry& geometry, Point2D point,
                                     const GridExpansionPolicy& policy) {
   geometry.validate();
   if (geometry.extent_mode != GridExtentMode::Expandable)
-    return {geometry, false, false, "fixed grid rejected out-of-bounds evidence"};
+    return {geometry, false, false,
+            "fixed grid rejected out-of-bounds evidence"};
   const double margin = std::max(0.0, policy.margin_m);
   if (point.x_m >= geometry.minimum.x_m + margin &&
       point.y_m >= geometry.minimum.y_m + margin &&
@@ -396,30 +401,36 @@ GridExpansionResult expandToInclude(const GridGeometry& geometry, Point2D point,
     return {geometry, false, false, {}};
   const auto left = alignedCells(geometry.minimum.x_m + margin - point.x_m,
                                  geometry.resolution_m, policy.increment_cells);
-  const auto right = alignedCells(point.x_m + margin - geometry.maximum.x_m,
-                                  geometry.resolution_m, policy.increment_cells);
-  const auto bottom = alignedCells(geometry.minimum.y_m + margin - point.y_m,
-                                   geometry.resolution_m, policy.increment_cells);
+  const auto right =
+      alignedCells(point.x_m + margin - geometry.maximum.x_m,
+                   geometry.resolution_m, policy.increment_cells);
+  const auto bottom =
+      alignedCells(geometry.minimum.y_m + margin - point.y_m,
+                   geometry.resolution_m, policy.increment_cells);
   const auto top = alignedCells(point.y_m + margin - geometry.maximum.y_m,
                                 geometry.resolution_m, policy.increment_cells);
   if (left == 0U && right == 0U && bottom == 0U && top == 0U)
     return {geometry, false, false, {}};
   const auto new_columns = geometry.columns + left + right;
   const auto new_rows = geometry.rows + bottom + top;
-  const double new_width = static_cast<double>(new_columns) * geometry.resolution_m;
-  const double new_height = static_cast<double>(new_rows) * geometry.resolution_m;
-  const bool exceeds_width = policy.maximum_width_m > 0.0 &&
-                             new_width > policy.maximum_width_m;
-  const bool exceeds_height = policy.maximum_height_m > 0.0 &&
-                              new_height > policy.maximum_height_m;
-  const bool exceeds_memory = checkedCellCount(new_columns, new_rows) >
-                              policy.memory_limit_cells;
+  const double new_width =
+      static_cast<double>(new_columns) * geometry.resolution_m;
+  const double new_height =
+      static_cast<double>(new_rows) * geometry.resolution_m;
+  const bool exceeds_width =
+      policy.maximum_width_m > 0.0 && new_width > policy.maximum_width_m;
+  const bool exceeds_height =
+      policy.maximum_height_m > 0.0 && new_height > policy.maximum_height_m;
+  const bool exceeds_memory =
+      checkedCellCount(new_columns, new_rows) > policy.memory_limit_cells;
   if (exceeds_width || exceeds_height || exceeds_memory)
     return {geometry, false, true,
             "grid expansion rejected by configured extent or memory limit"};
   auto result = geometry;
-  result.minimum = {geometry.minimum.x_m - static_cast<double>(left) * geometry.resolution_m,
-                    geometry.minimum.y_m - static_cast<double>(bottom) * geometry.resolution_m};
+  result.minimum = {
+      geometry.minimum.x_m - static_cast<double>(left) * geometry.resolution_m,
+      geometry.minimum.y_m -
+          static_cast<double>(bottom) * geometry.resolution_m};
   result.origin = result.minimum;
   result.columns = new_columns;
   result.rows = new_rows;
@@ -507,8 +518,10 @@ GridGeometry deserializeGridGeometry(const std::string& serialized) {
  */
 const char* toString(GridExtentSource source) noexcept {
   switch (source) {
-    case GridExtentSource::StaticMapBounds: return "static_map_bounds";
-    case GridExtentSource::InferredMapBounds: return "inferred_map_bounds";
+    case GridExtentSource::StaticMapBounds:
+      return "static_map_bounds";
+    case GridExtentSource::InferredMapBounds:
+      return "inferred_map_bounds";
     case GridExtentSource::ConfiguredMaplessInitialBounds:
       return "configured_mapless_initial_bounds";
     case GridExtentSource::SensorDerivedExpansion:

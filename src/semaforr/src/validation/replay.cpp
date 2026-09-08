@@ -34,7 +34,8 @@ namespace {
 std::uint64_t timestamp(const domain::ExecutionTimestamp value) {
   return static_cast<std::uint64_t>(
       std::chrono::duration_cast<std::chrono::nanoseconds>(
-          value.time_since_epoch()).count());
+          value.time_since_epoch())
+          .count());
 }
 
 /**
@@ -136,8 +137,9 @@ std::string advisorDigest(const decision::DecisionResult& result) {
   std::ostringstream value;
   value << std::setprecision(17);
   for (const auto& contribution : result.contributions)
-    value << contribution.advisor << ':' << static_cast<int>(contribution.action.type())
-          << ':' << contribution.action.magnitude_index() << ':'
+    value << contribution.advisor << ':'
+          << static_cast<int>(contribution.action.type()) << ':'
+          << contribution.action.magnitude_index() << ':'
           << contribution.raw_score << ':' << contribution.normalized_score
           << ':' << contribution.advisor_mean << ':'
           << contribution.advisor_standard_deviation << ':'
@@ -153,10 +155,10 @@ std::string advisorDigest(const decision::DecisionResult& result) {
         << confidence.advisor_count << ':'
         << confidence.normalized_support_proportion << ':'
         << confidence.action_total_mean << ':'
-        << confidence.action_total_standard_deviation << ':'
-        << confidence.gamma << ':' << confidence.zeta << ':'
-        << confidence.lambda << ':' << confidence.agreement_category << ':'
-        << confidence.support_category << ':' << confidence.category;
+        << confidence.action_total_standard_deviation << ':' << confidence.gamma
+        << ':' << confidence.zeta << ':' << confidence.lambda << ':'
+        << confidence.agreement_category << ':' << confidence.support_category
+        << ':' << confidence.category;
   return digest(value.str());
 }
 
@@ -244,7 +246,8 @@ void writeStrings(std::ostream& output, std::string_view tag,
  * - None documented; validation or dependency failures may propagate.
  */
 void require(bool condition, std::string_view message) {
-  if (!condition) throw std::runtime_error("replay trace: " + std::string(message));
+  if (!condition)
+    throw std::runtime_error("replay trace: " + std::string(message));
 }
 
 /**
@@ -319,8 +322,7 @@ ReplayDecision replayDecision(const decision::DecisionResult& result,
  * Exceptions:
  * - None documented; validation or dependency failures may propagate.
  */
-RunRecorder::RunRecorder(RunMetadata metadata,
-                         std::filesystem::path trace_path)
+RunRecorder::RunRecorder(RunMetadata metadata, std::filesystem::path trace_path)
     : trace_{std::move(metadata), {}}, trace_path_(std::move(trace_path)) {
   require(trace_.metadata.schema_version == 1U ||
               trace_.metadata.schema_version == 2U,
@@ -367,9 +369,8 @@ void RunRecorder::recordObservation(
  * Exceptions:
  * - None documented; validation or dependency failures may propagate.
  */
-void RunRecorder::recordDecision(
-    const decision::DecisionResult& decision,
-    const domain::DependencyRevisions& revisions) {
+void RunRecorder::recordDecision(const decision::DecisionResult& decision,
+                                 const domain::DependencyRevisions& revisions) {
   require(pending_observation_.has_value(),
           "decision has no preceding sensor observation");
   ReplayCycle cycle;
@@ -444,7 +445,9 @@ void RunRecorder::save(const RunTrace& trace,
   const auto parent = path.parent_path();
   if (!parent.empty()) std::filesystem::create_directories(parent);
   std::ofstream output(path, std::ios::trunc);
-  if (!output) throw std::runtime_error("cannot create replay trace '" + path.string() + "'");
+  if (!output)
+    throw std::runtime_error("cannot create replay trace '" + path.string() +
+                             "'");
   output << std::setprecision(17);
   const auto& metadata = trace.metadata;
   output << "SEMAFORR_REPLAY " << metadata.schema_version << '\n'
@@ -508,10 +511,9 @@ void RunRecorder::save(const RunTrace& trace,
       }
       if (metadata.schema_version >= 2U) {
         for (const auto& formation : observation.crowd->formations) {
-          output << "FORMATION " << std::quoted(formation.formation_type)
-                 << ' ' << formation.center.x_m << ' ' << formation.center.y_m
-                 << ' ' << formation.confidence << ' '
-                 << formation.member_ids.size();
+          output << "FORMATION " << std::quoted(formation.formation_type) << ' '
+                 << formation.center.x_m << ' ' << formation.center.y_m << ' '
+                 << formation.confidence << ' ' << formation.member_ids.size();
           for (const auto& member : formation.member_ids)
             output << ' ' << std::quoted(member);
           output << '\n';
@@ -537,9 +539,8 @@ void RunRecorder::save(const RunTrace& trace,
       output << ' ' << static_cast<int>(dependency) << ' ' << revision;
     output << '\n';
     if (metadata.schema_version >= 2U)
-      output << "SOCIAL_DECISION "
-             << std::quoted(expected.social_input_source) << ' '
-             << std::quoted(expected.social_prediction_source) << ' '
+      output << "SOCIAL_DECISION " << std::quoted(expected.social_input_source)
+             << ' ' << std::quoted(expected.social_prediction_source) << ' '
              << std::quoted(expected.social_input_status) << ' '
              << expected.formation_evidence_available << ' '
              << expected.formation_evidence_participated << '\n';
@@ -547,8 +548,9 @@ void RunRecorder::save(const RunTrace& trace,
       const auto& outcome = *cycle.controller_outcome;
       output << "OUTCOME " << outcome.decision_id << ' ' << outcome.action_id
              << ' ' << static_cast<int>(outcome.status) << ' '
-             << timestamp(outcome.started_at) << ' ' << timestamp(outcome.finished_at)
-             << ' ' << outcome.start_pose.position.x_m << ' '
+             << timestamp(outcome.started_at) << ' '
+             << timestamp(outcome.finished_at) << ' '
+             << outcome.start_pose.position.x_m << ' '
              << outcome.start_pose.position.y_m << ' '
              << outcome.start_pose.heading.radians() << ' '
              << outcome.final_pose.position.x_m << ' '
@@ -580,37 +582,37 @@ void RunRecorder::save(const RunTrace& trace,
  */
 RunTrace RunRecorder::load(const std::filesystem::path& path) {
   std::ifstream input(path);
-  if (!input) throw std::runtime_error("cannot open replay trace '" + path.string() + "'");
+  if (!input)
+    throw std::runtime_error("cannot open replay trace '" + path.string() +
+                             "'");
   RunTrace trace;
   std::string tag;
   input >> tag >> trace.metadata.schema_version;
-  require(tag == "SEMAFORR_REPLAY" &&
-              (trace.metadata.schema_version == 1U ||
-               trace.metadata.schema_version == 2U),
+  require(tag == "SEMAFORR_REPLAY" && (trace.metadata.schema_version == 1U ||
+                                       trace.metadata.schema_version == 2U),
           "unsupported or malformed header");
   input >> tag;
   require(tag == "META", "missing metadata");
-  input >> std::quoted(trace.metadata.configuration_snapshot)
-        >> std::quoted(trace.metadata.configuration_fingerprint)
-        >> std::quoted(trace.metadata.behavior_mode)
-        >> std::quoted(trace.metadata.profile)
-        >> std::quoted(trace.metadata.map_checksum)
-        >> std::quoted(trace.metadata.source_revision)
-        >> std::quoted(trace.metadata.test_suite_revision);
+  input >> std::quoted(trace.metadata.configuration_snapshot) >>
+      std::quoted(trace.metadata.configuration_fingerprint) >>
+      std::quoted(trace.metadata.behavior_mode) >>
+      std::quoted(trace.metadata.profile) >>
+      std::quoted(trace.metadata.map_checksum) >>
+      std::quoted(trace.metadata.source_revision) >>
+      std::quoted(trace.metadata.test_suite_revision);
   input >> tag;
   require(tag == "SEEDS", "missing random seeds");
-  input >> trace.metadata.seeds.tier_three_ties
-        >> trace.metadata.seeds.lle_fallback
-        >> trace.metadata.seeds.planner_ties
-        >> trace.metadata.seeds.clustering
-        >> trace.metadata.seeds.simulation_noise;
+  input >> trace.metadata.seeds.tier_three_ties >>
+      trace.metadata.seeds.lle_fallback >> trace.metadata.seeds.planner_ties >>
+      trace.metadata.seeds.clustering >> trace.metadata.seeds.simulation_noise;
   while (input >> tag) {
     if (tag == "MODEL" || tag == "COMPONENT" || tag == "DEVIATION") {
       std::string value;
       input >> std::quoted(value);
       auto& destination = tag == "MODEL" ? trace.metadata.model_versions
-                          : tag == "COMPONENT" ? trace.metadata.component_manifest
-                                               : trace.metadata.compatibility_deviations;
+                          : tag == "COMPONENT"
+                              ? trace.metadata.component_manifest
+                              : trace.metadata.compatibility_deviations;
       destination.push_back(std::move(value));
     } else if (tag == "TASK") {
       domain::Point2D task;
@@ -620,9 +622,10 @@ RunTrace RunRecorder::load(const std::filesystem::path& path) {
       ReplayCycle cycle;
       double heading{}, angle_min{}, angle_increment{}, minimum{}, maximum{};
       std::size_t ranges{};
-      input >> cycle.sensor_timestamp_ns >> cycle.observation.pose.position.x_m
-            >> cycle.observation.pose.position.y_m >> heading >> angle_min
-            >> angle_increment >> minimum >> maximum >> ranges;
+      input >> cycle.sensor_timestamp_ns >>
+          cycle.observation.pose.position.x_m >>
+          cycle.observation.pose.position.y_m >> heading >> angle_min >>
+          angle_increment >> minimum >> maximum >> ranges;
       cycle.observation.pose.heading = domain::Angle(heading);
       cycle.observation.laser.angle_min = domain::Angle(angle_min);
       cycle.observation.laser.angle_increment = domain::Angle(angle_increment);
@@ -652,10 +655,11 @@ RunTrace RunRecorder::load(const std::filesystem::path& path) {
           require(tag == "PEDESTRIAN", "missing pedestrian record");
           domain::PedestrianObservation pedestrian;
           std::size_t predictions{};
-          input >> std::quoted(pedestrian.id) >> pedestrian.position.x_m
-                >> pedestrian.position.y_m >> pedestrian.velocity_mps.x_m
-                >> pedestrian.velocity_mps.y_m >> pedestrian.confidence;
-          for (double& covariance : pedestrian.position_covariance) input >> covariance;
+          input >> std::quoted(pedestrian.id) >> pedestrian.position.x_m >>
+              pedestrian.position.y_m >> pedestrian.velocity_mps.x_m >>
+              pedestrian.velocity_mps.y_m >> pedestrian.confidence;
+          for (double& covariance : pedestrian.position_covariance)
+            input >> covariance;
           input >> predictions;
           for (std::size_t p = 0; p < predictions; ++p) {
             domain::PredictedPosition prediction;
@@ -667,10 +671,9 @@ RunTrace RunRecorder::load(const std::filesystem::path& path) {
           if (trace.metadata.schema_version >= 2U) {
             bool has_formation{};
             std::size_t formation_index{};
-            input >> std::quoted(pedestrian.prediction_source) >> has_formation
-                  >> formation_index;
-            if (has_formation)
-              pedestrian.formation_index = formation_index;
+            input >> std::quoted(pedestrian.prediction_source) >>
+                has_formation >> formation_index;
+            if (has_formation) pedestrian.formation_index = formation_index;
           }
           crowd.pedestrians.push_back(std::move(pedestrian));
         }
@@ -679,9 +682,9 @@ RunTrace RunRecorder::load(const std::filesystem::path& path) {
           require(tag == "FORMATION", "missing formation record");
           domain::FormationObservation formation;
           std::size_t members{};
-          input >> std::quoted(formation.formation_type)
-                >> formation.center.x_m >> formation.center.y_m
-                >> formation.confidence >> members;
+          input >> std::quoted(formation.formation_type) >>
+              formation.center.x_m >> formation.center.y_m >>
+              formation.confidence >> members;
           for (std::size_t member = 0U; member < members; ++member) {
             std::string id;
             input >> std::quoted(id);
@@ -700,14 +703,14 @@ RunTrace RunRecorder::load(const std::filesystem::path& path) {
       std::size_t magnitude{}, revision_count{};
       bool has_planner{};
       std::string planner;
-      input >> cycle.expected.decision_id >> cycle.expected.action_id
-            >> action_type >> magnitude >> std::quoted(cycle.expected.tier)
-            >> std::quoted(cycle.expected.source)
-            >> std::quoted(cycle.expected.selected_policy) >> has_planner
-            >> std::quoted(planner) >> cycle.expected.plan_revision
-            >> std::quoted(cycle.expected.advisor_scores_digest)
-            >> std::quoted(cycle.expected.plan_digest)
-            >> std::quoted(cycle.expected.explanation_digest) >> revision_count;
+      input >> cycle.expected.decision_id >> cycle.expected.action_id >>
+          action_type >> magnitude >> std::quoted(cycle.expected.tier) >>
+          std::quoted(cycle.expected.source) >>
+          std::quoted(cycle.expected.selected_policy) >> has_planner >>
+          std::quoted(planner) >> cycle.expected.plan_revision >>
+          std::quoted(cycle.expected.advisor_scores_digest) >>
+          std::quoted(cycle.expected.plan_digest) >>
+          std::quoted(cycle.expected.explanation_digest) >> revision_count;
       cycle.expected.action = domain::Action(
           static_cast<domain::ActionType>(action_type), magnitude);
       if (has_planner) cycle.expected.planner = std::move(planner);
@@ -715,17 +718,17 @@ RunTrace RunRecorder::load(const std::filesystem::path& path) {
         int dependency{};
         domain::Revision revision{};
         input >> dependency >> revision;
-        cycle.expected.spatial_revisions[
-            static_cast<domain::ModelDependency>(dependency)] = revision;
+        cycle.expected.spatial_revisions[static_cast<domain::ModelDependency>(
+            dependency)] = revision;
       }
       input >> tag;
       if (trace.metadata.schema_version >= 2U) {
         require(tag == "SOCIAL_DECISION", "missing social decision record");
-        input >> std::quoted(cycle.expected.social_input_source)
-              >> std::quoted(cycle.expected.social_prediction_source)
-              >> std::quoted(cycle.expected.social_input_status)
-              >> cycle.expected.formation_evidence_available
-              >> cycle.expected.formation_evidence_participated;
+        input >> std::quoted(cycle.expected.social_input_source) >>
+            std::quoted(cycle.expected.social_prediction_source) >>
+            std::quoted(cycle.expected.social_input_status) >>
+            cycle.expected.formation_evidence_available >>
+            cycle.expected.formation_evidence_participated;
         input >> tag;
       }
       if (tag == "OUTCOME") {
@@ -733,15 +736,15 @@ RunTrace RunRecorder::load(const std::filesystem::path& path) {
         int status{};
         std::uint64_t started{}, finished{};
         double start_heading{}, final_heading{};
-        input >> outcome.decision_id >> outcome.action_id >> status >> started
-              >> finished >> outcome.start_pose.position.x_m
-              >> outcome.start_pose.position.y_m >> start_heading
-              >> outcome.final_pose.position.x_m >> outcome.final_pose.position.y_m
-              >> final_heading >> outcome.distance_achieved_m
-              >> outcome.rotation_achieved_rad >> outcome.timed_out
-              >> outcome.safety_interruption >> outcome.controller_failure
-              >> outcome.collision >> outcome.near_collision
-              >> std::quoted(outcome.cancellation_reason);
+        input >> outcome.decision_id >> outcome.action_id >> status >>
+            started >> finished >> outcome.start_pose.position.x_m >>
+            outcome.start_pose.position.y_m >> start_heading >>
+            outcome.final_pose.position.x_m >>
+            outcome.final_pose.position.y_m >> final_heading >>
+            outcome.distance_achieved_m >> outcome.rotation_achieved_rad >>
+            outcome.timed_out >> outcome.safety_interruption >>
+            outcome.controller_failure >> outcome.collision >>
+            outcome.near_collision >> std::quoted(outcome.cancellation_reason);
         outcome.status = static_cast<domain::ExecutionCompletionStatus>(status);
         outcome.started_at = timepoint(started);
         outcome.finished_at = timepoint(finished);
@@ -792,8 +795,8 @@ ReplayReport OfflineReplay::run(const RunTrace& trace,
   compare(report.differences, 0U, "test_suite_revision",
           trace.metadata.test_suite_revision,
           active_metadata.test_suite_revision);
-  compare(report.differences, 0U, "behavior_mode",
-          trace.metadata.behavior_mode, active_metadata.behavior_mode);
+  compare(report.differences, 0U, "behavior_mode", trace.metadata.behavior_mode,
+          active_metadata.behavior_mode);
   compare(report.differences, 0U, "profile", trace.metadata.profile,
           active_metadata.profile);
   if (trace.metadata.model_versions != active_metadata.model_versions)
@@ -801,16 +804,14 @@ ReplayReport OfflineReplay::run(const RunTrace& trace,
         {0U, "model_versions", "recorded versions", "active versions"});
   if (trace.metadata.component_manifest != active_metadata.component_manifest)
     report.differences.push_back(
-        {0U, "component_manifest", "recorded components",
-         "active components"});
+        {0U, "component_manifest", "recorded components", "active components"});
   if (trace.metadata.task_sequence != active_metadata.task_sequence)
     report.differences.push_back(
         {0U, "task_sequence", "recorded tasks", "active tasks"});
   if (trace.metadata.compatibility_deviations !=
       active_metadata.compatibility_deviations)
-    report.differences.push_back(
-        {0U, "compatibility_deviations", "recorded deviations",
-         "active deviations"});
+    report.differences.push_back({0U, "compatibility_deviations",
+                                  "recorded deviations", "active deviations"});
   compare(report.differences, 0U, "seed.tier_three_ties",
           std::to_string(trace.metadata.seeds.tier_three_ties),
           std::to_string(active_metadata.seeds.tier_three_ties));
@@ -835,18 +836,20 @@ ReplayReport OfflineReplay::run(const RunTrace& trace,
             std::to_string(expected.decision_id),
             std::to_string(actual.decision_id));
     compare(report.differences, index, "action_id",
-            std::to_string(expected.action_id), std::to_string(actual.action_id));
+            std::to_string(expected.action_id),
+            std::to_string(actual.action_id));
     compare(report.differences, index, "action",
             std::to_string(static_cast<int>(expected.action.type())) + ":" +
                 std::to_string(expected.action.magnitude_index()),
             std::to_string(static_cast<int>(actual.action.type())) + ":" +
                 std::to_string(actual.action.magnitude_index()));
     compare(report.differences, index, "tier", expected.tier, actual.tier);
-    compare(report.differences, index, "source", expected.source, actual.source);
+    compare(report.differences, index, "source", expected.source,
+            actual.source);
     compare(report.differences, index, "selected_policy",
             expected.selected_policy, actual.selected_policy);
-    compare(report.differences, index, "planner",
-            expected.planner.value_or(""), actual.planner.value_or(""));
+    compare(report.differences, index, "planner", expected.planner.value_or(""),
+            actual.planner.value_or(""));
     compare(report.differences, index, "plan_revision",
             std::to_string(expected.plan_revision),
             std::to_string(actual.plan_revision));
@@ -863,8 +866,7 @@ ReplayReport OfflineReplay::run(const RunTrace& trace,
       if (!expected.spatial_revisions.contains(dependency))
         report.differences.push_back(
             {index,
-             "spatial_revision." +
-                 std::string(domain::toString(dependency)),
+             "spatial_revision." + std::string(domain::toString(dependency)),
              "missing", std::to_string(revision)});
     }
     compare(report.differences, index, "advisor_scores",
@@ -876,8 +878,7 @@ ReplayReport OfflineReplay::run(const RunTrace& trace,
     compare(report.differences, index, "social_input_source",
             expected.social_input_source, actual.social_input_source);
     compare(report.differences, index, "social_prediction_source",
-            expected.social_prediction_source,
-            actual.social_prediction_source);
+            expected.social_prediction_source, actual.social_prediction_source);
     compare(report.differences, index, "social_input_status",
             expected.social_input_status, actual.social_input_status);
     compare(report.differences, index, "formation_evidence_available",

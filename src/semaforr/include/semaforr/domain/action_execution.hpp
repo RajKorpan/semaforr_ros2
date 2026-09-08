@@ -2,8 +2,8 @@
  * @file action_execution.hpp
  * @brief Action execution responsibilities.
  *
- * @details This file defines action execution behavior for ROS-independent domain
- * state and value types. It centers on `SelectedActionRecord`,
+ * @details This file defines action execution behavior for ROS-independent
+ * domain state and value types. It centers on `SelectedActionRecord`,
  * `ExecutionCompletionStatus`, `ActionStartedEvent`,
  * `ActionProgressEvent`, `ActionExecutionResult`, `FeedbackDisposition`.
  * Its package-relative location is

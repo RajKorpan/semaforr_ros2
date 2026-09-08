@@ -25,14 +25,14 @@
 #include <optional>
 #include <rclcpp/create_timer.hpp>
 #include <rclcpp/qos.hpp>
-#include <semaforr/ros/parameter_configuration.hpp>
 #include <semaforr/ros/command_executor.hpp>
 #include <semaforr/ros/navigation_engine_adapter.hpp>
+#include <semaforr/ros/parameter_configuration.hpp>
 #include <semaforr/ros/semaforr_node.hpp>
-#include <semaforr/validation/allocation_probe.hpp>
 #include <semaforr/ros/sensor_synchronizer.hpp>
 #include <semaforr/ros/social_observation_buffer.hpp>
 #include <semaforr/ros/visualization_publisher.hpp>
+#include <semaforr/validation/allocation_probe.hpp>
 #include <semaforr_msgs/msg/navigation_state.hpp>
 #include <sensor_msgs/msg/laser_scan.hpp>
 #include <social_context_msgs/msg/formation_group_array.hpp>
@@ -360,31 +360,27 @@ RuntimeConfiguration readRuntimeConfiguration(rclcpp::Node& node) {
   }
   if (configuration.social_observations_enabled) {
     if (configuration.social.input_mode == SocialInputMode::Tracked) {
-      configuration.tracked_people_topic = requireNonEmpty(
-          configuration.tracked_people_topic,
-          "social.input.tracked_people_topic");
-      configuration.tracked_predictions_topic = requireNonEmpty(
-          configuration.tracked_predictions_topic,
-          "social.input.tracked_predictions_topic");
+      configuration.tracked_people_topic =
+          requireNonEmpty(configuration.tracked_people_topic,
+                          "social.input.tracked_people_topic");
+      configuration.tracked_predictions_topic =
+          requireNonEmpty(configuration.tracked_predictions_topic,
+                          "social.input.tracked_predictions_topic");
       if (configuration.formations_enabled)
         configuration.formations_topic = requireNonEmpty(
-            configuration.formations_topic,
-            "social.input.formations_topic");
+            configuration.formations_topic, "social.input.formations_topic");
     } else {
       configuration.hunav_agents_topic = requireNonEmpty(
-          configuration.hunav_agents_topic,
-          "social.input.hunav_agents_topic");
-      configuration.hunav_predictions_topic = requireNonEmpty(
-          configuration.hunav_predictions_topic,
-          "social.input.hunav_predictions_topic");
+          configuration.hunav_agents_topic, "social.input.hunav_agents_topic");
+      configuration.hunav_predictions_topic =
+          requireNonEmpty(configuration.hunav_predictions_topic,
+                          "social.input.hunav_predictions_topic");
     }
   }
-  configuration.social.current_maximum_age_s = node
-      .get_parameter("social.input.current_maximum_age_s")
-      .as_double();
-  configuration.social.prediction_maximum_age_s = node
-      .get_parameter("social.input.prediction_maximum_age_s")
-      .as_double();
+  configuration.social.current_maximum_age_s =
+      node.get_parameter("social.input.current_maximum_age_s").as_double();
+  configuration.social.prediction_maximum_age_s =
+      node.get_parameter("social.input.prediction_maximum_age_s").as_double();
   configuration.social.formation_maximum_age_s =
       node.get_parameter("social.formations.maximum_age_s").as_double();
   configuration.social.minimum_confidence =
@@ -448,7 +444,9 @@ RuntimeConfiguration readRuntimeConfiguration(rclcpp::Node& node) {
   configuration.commands.maximum_move_action_index =
       node.get_parameter("actions.move_distances_m").as_double_array().size();
   configuration.commands.maximum_rotation_action_index =
-      node.get_parameter("actions.rotation_angles_rad").as_double_array().size();
+      node.get_parameter("actions.rotation_angles_rad")
+          .as_double_array()
+          .size();
   configuration.commands.distance_tolerance_m =
       node.get_parameter("command.distance_tolerance_m").as_double();
   configuration.commands.angle_tolerance_rad =
@@ -829,8 +827,7 @@ class SemaFORRNode::Impl {
     state_publisher_ =
         node_.create_publisher<semaforr_msgs::msg::NavigationState>(
             runtime_.state_topic, makeQos(runtime_.command_qos));
-    const bool tracked =
-        runtime_.social.input_mode == SocialInputMode::Tracked;
+    const bool tracked = runtime_.social.input_mode == SocialInputMode::Tracked;
     const char* current_topic =
         !runtime_.social_observations_enabled
             ? "disabled"
@@ -841,15 +838,14 @@ class SemaFORRNode::Impl {
             ? "disabled"
             : (tracked ? runtime_.tracked_predictions_topic.c_str()
                        : runtime_.hunav_predictions_topic.c_str());
-    RCLCPP_INFO(
-        node_.get_logger(),
-        "Social boundary: enabled=%s mode=%s current=%s predictions=%s "
-        "formations=%s",
-        runtime_.social_observations_enabled ? "true" : "false",
-        std::string(toString(runtime_.social.input_mode)).c_str(),
-        current_topic, prediction_topic,
-        runtime_.formations_enabled ? runtime_.formations_topic.c_str()
-                                    : "disabled");
+    RCLCPP_INFO(node_.get_logger(),
+                "Social boundary: enabled=%s mode=%s current=%s predictions=%s "
+                "formations=%s",
+                runtime_.social_observations_enabled ? "true" : "false",
+                std::string(toString(runtime_.social.input_mode)).c_str(),
+                current_topic, prediction_topic,
+                runtime_.formations_enabled ? runtime_.formations_topic.c_str()
+                                            : "disabled");
   }
 
   /**
@@ -1019,8 +1015,7 @@ class SemaFORRNode::Impl {
       const ActionExecutionUpdate update =
           executor_->cancel(ActionExecutionStatus::SafetyInterrupted);
       completeDecision(node_.now(), decision::ActionOutcome::SafetyInterrupted,
-                       update,
-                       last_failure_);
+                       update, last_failure_);
     }
     publishZero(true);
     transition(NavigationNodeState::Stopped, last_failure_, true);
@@ -1174,8 +1169,8 @@ class SemaFORRNode::Impl {
           trackedPeopleToDomain(message, received_at, runtime_.social.adapter),
           message.header, received_at);
     } catch (const std::exception& error) {
-      last_social_failure_ = "social_tracked_invalid: " +
-                             std::string(error.what());
+      last_social_failure_ =
+          "social_tracked_invalid: " + std::string(error.what());
       RCLCPP_WARN(node_.get_logger(), "%s", last_social_failure_.c_str());
     }
   }
@@ -1201,8 +1196,8 @@ class SemaFORRNode::Impl {
           hunavAgentsToDomain(message, received_at, runtime_.social.adapter),
           message.header, received_at);
     } catch (const std::exception& error) {
-      last_social_failure_ = "social_hunav_invalid: " +
-                             std::string(error.what());
+      last_social_failure_ =
+          "social_hunav_invalid: " + std::string(error.what());
       RCLCPP_WARN(node_.get_logger(), "%s", last_social_failure_.c_str());
     }
   }
@@ -1344,10 +1339,10 @@ class SemaFORRNode::Impl {
     }
 
     if (state_ == NavigationNodeState::ExecutingAction) {
-      const ActionExecutionUpdate update = executor_->cancel(
-          status == SensorStatus::ClockReset
-              ? ActionExecutionStatus::ClockReset
-              : ActionExecutionStatus::SensorLost);
+      const ActionExecutionUpdate update =
+          executor_->cancel(status == SensorStatus::ClockReset
+                                ? ActionExecutionStatus::ClockReset
+                                : ActionExecutionStatus::SensorLost);
       const decision::ActionOutcome outcome =
           status == SensorStatus::ClockReset
               ? decision::ActionOutcome::ClockReset
@@ -1443,13 +1438,14 @@ class SemaFORRNode::Impl {
       update.action_id = request.action_id;
       update.start_pose = sensors.pose;
       update.final_pose = sensors.pose;
-      completeDecision(now, decision::ActionOutcome::ControllerRejected,
-                       update, error.what());
+      completeDecision(now, decision::ActionOutcome::ControllerRejected, update,
+                       error.what());
       throw;
     }
     if (navigation_engine_->onActionStarted(update) !=
         domain::FeedbackDisposition::Accepted)
-      throw std::runtime_error("navigation engine rejected action-start feedback");
+      throw std::runtime_error(
+          "navigation engine rejected action-start feedback");
     pending_decision_->action_progress = update.progress;
     pending_decision_->action_target = update.target;
     pending_decision_->action_lifecycle_status = "started";
@@ -1555,8 +1551,7 @@ class SemaFORRNode::Impl {
     execution_trace.distance_achieved_m = update.distance_achieved_m;
     execution_trace.rotation_achieved_rad = update.rotation_achieved_rad;
     execution_trace.timed_out =
-        execution_trace.status ==
-        domain::ExecutionCompletionStatus::TimedOut;
+        execution_trace.status == domain::ExecutionCompletionStatus::TimedOut;
     execution_trace.cancellation_reason = pending_decision_->outcome_detail;
     execution_trace.safety_interruption =
         execution_trace.status ==
@@ -1582,8 +1577,8 @@ class SemaFORRNode::Impl {
       RCLCPP_ERROR(node_.get_logger(),
                    "Navigation engine rejected terminal feedback: %s",
                    std::string(domain::toString(disposition)).c_str());
-      last_failure_ = "execution_feedback_" +
-                      std::string(domain::toString(disposition));
+      last_failure_ =
+          "execution_feedback_" + std::string(domain::toString(disposition));
     }
     visualization_->publishDecision(*pending_decision_);
     pending_decision_.reset();
@@ -1698,8 +1693,7 @@ class SemaFORRNode::Impl {
       hunav_agents_subscription_;
   rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr
       prediction_subscription_;
-  rclcpp::Subscription<
-      social_context_msgs::msg::FormationGroupArray>::SharedPtr
+  rclcpp::Subscription<social_context_msgs::msg::FormationGroupArray>::SharedPtr
       formation_subscription_;
   rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr command_publisher_;
   rclcpp::Publisher<semaforr_msgs::msg::NavigationState>::SharedPtr

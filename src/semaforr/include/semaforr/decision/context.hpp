@@ -2,17 +2,17 @@
  * @file context.hpp
  * @brief Context responsibilities.
  *
- * @details This file defines context behavior for tiered decision making and action
- * arbitration. It centers on `ActivePlanObjective`, `DecisionContext`. Its
- * package-relative location is `include/semaforr/decision/context.hpp`.
+ * @details This file defines context behavior for tiered decision making and
+ * action arbitration. It centers on `ActivePlanObjective`, `DecisionContext`.
+ * Its package-relative location is `include/semaforr/decision/context.hpp`.
  */
 #ifndef SEMAFORR_DECISION_CONTEXT_HPP
 #define SEMAFORR_DECISION_CONTEXT_HPP
 
-#include <semaforr/domain/world_model.hpp>
 #include <cstddef>
 #include <cstdint>
 #include <optional>
+#include <semaforr/domain/world_model.hpp>
 #include <span>
 #include <string>
 #include <utility>
@@ -73,12 +73,13 @@ struct DecisionContext {
    * Exceptions:
    * - None documented; validation or dependency failures may propagate.
    */
-  DecisionContext(
-      const domain::WorldModel& model,
-      const domain::ActionSpace* actions = nullptr,
-      std::span<const domain::Action> viable = {},
-      std::optional<ActivePlanObjective> objective = std::nullopt)
-      : world(model), action_space(actions), viable_actions(viable),
+  DecisionContext(const domain::WorldModel& model,
+                  const domain::ActionSpace* actions = nullptr,
+                  std::span<const domain::Action> viable = {},
+                  std::optional<ActivePlanObjective> objective = std::nullopt)
+      : world(model),
+        action_space(actions),
+        viable_actions(viable),
         active_plan_objective(std::move(objective)) {}
 };
 

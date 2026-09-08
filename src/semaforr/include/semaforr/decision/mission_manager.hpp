@@ -2,8 +2,8 @@
  * @file mission_manager.hpp
  * @brief Mission manager responsibilities.
  *
- * @details This file defines mission manager behavior for tiered decision making
- * and action arbitration. It centers on `MissionStep`, `MissionManager`.
+ * @details This file defines mission manager behavior for tiered decision
+ * making and action arbitration. It centers on `MissionStep`, `MissionManager`.
  * Its package-relative location is
  * `include/semaforr/decision/mission_manager.hpp`.
  */

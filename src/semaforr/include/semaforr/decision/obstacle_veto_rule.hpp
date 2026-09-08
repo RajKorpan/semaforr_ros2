@@ -2,8 +2,8 @@
  * @file obstacle_veto_rule.hpp
  * @brief Obstacle veto rule responsibilities.
  *
- * @details This file defines obstacle veto rule behavior for tiered decision making
- * and action arbitration. It centers on `ObstacleVetoRule`. Its
+ * @details This file defines obstacle veto rule behavior for tiered decision
+ * making and action arbitration. It centers on `ObstacleVetoRule`. Its
  * package-relative location is
  * `include/semaforr/decision/obstacle_veto_rule.hpp`.
  */
@@ -60,9 +60,7 @@ class ObstacleVetoRule final : public VetoRule {
    * Exceptions:
    * - None documented; validation or dependency failures may propagate.
    */
-  std::string_view name() const noexcept override {
-    return "AvoidObstacles";
-  }
+  std::string_view name() const noexcept override { return "AvoidObstacles"; }
   /**
    * @brief Performs the dependencies operation for this subsystem.
    *

@@ -2,8 +2,8 @@
  * @file geometry.hpp
  * @brief Geometry responsibilities.
  *
- * @details This file defines geometry behavior for ROS-independent domain state and
- * value types. It centers on `Distance`, `UncheckedTag`, `Angle`,
+ * @details This file defines geometry behavior for ROS-independent domain state
+ * and value types. It centers on `Distance`, `UncheckedTag`, `Angle`,
  * `Point2D`, `Pose2D`, `Segment2D`, `Circle`, `Polygon`. Its
  * package-relative location is `include/semaforr/domain/geometry.hpp`.
  */

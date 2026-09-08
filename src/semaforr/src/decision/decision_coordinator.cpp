@@ -2,9 +2,9 @@
  * @file decision_coordinator.cpp
  * @brief Decision coordinator responsibilities.
  *
- * @details This file implements decision coordinator behavior for tiered decision
- * making and action arbitration. It records the declarations, settings,
- * fixtures, or guidance needed by that responsibility. Its
+ * @details This file implements decision coordinator behavior for tiered
+ * decision making and action arbitration. It records the declarations,
+ * settings, fixtures, or guidance needed by that responsibility. Its
  * package-relative location is `src/decision/decision_coordinator.cpp`.
  */
 #include <algorithm>
@@ -72,34 +72,32 @@ bool contributionLess(const AdvisorContribution& left,
  * Exceptions:
  * - None documented; validation or dependency failures may propagate.
  */
-std::vector<double> transformScores(
-    const AdvisorEvaluation& evaluation, ScoreNormalization normalization,
-    TierThreeScoringPolicy policy) {
+std::vector<double> transformScores(const AdvisorEvaluation& evaluation,
+                                    ScoreNormalization normalization,
+                                    TierThreeScoringPolicy policy) {
   std::vector<double> transformed;
   transformed.reserve(evaluation.scores.size());
   if (evaluation.scores.empty()) return transformed;
-  const auto [minimum, maximum] = std::minmax_element(
-      evaluation.scores.begin(), evaluation.scores.end(),
-      [](const auto& left, const auto& right) {
-        return left.raw_score < right.raw_score;
-      });
+  const auto [minimum, maximum] =
+      std::minmax_element(evaluation.scores.begin(), evaluation.scores.end(),
+                          [](const auto& left, const auto& right) {
+                            return left.raw_score < right.raw_score;
+                          });
   const double span = maximum->raw_score - minimum->raw_score;
   for (const auto& score : evaluation.scores) {
     if (policy == TierThreeScoringPolicy::CompatibilityComments) {
-      transformed.push_back(span <= 1.0e-12
-                                ? 5.0
-                                : 10.0 * (score.raw_score -
-                                          minimum->raw_score) /
-                                      span);
+      transformed.push_back(
+          span <= 1.0e-12
+              ? 5.0
+              : 10.0 * (score.raw_score - minimum->raw_score) / span);
       continue;
     }
     if (normalization == ScoreNormalization::None) {
       transformed.push_back(score.raw_score);
       continue;
     }
-    const double unit = span <= 1.0e-12
-                            ? 0.5
-                            : (score.raw_score - minimum->raw_score) / span;
+    const double unit =
+        span <= 1.0e-12 ? 0.5 : (score.raw_score - minimum->raw_score) / span;
     if (normalization == ScoreNormalization::SignedUnit) {
       transformed.push_back(span <= 1.0e-12 ? 0.0 : 2.0 * unit - 1.0);
     } else if (normalization == ScoreNormalization::TenPoint) {
@@ -151,12 +149,11 @@ DecisionCoordinator::DecisionCoordinator(ArbitrationConfiguration configuration)
  * - None documented; validation or dependency failures may propagate.
  */
 std::optional<DecisionResult> DecisionCoordinator::mandatoryDecision(
-    const DecisionContext& context,
-    std::span<const Action> candidates) const {
+    const DecisionContext& context, std::span<const Action> candidates) const {
   for (const auto& rule : mandatory_rules_) {
-    const DecisionContext rule_context{
-        context.world, context.action_space, candidates,
-        context.active_plan_objective};
+    const DecisionContext rule_context{context.world, context.action_space,
+                                       candidates,
+                                       context.active_plan_objective};
     if (auto decision = rule->evaluate(rule_context)) {
       if (std::find(candidates.begin(), candidates.end(), decision->action) ==
           candidates.end())
@@ -186,8 +183,7 @@ std::optional<DecisionResult> DecisionCoordinator::mandatoryDecision(
  * - None documented; validation or dependency failures may propagate.
  */
 TierOnePass DecisionCoordinator::evaluateTierOne(
-    const DecisionContext& context,
-    std::span<const Action> candidates) const {
+    const DecisionContext& context, std::span<const Action> candidates) const {
   auto pass = evaluateTierOneStage(context, candidates, TierOneStage::All);
   if (pass.decision) return pass;
 
@@ -199,10 +195,15 @@ TierOnePass DecisionCoordinator::evaluateTierOne(
     result.selected_policy = "no_safe_candidate";
     result.vetoes = pass.vetoes;
     result.decision_cycle = pass.trace;
-    result.decision_cycle.push_back(
-        {result.decision_cycle.size() + 1U, "tier1", "viable_action_set", {},
-         std::nullopt, {}, "no_survivor_safe_stop", false,
-         DecisionTier::SafeStop});
+    result.decision_cycle.push_back({result.decision_cycle.size() + 1U,
+                                     "tier1",
+                                     "viable_action_set",
+                                     {},
+                                     std::nullopt,
+                                     {},
+                                     "no_survivor_safe_stop",
+                                     false,
+                                     DecisionTier::SafeStop});
     pass.decision = std::move(result);
   } else if (pass.survivors.size() == 1U) {
     DecisionResult result;
@@ -212,11 +213,16 @@ TierOnePass DecisionCoordinator::evaluateTierOne(
     result.selected_policy = "tier1:only_surviving_action";
     result.vetoes = pass.vetoes;
     result.decision_cycle = pass.trace;
-    result.decision_cycle.push_back(
-        {result.decision_cycle.size() + 1U, "tier1", "viable_action_set",
-         pass.survivors, pass.survivors.front(), {},
-         "single_survivor_selected", false, DecisionTier::TierOne,
-         "tier1:only_surviving_action"});
+    result.decision_cycle.push_back({result.decision_cycle.size() + 1U,
+                                     "tier1",
+                                     "viable_action_set",
+                                     pass.survivors,
+                                     pass.survivors.front(),
+                                     {},
+                                     "single_survivor_selected",
+                                     false,
+                                     DecisionTier::TierOne,
+                                     "tier1:only_surviving_action"});
     pass.decision = std::move(result);
   }
   return pass;
@@ -261,9 +267,9 @@ TierOnePass DecisionCoordinator::evaluateTierOneStage(
     event.tier = "tier1";
     event.component = std::string(name);
     event.input_actions = pass.survivors;
-    const DecisionContext rule_context{
-        context.world, context.action_space, pass.survivors,
-        context.active_plan_objective};
+    const DecisionContext rule_context{context.world, context.action_space,
+                                       pass.survivors,
+                                       context.active_plan_objective};
     if (registered.kind == RegisteredRuleKind::Mandatory) {
       const auto& rule = mandatory_rules_[registered.index];
       if (auto decision = rule->evaluate(rule_context)) {
@@ -297,11 +303,11 @@ TierOnePass DecisionCoordinator::evaluateTierOneStage(
                          event.vetoes.end());
       std::set<Action> vetoed;
       for (const auto& veto : event.vetoes) vetoed.insert(veto.action);
-      std::erase_if(
-          pass.survivors,
-          [&](const auto& action) { return vetoed.contains(action); });
-      event.outcome = event.vetoes.empty() ? "no_veto_continue"
-                                           : "vetoes_applied_continue";
+      std::erase_if(pass.survivors, [&](const auto& action) {
+        return vetoed.contains(action);
+      });
+      event.outcome =
+          event.vetoes.empty() ? "no_veto_continue" : "vetoes_applied_continue";
     }
     event.remaining_actions = pass.survivors;
     event.order = pass.trace.size() + 1U;
@@ -396,7 +402,7 @@ DecisionResult DecisionCoordinator::decideTierThree(
           : "weighted_normalized";
   result.tier_three_tie_policy =
       configuration_.tie_policy == TierThreeTiePolicy::Exact ? "exact"
-                                                              : "tolerance";
+                                                             : "tolerance";
   result.tier_three_tie_tolerance = configuration_.tie_tolerance;
   result.tier_three_random_seed = configuration_.random_seed;
   if (context.active_plan_objective) {
@@ -413,9 +419,15 @@ DecisionResult DecisionCoordinator::decideTierThree(
     result.source = DecisionSource::SafeStop;
     result.tier = DecisionTier::SafeStop;
     result.selected_policy = "no_safe_candidate";
-    result.decision_cycle.push_back(
-        {1U, "tier3", "viable_action_set", {}, std::nullopt, {},
-         "no_survivor_safe_stop", false, DecisionTier::SafeStop});
+    result.decision_cycle.push_back({1U,
+                                     "tier3",
+                                     "viable_action_set",
+                                     {},
+                                     std::nullopt,
+                                     {},
+                                     "no_survivor_safe_stop",
+                                     false,
+                                     DecisionTier::SafeStop});
     return result;
   }
 
@@ -434,12 +446,17 @@ DecisionResult DecisionCoordinator::decideTierThree(
   for (const auto& advisor : advisors_) {
     const AdvisorEvaluation evaluation = advisor->evaluate(context, survivors);
     const auto metadata = advisor->metadata();
-    result.decision_cycle.push_back(
-        {result.decision_cycle.size() + 1U, "tier3",
-         std::string(advisor->name()), survivors, std::nullopt, {},
-         evaluation.participated ? "advisor_scored_continue"
-                                : "advisor_not_applicable_continue",
-         false, std::nullopt});
+    result.decision_cycle.push_back({result.decision_cycle.size() + 1U,
+                                     "tier3",
+                                     std::string(advisor->name()),
+                                     survivors,
+                                     std::nullopt,
+                                     {},
+                                     evaluation.participated
+                                         ? "advisor_scored_continue"
+                                         : "advisor_not_applicable_continue",
+                                     false,
+                                     std::nullopt});
     if (!evaluation.participated) {
       continue;
     }
@@ -447,11 +464,11 @@ DecisionResult DecisionCoordinator::decideTierThree(
       throw std::domain_error("advisor '" + std::string(advisor->name()) +
                               "' returned a non-finite weight");
     }
-    const auto transformed = transformScores(
-        evaluation, metadata.normalization, configuration_.scoring_policy);
-    const auto comments = transformScores(
-        evaluation, metadata.normalization,
-        TierThreeScoringPolicy::CompatibilityComments);
+    const auto transformed = transformScores(evaluation, metadata.normalization,
+                                             configuration_.scoring_policy);
+    const auto comments =
+        transformScores(evaluation, metadata.normalization,
+                        TierThreeScoringPolicy::CompatibilityComments);
     const double advisor_mean =
         comments.empty()
             ? 0.0
@@ -524,10 +541,15 @@ DecisionResult DecisionCoordinator::decideTierThree(
       result.tier = DecisionTier::SafeStop;
       result.selected_policy = "no_advisor_score";
     }
-    result.decision_cycle.push_back(
-        {result.decision_cycle.size() + 1U, "tier3", "tier3_fallback",
-         survivors, result.action, {}, result.selected_policy, false,
-         result.tier});
+    result.decision_cycle.push_back({result.decision_cycle.size() + 1U,
+                                     "tier3",
+                                     "tier3_fallback",
+                                     survivors,
+                                     result.action,
+                                     {},
+                                     result.selected_policy,
+                                     false,
+                                     result.tier});
     return result;
   }
 
@@ -548,12 +570,11 @@ DecisionResult DecisionCoordinator::decideTierThree(
           : "disabled";
   const auto base_winner = [&]() -> std::optional<Action> {
     if (pre_circumstance_totals.empty()) return std::nullopt;
-    return std::max_element(
-               pre_circumstance_totals.begin(),
-               pre_circumstance_totals.end(),
-               [](const auto& left, const auto& right) {
-                 return left.second < right.second;
-               })
+    return std::max_element(pre_circumstance_totals.begin(),
+                            pre_circumstance_totals.end(),
+                            [](const auto& left, const auto& right) {
+                              return left.second < right.second;
+                            })
         ->first;
   }();
   std::map<Action, std::pair<double, const domain::ActionCaseEvidence*>>
@@ -576,11 +597,10 @@ DecisionResult DecisionCoordinator::decideTierThree(
         circumstance_model.assignment_confidence_threshold;
     normalization.similarity_l1_threshold =
         circumstance_model.similarity_l1_threshold;
-    normalization.distance_bin_base_m =
-        circumstance_model.distance_bin_base_m;
+    normalization.distance_bin_base_m = circumstance_model.distance_bin_base_m;
     normalization.angle_bin_count = circumstance_model.angle_bin_count;
-    const auto setting = domain::normalizeSetting(
-        *context.world.robot.laser, normalization);
+    const auto setting =
+        domain::normalizeSetting(*context.world.robot.laser, normalization);
     const auto match = domain::matchCircumstance(circumstance_model, setting);
     if (match) {
       result.circumstance_match_available = true;
@@ -606,17 +626,18 @@ DecisionResult DecisionCoordinator::decideTierThree(
               domain::findActionEvidence(*case_evidence, action);
           double multiplier = 1.0;
           if (action_evidence &&
-              action_evidence->effective_evidence >= static_cast<double>(
-                  configuration_.circumstance_minimum_action_evidence)) {
+              action_evidence->effective_evidence >=
+                  static_cast<double>(
+                      configuration_.circumstance_minimum_action_evidence)) {
             const double evidence_blend = std::min(
-                1.0, action_evidence->effective_evidence /
-                         (2.0 * static_cast<double>(
-                                    configuration_
-                                        .circumstance_minimum_action_evidence)));
-            multiplier = 1.0 +
-                         configuration_.circumstance_maximum_influence *
-                             evidence_blend *
-                             (2.0 * action_evidence->confidence - 1.0);
+                1.0,
+                action_evidence->effective_evidence /
+                    (2.0 *
+                     static_cast<double>(
+                         configuration_.circumstance_minimum_action_evidence)));
+            multiplier = 1.0 + configuration_.circumstance_maximum_influence *
+                                   evidence_blend *
+                                   (2.0 * action_evidence->confidence - 1.0);
           }
           circumstance_adjustments[action] = {multiplier, action_evidence};
           total *= multiplier;
@@ -629,7 +650,8 @@ DecisionResult DecisionCoordinator::decideTierThree(
                 : "case matched but action evidence remained sparse or neutral";
       } else {
         result.circumstance_reason =
-            "neutral multiplier: circumstance or case evidence was insufficient";
+            "neutral multiplier: circumstance or case evidence was "
+            "insufficient";
       }
     } else {
       result.circumstance_reason =
@@ -638,24 +660,23 @@ DecisionResult DecisionCoordinator::decideTierThree(
   } else if (!configuration_.circumstance_weighting_enabled) {
     result.circumstance_reason = "circumstance Tier-3 weighting disabled";
   }
-  const auto adjusted_winner = totals.empty()
-                                   ? std::optional<Action>{}
-                                   : std::optional<Action>{
-                                         std::max_element(
-                                             totals.begin(), totals.end(),
-                                             [](const auto& left,
-                                                const auto& right) {
-                                               return left.second < right.second;
-                                             })
-                                             ->first};
+  const auto adjusted_winner =
+      totals.empty()
+          ? std::optional<Action>{}
+          : std::optional<Action>{
+                std::max_element(totals.begin(), totals.end(),
+                                 [](const auto& left, const auto& right) {
+                                   return left.second < right.second;
+                                 })
+                    ->first};
   result.circumstance_weighting_changed_winner =
       base_winner && adjusted_winner && *base_winner != *adjusted_winner;
 
   for (const auto& action : survivors) {
     const auto total = totals.find(action);
-    TierThreeActionTotal trace{
-        action, total == totals.end() ? 0.0 : total->second, true,
-        scored.contains(action)};
+    TierThreeActionTotal trace{action,
+                               total == totals.end() ? 0.0 : total->second,
+                               true, scored.contains(action)};
     const auto before = pre_circumstance_totals.find(action);
     trace.pre_circumstance_total =
         before == pre_circumstance_totals.end() ? 0.0 : before->second;
@@ -713,16 +734,12 @@ DecisionResult DecisionCoordinator::decideTierThree(
   const double support_proportion =
       advisor_count <= 0.0
           ? 0.0
-          : std::clamp(selected_comment_sum / (10.0 * advisor_count), 0.0,
-                       1.0);
-  const double gamma =
-      2.0 * support_proportion * (1.0 - support_proportion);
+          : std::clamp(selected_comment_sum / (10.0 * advisor_count), 0.0, 1.0);
+  const double gamma = 2.0 * support_proportion * (1.0 - support_proportion);
   const double action_total_mean =
-      std::accumulate(chapter_five_totals.begin(),
-                      chapter_five_totals.end(), 0.0,
-                      [](double sum, const auto& item) {
-                        return sum + item.second;
-                      }) /
+      std::accumulate(
+          chapter_five_totals.begin(), chapter_five_totals.end(), 0.0,
+          [](double sum, const auto& item) { return sum + item.second; }) /
       static_cast<double>(chapter_five_totals.size());
   double action_total_variance = 0.0;
   for (const auto& [action, total] : chapter_five_totals) {
@@ -736,16 +753,14 @@ DecisionResult DecisionCoordinator::decideTierThree(
   else
     action_total_variance = 0.0;
   const double action_total_deviation = std::sqrt(action_total_variance);
-  const double zeta = action_total_deviation <= 1.0e-12
-                          ? 0.0
-                          : (selected_comment_sum - action_total_mean) /
-                                action_total_deviation;
+  const double zeta =
+      action_total_deviation <= 1.0e-12
+          ? 0.0
+          : (selected_comment_sum - action_total_mean) / action_total_deviation;
   const double lambda = (0.5 - gamma) * zeta;
   result.decision_confidence.selected_comment_sum = selected_comment_sum;
-  result.decision_confidence.advisor_count =
-      participating_advisors.size();
-  result.decision_confidence.normalized_support_proportion =
-      support_proportion;
+  result.decision_confidence.advisor_count = participating_advisors.size();
+  result.decision_confidence.normalized_support_proportion = support_proportion;
   result.decision_confidence.action_total_mean = action_total_mean;
   result.decision_confidence.action_total_standard_deviation =
       action_total_deviation;
@@ -753,17 +768,16 @@ DecisionResult DecisionCoordinator::decideTierThree(
   result.decision_confidence.zeta = zeta;
   result.decision_confidence.lambda = lambda;
   result.decision_confidence.agreement_category =
-      gamma > 0.45 ? "my reasons conflict"
+      gamma > 0.45   ? "my reasons conflict"
       : gamma > 0.25 ? "I've only got a few reasons for it"
                      : "I've got many reasons for it";
-  result.decision_confidence.support_category =
-      zeta <= 0.75 ? "don't really want"
-      : zeta <= 1.5 ? "somewhat want"
-                    : "really want";
-  result.decision_confidence.category =
-      lambda <= 0.0375 ? "not"
-      : lambda <= 0.375 ? "only somewhat"
-                        : "really";
+  result.decision_confidence.support_category = zeta <= 0.75
+                                                    ? "don't really want"
+                                                : zeta <= 1.5 ? "somewhat want"
+                                                              : "really want";
+  result.decision_confidence.category = lambda <= 0.0375  ? "not"
+                                        : lambda <= 0.375 ? "only somewhat"
+                                                          : "really";
   // Preserve the original transport fields as documented aliases while
   // consumers migrate to the explicit Chapter 5 names.
   result.decision_confidence.gini_agreement = gamma;
@@ -774,10 +788,15 @@ DecisionResult DecisionCoordinator::decideTierThree(
   result.source = DecisionSource::TierThreeAdvisor;
   result.tier = DecisionTier::TierThree;
   result.selected_policy = "advisor_arbitration";
-  result.decision_cycle.push_back(
-      {result.decision_cycle.size() + 1U, "tier3", "advisor_arbitration",
-       survivors, result.action, {}, "advisor_vote_selected", false,
-       DecisionTier::TierThree});
+  result.decision_cycle.push_back({result.decision_cycle.size() + 1U,
+                                   "tier3",
+                                   "advisor_arbitration",
+                                   survivors,
+                                   result.action,
+                                   {},
+                                   "advisor_vote_selected",
+                                   false,
+                                   DecisionTier::TierThree});
   return result;
 }
 
@@ -794,8 +813,8 @@ DecisionResult DecisionCoordinator::decideTierThree(
  * Exceptions:
  * - None documented; validation or dependency failures may propagate.
  */
-DecisionResult DecisionCoordinator::decide(
-    const DecisionContext& context, std::span<const Action> candidates) {
+DecisionResult DecisionCoordinator::decide(const DecisionContext& context,
+                                           std::span<const Action> candidates) {
   auto tier_one = evaluateTierOne(context, candidates);
   if (tier_one.decision) return *tier_one.decision;
   auto result = decideTierThree(context, tier_one.survivors);

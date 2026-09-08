@@ -42,10 +42,14 @@ std::string_view toString(PlanFamily family) noexcept {
  */
 std::string_view toString(PlanValidity validity) noexcept {
   switch (validity) {
-    case PlanValidity::Valid: return "valid";
-    case PlanValidity::Stale: return "stale";
-    case PlanValidity::Invalid: return "invalid";
-    case PlanValidity::Complete: return "complete";
+    case PlanValidity::Valid:
+      return "valid";
+    case PlanValidity::Stale:
+      return "stale";
+    case PlanValidity::Invalid:
+      return "invalid";
+    case PlanValidity::Complete:
+      return "complete";
   }
   return "invalid";
 }
@@ -63,8 +67,7 @@ std::string_view toString(PlanValidity validity) noexcept {
  * - None documented; validation or dependency failures may propagate.
  */
 std::string_view toString(PlanningOperatingMode mode) noexcept {
-  return mode == PlanningOperatingMode::MapEnabled ? "map_enabled"
-                                                   : "mapless";
+  return mode == PlanningOperatingMode::MapEnabled ? "map_enabled" : "mapless";
 }
 
 /**
@@ -175,7 +178,8 @@ std::string_view objectiveDescription(PlanObjective objective) noexcept {
     case PlanObjective::FlowOpposition:
       return "prefer routes aligned with favorable crowd movement patterns";
     case PlanObjective::RegionPreference:
-      return "prefer learned regions and their entrance and doorway affordances";
+      return "prefer learned regions and their entrance and doorway "
+             "affordances";
     case PlanObjective::HallwayPreference:
       return "prefer travel through learned hallway structures";
     case PlanObjective::TrailPreference:
@@ -183,7 +187,8 @@ std::string_view objectiveDescription(PlanObjective objective) noexcept {
     case PlanObjective::ConveyorPreference:
       return "prefer areas associated with repeated successful traversal";
     case PlanObjective::SkeletonDistance:
-      return "navigate the learned region-connectivity skeleton and supporting subtrails";
+      return "navigate the learned region-connectivity skeleton and supporting "
+             "subtrails";
     case PlanObjective::HighwayDistance:
       return "prefer the learned highway network and its intersections";
   }
@@ -203,9 +208,13 @@ std::string_view objectiveDescription(PlanObjective objective) noexcept {
  * - None documented; validation or dependency failures may propagate.
  */
 PlannerMetadata Planner::metadata() const {
-  return {std::string(name()), planFamily(), objective(),
+  return {std::string(name()),
+          planFamily(),
+          objective(),
           std::string(toString(objective())),
-          std::string(objectiveDescription(objective())), {}, false,
+          std::string(objectiveDescription(objective())),
+          {},
+          false,
           planFamily() == PlanFamily::Model};
 }
 
@@ -261,10 +270,11 @@ domain::Revision currentRevision(const PlanningRequest& request,
  * Exceptions:
  * - None documented; validation or dependency failures may propagate.
  */
-std::vector<std::string> stalePlanReasons(
-    const PlanResult& plan, const PlanningRequest& request,
-    domain::Distance start_tolerance, domain::Distance target_tolerance,
-    bool execution_invalidated) {
+std::vector<std::string> stalePlanReasons(const PlanResult& plan,
+                                          const PlanningRequest& request,
+                                          domain::Distance start_tolerance,
+                                          domain::Distance target_tolerance,
+                                          bool execution_invalidated) {
   auto reasons = dependencyChangeReasons(plan.dependency_revisions, request);
   if (plan.task_id != request.task_id) reasons.push_back("task_changed");
   if (domain::distance(plan.planned_start.position, request.start.position)
@@ -339,11 +349,9 @@ void attachDependencySnapshot(
   plan.planned_start = request.start;
   plan.planned_goal = request.goal;
   plan.task_id = request.task_id;
-  plan.planner_configuration_revision =
-      request.planner_configuration_revision;
-  plan.operating_mode = request.static_map
-                            ? PlanningOperatingMode::MapEnabled
-                            : PlanningOperatingMode::Mapless;
+  plan.planner_configuration_revision = request.planner_configuration_revision;
+  plan.operating_mode = request.static_map ? PlanningOperatingMode::MapEnabled
+                                           : PlanningOperatingMode::Mapless;
   plan.static_map_contributed = request.static_map != nullptr;
   if (plan.created_at == std::chrono::steady_clock::time_point{})
     plan.created_at = std::chrono::steady_clock::now();

@@ -51,8 +51,13 @@ enum class EnforcerMode { Grid, Model };
  * Exceptions:
  * - None documented; validation or dependency failures may propagate.
  */
-enum class EnforcementStatus { Mandated, Complete, CannotOperationalize,
-                               Invalid, Stale };
+enum class EnforcementStatus {
+  Mandated,
+  Complete,
+  CannotOperationalize,
+  Invalid,
+  Stale
+};
 
 /**
  * @brief Encapsulates local action prediction state and behavior for this

@@ -2,8 +2,8 @@
  * @file action.hpp
  * @brief Action responsibilities.
  *
- * @details This file defines action behavior for ROS-independent domain state and
- * value types. It centers on `ActionType`, `Action`, `UncheckedTag`. Its
+ * @details This file defines action behavior for ROS-independent domain state
+ * and value types. It centers on `ActionType`, `Action`, `UncheckedTag`. Its
  * package-relative location is `include/semaforr/domain/action.hpp`.
  */
 #ifndef SEMAFORR_DOMAIN_ACTION_HPP
