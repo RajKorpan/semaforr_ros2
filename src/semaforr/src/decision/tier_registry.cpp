@@ -515,6 +515,21 @@ AdvisorEvaluation SpatialAdvisor::evaluate(
   AdvisorEvaluation result;
   result.weight = weight_;
   result.explanation = "commonsense/spatial preference";
+  const bool model_unavailable =
+      (objective_ == SpatialAdvisorObjective::PreferRegions &&
+       context.world.spatial.learned_regions.empty()) ||
+      (objective_ == SpatialAdvisorObjective::PreferHighways &&
+       context.world.spatial.highways.nodes.empty()) ||
+      (objective_ == SpatialAdvisorObjective::PreferDoors &&
+       context.world.spatial.doorways.empty()) ||
+      (objective_ == SpatialAdvisorObjective::FollowTrails &&
+       context.world.spatial.trails.empty());
+  if (model_unavailable) {
+    result.explanation = name_ +
+                         ": required learned representation has no published "
+                         "evidence; advisor abstained";
+    return result;
+  }
   for (const auto action : candidates) {
     const auto expected = domain::expectedPoseAfterAction(
         context.world.robot.pose, action, action_space_);

@@ -308,13 +308,16 @@ semaforr:
       selection_policy: range_vote
 
     advisors:
+      # This is the requested catalog. The effective catalog is derived from
+      # feature, map, social, and tier capabilities; unavailable dependencies
+      # deactivate their consumers and produce startup diagnostics.
       names:
         [goal_progress, goal_progress_linear, clearance,
          clearance_rotation, exploration, social_navigation,
          crowd_avoid, risk_avoid, flow_follow, avoid_revisit,
          prefer_regions, prefer_highways, prefer_doors, follow_trails]
       enabled: [true, true, true, true, true, true, true, true, true,
-                true, true, true, true, true]
+                true, true, false, true, true]
       weights: [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
                 1.0, 1.0, 1.0, 1.0, 1.0]
       # Four reserved values per advisor. ROS parameters do not support

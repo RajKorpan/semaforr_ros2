@@ -5,6 +5,12 @@
 Planner names are case-sensitive and selected through `planners.enabled`.
 Unknown names fail at startup.
 
+`planners.enabled` is an opt-in catalog, not an independent capability list.
+Tier 2 and each producer representation are authoritative: normalization
+removes a requested planner when Tier 2 or any required producer is disabled.
+This preserves planner ablations without allowing contradictory effective
+states. Every removal is reported in startup diagnostics.
+
 Planner output is classified as `Grid`, `AffordanceModifiedGrid`, or
 `Freespace`. Grid families derive topology from traversability; learned
 representations modify edge cost but never replace occupancy. SkeletonPlan and

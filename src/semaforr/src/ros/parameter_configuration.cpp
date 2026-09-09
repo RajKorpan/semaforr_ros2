@@ -559,7 +559,7 @@ config::Configuration configurationFromParameters(rclcpp::Node& node) {
 
   auto configuration = config::loadStructuredConfiguration(
       std::move(navigation), dimensions, std::move(advisors), tasks_file,
-      map_file);
+      map_file, false);
   configuration.static_map.mode = config::mapOperatingModeFromString(
       node.get_parameter("map.mode").as_string());
   configuration.static_map.failure_policy =

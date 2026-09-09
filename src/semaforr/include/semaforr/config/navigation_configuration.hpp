@@ -640,6 +640,10 @@ struct Configuration {
   std::vector<TaskConfiguration> tasks;
   std::string map_file;
   StaticMapConfiguration static_map;
+  // Populated while profiles and capability switches are expanded.  These
+  // entries explain dependent components removed from the effective runtime
+  // configuration; they are diagnostics, not additional user switches.
+  std::vector<std::string> dependency_diagnostics;
 };
 
 /**
@@ -841,6 +845,8 @@ std::vector<std::string> componentManifest(const Configuration& configuration);
  * - @p advisors: Supplies advisors input to the operation.
  * - @p tasks_file: Supplies tasks file input to the operation.
  * - @p map_file: Supplies map file input to the operation.
+ * - @p finalize: Applies profiles/dependencies and validates when true. ROS
+ *   parameter loading passes false until every structured field is installed.
  *
  * Returns:
  * - `Configuration` containing the operation result.
@@ -851,7 +857,7 @@ std::vector<std::string> componentManifest(const Configuration& configuration);
 Configuration loadStructuredConfiguration(
     NavigationConfiguration navigation, MapDimensions map_dimensions,
     std::vector<AdvisorConfiguration> advisors, const std::string& tasks_file,
-    const std::string& map_file);
+    const std::string& map_file, bool finalize = true);
 /**
  * @brief Validates configuration for this subsystem.
  *

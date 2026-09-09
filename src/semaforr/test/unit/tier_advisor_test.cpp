@@ -240,6 +240,46 @@ TEST(TierThreeCatalog, SpatialAdvisorReportsSourceRevision) {
             dependencies.end());
 }
 
+TEST(SpatialAdvisors, PreferHighwaysAbstainsUntilModelIsAvailable) {
+  using namespace semaforr;
+  const domain::ActionSpace actions({1.0}, {0.5});
+  decision::SpatialAdvisor advisor(
+      "prefer_highways", decision::SpatialAdvisorObjective::PreferHighways,
+      actions, 1.0);
+  auto world = worldWithTarget({5.0, 0.0});
+  const std::vector<domain::Action> candidates{
+      domain::Action::pause(), {domain::ActionType::Forward, 1U}};
+
+  const auto evaluation = advisor.evaluate({world}, candidates);
+
+  EXPECT_FALSE(evaluation.participated);
+  EXPECT_TRUE(evaluation.scores.empty());
+  EXPECT_NE(evaluation.explanation.find("abstained"), std::string::npos);
+}
+
+TEST(SpatialAdvisors, EveryLearnedPreferenceAbstainsUntilEvidenceExists) {
+  using namespace semaforr;
+  const domain::ActionSpace actions({1.0}, {0.5});
+  auto world = worldWithTarget({5.0, 0.0});
+  const std::vector<domain::Action> candidates{
+      domain::Action::pause(), {domain::ActionType::Forward, 1U}};
+  for (const auto& [name, objective] :
+       std::vector<std::pair<std::string, decision::SpatialAdvisorObjective>>{
+           {"prefer_regions", decision::SpatialAdvisorObjective::PreferRegions},
+           {"prefer_highways",
+            decision::SpatialAdvisorObjective::PreferHighways},
+           {"prefer_doors", decision::SpatialAdvisorObjective::PreferDoors},
+           {"follow_trails",
+            decision::SpatialAdvisorObjective::FollowTrails}}) {
+    decision::SpatialAdvisor advisor(name, objective, actions, 1.0);
+    const auto evaluation = advisor.evaluate({world}, candidates);
+    EXPECT_FALSE(evaluation.participated) << name;
+    EXPECT_TRUE(evaluation.scores.empty()) << name;
+    EXPECT_NE(evaluation.explanation.find("abstained"), std::string::npos)
+        << name;
+  }
+}
+
 TEST(TierThreeNormalization,
      ProductionAdvisorsNormalizeWholeScoreSetToTenPoint) {
   using namespace semaforr;

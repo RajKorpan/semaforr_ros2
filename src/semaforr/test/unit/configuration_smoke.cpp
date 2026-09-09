@@ -83,6 +83,23 @@ void assertThrowsContaining(Operation operation, const std::string& expected) {
   }
 }
 
+/**
+ * @brief Fails a smoke-test condition even in release builds.
+ *
+ * Arguments:
+ * - @p condition: Condition that must hold.
+ * - @p message: Failure diagnostic.
+ *
+ * Returns:
+ * - No value.
+ *
+ * Exceptions:
+ * - Throws `std::runtime_error` when @p condition is false.
+ */
+void require(bool condition, const char* message) {
+  if (!condition) throw std::runtime_error(message);
+}
+
 }  // namespace
 
 /**
@@ -319,6 +336,183 @@ int main() {
         "HighwayPlan requires");
   }
   {
+    auto normalized = valid;
+    normalized.navigation.highways_on = false;
+    normalized.advisors.push_back(
+        {"prefer_highways", "prefer highways", true, 1.0, {}});
+    semaforr::config::applyAblationProfile(normalized);
+    const auto advisor = std::find_if(
+        normalized.advisors.begin(), normalized.advisors.end(),
+        [](const auto& value) { return value.name == "prefer_highways"; });
+    if (advisor == normalized.advisors.end() || advisor->active) {
+      throw std::runtime_error(
+          "prefer_highways was not disabled with highways unavailable");
+    }
+    semaforr::config::validateConfiguration(normalized);
+    const auto normalized_manifest =
+        semaforr::config::componentManifest(normalized);
+    require(std::find(normalized_manifest.begin(), normalized_manifest.end(),
+                      "advisor_disabled_missing_representation:"
+                      "prefer_highways:highways") != normalized_manifest.end(),
+            "highway dependency diagnostic was not published");
+  }
+  {
+    auto normalized = valid;
+    normalized.navigation.trails_on = false;
+    normalized.navigation.conveyors_on = false;
+    normalized.navigation.regions_on = false;
+    normalized.navigation.doors_on = false;
+    normalized.navigation.hallways_on = false;
+    normalized.navigation.inclusion_grid_on = false;
+    normalized.navigation.planners.region = true;
+    normalized.navigation.planners.hallway = true;
+    normalized.navigation.planners.trail = true;
+    normalized.navigation.planners.conveyor = true;
+    normalized.advisors = {
+        {"prefer_regions", "regions", true, 1.0, {}},
+        {"prefer_doors", "doors", true, 1.0, {}},
+        {"follow_trails", "trails", true, 1.0, {}},
+        {"convey", "conveyors", true, 1.0, {}},
+        {"follow", "hallways", true, 1.0, {}},
+        {"spatial_learner", "spatial learner", true, 1.0, {}},
+        {"greedy", "fallback", true, 1.0, {}}};
+    semaforr::config::applyAblationProfile(normalized);
+    require(!normalized.navigation.planners.region,
+            "RegionPlan survived without regions");
+    require(!normalized.navigation.planners.hallway,
+            "HallwayPlan survived without hallways");
+    require(!normalized.navigation.planners.trail,
+            "TrailPlan survived without trails");
+    require(!normalized.navigation.planners.conveyor,
+            "ConveyorPlan survived without conveyors");
+    for (const auto& advisor : normalized.advisors)
+      if (advisor.name != "greedy")
+        require(!advisor.active,
+                "spatial advisor survived without its representation");
+    semaforr::config::validateConfiguration(normalized);
+  }
+  {
+    auto normalized = valid;
+    normalized.experiment.profile =
+        semaforr::config::AblationProfile::NoInitialExploration;
+    normalized.experiment.initial_exploration.enabled = true;
+    normalized.navigation.highways_on = true;
+    normalized.navigation.planners.highway = true;
+    normalized.advisors.push_back(
+        {"prefer_highways", "highways", true, 1.0, {}});
+    semaforr::config::applyAblationProfile(normalized);
+    require(!normalized.experiment.initial_exploration.enabled,
+            "no-initial-exploration profile retained HLE");
+    require(!normalized.navigation.highways_on,
+            "highways survived without a producer");
+    require(!normalized.navigation.planners.highway,
+            "HighwayPlan survived without highways");
+    semaforr::config::validateConfiguration(normalized);
+  }
+  {
+    auto inactive_tier = valid;
+    inactive_tier.experiment.tiers.tier_three = false;
+    inactive_tier.navigation.regions_on = false;
+    inactive_tier.advisors = {{"prefer_regions", "unused", true, 1.0, {}}};
+    semaforr::config::validateConfiguration(inactive_tier);
+  }
+  {
+    auto normalized = valid;
+    normalized.experiment.tiers.tier_two = false;
+    normalized.experiment.reactive_exploration_enabled = false;
+    normalized.navigation.planners.sensor_distance = true;
+    normalized.navigation.planners.region = true;
+    semaforr::config::applyAblationProfile(normalized);
+    const auto& planners = normalized.navigation.planners;
+    if (planners.distance || planners.sensor_distance || planners.density ||
+        planners.risk || planners.flow || planners.region ||
+        planners.hallway || planners.trail || planners.conveyor ||
+        planners.skeleton || planners.highway)
+      throw std::runtime_error(
+          "a disabled Tier 2 retained an effective planner");
+    semaforr::config::validateConfiguration(normalized);
+  }
+  {
+    auto normalized = valid;
+    normalized.experiment.tiers.tier_three = false;
+    semaforr::config::applyAblationProfile(normalized);
+    require(std::none_of(normalized.advisors.begin(), normalized.advisors.end(),
+                         [](const auto& advisor) { return advisor.active; }),
+            "a disabled Tier 3 retained an effective advisor");
+    semaforr::config::validateConfiguration(normalized);
+  }
+  {
+    auto normalized = valid;
+    normalized.experiment.social.observations = false;
+    normalized.navigation.crowd_learning.enabled = true;
+    normalized.navigation.planners.density = true;
+    normalized.advisors.push_back(
+        {"social_navigation", "live crowd", true, 1.0, {}});
+    normalized.advisors.push_back(
+        {"crowd_avoid", "learned crowd", true, 1.0, {}});
+    semaforr::config::applyAblationProfile(normalized);
+    require(!normalized.experiment.social.learning,
+            "social learning survived without observations");
+    require(!normalized.experiment.social.advisors,
+            "social advisors survived without observations");
+    require(!normalized.experiment.social.planners,
+            "social planners survived without observations");
+    require(!normalized.navigation.crowd_learning.enabled,
+            "crowd learning survived without observations");
+    require(!normalized.navigation.planners.density,
+            "crowd planner survived without observations");
+    require(std::none_of(normalized.advisors.begin(), normalized.advisors.end(),
+                         [](const auto& advisor) {
+                           return advisor.active &&
+                                  (advisor.name == "social_navigation" ||
+                                   advisor.name == "crowd_avoid");
+                         }),
+            "social advisor survived without observations");
+    semaforr::config::validateConfiguration(normalized);
+  }
+  {
+    auto normalized = valid;
+    normalized.experiment.social.learning = false;
+    normalized.navigation.crowd_learning.enabled = true;
+    normalized.advisors.push_back(
+        {"social_navigation", "live crowd", true, 1.0, {}});
+    normalized.advisors.push_back(
+        {"flow_follow", "learned flow", true, 1.0, {}});
+    semaforr::config::applyAblationProfile(normalized);
+    const auto live = std::find_if(
+        normalized.advisors.begin(), normalized.advisors.end(),
+        [](const auto& advisor) { return advisor.name == "social_navigation"; });
+    const auto learned = std::find_if(
+        normalized.advisors.begin(), normalized.advisors.end(),
+        [](const auto& advisor) { return advisor.name == "flow_follow"; });
+    if (live == normalized.advisors.end() || !live->active)
+      throw std::runtime_error(
+          "live social advisor was disabled with observations available");
+    if (learned == normalized.advisors.end() || learned->active)
+      throw std::runtime_error(
+          "learned social advisor survived without crowd learning");
+    require(!normalized.navigation.crowd_learning.enabled,
+            "crowd learning survived its disabled social capability");
+    semaforr::config::validateConfiguration(normalized);
+  }
+  {
+    auto crowd_grid = valid;
+    crowd_grid.static_map.mode = semaforr::config::MapOperatingMode::MapEnabled;
+    crowd_grid.static_map.path = crowd_grid.map_file;
+    crowd_grid.navigation.planners.skeleton = false;
+    crowd_grid.navigation.planners.density = true;
+    crowd_grid.navigation.crowd_learning.enabled = true;
+    semaforr::config::validateConfiguration(crowd_grid);
+  }
+  {
+    auto inactive_tier = valid;
+    inactive_tier.experiment.tiers.tier_two = false;
+    inactive_tier.experiment.reactive_exploration_enabled = false;
+    inactive_tier.navigation.planners = {};
+    inactive_tier.navigation.planners.selection_policy = "single";
+    semaforr::config::validateConfiguration(inactive_tier);
+  }
+  {
     auto invalid = valid;
     invalid.navigation.loaded_highway_model = "claimed-but-not-loadable.bin";
     assertThrowsContaining(
@@ -497,12 +691,11 @@ int main() {
         "safety thresholds");
   }
   {
-    auto invalid = valid;
-    invalid.navigation.a_star_on = true;
-    invalid.navigation.planners.skeleton = false;
-    assertThrowsContaining(
-        [&invalid]() { semaforr::config::validateConfiguration(invalid); },
-        "features.astar");
+    auto derived = valid;
+    derived.navigation.a_star_on = true;
+    derived.navigation.planners.skeleton = false;
+    derived.experiment.reactive_exploration_enabled = false;
+    semaforr::config::validateConfiguration(derived);
   }
   {
     auto invalid = valid;
@@ -512,21 +705,23 @@ int main() {
         "unknown advisor");
   }
   {
-    auto invalid = valid;
-    invalid.navigation.planners.risk = true;
-    invalid.navigation.planners.skeleton = false;
-    assertThrowsContaining(
-        [&invalid]() { semaforr::config::validateConfiguration(invalid); },
-        "require skeleton");
+    auto independent = valid;
+    independent.static_map.mode =
+        semaforr::config::MapOperatingMode::MapEnabled;
+    independent.static_map.path = independent.map_file;
+    independent.navigation.planners.risk = true;
+    independent.navigation.planners.skeleton = false;
+    semaforr::config::validateConfiguration(independent);
   }
   {
-    auto invalid = valid;
-    invalid.navigation.planners.skeleton = true;
-    invalid.navigation.planners.flow = true;
-    invalid.navigation.crowd_learning.enabled = false;
-    assertThrowsContaining(
-        [&invalid]() { semaforr::config::validateConfiguration(invalid); },
-        "crowd-cost planners");
+    auto normalized = valid;
+    normalized.navigation.planners.skeleton = true;
+    normalized.navigation.planners.flow = true;
+    normalized.navigation.crowd_learning.enabled = false;
+    semaforr::config::applyAblationProfile(normalized);
+    require(!normalized.navigation.planners.flow,
+            "FlowPlan survived without crowd learning");
+    semaforr::config::validateConfiguration(normalized);
   }
   {
     auto invalid = valid;

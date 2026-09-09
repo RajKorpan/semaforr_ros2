@@ -125,6 +125,28 @@ planners are individually selected in `planners.enabled`, including
 `flow`, plus the affordance-modified `region`, `hallway`, `trail`, and
 `conveyor` planners.
 
+These settings describe requested components, but true dependencies are not
+independent effective switches. Configuration normalization derives the
+runtime component set before validation:
+
+- Disabling a spatial representation deactivates its dependent advisors and
+  planners.
+- Disabling known-map planning deactivates static-map grid planners.
+- Disabling sensed occupancy deactivates the partial sensor-grid planner.
+- Disabling crowd learning deactivates learned crowd-field planners.
+- Disabling circumstances removes Precedent and circumstance Tier-3
+  weighting.
+- Disabling HLE removes an unpersisted highway model and its consumers.
+- LLE is removed unless Tier 1, Tier 2, inclusion, and a replanning strategy
+  are all available.
+
+Each derived removal appears in startup diagnostics, for example
+`advisor_disabled_missing_representation:prefer_highways:highways` or
+`component_disabled_missing_dependency:planner:region:regions`. An enabled
+learned-model advisor also abstains until its representation has published
+actual evidence. Unknown component names and malformed numeric values remain
+hard configuration errors.
+
 `features.spatial_learning_profile` is `modernized` (incremental adapted
 learners) or `chapter3_compatibility` (target-boundary compatibility learners).
 It is component-scoped and does not assert whole-system compatibility. The

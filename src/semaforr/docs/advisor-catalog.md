@@ -4,8 +4,12 @@
 
 This catalog uses the same names accepted by configuration and registered by
 `registerAdvisorCatalog`. Names are case-sensitive. An unknown or duplicate
-name, missing required representation, or enabled Tier 3 with no active
-advisor is a startup error.
+name is a startup error. Representation and social capability switches are
+authoritative: configuration expansion automatically deactivates advisors
+whose required model is disabled, and records the reason in startup
+diagnostics. If this leaves no Tier-3 advisor, Tier 3 itself is removed from
+the effective configuration. Learned-model advisors also abstain while their
+enabled representation has not yet published evidence.
 
 The table describes the current implementation. A familiar historical name is
 not a fidelity claim; see [the compatibility matrix](compatibility-matrix.md)

@@ -772,6 +772,13 @@ class NavigationEngineAdapter::Impl {
    */
   void configureLearning() {
     const auto& features = configuration_.navigation;
+    const bool skeleton_advisor =
+        configuration_.experiment.tiers.tier_three &&
+        std::any_of(configuration_.advisors.begin(),
+                    configuration_.advisors.end(), [](const auto& advisor) {
+                      return advisor.active && (advisor.name == "unlikely" ||
+                                                advisor.name == "least_angle");
+                    });
     learning_.setEnabled(spatial::SpatialRepresentation::Trails,
                          features.trails_on);
     learning_.setEnabled(spatial::SpatialRepresentation::Conveyors,
@@ -787,6 +794,7 @@ class NavigationEngineAdapter::Impl {
     learning_.setEnabled(
         spatial::SpatialRepresentation::PassagesAndSkeleton,
         features.a_star_on || features.planners.skeleton ||
+            features.planners.highway || skeleton_advisor ||
             features.planners.region || features.planners.hallway ||
             features.planners.trail || features.planners.conveyor);
     learning_.setEnabled(spatial::SpatialRepresentation::KnownGrid,
@@ -880,6 +888,8 @@ class NavigationEngineAdapter::Impl {
         precedentConfiguration(configuration_));
     decision::registerAdvisorCatalog(tier_three_registry, action_space_,
                                      configuration_.advisors);
+    for (const auto& diagnostic : configuration_.dependency_diagnostics)
+      map_diagnostics_.push_back(diagnostic);
     if (configuration_.experiment.tiers.tier_one) {
       for (const auto& rule : configuration_.experiment.tiers.tier_one_rules) {
         if (rule == "precedent" &&
